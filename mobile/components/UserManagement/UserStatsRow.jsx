@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import AppText from "../common/AppText";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 const STAT_ITEMS = [
@@ -9,7 +10,11 @@ const STAT_ITEMS = [
   { key: "deactivated", label: "Deactivated", valueKey: "deactivated" },
 ];
 
-export default function UserStatsRow({ counts, statusFilter = "all", onStatusPress }) {
+export default function UserStatsRow({
+  counts,
+  statusFilter = "all",
+  onStatusPress,
+}) {
   return (
     <View style={styles.statsRow}>
       {STAT_ITEMS.map((item) => {
@@ -21,12 +26,16 @@ export default function UserStatsRow({ counts, statusFilter = "all", onStatusPre
             activeOpacity={0.85}
             onPress={() => onStatusPress?.(item.key)}
           >
-            <Text style={[styles.statLabel, isActive && styles.statLabelActive]}>
+            <AppText
+              style={[styles.statLabel, isActive && styles.statLabelActive]}
+            >
               {item.label}
-            </Text>
-            <Text style={[styles.statValue, isActive && styles.statValueActive]}>
+            </AppText>
+            <AppText
+              style={[styles.statValue, isActive && styles.statValueActive]}
+            >
               {counts[item.valueKey] ?? 0}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         );
       })}
@@ -46,7 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     padding: 9,
     borderRadius: 10,
-    elevation: 2,
     alignItems: "center",
   },
   statCardActive: {
@@ -54,7 +62,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.primaryLight,
   },
-  statLabel: { fontSize: 10, color: COLORS.grayDark, marginBottom: 4 },
+  statLabel: { fontSize: 9, color: COLORS.grayDark, marginBottom: 4 },
   statLabelActive: { color: COLORS.primary },
   statValue: { fontSize: 15, fontWeight: "bold" },
   statValueActive: { color: COLORS.primaryLight },

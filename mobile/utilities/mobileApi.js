@@ -1,12 +1,57 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
+
+export const recordClientActivity = async (timestamp = Date.now()) => {
+  await AsyncStorage.setItem(CLIENT_ACTIVE_AT_KEY, String(timestamp));
+  return timestamp;
+};
+
+export const getClientActiveAt = async () => {
+  const value = Number(await AsyncStorage.getItem(CLIENT_ACTIVE_AT_KEY));
+  return Number.isFinite(value) ? value : Date.now();
+};
+
 export const getAuthHeaders = async (extraHeaders = {}) => {
   const token = await AsyncStorage.getItem("currentUserToken");
+  const clientActiveAt = await getClientActiveAt();
+  let sessionMeta = {};
+  try {
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+  } catch {
+    sessionMeta = {};
+  }
 
   return {
     ...extraHeaders,
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-client-active-at": String(clientActiveAt),
+    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+  };
+};
+
+export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
+  const token = await AsyncStorage.getItem("currentUserToken");
+  const clientActiveAt = await getClientActiveAt();
+  let sessionMeta = {};
+  try {
+    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
+  } catch {
+    sessionMeta = {};
+  }
+
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-client-active-at": String(clientActiveAt),
+    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
   };
 };
 
@@ -14,6 +59,10 @@ export const getArrayData = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.records)) return payload.records;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data?.records)) return payload.data.records;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
   return [];
 };
 
@@ -24,8 +73,8 @@ export const formatDate = (value, options = {}) => {
   if (Number.isNaN(parsed.getTime())) return "N/A";
 
   return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     year: "numeric",
     ...options,
   });
@@ -38,8 +87,8 @@ export const formatDateTime = (value) => {
   if (Number.isNaN(parsed.getTime())) return "N/A";
 
   return parsed.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",

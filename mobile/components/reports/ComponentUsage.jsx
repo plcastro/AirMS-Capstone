@@ -2,6 +2,10 @@ import React, { useMemo } from "react";
 import { InfoCard } from "../common/MobileModule";
 import AreaChart from "../common/AreaChart";
 
+const COMPONENT_USAGE_SERIES = [
+  { key: "value", name: "Components", color: "#1890ff" },
+];
+
 export default function ComponentUsage({ records = [], loading = false }) {
   const usageData = useMemo(() => {
     const counts = records.reduce((acc, record) => {
@@ -24,7 +28,12 @@ export default function ComponentUsage({ records = [], loading = false }) {
       title="Component Analysis"
       subtitle={loading ? "Loading components..." : "Tracked component counts by aircraft"}
     >
-      <AreaChart data={usageData} height={140} />
+      <AreaChart
+        data={usageData}
+        height={160}
+        series={COMPONENT_USAGE_SERIES}
+        xKey="label"
+      />
     </InfoCard>
   );
 }

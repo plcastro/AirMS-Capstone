@@ -41,10 +41,10 @@ const routeLabels = [
     pattern: /^\/api\/user\/update-user-image\//,
     action: "User image updated",
   },
-  {
-    pattern: /^\/api\/user\/updateSignature\//,
-    action: "User signature updated",
-  },
+  // {
+  //   pattern: /^\/api\/user\/updateSignature\//,
+  //   action: "User signature updated",
+  // },
   { pattern: /^\/api\/user\/activate$/, action: "User activated" },
   {
     pattern: /^\/api\/user\/resend-activation/,
@@ -145,27 +145,27 @@ const routeLabels = [
     action: "Defect log deleted",
   },
   {
-    pattern: /^\/api\/pre-inspections\/createPreInspection$/,
+    pattern: /^\/api\/(?:pre-flight)\/createPreInspection$/,
     action: "Pre-inspection created",
   },
   {
-    pattern: /^\/api\/pre-inspections\/updatePreInspectionById\//,
+    pattern: /^\/api\/(?:pre-flight)\/updatePreInspectionById\//,
     action: "Pre-inspection updated",
   },
   {
-    pattern: /^\/api\/pre-inspections\/deletePreInspectionById\//,
+    pattern: /^\/api\/(?:pre-flight)\/deletePreInspectionById\//,
     action: "Pre-inspection deleted",
   },
   {
-    pattern: /^\/api\/post-inspections\/createPostInspection$/,
+    pattern: /^\/api\/(?:post-flight)\/createPostInspection$/,
     action: "Post-inspection created",
   },
   {
-    pattern: /^\/api\/post-inspections\/updatePostInspectionById\//,
+    pattern: /^\/api\/(?:post-flight)\/updatePostInspectionById\//,
     action: "Post-inspection updated",
   },
   {
-    pattern: /^\/api\/post-inspections\/deletePostInspectionById\//,
+    pattern: /^\/api\/(?:post-flight)\/deletePostInspectionById\//,
     action: "Post-inspection deleted",
   },
   { pattern: /^\/api\/tasks\/create$/, action: "Task created" },
@@ -240,16 +240,8 @@ const routeLabels = [
     action: "Security alert count viewed",
   },
   {
-    pattern: /^\/api\/inspections\/pre\/[^/]+\/export-document$/,
-    action: "Pre-inspection document exported",
-  },
-  {
     pattern: /^\/api\/inspections\/pre\/[^/]+\/export-pdf$/,
     action: "Pre-inspection PDF exported",
-  },
-  {
-    pattern: /^\/api\/inspections\/post\/[^/]+\/export-document$/,
-    action: "Post-inspection document exported",
   },
   {
     pattern: /^\/api\/inspections\/post\/[^/]+\/export-pdf$/,

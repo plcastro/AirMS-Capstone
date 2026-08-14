@@ -12,14 +12,15 @@ import {
   Col,
   Typography,
 } from "antd";
-import { SDMChart } from "../../../components/common/PieChart";
+import ResultPopup from "../../../components/common/ResultPopup";
 import UserTable from "../../../components/tables/UserTable";
 import UserForm from "../../../components/common/UserForm";
 import { API_BASE } from "../../../utils/API_BASE";
 import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
-const { Title, Text } = Typography;
+import { matchesSearch } from "../../../utils/search";
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const accessLevelData = [
@@ -28,12 +29,12 @@ const accessLevelData = [
     value: "pos-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin_job" },
+      { title: "Superadmin", value: "Admin_job" },
       { title: "Maintenance Manager", value: "Maintenance Manager" },
       { title: "Pilot", value: "Pilot" },
       { title: "Officer-In-Charge", value: "Officer-In-Charge" },
       { title: "Mechanic", value: "Mechanic" },
-      { title: "Warehouse Department", value: "Warehouse Department" },
+      { title: "Warehouse Staff", value: "Warehouse Staff" },
     ],
   },
   {
@@ -41,7 +42,7 @@ const accessLevelData = [
     value: "access-parent",
     selectable: false,
     children: [
-      { title: "Admin", value: "Admin_access" }, // Note: unique value if overlaps with jobTitle
+      { title: "Superadmin", value: "Admin_access" }, // Note: unique value if overlaps with jobTitle
       { title: "Superuser", value: "Superuser" },
       { title: "User", value: "User" },
     ],
@@ -70,6 +71,13 @@ export default function UserManagement() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
   const statusCounts = useMemo(() => {
     const counts = { active: 0, inactive: 0, deactivated: 0, unknown: 0 };
 
@@ -82,47 +90,6 @@ export default function UserManagement() {
     return counts;
   }, [allUsers]);
 
-  const roleCounts = useMemo(() => {
-    const counts = {};
-
-    allUsers.forEach((user) => {
-      const role = user.jobTitle || "Unknown";
-      counts[role] = (counts[role] || 0) + 1;
-    });
-
-    return counts;
-  }, [allUsers]);
-
-  const roleColors = [
-    "#1890ff",
-    "#52c41a",
-    "#faad14",
-    "#13c2c2",
-    "#f5222d",
-    "#722ed1",
-    "#eb2f96",
-  ];
-
-  const statusColorMap = {
-    active: "#52c41a",
-    inactive: "#faad14",
-    deactivated: "#f5222d",
-    unknown: "#d9d9d9",
-  };
-
-  const roleChartData = Object.entries(roleCounts).map(
-    ([name, value], index) => ({
-      name,
-      value,
-      fill: roleColors[index % roleColors.length],
-    }),
-  );
-
-  const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value,
-    fill: statusColorMap[name] || "#d9d9d9",
-  }));
   const maskEmail = (email) => {
     if (!email) return "";
 
@@ -140,9 +107,7 @@ export default function UserManagement() {
     ...(index !== null ? { index } : {}),
     fullname: `${u.firstName || ""} ${u.lastName || ""}`.trim(),
     maskedEmail: maskEmail(u.email),
-    dateCreated: u.dateCreated
-      ? new Date(u.dateCreated).toLocaleString()
-      : "N/A",
+    dateCreated: u.dateCreated || null,
   });
   // Filtering states
   const [treeValue, setTreeValue] = useState(undefined);
@@ -209,7 +174,12 @@ export default function UserManagement() {
       }
     } catch (err) {
       console.error(err);
-      message.error(err.message || "Failed to load users");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to load users",
+      });
     } finally {
       setLoading(false);
     }
@@ -224,8 +194,8 @@ export default function UserManagement() {
 
     if (treeValue) {
       filtered = filtered.filter((u) => {
-        if (treeValue === "Admin_job") return u.jobTitle === "Admin";
-        if (treeValue === "Admin_access") return u.access === "Admin";
+        if (treeValue === "Admin_job") return u.jobTitle === "Superadmin";
+        if (treeValue === "Admin_access") return u.access === "Superadmin";
 
         return (
           u.jobTitle === treeValue ||
@@ -236,20 +206,7 @@ export default function UserManagement() {
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((u) =>
-        [
-          u.fullname,
-          u.username,
-          u.email,
-          u.jobTitle,
-          u.access,
-          u.invitationStatus,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
+      filtered = filtered.filter((u) => matchesSearch(searchQuery, u));
     }
 
     setFilteredUsers(filtered);
@@ -293,10 +250,20 @@ export default function UserManagement() {
         throw new Error(data.message || "Failed to deactivate user");
       }
 
-      message.success(`User ${user.username || user.fullname} deactivated`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Deactivated!",
+        subTitle: `User ${user.username || user.fullname} has been deactivated successfully.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to deactivate user");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to deactivate user",
+      });
     }
   };
 
@@ -332,10 +299,20 @@ export default function UserManagement() {
     if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/resend-activation/${user._id}`, "POST");
-      message.success(`Activation email resent to ${user.email}`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Email Sent!",
+        subTitle: `An invitation email has been sent to ${user.email}.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to resend invite");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to resend invite",
+      });
     }
   };
 
@@ -354,10 +331,20 @@ export default function UserManagement() {
           hours: 24,
         },
       );
-      message.success("Invitation expiry extended by 24 hours");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Invitation Extended!",
+        subTitle: "Invitation expiry has been extended by 24 hours.",
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to extend invitation");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to extend invitation",
+      });
     }
   };
 
@@ -371,10 +358,64 @@ export default function UserManagement() {
     if (!confirmed) return;
     try {
       await runInviteAction(`/api/user/revoke-invitation/${user._id}`, "PUT");
-      message.success("Invitation revoked");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Invitation Revoked!",
+        subTitle: "The invitation has been revoked successfully.",
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to revoke invitation");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to revoke invitation",
+      });
+    }
+  };
+
+  const handleUnlockUser = async (user) => {
+    const confirmed = await confirmAction({
+      title: "Unlock User",
+      content: `Unlock ${user.username || user.fullname}? They will be able to try logging in again.`,
+      okText: "Unlock",
+    });
+    if (!confirmed) return;
+    try {
+      const token = await getValidToken();
+      const response = await fetch(
+        `${API_BASE}/api/user/unlock-user/${user._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "x-action-confirmed": "true",
+          },
+          body: JSON.stringify({ confirmAction: true }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to unlock user");
+      }
+
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Unlocked!",
+        subTitle: `User ${user.username || user.fullname} can log in again.`,
+      });
+      fetchUsers();
+    } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to unlock user",
+      });
     }
   };
 
@@ -405,10 +446,20 @@ export default function UserManagement() {
         throw new Error(data.message || "Failed to reactivate user");
       }
 
-      message.success(`User ${user.username || user.fullname} reactivated`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "User Reactivated!",
+        subTitle: `User ${user.username || user.fullname} has been reactivated successfully.`,
+      });
       fetchUsers();
     } catch (error) {
-      message.error(error.message || "Failed to reactivate user");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to reactivate user",
+      });
     }
   };
 
@@ -567,6 +618,7 @@ export default function UserManagement() {
         onResendInvite={handleResendInvite}
         onExtendInvite={handleExtendInvite}
         onRevokeInvite={handleRevokeInvite}
+        onUnlockUser={handleUnlockUser}
         currentUserId={currentUserId}
         loading={loading}
       />
@@ -587,8 +639,17 @@ export default function UserManagement() {
           onClose={handleModalClose}
           onUserSaved={handleUserSaved}
           allUsers={allUsers}
+          onShowPopup={setPopup}
         />
       )}
+
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

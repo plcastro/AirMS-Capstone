@@ -4,10 +4,16 @@ import { Input, Typography } from "antd";
 const { TextArea } = Input;
 const { Text } = Typography;
 
-export default function FlightLogDiscrepancyRemarks({ formData, updateForm, isEditable = true }) {
+export default function FlightLogDiscrepancyRemarks({
+  formData,
+  updateForm,
+  isEditable = true,
+}) {
   const renderSignatureBlock = (label, person, subtitle) => (
     <div style={{ flex: 1, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
-      <div className="fl-label" style={{ marginBottom: 8 }}>{label}</div>
+      <div className="fl-label" style={{ marginBottom: 8 }}>
+        {label}
+      </div>
       <div
         style={{
           height: 72,
@@ -30,7 +36,9 @@ export default function FlightLogDiscrepancyRemarks({ formData, updateForm, isEd
           <Text type="secondary">No signature</Text>
         )}
       </div>
-      <div style={{ fontWeight: 600, minHeight: 22 }}>{person?.name || "Not signed"}</div>
+      <div style={{ fontWeight: 600, minHeight: 22 }}>
+        {person?.name || "Not signed"}
+      </div>
       <Text type="secondary">{subtitle}</Text>
     </div>
   );
@@ -46,27 +54,40 @@ export default function FlightLogDiscrepancyRemarks({ formData, updateForm, isEd
               <div className="fl-label" style={{ marginBottom: 6 }}>
                 Discrepancy/Remarks (AI-interpreted):
               </div>
-              <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
-                The AI maintenance tracker reads these remarks for discrepancy and component signals.
-              </Text>
+
               <TextArea
                 rows={6}
                 value={formData.remarks || ""}
                 onChange={(e) => updateForm("remarks", e.target.value)}
                 placeholder="Enter discrepancies, symptoms, components affected, or remarks"
                 disabled={!isEditable}
-                style={{ resize: "none", backgroundColor: isEditable ? "#fff" : "#f5f5f5" }}
+                style={{
+                  resize: "none",
+                  backgroundColor: isEditable ? "#fff" : "#f5f5f5",
+                }}
               />
+              <Text
+                type="secondary"
+                style={{ display: "block", marginBottom: 8 }}
+              >
+                The AI maintenance tracker reads these remarks for discrepancy
+                and component signals.
+              </Text>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="fl-label" style={{ marginBottom: 6 }}>Sling:</div>
+              <div className="fl-label" style={{ marginBottom: 6 }}>
+                Sling:
+              </div>
               <TextArea
                 rows={6}
                 value={formData.sling || ""}
                 onChange={(e) => updateForm("sling", e.target.value)}
                 placeholder="Enter sling information"
                 disabled={!isEditable}
-                style={{ resize: "none", backgroundColor: isEditable ? "#fff" : "#f5f5f5" }}
+                style={{
+                  resize: "none",
+                  backgroundColor: isEditable ? "#fff" : "#f5f5f5",
+                }}
               />
             </div>
           </div>

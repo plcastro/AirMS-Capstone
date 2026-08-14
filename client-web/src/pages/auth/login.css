@@ -1,6 +1,6 @@
 :root {
   --color-primary: #244d3b;
-  --color-primary-light: #26866f;
+  --color-primary-light: #1f5f49;
   --color-white: #ffffff;
   --color-gray-light: #dfdede;
 }
@@ -22,7 +22,7 @@
 .login-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #1f7a5a, #2ca87f);
+  background: linear-gradient(135deg, #1f7a5a, #167052);
   color: var(--color-white);
   border: none;
   border-radius: 5px;
@@ -33,7 +33,7 @@
 }
 
 .login-btn:hover {
-  background-color: #37755ab4;
+  background: #185f47;
   color: var(--color-white);
 }
 
@@ -42,6 +42,56 @@
   width: 100%;
   margin: 1% auto;
   border-radius: 10px;
+}
+
+.invalid-reset-state {
+  width: 100%;
+  padding: 10px 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.invalid-reset-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  background: #fff2f0;
+  color: #cf1322;
+  font-size: 34px;
+  border: 1px solid #ffccc7;
+}
+
+.invalid-reset-message {
+  display: block;
+  max-width: 440px;
+  color: #4d5c54;
+  line-height: 1.55;
+}
+
+.invalid-reset-actions {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.invalid-reset-secondary-btn {
+  width: 100%;
+  border-color: #26866f;
+  color: #244d3b;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.invalid-reset-secondary-btn:hover {
+  border-color: #244d3b !important;
+  color: #244d3b !important;
 }
 
 .error {
@@ -106,6 +156,124 @@
   line-height: 1.45;
 }
 
+.auth-mobile-shell {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #071611;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-mobile-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/images/airms-hero_680.webp");
+  background-size: contain;
+  background-position: top center;
+  background-repeat: no-repeat;
+}
+
+.auth-mobile-bg,
+.auth-mobile-bg img,
+.auth-mobile-scrim,
+.auth-mobile-brand {
+  position: absolute;
+  inset: 0;
+}
+
+.auth-mobile-bg {
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.auth-mobile-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: top center;
+  transform: translateZ(0);
+}
+
+.auth-mobile-scrim {
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.auth-mobile-brand {
+  z-index: 2;
+  bottom: min(72dvh, calc(100dvh - 144px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: max(34px, calc(env(safe-area-inset-top) + 20px)) 20px 0;
+  pointer-events: none;
+}
+
+.auth-mobile-brand img {
+  width: clamp(168px, 48vw, 220px);
+  height: auto;
+}
+
+.auth-mobile-brand-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(16px, 4.8vw, 18px);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.auth-mobile-brand span {
+  color: #0ef3ae;
+}
+
+.auth-mobile-sheet {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  height: min(72dvh, calc(100dvh - 144px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.18);
+  padding: 12px 0 max(24px, env(safe-area-inset-bottom));
+}
+
+.auth-mobile-sheet-handle {
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  background: #d7ddd9;
+}
+
+.auth-mobile-sheet .ant-select-selection-placeholder {
+  color: #595959 !important;
+  opacity: 1;
+}
+
+.auth-terms-copy {
+  color: #595959;
+}
+
+.auth-terms-copy .ant-btn-link {
+  color: #005f46;
+}
+
+.auth-terms-copy .ant-btn-link:hover,
+.auth-terms-copy .ant-btn-link:focus-visible {
+  color: #244d3b !important;
+}
+
 @keyframes login-spin {
   to {
     transform: rotate(360deg);
@@ -113,6 +281,23 @@
 }
 
 @media (max-width: 480px) {
+  .auth-mobile-shell::before {
+    background-image: url("/images/airms-hero_412.webp");
+  }
+
+  .auth-mobile-sheet {
+    height: min(74dvh, calc(100dvh - 128px));
+    border-radius: 26px 26px 0 0;
+  }
+
+  .auth-mobile-brand {
+    bottom: min(74dvh, calc(100dvh - 128px));
+  }
+
+  .auth-mobile-brand img {
+    width: clamp(150px, 44vw, 178px);
+  }
+
   .login-forgot-col {
     text-align: left;
   }
@@ -127,6 +312,23 @@
 }
 
 @media (max-height: 540px) {
+  .auth-mobile-sheet {
+    height: calc(100dvh - 112px);
+  }
+
+  .auth-mobile-brand {
+    bottom: calc(100dvh - 112px);
+    padding-top: max(20px, calc(env(safe-area-inset-top) + 10px));
+  }
+
+  .auth-mobile-brand img {
+    width: 142px;
+  }
+
+  .auth-mobile-brand-title {
+    font-size: 15px;
+  }
+
   .login-loading-card {
     padding: 14px 12px;
   }

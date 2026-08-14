@@ -1,10 +1,10 @@
 import React, { useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
   ScrollView,
-  TouchableOpacity,
-  TextInput,
+  TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -111,7 +111,7 @@ export default function PreInspectionModalFloatsOnboard({
 
   const renderListItem = (index, title, label, field, value, onCheck) => (
     <View key={field} style={{ marginBottom: 18 }}>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           fontWeight: "bold",
@@ -120,7 +120,7 @@ export default function PreInspectionModalFloatsOnboard({
         }}
       >
         {index + 1}. {title}
-      </Text>
+      </AppText>
 
       <TouchableOpacity
         style={{
@@ -153,7 +153,7 @@ export default function PreInspectionModalFloatsOnboard({
             />
           )}
         </View>
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             color: COLORS.grayDark,
@@ -162,7 +162,7 @@ export default function PreInspectionModalFloatsOnboard({
           }}
         >
           {label}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     </View>
   );
@@ -190,11 +190,11 @@ export default function PreInspectionModalFloatsOnboard({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Floats
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -233,11 +233,11 @@ export default function PreInspectionModalFloatsOnboard({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}
@@ -279,11 +279,11 @@ export default function PreInspectionModalFloatsOnboard({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Mandatory Onboard
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -322,11 +322,11 @@ export default function PreInspectionModalFloatsOnboard({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}
@@ -368,17 +368,17 @@ export default function PreInspectionModalFloatsOnboard({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Fuel On Board
-          </Text>
+          </AppText>
         </View>
 
         <View
           style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 }}
         >
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               color: COLORS.black,
@@ -386,8 +386,8 @@ export default function PreInspectionModalFloatsOnboard({
               fontWeight: "bold",
             }}
           >
-            Fuel On Board: <Text style={{ color: "red" }}>*</Text>
-          </Text>
+            Fuel On Board: <AppText style={{ color: "red" }}>*</AppText>
+          </AppText>
           <View
             style={{
               flexDirection: "row",
@@ -398,7 +398,7 @@ export default function PreInspectionModalFloatsOnboard({
               paddingHorizontal: 12,
             }}
           >
-            <TextInput
+            <AppInput
               style={{
                 flex: 1,
                 fontSize: 12,
@@ -412,9 +412,9 @@ export default function PreInspectionModalFloatsOnboard({
               placeholder=""
               placeholderTextColor={COLORS.grayDark}
             />
-            <Text style={{ fontSize: 12, color: COLORS.black, marginLeft: 4 }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginLeft: 4 }}>
               %
-            </Text>
+            </AppText>
           </View>
         </View>
       </View>

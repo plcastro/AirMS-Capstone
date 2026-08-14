@@ -1,7 +1,14 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import AppText from "../../components/common/AppText";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDateTime, getAuthHeaders } from "../../utilities/mobileApi";
@@ -10,21 +17,64 @@ import AlertComp from "../../components/AlertComp";
 import {
   EmptyState,
   FieldRow,
+  CardActionRow,
   InfoCard,
   LoadingState,
   ModuleContainer,
   SectionTitle,
+  SearchBar,
   StatCard,
   StatusChip,
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const RISK_COLORS = {
   Critical: "#cf1322",
   High: "#d46b08",
   Medium: "#c98a00",
   Low: "#26866F",
+};
+
+const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
+const MOBILE_PAGE_SIZE = 5;
+
+const normalizeStatus = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const getInspectionDueState = (row = {}) => {
+  const remainingHours = Number(row.remainingHours);
+  const remainingDays = Number(row.remainingDays);
+  const hourDue = Number.isFinite(remainingHours) && remainingHours <= 0;
+  const dayDue = Number.isFinite(remainingDays) && remainingDays <= 0;
+
+  if (hourDue || dayDue) {
+    return { label: "Overdue", color: "#cf1322" };
+  }
+
+  if (
+    (Number.isFinite(remainingHours) && remainingHours <= 25) ||
+    (Number.isFinite(remainingDays) && remainingDays <= 30)
+  ) {
+    return { label: "Due Soon", color: "#d46b08" };
+  }
+
+  return { label: "Monitor", color: COLORS.primaryLight };
+};
+
+const formatRemainingLimit = (row = {}) => {
+  const parts = [];
+  if (row.remainingHours !== null && row.remainingHours !== undefined) {
+    parts.push(`${row.remainingHours} FH`);
+  }
+  if (row.remainingDays !== null && row.remainingDays !== undefined) {
+    parts.push(`${row.remainingDays} day(s)`);
+  }
+  return parts.length ? parts.join(" / ") : "N/A";
 };
 
 const getTaskScheduleState = (task = {}) => {
@@ -42,6 +92,7 @@ const getTaskScheduleState = (task = {}) => {
 
 const buildClearedInsight = (item) => ({
   ...item,
+  riskLevel: "Low",
   issueTitle: "No maintenance issue detected",
   managerSummary: "No active maintenance flags found from the current records.",
   recommendedAction: "",
@@ -49,10 +100,43 @@ const buildClearedInsight = (item) => ({
   matchedRules: [],
 });
 
+const inferRectificationInspectionName = (item = {}) => {
+  const text = [
+    item.issueTitle,
+    item.component,
+    item.recommendedAction,
+    ...(Array.isArray(item.manualReferences) ? item.manualReferences : []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("tbo")) return "TBO Inspection";
+  if (text.includes("1500 fh")) return "1500 FH Inspection";
+  if (text.includes("1200 fh")) return "1200 FH Inspection";
+  if (text.includes("750 fh")) return "750 FH Inspection";
+  if (text.includes("600 fh")) return "600 FH Inspection";
+  if (text.includes("150 fh")) return "150 FH Inspection";
+  if (text.includes("48 m")) return "48 M Inspection";
+  if (text.includes("24 m")) return "24 M Inspection";
+  if (text.includes("12 m")) return "12 M Inspection";
+  if (text.includes("10 fh")) return "10 FH Inspection";
+
+  return "OC Inspection";
+};
+
 export default function MaintenanceTracking() {
   const { user } = useContext(AuthContext);
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const navigation = useNavigation();
+  const role = resolveUserRole(user);
+  const isOfficerInCharge = role === "officer-in-charge";
+  const access = String(user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canScheduleInspectionTasks =
+    role === "maintenance manager" ||
+    role === "superadmin" ||
+    access === "superadmin";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
@@ -60,7 +144,14 @@ export default function MaintenanceTracking() {
   const [health, setHealth] = useState(null);
   const [meta, setMeta] = useState(null);
   const [aircraftFilter, setAircraftFilter] = useState("all");
+  const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
+  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
+  const [rectifyingKey, setRectifyingKey] = useState("");
+  const [findingsPage, setFindingsPage] = useState(1);
+  const [remainingPage, setRemainingPage] = useState(1);
+  const [scheduledPage, setScheduledPage] = useState(1);
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: "",
@@ -170,13 +261,26 @@ export default function MaintenanceTracking() {
     [aircraftFilter, insights],
   );
 
-  const filteredRemainingRows = useMemo(
-    () =>
+  const filteredRemainingRows = useMemo(() => {
+    const aircraftFiltered =
       aircraftFilter === "all"
         ? remainingRows
-        : remainingRows.filter((item) => item.aircraft === aircraftFilter),
-    [aircraftFilter, remainingRows],
-  );
+        : remainingRows.filter((item) => item.aircraft === aircraftFilter);
+
+    return aircraftFiltered.filter((item) =>
+      matchesSearch(inspectionLimitSearch, {
+        ...item,
+        dueState: getInspectionDueState(item),
+        remainingLimit: formatRemainingLimit(item),
+      }),
+    );
+  }, [aircraftFilter, inspectionLimitSearch, remainingRows]);
+
+  useEffect(() => {
+    setFindingsPage(1);
+    setRemainingPage(1);
+    setScheduledPage(1);
+  }, [aircraftFilter, inspectionLimitSearch]);
 
   const scheduledTasks = useMemo(() => {
     const rows = filteredInsights.flatMap((insight) =>
@@ -186,7 +290,9 @@ export default function MaintenanceTracking() {
         aircraft: task.aircraft || insight.aircraft,
       })),
     );
-    return rows.sort((left, right) => {
+    return Array.from(
+      new Map(rows.map((task) => [task.id || task.key, task])).values(),
+    ).sort((left, right) => {
       const leftDate = new Date(left.endDateTime || left.dueDate || 0).getTime();
       const rightDate = new Date(right.endDateTime || right.dueDate || 0).getTime();
       return leftDate - rightDate;
@@ -223,7 +329,94 @@ export default function MaintenanceTracking() {
     [filteredInsights],
   );
 
+  const maintenanceTrackingInsights = useMemo(() => {
+    const highestRisk =
+      filteredInsights.find((item) =>
+        ["Critical", "High"].includes(item.riskLevel),
+      ) || filteredInsights[0];
+    const overdueInspectionRows = filteredRemainingRows.filter((row) => {
+      const remainingHours = Number(row.remainingHours);
+      const remainingDays = Number(row.remainingDays);
+      return (
+        (Number.isFinite(remainingHours) && remainingHours <= 0) ||
+        (Number.isFinite(remainingDays) && remainingDays <= 0)
+      );
+    });
+    const nearestInspection = filteredRemainingRows
+      .filter((row) => Number.isFinite(Number(row.remainingHours)))
+      .sort(
+        (left, right) =>
+          Number(left.remainingHours) - Number(right.remainingHours),
+      )[0];
+
+    return [
+      highestRisk
+        ? `${highestRisk.aircraft}: ${highestRisk.issueTitle} is the highest current maintenance finding (${highestRisk.riskLevel}).`
+        : "No active maintenance findings are currently detected.",
+      scheduledStats.overdue > 0
+        ? `${scheduledStats.overdue} scheduled task(s) are overdue and should be reviewed first.`
+        : `${scheduledStats.scheduled} scheduled task(s) remain open with no overdue task detected.`,
+      overdueInspectionRows.length > 0
+        ? `${overdueInspectionRows.length} inspection interval(s) are at or past their remaining flight-hour/day limit.`
+        : nearestInspection
+          ? `${nearestInspection.aircraft} has the nearest inspection by flight hours: ${nearestInspection.inspectionName} at ${nearestInspection.remainingHours} FH remaining.`
+          : "No remaining flight-hour inspection data is available yet.",
+    ];
+  }, [filteredInsights, filteredRemainingRows, scheduledStats]);
+
+  const scheduledInspectionTaskKeys = useMemo(() => {
+    const keys = new Set();
+    scheduledTasks.forEach((task) => {
+      if (!ACTIVE_OPEN.has(normalizeStatus(task.status))) return;
+      const aircraft = String(task.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const title = String(task.title || "")
+        .trim()
+        .toLowerCase();
+      const checklistNames = Array.isArray(task.checklistItems)
+        ? task.checklistItems
+            .map((item) => item.inspectionName || item.inspectionTypeFull)
+            .filter(Boolean)
+            .map((value) => String(value).trim().toLowerCase())
+        : [];
+
+      [title, ...checklistNames].forEach((inspectionName) => {
+        if (aircraft && inspectionName) {
+          keys.add(`${aircraft}|${inspectionName}`);
+        }
+      });
+    });
+    return keys;
+  }, [scheduledTasks]);
+
+  const hasScheduledInspectionTask = useCallback(
+    (row = {}) => {
+      const aircraft = String(row.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const inspectionName = String(row.inspectionName || "")
+        .trim()
+        .toLowerCase();
+      return Boolean(
+        aircraft &&
+          inspectionName &&
+          scheduledInspectionTaskKeys.has(`${aircraft}|${inspectionName}`),
+      );
+    },
+    [scheduledInspectionTaskKeys],
+  );
+
+  const aircraftFilterLabel =
+    aircraftFilter === "all" ? "All Aircraft" : `RP/C: ${aircraftFilter}`;
+
+  const selectAircraftFilter = (aircraft) => {
+    setAircraftFilter(aircraft);
+    setShowAircraftDropdown(false);
+  };
+
   const regenerateSummaries = async () => {
+    if (actionLoadingKey) return;
     if (health?.configured === false) {
       showToast(health.message || "OpenAI is not configured on the server.");
       return;
@@ -238,6 +431,7 @@ export default function MaintenanceTracking() {
     if (!confirmed) return;
 
     try {
+      setActionLoadingKey("regenerate");
       setSummaryLoading(true);
       const response = await fetch(
         `${API_BASE}/api/ai-insights/maintenance-tracking?includeLLMSummary=1&llmLimit=0`,
@@ -255,10 +449,12 @@ export default function MaintenanceTracking() {
       showToast(error.message || "Failed to regenerate summaries.");
     } finally {
       setSummaryLoading(false);
+      setActionLoadingKey("");
     }
   };
 
   const markRectified = async (item) => {
+    if (actionLoadingKey || rectifyingKey) return;
     const confirmed = await confirmWithAlert({
       title: "Mark finding rectified?",
       message: `This will clear the active maintenance issue for ${item.aircraft}.`,
@@ -267,6 +463,9 @@ export default function MaintenanceTracking() {
     if (!confirmed) return;
 
     try {
+      const key = `${item.aircraft}-${item.issueTitle}`;
+      setRectifyingKey(key);
+      setActionLoadingKey("rectify");
       const payload = {
         aircraft: item.aircraft,
         aircraftModel: item.aircraftModel || "AS350 B3",
@@ -282,7 +481,7 @@ export default function MaintenanceTracking() {
         matchedRuleCodes: (item.matchedRules || [])
           .map((rule) => rule.ruleCode)
           .filter(Boolean),
-        inspectionName: item.procedureTitle || "OC Inspection",
+        inspectionName: inferRectificationInspectionName(item),
       };
       const response = await fetch(
         `${API_BASE}/api/ai-insights/rectification-task`,
@@ -313,49 +512,159 @@ export default function MaintenanceTracking() {
     } catch (error) {
       console.error("Rectify finding failed:", error);
       showToast(error.message || "Failed to mark rectified.");
+    } finally {
+      setRectifyingKey("");
+      setActionLoadingKey("");
     }
+  };
+
+  const scheduleInspectionTask = (row = {}) => {
+    const state = getInspectionDueState(row);
+    navigation.navigate("Tasks", {
+      openAddTask: true,
+      draftType: "inspectionLimit",
+      aircraft: row.aircraft || "",
+      aircraftModel: row.aircraftModel || "",
+      inspectionName: row.inspectionName || "",
+      dueDate: row.dueDate || "",
+      dueAtHours: row.dueAtHours ?? null,
+      remainingHours: row.remainingHours ?? null,
+      remainingDays: row.remainingDays ?? null,
+      dueStatus: state.label,
+    });
+  };
+
+  const paginate = (rows, page) =>
+    rows.slice((page - 1) * MOBILE_PAGE_SIZE, page * MOBILE_PAGE_SIZE);
+
+  const renderPaginationControls = (total, page, setPage) => {
+    const pageCount = Math.max(1, Math.ceil(total / MOBILE_PAGE_SIZE));
+    if (total <= MOBILE_PAGE_SIZE) return null;
+
+    return (
+      <View style={styles.paginationRow}>
+        <TouchableOpacity
+          activeOpacity={page > 1 ? 0.8 : 1}
+          disabled={page <= 1}
+          onPress={() => setPage((current) => Math.max(1, current - 1))}
+          style={[
+            styles.paginationButton,
+            page <= 1 && styles.paginationButtonDisabled,
+          ]}
+        >
+          <AppText
+            style={[
+              styles.paginationButtonText,
+              page <= 1 && styles.paginationButtonTextDisabled,
+            ]}
+          >
+            Previous
+          </AppText>
+        </TouchableOpacity>
+
+        <AppText style={styles.paginationText}>
+          Page {page} of {pageCount}
+        </AppText>
+
+        <TouchableOpacity
+          activeOpacity={page < pageCount ? 0.8 : 1}
+          disabled={page >= pageCount}
+          onPress={() =>
+            setPage((current) => Math.min(pageCount, current + 1))
+          }
+          style={[
+            styles.paginationButton,
+            styles.paginationButtonPrimary,
+            page >= pageCount && styles.paginationButtonDisabled,
+          ]}
+        >
+          <AppText
+            style={[
+              styles.paginationButtonText,
+              styles.paginationButtonTextPrimary,
+              page >= pageCount && styles.paginationButtonTextDisabled,
+            ]}
+          >
+            Next
+          </AppText>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
     <ModuleContainer>
       <InfoCard title="AI Maintenance Tracking" subtitle={meta?.llmEnabled ? `${meta.activeModel} summaries available` : "Rule-based findings"}>
-        <View
-          style={{
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            borderRadius: 8,
-            overflow: "hidden",
-            marginTop: 10,
-          }}
-        >
-          <Picker selectedValue={aircraftFilter} onValueChange={setAircraftFilter}>
-            <Picker.Item label="All Aircraft" value="all" />
-            {aircraftOptions.map((aircraft) => (
-              <Picker.Item key={aircraft} label={aircraft} value={aircraft} />
-            ))}
-          </Picker>
+        <View style={{ marginTop: 10, zIndex: showAircraftDropdown ? 1000 : 1 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowAircraftDropdown((open) => !open)}
+          >
+            <MaterialCommunityIcons
+              name="tune"
+              size={16}
+              color={COLORS.primaryLight}
+              style={{ marginRight: 6 }}
+            />
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {aircraftFilterLabel}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
+
+          {showAircraftDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {["all", ...aircraftOptions].map((aircraft, index, options) => (
+                  <TouchableOpacity
+                    key={aircraft}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < options.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectAircraftFilter(aircraft)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
         {!isOfficerInCharge && (
           <TouchableOpacity
             style={[moduleStyles.button, { marginTop: 12 }]}
             onPress={regenerateSummaries}
-            disabled={summaryLoading || health?.cooldown?.active}
+            disabled={summaryLoading || health?.cooldown?.active || Boolean(actionLoadingKey)}
           >
-            <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+            {summaryLoading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons name="refresh" size={18} color={COLORS.white} />
+            )}
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
               {summaryLoading ? "Refreshing..." : "Regenerate OpenAI Summaries"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         )}
         {!!health && (
-          <Text style={[moduleStyles.subtitle, { marginTop: 10 }]}>
+          <AppText style={[moduleStyles.subtitle, { marginTop: 10 }]}>
             OpenAI: {health.configured ? "Configured" : "Not configured"} |{" "}
             {health.reachable ? "Reachable" : "Unavailable"}
             {health.model ? ` | Model: ${health.model}` : ""}
             {health?.cooldown?.active
               ? ` | Cooldown: ${cooldownRemaining || health.cooldown.retryAfterSeconds || 0}s`
               : ""}
-          </Text>
+          </AppText>
         )}
       </InfoCard>
 
@@ -366,11 +675,22 @@ export default function MaintenanceTracking() {
         <StatCard label="Rule Fallbacks" value={stats.total - stats.openai} />
       </View>
 
+      <InfoCard title="Maintenance Insights" subtitle="Planning highlights">
+        {maintenanceTrackingInsights.map((insight) => (
+          <AppText
+            key={insight}
+            style={[moduleStyles.subtitle, { color: COLORS.black, marginBottom: 6 }]}
+          >
+            {insight}
+          </AppText>
+        ))}
+      </InfoCard>
+
       {loading && <LoadingState />}
       {!loading && filteredInsights.length === 0 && <EmptyState text="No active findings found." />}
 
       <SectionTitle title="Maintenance Findings" />
-      {filteredInsights.map((item) => (
+      {paginate(filteredInsights, findingsPage).map((item) => (
         <InfoCard
           key={`${item.aircraft}-${item.issueTitle}`}
           title={item.aircraft}
@@ -382,45 +702,117 @@ export default function MaintenanceTracking() {
             />
           }
         >
-          <Text style={[moduleStyles.subtitle, { color: COLORS.black }]}>
+          <AppText style={[moduleStyles.subtitle, { color: COLORS.black }]}>
             {item.managerSummary || item.shortFinding || "No finding summary available."}
-          </Text>
+          </AppText>
           {!!item.recommendedAction && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 8 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 8 }]}>
               Action: {item.recommendedAction}
-            </Text>
+            </AppText>
           )}
           {!!item.manualReferences?.length && (
-            <Text style={[moduleStyles.subtitle, { marginTop: 6 }]}>
+            <AppText style={[moduleStyles.subtitle, { marginTop: 6 }]}>
               Ref: {item.manualReferences.join(" | ")}
-            </Text>
+            </AppText>
           )}
           {!isOfficerInCharge && (item.matchedRules || []).length > 0 && (
-            <TouchableOpacity
-              style={[moduleStyles.button, { marginTop: 12 }]}
-              onPress={() => markRectified(item)}
-            >
-              <Text style={moduleStyles.buttonText}>Mark Rectified</Text>
-            </TouchableOpacity>
+            <CardActionRow>
+              <TouchableOpacity
+                style={[styles.compactActionButton, Boolean(actionLoadingKey) && styles.disabledActionButton]}
+                onPress={() => markRectified(item)}
+                disabled={Boolean(actionLoadingKey)}
+              >
+                {rectifyingKey === `${item.aircraft}-${item.issueTitle}` ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="check-circle-outline"
+                    size={16}
+                    color={COLORS.white}
+                  />
+                )}
+                <AppText style={styles.compactActionButtonText}>
+                  {rectifyingKey === `${item.aircraft}-${item.issueTitle}`
+                    ? "Processing"
+                    : "Mark Rectified"}
+                </AppText>
+              </TouchableOpacity>
+            </CardActionRow>
           )}
         </InfoCard>
       ))}
+      {renderPaginationControls(
+        filteredInsights.length,
+        findingsPage,
+        setFindingsPage,
+      )}
 
       <SectionTitle title="Remaining Flight Hours" />
-      {filteredRemainingRows.slice(0, 20).map((row) => (
-        <InfoCard
-          key={`${row.aircraft}-${row.inspectionKey || row.inspectionName}`}
-          title={row.aircraft}
-          subtitle={row.inspectionName}
-        >
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Remaining FH" value={row.remainingHours !== null && row.remainingHours !== undefined ? `${row.remainingHours} FH` : "N/A"} />
-            <FieldRow label="Remaining Days" value={row.remainingDays !== null && row.remainingDays !== undefined ? `${row.remainingDays} day(s)` : "N/A"} />
-            <FieldRow label="Due At" value={row.dueAtHours ? `${row.dueAtHours} FH` : "N/A"} />
-            <FieldRow label="Due / End" value={formatDateTime(row.dueDate)} />
-          </View>
-        </InfoCard>
-      ))}
+      <SearchBar
+        value={inspectionLimitSearch}
+        onChangeText={setInspectionLimitSearch}
+        placeholder="Search aircraft, status, inspection, remaining..."
+        containerStyle={{ marginBottom: 8 }}
+      />
+      {!loading && filteredRemainingRows.length === 0 && (
+        <EmptyState text="No inspection limits match your search." />
+      )}
+      {paginate(filteredRemainingRows, remainingPage).map((row, index) => {
+        const dueState = getInspectionDueState(row);
+        const isScheduled = hasScheduledInspectionTask(row);
+        return (
+          <InfoCard
+            key={`${row.aircraft}-${row.inspectionKey || row.inspectionName}-${index}`}
+            title={row.aircraft}
+            subtitle={row.inspectionName}
+            right={<StatusChip label={dueState.label} color={dueState.color} />}
+          >
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              <FieldRow label="Remaining FH" value={row.remainingHours !== null && row.remainingHours !== undefined ? `${row.remainingHours} FH` : "N/A"} />
+              <FieldRow label="Remaining Days" value={row.remainingDays !== null && row.remainingDays !== undefined ? `${row.remainingDays} day(s)` : "N/A"} />
+              <FieldRow label="Due At" value={row.dueAtHours ? `${row.dueAtHours} FH` : "N/A"} />
+              <FieldRow label="Due / End" value={formatDateTime(row.dueDate)} />
+            </View>
+            <CardActionRow>
+              {isScheduled ? (
+                <View style={styles.scheduledPill}>
+                  <MaterialCommunityIcons
+                    name="calendar-check"
+                    size={15}
+                    color={COLORS.primaryLight}
+                  />
+                  <AppText style={styles.scheduledPillText}>
+                    Task Scheduled
+                  </AppText>
+                </View>
+              ) : canScheduleInspectionTasks ? (
+                <TouchableOpacity
+                  style={styles.compactActionButton}
+                  onPress={() => scheduleInspectionTask(row)}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-plus"
+                    size={16}
+                    color={COLORS.white}
+                  />
+                  <AppText style={styles.compactActionButtonText}>
+                    Schedule Task
+                  </AppText>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.mutedPill}>
+                  <AppText style={styles.mutedPillText}>Not scheduled</AppText>
+                </View>
+              )}
+            </CardActionRow>
+          </InfoCard>
+        );
+      })}
+      {renderPaginationControls(
+        filteredRemainingRows.length,
+        remainingPage,
+        setRemainingPage,
+      )}
 
       <SectionTitle title="Scheduled Tasks" />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -429,7 +821,7 @@ export default function MaintenanceTracking() {
         <StatCard label="Overdue" value={scheduledStats.overdue} tone="#cf1322" />
         <StatCard label="Completed" value={scheduledStats.completed} tone="#2e7d32" />
       </View>
-      {scheduledTasks.slice(0, 20).map((task) => {
+      {paginate(scheduledTasks, scheduledPage).map((task) => {
         const state = getTaskScheduleState(task);
         return (
           <InfoCard
@@ -447,6 +839,11 @@ export default function MaintenanceTracking() {
           </InfoCard>
         );
       })}
+      {renderPaginationControls(
+        scheduledTasks.length,
+        scheduledPage,
+        setScheduledPage,
+      )}
       <AlertComp
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -459,3 +856,145 @@ export default function MaintenanceTracking() {
     </ModuleContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 48,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 10,
+    overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  compactActionButton: {
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    minHeight: 34,
+    minWidth: 132,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  compactActionButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+  disabledActionButton: {
+    opacity: 0.65,
+  },
+  scheduledPill: {
+    alignItems: "center",
+    borderColor: COLORS.primaryLight,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 32,
+    minWidth: 132,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  scheduledPillText: {
+    color: COLORS.primaryLight,
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+  mutedPill: {
+    alignItems: "center",
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 999,
+    minHeight: 32,
+    minWidth: 132,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  mutedPillText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  paginationRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    marginTop: 2,
+  },
+  paginationButton: {
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.primaryLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 34,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  paginationButtonPrimary: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: "#F1F1F1",
+    borderColor: "#D8D8D8",
+  },
+  paginationButtonText: {
+    color: COLORS.primaryLight,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  paginationButtonTextPrimary: {
+    color: COLORS.white,
+  },
+  paginationButtonTextDisabled: {
+    color: "#9E9E9E",
+  },
+  paginationText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});

@@ -29,29 +29,30 @@ export default function MaintenancePerformance({ tasks = [] }) {
         return Number.isNaN(date.getTime()) ? null : date;
       };
 
-      const getBucketLabel = (date) => {
+      const getBucketStart = (date) => {
         if (groupBy === "week") {
           const weekStart = new Date(date);
           weekStart.setHours(0, 0, 0, 0);
           weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          return weekStart.toLocaleDateString("en-US", {
+          return weekStart;
+        }
+
+        return new Date(date.getFullYear(), date.getMonth(), 1);
+      };
+
+      const getBucketLabel = (date) => {
+        if (groupBy === "week") {
+          return date.toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
+            year: "numeric",
           });
         }
 
-        return date.toLocaleString("default", { month: "short" });
-      };
-
-      const getBucketOrder = (date) => {
-        if (groupBy === "week") {
-          const weekStart = new Date(date);
-          weekStart.setHours(0, 0, 0, 0);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          return weekStart.getTime();
-        }
-
-        return date.getMonth();
+        return date.toLocaleString("en-US", {
+          month: "short",
+          year: "numeric",
+        });
       };
 
       const periodMap = tasks.reduce((acc, task) => {
@@ -75,20 +76,22 @@ export default function MaintenancePerformance({ tasks = [] }) {
         const date = new Date(bucketSource);
         if (isNaN(date.getTime())) return acc;
 
-        const label = getBucketLabel(date);
-        if (!acc[label]) {
-          acc[label] = {
+        const bucketStart = getBucketStart(date);
+        const bucketKey = bucketStart.toISOString();
+        const label = getBucketLabel(bucketStart);
+        if (!acc[bucketKey]) {
+          acc[bucketKey] = {
             period: label,
-            order: getBucketOrder(date),
+            order: bucketStart.getTime(),
             completed: 0,
             pending: 0,
             overdue: 0,
           };
         }
 
-        if (approved) acc[label].completed += 1;
-        else if (overdue) acc[label].overdue += 1;
-        else if (pending) acc[label].pending += 1;
+        if (approved) acc[bucketKey].completed += 1;
+        else if (overdue) acc[bucketKey].overdue += 1;
+        else if (pending) acc[bucketKey].pending += 1;
         return acc;
       }, {});
 
@@ -129,7 +132,7 @@ export default function MaintenancePerformance({ tasks = [] }) {
             {
               key: "completed",
               name: "Completed (Approved)",
-              color: "#26866f",
+              color: "#0ab68e",
             },
             { key: "pending", name: "Pending", color: "#faad14" },
             { key: "overdue", name: "Overdue", color: "#cf1322" },

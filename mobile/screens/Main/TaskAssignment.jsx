@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { AuthContext } from "../../Context/AuthContext";
 import HeadTaskScreen from "./HeadTaskScreen";
 import MechanicTaskScreen from "./MechanicTaskScreen";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 export default function TaskAssignment({ route }) {
   const { user } = useContext(AuthContext);
   const targetTaskId = route?.params?.targetTaskId;
@@ -17,14 +18,18 @@ export default function TaskAssignment({ route }) {
           riskLevel: route?.params?.riskLevel || "",
           recommendedAction: route?.params?.recommendedAction || "",
           manualReference: route?.params?.manualReference || "",
+          draftType: route?.params?.draftType || "",
+          dueDate: route?.params?.dueDate || "",
+          dueAtHours: route?.params?.dueAtHours ?? null,
+          remainingHours: route?.params?.remainingHours ?? null,
+          remainingDays: route?.params?.remainingDays ?? null,
+          dueStatus: route?.params?.dueStatus || "",
         }
       : null;
 
-  if (
-    ["maintenance manager", "admin"].includes(
-      user?.jobTitle?.toLowerCase() || "",
-    )
-  ) {
+  const userRole = resolveUserRole(user);
+
+  if (["maintenance manager", "superadmin"].includes(userRole)) {
     return (
       <HeadTaskScreen
         targetTaskId={targetTaskId}

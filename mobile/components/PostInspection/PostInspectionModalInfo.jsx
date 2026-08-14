@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-} from "react-native";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -28,9 +24,9 @@ export default function PostInspectionModalInfo({
 
   const formatDate = (date) => {
     if (!date) return "";
-    
+
     let dateObj;
-    
+
     if (date instanceof Date) {
       dateObj = date;
     } else if (typeof date === "string") {
@@ -48,9 +44,9 @@ export default function PostInspectionModalInfo({
     } else {
       return "";
     }
-    
+
     if (isNaN(dateObj.getTime())) return "";
-    
+
     return dateObj.toLocaleDateString("en-US", {
       month: "2-digit",
       day: "2-digit",
@@ -76,7 +72,10 @@ export default function PostInspectionModalInfo({
         updateForm("aircraftType", resolvedType);
       }
     } catch (error) {
-      console.error("Error resolving aircraft type for post-inspection:", error);
+      console.error(
+        "Error resolving aircraft type for post-inspection:",
+        error,
+      );
     }
   };
 
@@ -88,7 +87,7 @@ export default function PostInspectionModalInfo({
 
   const renderAircraftTypeField = () => (
     <View>
-      <TextInput
+      <AppInput
         style={{
           backgroundColor: "#E8E8E8",
           borderRadius: 6,
@@ -121,46 +120,57 @@ export default function PostInspectionModalInfo({
         }}
         onPress={isEditable ? toggleRPCDropdown : null}
       >
-        <Text style={{ 
-          fontSize: 12, 
-          color: formData.rpc ? COLORS.black : COLORS.grayDark 
-        }}>
+        <AppText
+          style={{
+            fontSize: 12,
+            color: formData.rpc ? COLORS.black : COLORS.grayDark,
+          }}
+        >
           {formData.rpc || "Select RP/C"}
-        </Text>
+        </AppText>
         {isEditable && (
-          <MaterialCommunityIcons 
-            name={showRPCDropdown ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color={COLORS.grayDark} 
+          <MaterialCommunityIcons
+            name={showRPCDropdown ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={COLORS.grayDark}
           />
         )}
       </TouchableOpacity>
 
       {showRPCDropdown && isEditable && (
-        <View style={{
-          marginTop: 6,
-          backgroundColor: COLORS.white,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          zIndex: 3000,
-          elevation: 5,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          maxHeight: 240,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            zIndex: 3000,
+            elevation: 5,
+            shadowColor: COLORS.black,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            maxHeight: 240,
+          }}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {dynamicRpcOptions.map((rpc, index) => (
               <TouchableOpacity
                 key={index}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
-                  borderBottomWidth: index < dynamicRpcOptions.length - 1 ? 1 : 0,
+                  borderBottomWidth:
+                    index < dynamicRpcOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
-                  backgroundColor: formData.rpc === rpc ? COLORS.primaryLight + "10" : COLORS.white,
+                  backgroundColor:
+                    formData.rpc === rpc
+                      ? COLORS.primaryLight + "10"
+                      : COLORS.white,
                 }}
                 onPress={() => {
                   updateForm("rpc", rpc);
@@ -168,12 +178,15 @@ export default function PostInspectionModalInfo({
                   setShowRPCDropdown(false);
                 }}
               >
-                <Text style={{ 
-                  fontSize: 12,
-                  color: formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
-                }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color:
+                      formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
+                  }}
+                >
                   {rpc}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -184,60 +197,106 @@ export default function PostInspectionModalInfo({
 
   return (
     <View>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Basic Information
-      </Text>
+      </AppText>
 
-      <View style={{
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: COLORS.grayMedium,
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        elevation: 2,
-        overflow: "visible",
-      }}>
-        <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          shadowColor: COLORS.black,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 6,
+          elevation: 2,
+          overflow: "visible",
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.primaryLight,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+          }}
+        >
+          <AppText
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+          >
             Rotary Winged Aircraft - Single Engine
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               RP-C: *
-            </Text>
+            </AppText>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               Aircraft Type: *
-            </Text>
+            </AppText>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               Date:
-            </Text>
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: "#E8E8E8",
-              borderRadius: 6,
-              height: 42,
-              paddingHorizontal: 12,
-            }}>
-              <Text style={{ fontSize: 12, color: COLORS.grayDark }}>
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "#E8E8E8",
+                borderRadius: 6,
+                height: 42,
+                paddingHorizontal: 12,
+              }}
+            >
+              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
-              </Text>
-              <MaterialCommunityIcons name="calendar-blank" size={18} color={COLORS.grayDark} />
+              </AppText>
+              <MaterialCommunityIcons
+                name="calendar-blank"
+                size={18}
+                color={COLORS.grayDark}
+              />
             </View>
           </View>
         </View>

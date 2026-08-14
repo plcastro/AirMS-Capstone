@@ -1,23 +1,23 @@
 export const STATUS_OPTIONS = ["all", "active", "inactive", "deactivated"];
 
 export const JOB_TITLE_OPTIONS = [
-  "Admin",
+  "Superadmin",
   "Maintenance Manager",
   "Pilot",
   "Officer-In-Charge",
   "Mechanic",
-  "Warehouse Department",
+  "Warehouse Staff",
 ];
 
 export const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 
 export const ROLE_MAP = {
-  Admin: "Admin",
+  Superadmin: "Superadmin",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
   Mechanic: "User",
-  "Warehouse Department": "User",
+  "Warehouse Staff": "User",
 };
 
 export const ROLES_REQUIRING_LICENSE = new Set([
@@ -26,4 +26,3 @@ export const ROLES_REQUIRING_LICENSE = new Set([
   "mechanic",
   "officer-in-charge",
 ]);
-

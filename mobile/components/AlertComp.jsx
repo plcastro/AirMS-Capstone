@@ -1,5 +1,10 @@
 import React, { useEffect } from "react";
-import { View, Text, Modal, TouchableOpacity } from "react-native";
+import AppText from "./common/AppText";
+import {
+  View,
+  Modal,
+  TouchableOpacity
+} from "react-native";
 import { styles } from "../stylesheets/styles";
 
 export default function AlertComp({
@@ -30,8 +35,8 @@ export default function AlertComp({
     <Modal transparent animationType="fade" visible={visible}>
       <View style={styles.alertOverlay}>
         <View style={styles.alertContainer}>
-          {title && <Text style={styles.alertTitle}>{title}</Text>}
-          {message && <Text style={styles.alertMessage}>{message}</Text>}
+          {title && <AppText style={styles.alertTitle}>{title}</AppText>}
+          {message && <AppText style={styles.alertMessage}>{message}</AppText>}
 
           {(onConfirm || onCancel) && (
             <View style={styles.alertButtonRow}>
@@ -40,7 +45,7 @@ export default function AlertComp({
                   style={styles.secondaryAlertBtn}
                   onPress={onCancel}
                 >
-                  <Text style={styles.secondaryAlertBtnTxt}>{cancelText}</Text>
+                  <AppText style={styles.secondaryAlertBtnTxt}>{cancelText}</AppText>
                 </TouchableOpacity>
               )}
 
@@ -49,7 +54,7 @@ export default function AlertComp({
                   style={styles.primaryAlertBtn}
                   onPress={onConfirm}
                 >
-                  <Text style={styles.primaryBtnTxt}>{confirmText}</Text>
+                  <AppText style={styles.primaryBtnTxt}>{confirmText}</AppText>
                 </TouchableOpacity>
               )}
             </View>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -45,8 +45,10 @@ export default function PreInspectionEntry({
   );
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(userRole);
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+    normalizedRole,
+  );
 
   useEffect(() => {
     if (visible) {
@@ -84,8 +86,8 @@ export default function PreInspectionEntry({
     try {
       await persistInspection(formData);
     } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
+      console.error("Error saving pre-flight inspection:", error);
+      showToast("Failed to save pre-flight inspection");
     }
   };
 
@@ -117,7 +119,9 @@ export default function PreInspectionEntry({
       return false;
     }
 
-    if (!String(formData.fob || "").trim()) {
+    const fobValue = String(formData.fob || "").trim();
+    const numericFob = Number(fobValue);
+    if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
       showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
@@ -147,9 +151,7 @@ export default function PreInspectionEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",
@@ -161,8 +163,8 @@ export default function PreInspectionEntry({
       await persistInspection(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      showToast("Failed to release pre-inspection");
+      console.error("Error releasing pre-flight inspection:", error);
+      showToast("Failed to release pre-flight inspection");
       throw error;
     }
   };
@@ -226,12 +228,20 @@ export default function PreInspectionEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText
+                style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}
+              >
                 New Entry - Pre-Inspection
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: COLORS.grayDark,
+                }}
+              >
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -272,7 +282,7 @@ export default function PreInspectionEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -281,7 +291,7 @@ export default function PreInspectionEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -293,7 +303,6 @@ export default function PreInspectionEntry({
               marginTop: 12,
             }}
           />
-
         </View>
 
         {/* Page Content */}
@@ -323,7 +332,7 @@ export default function PreInspectionEntry({
                   opacity: isSubmitting ? 0.6 : 1,
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     color: COLORS.white,
                     fontWeight: "600",
@@ -331,7 +340,7 @@ export default function PreInspectionEntry({
                   }}
                 >
                   Release
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           )}
@@ -363,9 +372,9 @@ export default function PreInspectionEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View
@@ -376,11 +385,11 @@ export default function PreInspectionEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           {!isLastPage && (
@@ -394,11 +403,11 @@ export default function PreInspectionEntry({
                 opacity: 1,
               }}
             >
-              <Text
+              <AppText
                 style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
               >
                 Next
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>

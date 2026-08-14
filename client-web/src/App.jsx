@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
 import React, {
   Suspense,
   lazy,
@@ -7,8 +13,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import DashboardLayout from "./components/layout/DashboardLayout";
-import RootLayout from "./components/layout/RootLayout";
 import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
@@ -28,10 +32,14 @@ const LoadingScreen = () => (
   </div>
 );
 const Login = lazy(() => import("./pages/auth/Login"));
+const RootLayout = lazy(() => import("./components/layout/RootLayout"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const OTP = lazy(() => import("./pages/auth/OTP"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const SecuritySetup = lazy(() => import("./pages/auth/SecuritySetup"));
+const DashboardLayout = lazy(
+  () => import("./components/layout/DashboardLayout"),
+);
 const UserManagement = lazy(
   () => import("./pages/dashboard/user-management/UserManagement"),
 );
@@ -102,14 +110,45 @@ const resolveStoredFontScale = () => {
   }
 };
 
+const getUserHomePath = (user) => {
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+
+  switch (role) {
+    case "superadmin":
+      return "/dashboard/user-management/view-users";
+    case "mechanic":
+      return "/dashboard/maintenance-log";
+    case "maintenance manager":
+    case "officer-in-charge":
+      return "/dashboard/maintenance-dashboard";
+    case "pilot":
+      return "/dashboard/maintenance-dashboard";
+    case "warehouse staff":
+      return "/dashboard/parts-requisition";
+    default:
+      return "/dashboard/profile";
+  }
+};
+
 const AppRouter = () => {
+  const navigate = useNavigate();
   const {
+    user,
     loading,
     showSessionTimeoutWarning,
     warningSecondsRemaining,
     continueSession,
     logoutUser,
   } = useContext(AuthContext);
+
+  const handleSignOutNow = () => {
+    logoutUser().catch((error) => {
+      console.error("Sign out failed:", error);
+    });
+    navigate("/login", { replace: true });
+  };
 
   if (loading) {
     return <LoadingScreen />;
@@ -119,30 +158,46 @@ const AppRouter = () => {
     <>
       <Modal
         open={showSessionTimeoutWarning}
+        title="Session Timeout Warning"
         closable={false}
         mask={{ closable: false }}
+        keyboard={false}
         centered
-        footer={[
-          <Button key="logout" onClick={() => logoutUser()}>
-            Sign out now
-          </Button>,
-          <Button key="continue" type="primary" onClick={continueSession}>
-            Continue session
-          </Button>,
-        ]}
-        title="Session Timeout Warning"
+        footer={null}
       >
         <p style={{ marginBottom: 8 }}>
           You&apos;ve been inactive for a while. For your security, you&apos;ll
-          be signed out in 2 minutes unless you continue.
+          be signed out unless you continue.
         </p>
-        <p style={{ marginBottom: 0 }}>
+
+        <p style={{ marginBottom: 20 }}>
           Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
         </p>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+          }}
+        >
+          <Button danger href="/login" onClick={handleSignOutNow}>
+            Sign out now
+          </Button>
+
+          <Button type="primary" htmlType="button" onClick={continueSession}>
+            Continue session
+          </Button>
+        </div>
       </Modal>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/"
+            element={
+              <Navigate to={user ? getUserHomePath(user) : "/login"} replace />
+            }
+          />
 
           {/* Authentication */}
           <Route element={<RootLayout />}>
@@ -165,7 +220,7 @@ const AppRouter = () => {
             <Route
               path="user-management/view-users"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["superadmin"]}>
                   <UserManagement />
                 </ProtectedRoute>
               }
@@ -173,7 +228,7 @@ const AppRouter = () => {
             <Route
               path="user-management/activity-logs"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["superadmin"]}>
                   <UserLogs />
                 </ProtectedRoute>
               }
@@ -183,7 +238,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -195,11 +250,11 @@ const AppRouter = () => {
               }
             />
             <Route
-              path="pre-inspection"
+              path="pre-flight inspection"
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -211,11 +266,11 @@ const AppRouter = () => {
               }
             />
             <Route
-              path="post-inspection"
+              path="post-flight inspection"
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -229,7 +284,11 @@ const AppRouter = () => {
               path="tasks"
               element={
                 <ProtectedRoute
-                  allowedRoles={["admin", "maintenance manager", "mechanic"]}
+                  allowedRoles={[
+                    "superadmin",
+                    "maintenance manager",
+                    "mechanic",
+                  ]}
                 >
                   <TaskAssignment />
                 </ProtectedRoute>
@@ -238,7 +297,9 @@ const AppRouter = () => {
             <Route
               path="mechanics"
               element={
-                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
+                <ProtectedRoute
+                  allowedRoles={["superadmin", "maintenance manager"]}
+                >
                   <MechanicList />
                 </ProtectedRoute>
               }
@@ -248,7 +309,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -263,7 +324,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -277,7 +338,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -290,7 +351,9 @@ const AppRouter = () => {
             <Route
               path="maintenance-priority"
               element={
-                <ProtectedRoute allowedRoles={["admin", "maintenance manager"]}>
+                <ProtectedRoute
+                  allowedRoles={["superadmin", "maintenance manager"]}
+                >
                   <MaintenancePriority />
                 </ProtectedRoute>
               }
@@ -300,7 +363,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -314,11 +377,11 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
-                    "warehouse department",
+                    "warehouse staff",
                   ]}
                 >
                   <PartsRequisition />
@@ -330,11 +393,12 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
-                    "warehouse department",
+                    "warehouse staff",
                     "mechanic",
+                    "pilot",
                   ]}
                 >
                   <Messaging />
@@ -346,11 +410,12 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "admin",
+                    "superadmin",
                     "maintenance manager",
                     "officer-in-charge",
-                    "warehouse department",
+                    "warehouse staff",
                     "mechanic",
+                    "pilot",
                   ]}
                 >
                   <Profile />
@@ -394,8 +459,13 @@ export default function App() {
         fontSize: Math.round(14 * fontScale),
         fontSizeSM: Math.round(12 * fontScale),
         fontSizeLG: Math.round(16 * fontScale),
+        zIndexPopupBase: 3000,
       },
       components: {
+        Modal: {
+          colorBgTextActive: "#26866f",
+          zIndexPopupBase: 3000,
+        },
         Table: {
           headerBg: "#26866f",
           headerColor: "#fff",

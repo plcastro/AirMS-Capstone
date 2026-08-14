@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
   Image,
+  ActivityIndicator
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -46,9 +47,10 @@ export default function PostInspectionEditEntry({
     closeOnFinish: false,
   });
 
-  const isPilot = userRole === "pilot";
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isPilot = normalizedRole === "pilot";
   const canReleasePostInspection =
-    ["mechanic", "maintenance manager", "admin"].includes(userRole);
+    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
   const tabs = [
     "Basic Information",
     "Station 1",
@@ -114,9 +116,7 @@ export default function PostInspectionEditEntry({
     const nextFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
@@ -143,6 +143,20 @@ export default function PostInspectionEditEntry({
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
     }
+  };
+
+  const handleSave = async () => {
+    if (!formData?._id) {
+      showToast("Post-inspection record is missing.");
+      return;
+    }
+
+    if (!formData.rpc || !formData.aircraftType || !formData.date) {
+      showToast("Aircraft, aircraft type, and date are required.");
+      return;
+    }
+
+    await persistInspection(formData);
   };
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
@@ -219,7 +233,13 @@ export default function PostInspectionEditEntry({
   const formatDate = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    return date.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   const showReleaseButton =
@@ -228,6 +248,7 @@ export default function PostInspectionEditEntry({
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
+  const showSaveButton = isFormEditable;
   const footerActionLabel = "Close";
 
   return (
@@ -246,12 +267,12 @@ export default function PostInspectionEditEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Post-Inspection
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                {readOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -292,7 +313,7 @@ export default function PostInspectionEditEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -301,7 +322,7 @@ export default function PostInspectionEditEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -346,7 +367,7 @@ export default function PostInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -354,7 +375,7 @@ export default function PostInspectionEditEntry({
                     }}
                   >
                     Release
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -376,7 +397,7 @@ export default function PostInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -384,10 +405,10 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       RELEASED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -396,19 +417,19 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       {formData.releasedBy.name} / {formData.releasedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "admin"].includes((userRole || "").toLowerCase())
+                      {["maintenance manager", "superadmin"].includes(normalizedRole)
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -416,7 +437,7 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.releasedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.releasedBy.signature && (
                       <Image
                         source={{ uri: formData.releasedBy.signature }}
@@ -451,7 +472,7 @@ export default function PostInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -459,10 +480,10 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       ACCEPTED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -471,8 +492,8 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       {formData.acceptedBy.name} / {formData.acceptedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -480,8 +501,8 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       PILOT
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -489,7 +510,7 @@ export default function PostInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.acceptedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.acceptedBy.signature && (
                       <Image
                         source={{ uri: formData.acceptedBy.signature }}
@@ -534,10 +555,43 @@ export default function PostInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
+
+          {showSaveButton && (
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={isSubmitting}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 18,
+                borderRadius: 4,
+                backgroundColor: COLORS.primaryLight,
+                opacity: isSubmitting ? 0.6 : 1,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              {isSubmitting && (
+                <ActivityIndicator
+                  size="small"
+                  color={COLORS.white}
+                  style={{ marginRight: 6 }}
+                />
+              )}
+              <AppText
+                style={{
+                  color: COLORS.white,
+                  fontSize: 14,
+                  fontWeight: "600",
+                }}
+              >
+                Save
+              </AppText>
+            </TouchableOpacity>
+          )}
 
           <View
             style={{
@@ -547,11 +601,11 @@ export default function PostInspectionEditEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           <TouchableOpacity
@@ -565,11 +619,11 @@ export default function PostInspectionEditEntry({
               opacity: isSubmitting ? 0.6 : 1,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
               {isLastPage ? footerActionLabel : "Next"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
 

@@ -1,10 +1,10 @@
 ﻿import React, { useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   ScrollView,
-  View,
+  View
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Button from "../../components/Button";
@@ -144,8 +144,8 @@ export default function SecuritySetup() {
           cardTitle="Security Setup"
           cardsubTitle="Set your new password and PIN to proceed"
         >
-          <Text style={styles.label}>New Password *</Text>
-          <TextInput
+          <AppText style={styles.label}>New Password *</AppText>
+          <AppInput
             style={styles.formInput}
             secureTextEntry
             placeholder="Enter new password"
@@ -155,8 +155,8 @@ export default function SecuritySetup() {
             onChangeText={(e) => changeHandler("newPassword", e)}
           />
 
-          <Text style={styles.label}>Confirm Password *</Text>
-          <TextInput
+          <AppText style={styles.label}>Confirm Password *</AppText>
+          <AppInput
             style={styles.formInput}
             secureTextEntry
             placeholder="Confirm new password"
@@ -166,20 +166,20 @@ export default function SecuritySetup() {
             onChangeText={(e) => changeHandler("confirmPassword", e)}
           />
 
-          <Text style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
+          <AppText style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
             Password Requirements:
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.minLength)}>
+          </AppText>
+          <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
             {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8 characters
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.hasUppercase)}>
+          </AppText>
+          <AppText style={getRequirementStyle(passwordRequirements.hasUppercase)}>
             {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase letter
-          </Text>
-          <Text style={getRequirementStyle(passwordRequirements.hasNumber)}>
+          </AppText>
+          <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
             {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
-          </Text>
+          </AppText>
 
-          <Text style={[styles.label, { marginTop: 14 }]}>Set 6-digit PIN *</Text>
+          <AppText style={[styles.label, { marginTop: 14 }]}>Set 6-digit PIN *</AppText>
           <CodeInputField
             code={formData.pin}
             setCode={(value) => changeHandler("pin", value)}
@@ -195,7 +195,7 @@ export default function SecuritySetup() {
             inputContainerStyle={{ width: "100%" }}
           />
 
-          <Text style={styles.label}>Confirm PIN *</Text>
+          <AppText style={styles.label}>Confirm PIN *</AppText>
           <CodeInputField
             code={formData.confirmPin}
             setCode={(value) => changeHandler("confirmPin", value)}
@@ -211,7 +211,7 @@ export default function SecuritySetup() {
             inputContainerStyle={{ width: "100%" }}
           />
 
-          {message && !setupSuccess && <Text style={styles.error}>{message}</Text>}
+          {message && !setupSuccess && <AppText style={styles.error}>{message}</AppText>}
 
           <Button
             onPress={validate}
@@ -236,9 +236,9 @@ export default function SecuritySetup() {
               buttonTextStyle={[styles.secondaryBtnTxt]}
             />
             {resendMessage && (
-              <Text style={{ fontSize: 12, color: "#8f8e8e", marginTop: 5 }}>
+              <AppText style={{ fontSize: 12, color: "#8f8e8e", marginTop: 5 }}>
                 {resendMessage}
-              </Text>
+              </AppText>
             )}
           </View>
         </LoginLayout>

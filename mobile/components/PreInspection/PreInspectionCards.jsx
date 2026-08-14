@@ -1,13 +1,35 @@
-﻿import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import AppText from "../common/AppText";
+import { View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
+
 export default function PreInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
 }) {
+  const [exportingInspectionId, setExportingInspectionId] = useState(null);
+
+  const handleExportPress = async (inspection) => {
+    if (!onExport || exportingInspectionId) return;
+    const key = inspection?._id || inspection?.id;
+    if (!key) {
+      await onExport(inspection);
+      return;
+    }
+
+    setExportingInspectionId(String(key));
+    try {
+      await Promise.resolve(onExport(inspection));
+    } finally {
+      setExportingInspectionId(null);
+    }
+  };
+
   const getDisplayStatus = (status) => {
     const normalizedStatus = String(status || "").toLowerCase();
     return normalizedStatus === "completed"
@@ -57,9 +79,9 @@ export default function PreInspectionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
-          No pre-inspections found
-        </Text>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
+          No pre-flight inspections found
+        </AppText>
       </View>
     );
   }
@@ -69,6 +91,8 @@ export default function PreInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const inspectionKey = String(inspection._id || inspection.id || "");
+        const exportLoading = exportingInspectionId === inspectionKey;
         const displayStatus = getDisplayStatus(inspection.status);
         const isViewOnly =
           displayStatus === "released" ||
@@ -89,11 +113,9 @@ export default function PreInspectionCards({
               overflow: "hidden",
             }}
           >
-            {/* Accent bar */}
             <View style={{ width: 4, backgroundColor: COLORS.primaryLight }} />
 
             <View style={{ flex: 1, position: "relative" }}>
-              {/* HEADER */}
               <View
                 style={{
                   paddingHorizontal: 10,
@@ -104,19 +126,16 @@ export default function PreInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                  <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
-                  </Text>
+                  </AppText>
 
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}
-                  </Text>
+                  </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
-                  {/* STATUS */}
+                <View>
                   <View
                     style={{
                       backgroundColor: statusStyle.backgroundColor,
@@ -125,7 +144,7 @@ export default function PreInspectionCards({
                       borderRadius: 12,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 9,
@@ -133,52 +152,52 @@ export default function PreInspectionCards({
                       }}
                     >
                       {statusStyle.label}
-                    </Text>
+                    </AppText>
                   </View>
-
-                  {/* EXPORT */}
-                  <TouchableOpacity onPress={() => onExport?.(inspection) }>
-                    <MaterialCommunityIcons
-                      name="export-variant"
-                      size={18}
-                      color="#444"
-                    />
-                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* BODY (compact inline like logs) */}
               <View
                 style={{
                   paddingHorizontal: 10,
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Aircraft:</AppText>{" "}
                   {inspection.aircraftType || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Fuel:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Fuel:</AppText>{" "}
                   {inspection.fob !== undefined ? `${inspection.fob}%` : "N/A"}
-                </Text>
+                </AppText>
               </View>
 
-              {/* ACTION ICON (bottom-right compact style) */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
+              <CardActionRow
+                style={{ paddingHorizontal: 10, paddingBottom: 10 }}
               >
-                <MaterialCommunityIcons
-                  name={isViewOnly ? "eye-outline" : "pencil"}
-                  size={18}
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={18}
+                  />
+                )}
+                <ActionIconButton
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
                   color={isViewOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={18}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );

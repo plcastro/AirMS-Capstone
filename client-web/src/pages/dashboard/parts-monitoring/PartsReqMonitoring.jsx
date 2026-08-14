@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useMemo,
@@ -10,9 +10,9 @@ import {
   Button,
   Col,
   Form,
+  Grid,
   Input,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
@@ -22,19 +22,26 @@ import {
 import {
   CheckCircleOutlined,
   DeleteOutlined,
+  FilePdfOutlined,
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
-  ShoppingCartOutlined,
-  SyncOutlined,
 } from "@ant-design/icons";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { exportPartsRequisitionMonitoringReport } from "../../../components/common/ExportFile";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { matchesSearch } from "../../../utils/search";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
+const WRS_UOM_OPTIONS = ["SET", "ST", "UNT", "PC"].map((unit) => ({
+  label: unit,
+  value: unit,
+}));
 
 const normalizeStatus = (value) => {
   const raw = String(value || "")
@@ -45,11 +52,50 @@ const normalizeStatus = (value) => {
   return raw;
 };
 
+const getEffectiveStatus = (record) => {
+  const normalized = normalizeStatus(record?.status);
+  if (normalized === "parts requested" && record?.dateWarehouseReviewed) {
+    return "availability checked";
+  }
+  return normalized;
+};
+
+const getStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (normalized === "approved") return "approved";
+  if (["delivered", "cancelled"].includes(normalized)) return "closed";
+  return "pending";
+};
+
+const getManagerStatusBucket = (record) => {
+  const normalized = getEffectiveStatus(record);
+  if (["availability checked", "ordered"].includes(normalized)) {
+    return "for_review";
+  }
+  if (["approved", "delivered", "cancelled"].includes(normalized)) {
+    return "closed";
+  }
+  return "pending";
+};
+
+const getWarehouseStatusBucket = (record) =>
+  ["delivered", "cancelled"].includes(getEffectiveStatus(record))
+    ? "completed"
+    : "pending";
+
 const parseRequestedDate = (dateValue) => {
+  if (!dateValue) return 0;
+
+  const parsed = new Date(dateValue);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.getTime();
+  }
+
   const [month, day, year] = String(dateValue || "")
     .split("/")
     .map(Number);
-  return new Date(year, month - 1, day).getTime();
+  const slashDate = new Date(year, month - 1, day).getTime();
+  return Number.isNaN(slashDate) ? 0 : slashDate;
 };
 
 const toSummaryRecord = (record) => ({
@@ -58,17 +104,6 @@ const toSummaryRecord = (record) => ({
   totalQty:
     record.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
 });
-
-const formatRequestedDate = (dateValue) => {
-  if (!dateValue) return "";
-
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return String(dateValue);
-  }
-
-  return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
-};
 
 const normalizeRequisitionRecord = (record) =>
   toSummaryRecord({
@@ -79,7 +114,7 @@ const normalizeRequisitionRecord = (record) =>
         : record.status === "Completed"
           ? "Delivered"
           : record.status,
-    dateRequested: formatRequestedDate(record.dateRequested),
+    dateRequested: record.dateRequested || record.createdAt || "",
     staff: {
       ...record.staff,
       employeeName:
@@ -88,6 +123,7 @@ const normalizeRequisitionRecord = (record) =>
   });
 
 export default function PartsReqMonitoring() {
+  const screens = useBreakpoint();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
@@ -101,48 +137,88 @@ export default function PartsReqMonitoring() {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const [entryForm] = Form.useForm();
   const userRole = user?.jobTitle?.toLowerCase() || "";
+  const userTitle = user?.jobTitle || user?.access || "User";
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const allowedRoles = [
-    "admin",
-    "warehouse department",
+    "superadmin",
+    "warehouse staff",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
   ];
   const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const isManager = ["maintenance manager", "officer-in-charge"].includes(
-    userRole,
-  );
-
+  const isManager = [
+    "superadmin",
+    "maintenance manager",
+    "officer-in-charge",
+  ].includes(userRole);
+  const isWarehouseStaff = userRole === "warehouse staff";
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
-  const stats = useMemo(
-    () => ({
-      total: warehouseRequisitions.length,
-      pending: warehouseRequisitions.filter(
-        (record) =>
-          !["approved", "delivered", "cancelled"].includes(
-            normalizeStatus(record.status),
-          ),
-      ).length,
-      approved: warehouseRequisitions.filter((record) =>
-        ["approved"].includes(normalizeStatus(record.status)),
-      ).length,
-      forReview: warehouseRequisitions.filter((record) =>
-        ["availability checked", "ordered"].includes(
-          normalizeStatus(record.status),
-        ),
-      ).length,
-      closed: warehouseRequisitions.filter((record) =>
-        ["delivered", "cancelled"].includes(normalizeStatus(record.status)),
-      ).length,
-    }),
-    [warehouseRequisitions],
-  );
-
   const statusFilters = useMemo(() => {
-    const allFilters = [
+    if (isManager) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "for_review",
+          title: "For Review",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "for_review",
+          ).length,
+        },
+        {
+          key: "closed",
+          title: "Closed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getManagerStatusBucket(record) === "closed",
+          ).length,
+        },
+      ];
+    }
+
+    if (isWarehouseStaff) {
+      return [
+        {
+          key: "all",
+          title: "All",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.length,
+        },
+        {
+          key: "pending",
+          title: "Pending",
+          icon: <InboxOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "pending",
+          ).length,
+        },
+        {
+          key: "completed",
+          title: "Completed",
+          icon: <CheckCircleOutlined />,
+          count: warehouseRequisitions.filter(
+            (record) => getWarehouseStatusBucket(record) === "completed",
+          ).length,
+        },
+      ];
+    }
+
+    return [
       {
         key: "all",
         title: "All",
@@ -150,61 +226,58 @@ export default function PartsReqMonitoring() {
         count: warehouseRequisitions.length,
       },
       {
-        key: "To Be Ordered",
-        title: "To Be Ordered",
-        icon: <ShoppingCartOutlined />,
+        key: "pending",
+        title: "Pending",
+        icon: <InboxOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "to be ordered",
+          (record) => getStatusBucket(record) === "pending",
         ).length,
       },
       {
-        key: "Availability Checked",
-        title: "Availability Checked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "availability checked",
-        ).length,
-      },
-      {
-        key: "Ordered",
-        title: "Restocked",
-        icon: <SyncOutlined />,
-        count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "ordered",
-        ).length,
-      },
-      {
-        key: "Approved",
+        key: "approved",
         title: "Approved",
         icon: <CheckCircleOutlined />,
         count: warehouseRequisitions.filter(
-          (r) => normalizeStatus(r.status) === "approved",
+          (record) => getStatusBucket(record) === "approved",
+        ).length,
+      },
+      {
+        key: "closed",
+        title: "Closed",
+        icon: <CheckCircleOutlined />,
+        count: warehouseRequisitions.filter(
+          (record) => getStatusBucket(record) === "closed",
         ).length,
       },
     ];
-
-    return allFilters;
-  }, [warehouseRequisitions]);
+  }, [isManager, isWarehouseStaff, warehouseRequisitions]);
 
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
 
     if (searchText.trim()) {
-      const query = searchText.trim().toLowerCase();
-      data = data.filter(
-        (record) =>
-          record.wrsNo?.toLowerCase().includes(query) ||
-          record.aircraft?.toLowerCase().includes(query) ||
-          record.status?.toLowerCase().includes(query) ||
-          record.staff?.employeeName?.toLowerCase().includes(query),
-      );
+      data = data.filter((record) => matchesSearch(searchText, record));
     }
 
     if (selectedStatus !== "all") {
-      data = data.filter(
-        (record) =>
-          normalizeStatus(record.status) === normalizeStatus(selectedStatus),
-      );
+      const normalizedSelectedStatus = normalizeStatus(selectedStatus);
+      data = data.filter((record) => {
+        if (normalizedSelectedStatus === "for_review") {
+          return getManagerStatusBucket(record) === "for_review";
+        }
+        if (normalizedSelectedStatus === "completed") {
+          return getWarehouseStatusBucket(record) === "completed";
+        }
+        if (isWarehouseStaff && normalizedSelectedStatus === "pending") {
+          return getWarehouseStatusBucket(record) === "pending";
+        }
+        if (
+          ["pending", "approved", "closed"].includes(normalizedSelectedStatus)
+        ) {
+          return getStatusBucket(record) === normalizedSelectedStatus;
+        }
+        return getEffectiveStatus(record) === normalizedSelectedStatus;
+      });
     }
 
     return [...data].sort((first, second) => {
@@ -215,7 +288,19 @@ export default function PartsReqMonitoring() {
         ? firstDate - secondDate
         : secondDate - firstDate;
     });
-  }, [dateSortOrder, searchText, selectedStatus, warehouseRequisitions]);
+  }, [
+    dateSortOrder,
+    isWarehouseStaff,
+    searchText,
+    selectedStatus,
+    warehouseRequisitions,
+  ]);
+
+  useEffect(() => {
+    if (!statusFilters.some((filter) => filter.key === selectedStatus)) {
+      setSelectedStatus(statusFilters[0]?.key || "all");
+    }
+  }, [selectedStatus, statusFilters]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -313,7 +398,7 @@ export default function PartsReqMonitoring() {
   const openAddRequisitionModal = () => {
     entryForm.setFieldsValue({
       aircraft: undefined,
-      items: [{ particular: "", quantity: null, unit: "pcs", purpose: "" }],
+      items: [{ particular: "", quantity: null, unit: "PC", purpose: "" }],
     });
     setIsEntryModalOpen(true);
   };
@@ -328,11 +413,68 @@ export default function PartsReqMonitoring() {
       itemNo: index + 1,
       particular: String(item.particular || "").trim(),
       quantity: Number(item.quantity) || 0,
-      unitOfMeasure: item.unit || "pcs",
+      unitOfMeasure: item.unit || "PC",
       purpose: String(item.purpose || "").trim(),
       availableQty: 0,
       stockStatus: "Parts Requested",
     }));
+
+  const handleExportRequisitionExcel = async (record) => {
+    if (!isWarehouseStaff || !record?._id) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-requisition/${record._id}/export-excel`,
+        {
+          method: "GET",
+          headers: await getAuthHeader(),
+        },
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || "Failed to export Excel file");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${record.wrsNo || "parts-requisition"}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Excel Exported!",
+        subTitle: `${record.wrsNo || "Parts requisition"} exported successfully.`,
+      });
+    } catch (err) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to export Excel file.",
+      });
+    }
+  };
+
+  const handleExportMonitoringReport = async () => {
+    if (!isWarehouseStaff || exportingReport) return;
+
+    setExportingReport(true);
+    try {
+      await exportPartsRequisitionMonitoringReport({
+        data: filteredRequisitions,
+        selectedStatus,
+        setPopup,
+      });
+    } finally {
+      setExportingReport(false);
+    }
+  };
 
   const handleAddRequisition = async () => {
     try {
@@ -372,11 +514,17 @@ export default function PartsReqMonitoring() {
             aircraft: values.aircraft,
             staff: {
               requisitioner: fullName,
+              requisitionerTitle: userTitle,
               approvedBy: "",
+              approvedByTitle: "",
               receiver: "",
+              receiverTitle: "",
               notedBy: "",
+              notedByTitle: "",
               warehouseBy: "",
+              warehouseByTitle: "",
               deliveredBy: "",
+              deliveredByTitle: "",
             },
             items: buildRequestItemsPayload(values.items),
             dateRequested: new Date().toISOString(),
@@ -389,14 +537,23 @@ export default function PartsReqMonitoring() {
       if (!response.ok) {
         throw new Error(data?.message || "Failed to create requisition");
       }
-
-      message.success(`${nextSlipNo} added successfully.`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "WRS " + nextSlipNo,
+        subTitle: `${nextSlipNo} added successfully.`,
+      });
       closeAddRequisitionModal();
       await handleAllRequisitions();
     } catch (err) {
       if (err?.errorFields) return;
       console.error("Create requisition error:", err);
-      message.error(err.message || "Failed to create requisition.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: err.message || "Failed to create requisition.",
+      });
     } finally {
       setIsSubmittingEntry(false);
     }
@@ -424,7 +581,7 @@ export default function PartsReqMonitoring() {
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Col>
-        <Col xs={24} md={6} lg={4}>
+        <Col xs={24} md={6} lg={6}>
           <Select
             size="large"
             value={dateSortOrder}
@@ -436,13 +593,38 @@ export default function PartsReqMonitoring() {
             ]}
           />
         </Col>
-        {!isManager && (
-          <Col xs={24} md={10} lg={12} style={{ textAlign: "right" }}>
+        {isWarehouseStaff && (
+          <Col
+            xs={24}
+            md={10}
+            lg={10}
+            style={{ textAlign: screens.xs ? "left" : "right" }}
+          >
+            <Button
+              size="large"
+              icon={<FilePdfOutlined />}
+              loading={exportingReport}
+              disabled={filteredRequisitions.length === 0}
+              onClick={handleExportMonitoringReport}
+              style={{ width: screens.xs ? "100%" : undefined }}
+            >
+              Export Report (PDF)
+            </Button>
+          </Col>
+        )}
+        {!isManager && !isWarehouseStaff && (
+          <Col
+            xs={24}
+            md={10}
+            lg={10}
+            style={{ textAlign: screens.xs ? "left" : "right" }}
+          >
             <Button
               size="large"
               type="primary"
               icon={<PlusOutlined />}
               onClick={openAddRequisitionModal}
+              style={{ width: screens.xs ? "100%" : undefined }}
             >
               Add Requisition
             </Button>
@@ -452,7 +634,18 @@ export default function PartsReqMonitoring() {
 
       <Row style={{ marginBottom: 10, marginTop: 20 }}>
         <Col span={24}>
-          <Space size={[8, 8]} wrap>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              gap: 8,
+              width: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              paddingBottom: 4,
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             {statusFilters.map((filter) => {
               const isSelected = selectedStatus === filter.key;
 
@@ -462,14 +655,21 @@ export default function PartsReqMonitoring() {
                   type={isSelected ? "primary" : "default"}
                   icon={filter.icon}
                   onClick={() => setSelectedStatus(filter.key)}
-                  style={{ fontWeight: 600 }}
+                  style={{
+                    flex: "0 0 auto",
+                    minWidth: screens.xs ? 132 : 150,
+                    height: "auto",
+                    minHeight: 40,
+
+                    whiteSpace: "nowrap",
+                  }}
                   size="large"
                 >
                   {filter.title} ({filter.count})
                 </Button>
               );
             })}
-          </Space>
+          </div>
         </Col>
       </Row>
 
@@ -495,6 +695,7 @@ export default function PartsReqMonitoring() {
         loading={loading}
         onUpdated={handleAllRequisitions}
         initialSelectedRecord={targetRecord}
+        onExportExcel={isWarehouseStaff ? handleExportRequisitionExcel : null}
       />
 
       <Modal
@@ -505,6 +706,8 @@ export default function PartsReqMonitoring() {
         confirmLoading={isSubmittingEntry}
         okText="Submit"
         width={900}
+        centered
+        zIndex={9999}
         destroyOnHidden
       >
         <Form form={entryForm} layout="vertical">
@@ -563,17 +766,10 @@ export default function PartsReqMonitoring() {
                           {...restField}
                           label="Unit"
                           name={[name, "unit"]}
-                          initialValue="pcs"
+                          initialValue="PC"
                           style={{ marginBottom: 8 }}
                         >
-                          <Select
-                            options={[
-                              { label: "pcs", value: "pcs" },
-                              { label: "kg", value: "kg" },
-                              { label: "ft", value: "ft" },
-                              { label: "L", value: "L" },
-                            ]}
-                          />
+                          <Select options={WRS_UOM_OPTIONS} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={6}>
@@ -606,7 +802,7 @@ export default function PartsReqMonitoring() {
                     add({
                       particular: "",
                       quantity: null,
-                      unit: "pcs",
+                      unit: "PC",
                       purpose: "",
                     })
                   }
@@ -618,6 +814,13 @@ export default function PartsReqMonitoring() {
           </Form.List>
         </Form>
       </Modal>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

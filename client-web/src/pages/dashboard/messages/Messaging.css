@@ -88,6 +88,23 @@
   border-radius: 6px;
 }
 
+.message-attachment-image-link {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 260px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.message-attachment-image-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .message-attachment-file {
   display: inline-flex;
   align-items: center;

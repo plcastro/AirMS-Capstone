@@ -6,10 +6,18 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const sharp = require("sharp");
 const PDFDocument = require("pdfkit");
+const UserModel = require("../models/userModel");
 
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
 const EXPORT_TMP_DIR = path.join(__dirname, "../tmp/inspection-exports");
-const DOCX_TO_PDF_SCRIPT = path.join(__dirname, "../scripts/convertDocxToPdf.vbs");
+const DOCX_TO_PDF_SCRIPT = path.join(
+  __dirname,
+  "../scripts/convertDocxToPdf.vbs",
+);
+const NGCP_LOGO_PATH = path.resolve(
+  __dirname,
+  "../../client-web/public/images/ngcp-logo.png",
+);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("binary");
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {
@@ -84,7 +92,12 @@ const createCheckPng = () => {
 
   const rows = [];
   for (let y = 0; y < size; y += 1) {
-    rows.push(Buffer.concat([Buffer.from([0]), pixels.subarray(y * size * 4, (y + 1) * size * 4)]));
+    rows.push(
+      Buffer.concat([
+        Buffer.from([0]),
+        pixels.subarray(y * size * 4, (y + 1) * size * 4),
+      ]),
+    );
   }
 
   const header = Buffer.alloc(13);
@@ -158,8 +171,16 @@ const PRE_INSPECTION_PDF_GROUPS = [
   {
     title: "STATION 1",
     items: [
-      ["station1_transparentPanels", "Transparent Panels", "Condition - Cleanliness"],
-      ["station1_engineOilCooler", "MGB - Engine oil cooler air inlet", "Check no obstruction nor debris"],
+      [
+        "station1_transparentPanels",
+        "Transparent Panels",
+        "Condition - Cleanliness",
+      ],
+      [
+        "station1_engineOilCooler",
+        "MGB - Engine oil cooler air inlet",
+        "Check no obstruction nor debris",
+      ],
       ["station1_sideSlipIndicator", "Side slip indicator", "Condition"],
       ["station1_pitotTube", "Pitot tube", "Cover removed - Condition"],
       ["station1_landingLights", "Landing lights", "Condition"],
@@ -169,18 +190,38 @@ const PRE_INSPECTION_PDF_GROUPS = [
     title: "STATION 2",
     items: [
       ["station2_frontDoor", "Front door", "Condition jettison system check"],
-      ["station2_rearDoor", "Rear door", "Condition, closed or open locked (sliding door)"],
+      [
+        "station2_rearDoor",
+        "Rear door",
+        "Condition, closed or open locked (sliding door)",
+      ],
       ["station2_leftCargoDoorOpen", "Left cargo door", "Open"],
       ["station2_loadsObjects", "Loads and objects carried", "Secured"],
       ["station2_leftCargoDoorClosed", "Left cargo door", "Closed, locked"],
-      ["station2_fuelTank", "Fuel tank and system", "Filler plug closed - Tank sump drained"],
+      [
+        "station2_fuelTank",
+        "Fuel tank and system",
+        "Filler plug closed - Tank sump drained",
+      ],
       ["station1_mgbCowl", "MGB cowl", "MGB oil level - Cowl locked"],
       ["station1_lowerFairings", "All lower fairings panels", "Locked"],
-      ["station1_landingGear", "Landing gear and footstep", "Secure - Visual Check"],
+      [
+        "station1_landingGear",
+        "Landing gear and footstep",
+        "Secure - Visual Check",
+      ],
       ["station1_staticPorts", "Static ports", "Clear, covers removed"],
       ["station1_oatSensor", "OAT sensor, antennas", "Condition"],
-      ["station1_mainRotor", "Main rotor head blades", "Visual inspection, no impact"],
-      ["station1_engineAirIntake", "Engine air intake", "Clear (water, snow foreign object)"],
+      [
+        "station1_mainRotor",
+        "Main rotor head blades",
+        "Visual inspection, no impact",
+      ],
+      [
+        "station1_engineAirIntake",
+        "Engine air intake",
+        "Clear (water, snow foreign object)",
+      ],
       ["station1_engineCowl", "Engine cowl", "Locked"],
       ["station1_exhaustCover", "Exhaust cover", "Removed"],
       ["station1_rearCargoDoorOpen", "Rear cargo door", "Open"],
@@ -193,14 +234,34 @@ const PRE_INSPECTION_PDF_GROUPS = [
   {
     title: "STATION 3",
     items: [
-      ["station3_heatShield", "Heat shield on tail drive", "Condition, attachment"],
-      ["station3_tailBoom", "Tail boom, antennas", "Condition - Fairings fasteners locked"],
-      ["station3_stabilizer", "Stabilizer, fin, external lights", "General condition"],
-      ["station3_tailRotorGuard", "Tail rotor guard (if fitted)", "Condition, attachment"],
+      [
+        "station3_heatShield",
+        "Heat shield on tail drive",
+        "Condition, attachment",
+      ],
+      [
+        "station3_tailBoom",
+        "Tail boom, antennas",
+        "Condition - Fairings fasteners locked",
+      ],
+      [
+        "station3_stabilizer",
+        "Stabilizer, fin, external lights",
+        "General condition",
+      ],
+      [
+        "station3_tailRotorGuard",
+        "Tail rotor guard (if fitted)",
+        "Condition, attachment",
+      ],
       ["station3_tgbFairing", "TGB fairing", "Secured, fasteners locked"],
       ["station3_tgbOilLevel", "TGB oil level", "Checked"],
       ["station3_tailSkid", "Tail skid", "Condition, attachment"],
-      ["station3_flexibleCoupling", "Flexible Coupling", "Visual Check No Crack"],
+      [
+        "station3_flexibleCoupling",
+        "Flexible Coupling",
+        "Visual Check No Crack",
+      ],
     ],
   },
   {
@@ -226,7 +287,7 @@ const PRE_INSPECTION_PDF_GROUPS = [
 
 /**
  * Load a document template
- * @param {string} templateName - Name of the template file (e.g., 'pre-inspection.docx')
+ * @param {string} templateName - Name of the template file (e.g., 'pre-flight inspection.docx')
  * @returns {Object} - PizZip object containing the template
  */
 const loadTemplate = (templateName) => {
@@ -245,16 +306,36 @@ const loadTemplate = (templateName) => {
  * @param {Object} inspection - Inspection object from database
  * @returns {Object} - Formatted data object
  */
+const formatInspectionDate = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).split("T")[0];
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
 const formatInspectionData = (inspection) => ({
   rpc: inspection.rpc || inspection.RP_C || inspection.aircraftNo || "N/A",
-  date: inspection.date || inspection.inspectionDate || new Date().toLocaleDateString(),
+  date: formatInspectionDate(
+    inspection.date ||
+      inspection.inspectionDate ||
+      inspection.createdAt ||
+      new Date(),
+  ),
   aircraftType: inspection.aircraftType || "N/A",
   fob: inspection.fob !== undefined ? `${inspection.fob}%` : "N/A",
   engineer: inspection.engineer || inspection.createdBy || "N/A",
   remarks: inspection.remarks || inspection.notes || "",
   status: inspection.status || "Pending",
   inspectionItems: formatInspectionItems(inspection),
-  createdAt: new Date(inspection.createdAt).toLocaleDateString(),
+  createdAt: new Date(inspection.createdAt).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  }),
   createdBy: inspection.createdBy || "N/A",
 });
 
@@ -300,17 +381,73 @@ const normalizeFob = (value) => {
   return String(value).includes("%") ? String(value) : `${value}%`;
 };
 
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
+
+const resolveSignatureLicenseNo = async (signature = {}) => {
+  const explicitLicense =
+    signature.licenseNo ||
+    signature.licenseNumber ||
+    signature.apLicenseNumber ||
+    signature.chplNumber ||
+    signature.chplNo ||
+    "";
+
+  if (explicitLicense && !isObjectIdLike(explicitLicense)) {
+    return explicitLicense;
+  }
+
+  const userIdCandidate = signature.userId || signature.id || "";
+  if (!isObjectIdLike(userIdCandidate)) {
+    return "";
+  }
+
+  try {
+    const user = await UserModel.findById(userIdCandidate)
+      .select("licenseNo")
+      .lean();
+    return user?.licenseNo || "";
+  } catch (error) {
+    console.error("Signature license lookup failed:", error.message);
+    return "";
+  }
+};
+
+const withResolvedSignatureLicenses = async (inspection = {}) => {
+  const [releasedLicenseNo, acceptedLicenseNo] = await Promise.all([
+    resolveSignatureLicenseNo(inspection.releasedBy),
+    resolveSignatureLicenseNo(inspection.acceptedBy),
+  ]);
+
+  return {
+    ...inspection,
+    releasedBy: {
+      ...(inspection.releasedBy || {}),
+      licenseNo: releasedLicenseNo,
+      id: releasedLicenseNo,
+    },
+    acceptedBy: {
+      ...(inspection.acceptedBy || {}),
+      licenseNo: acceptedLicenseNo,
+      id: acceptedLicenseNo,
+    },
+  };
+};
+
 const formatSignatureSummary = (signature = {}) => {
   if (!signature?.name) return "N/A";
 
   const parts = [
     signature.name,
-    signature.id ? `ID: ${signature.id}` : "",
+    signature.title ? `Title: ${signature.title}` : "",
+    signature.licenseNo ? `License: ${signature.licenseNo}` : "",
     signature.timestamp ? `Signed: ${signature.timestamp}` : "",
   ].filter(Boolean);
 
   return parts.join(" | ");
 };
+
+const getSignatureTitle = (signature = {}, fallback = "") =>
+  signature?.title || fallback;
 
 const getSignatureBuffer = (signature = {}) => {
   const value = signature?.signature || "";
@@ -318,7 +455,8 @@ const getSignatureBuffer = (signature = {}) => {
   if (!match) return null;
 
   return {
-    extension: match[1].toLowerCase() === "jpg" ? "jpeg" : match[1].toLowerCase(),
+    extension:
+      match[1].toLowerCase() === "jpg" ? "jpeg" : match[1].toLowerCase(),
     buffer: Buffer.from(match[2], "base64"),
   };
 };
@@ -362,7 +500,9 @@ const ensureJpegContentType = (zip) => {
 const createImageManager = (zip) => {
   const relsPath = "word/_rels/document.xml.rels";
   const relsFile = zip.file(relsPath);
-  let relsXml = relsFile?.asText() || '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  let relsXml =
+    relsFile?.asText() ||
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
   let nextRelNumber =
     Math.max(
       0,
@@ -371,9 +511,7 @@ const createImageManager = (zip) => {
       ),
     ) + 1;
   let nextImageNumber =
-    zip
-      .file(/^word\/media\/inspection-image-\d+\.(png|jpeg|jpg)$/)
-      .length + 1;
+    zip.file(/^word\/media\/inspection-image-\d+\.(png|jpeg|jpg)$/).length + 1;
   let nextDocPrId = 9000;
 
   const addImage = (buffer, extension = "png") => {
@@ -474,7 +612,10 @@ const createImageManager = (zip) => {
   return { addImage, imageXml, floatingImageXml };
 };
 
-const buildWordParagraph = (text, { bold = false, breakBefore = false } = {}) => `
+const buildWordParagraph = (
+  text,
+  { bold = false, breakBefore = false } = {},
+) => `
   <w:p>
     <w:r>
       ${breakBefore ? '<w:br w:type="page"/>' : ""}
@@ -550,12 +691,10 @@ const buildFloatingTextBoxXml = ({
     </w:r>`;
 };
 
-const renderTextPng = (text, {
-  width = 220,
-  height = 44,
-  fontSize = 24,
-  fontWeight = 400,
-} = {}) => {
+const renderTextPng = (
+  text,
+  { width = 220, height = 44, fontSize = 24, fontWeight = 400 } = {},
+) => {
   const svg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <rect width="100%" height="100%" fill="none"/>
@@ -606,7 +745,11 @@ const buildTableCell = (content, width = 2400) => `
 
 const buildTableRow = (cells) => `<w:tr>${cells.join("")}</w:tr>`;
 
-const buildInspectionItemsTable = (items, imageManager, mechanicSignatureRelId) => {
+const buildInspectionItemsTable = (
+  items,
+  imageManager,
+  mechanicSignatureRelId,
+) => {
   const checkRelId = imageManager.addImage(CHECK_IMAGE_BUFFER, "png");
 
   const rows = [
@@ -621,7 +764,9 @@ const buildInspectionItemsTable = (items, imageManager, mechanicSignatureRelId) 
         buildTableCell(buildWordParagraph(item.item), 5200),
         buildTableCell(
           isChecked
-            ? buildWordImageParagraph(imageManager.imageXml(checkRelId, 190500, 190500))
+            ? buildWordImageParagraph(
+                imageManager.imageXml(checkRelId, 190500, 190500),
+              )
             : buildWordParagraph(""),
           1200,
         ),
@@ -660,22 +805,32 @@ const buildInspectionLogXml = (inspection, title, imageManager) => {
   const mechanic = inspection.releasedBy || {};
   const mechanicSignature = getSignatureBuffer(mechanic);
   const mechanicSignatureRelId = mechanicSignature
-    ? imageManager.addImage(mechanicSignature.buffer, mechanicSignature.extension)
+    ? imageManager.addImage(
+        mechanicSignature.buffer,
+        mechanicSignature.extension,
+      )
     : null;
   const lines = [
     buildWordParagraph(title, { bold: true, breakBefore: true }),
     buildWordParagraph(`RP/C: ${data.rpc}`),
     buildWordParagraph(`Date: ${data.date}`),
     buildWordParagraph(`FOB: ${normalizeFob(inspection.fob)}`),
-    buildWordParagraph(`Mechanic Name: ${mechanic.name || "N/A"}`),
+    buildWordParagraph(`Released By Name: ${mechanic.name || "N/A"}`),
+    buildWordParagraph(`Released By Title: ${mechanic.title || "N/A"}`),
     mechanicSignatureRelId
-      ? buildWordImageParagraph(imageManager.imageXml(mechanicSignatureRelId, 1828800, 508000))
-      : buildWordParagraph("Mechanic Signature: N/A"),
+      ? buildWordImageParagraph(
+          imageManager.imageXml(mechanicSignatureRelId, 1828800, 508000),
+        )
+      : buildWordParagraph("Released By Signature: N/A"),
     buildWordParagraph(`Aircraft Type: ${data.aircraftType}`),
     buildWordParagraph(`Status: ${data.status}`),
     buildWordParagraph(`Created By: ${data.createdBy}`),
-    buildWordParagraph(`Released By: ${formatSignatureSummary(inspection.releasedBy)}`),
-    buildWordParagraph(`Accepted By: ${formatSignatureSummary(inspection.acceptedBy)}`),
+    buildWordParagraph(
+      `Released By: ${formatSignatureSummary(inspection.releasedBy)}`,
+    ),
+    buildWordParagraph(
+      `Accepted By: ${formatSignatureSummary(inspection.acceptedBy)}`,
+    ),
     buildWordParagraph("Checklist", { bold: true }),
     buildInspectionItemsTable(items, imageManager, mechanicSignatureRelId),
   ];
@@ -714,7 +869,11 @@ const replaceUnderlineRuns = (paragraphXml, replacements) => {
   return paragraphXml.replace(
     /<w:r\b(?:(?!<\/w:r>)[\s\S])*?<w:t(?:\s+xml:space="preserve")?>([^<]*_{5,}[^<]*)<\/w:t><\/w:r>/g,
     (runXml, text) => {
-      const result = splitUnderlineTextRun(text, replacements, replacementIndex);
+      const result = splitUnderlineTextRun(
+        text,
+        replacements,
+        replacementIndex,
+      );
       replacementIndex = result.replacementIndex;
       return result.xml || runXml;
     },
@@ -755,10 +914,16 @@ const fillPreInspectionTemplate = async (zip, inspection) => {
   const releasedSignature = getSignatureBuffer(inspection.releasedBy);
   const acceptedSignature = getSignatureBuffer(inspection.acceptedBy);
   const releasedSignatureRelId = releasedSignature
-    ? imageManager.addImage(releasedSignature.buffer, releasedSignature.extension)
+    ? imageManager.addImage(
+        releasedSignature.buffer,
+        releasedSignature.extension,
+      )
     : null;
   const acceptedSignatureRelId = acceptedSignature
-    ? imageManager.addImage(acceptedSignature.buffer, acceptedSignature.extension)
+    ? imageManager.addImage(
+        acceptedSignature.buffer,
+        acceptedSignature.extension,
+      )
     : null;
   const checkRelId = imageManager.addImage(CHECK_IMAGE_BUFFER, "png");
   const addTextOverlay = async (text, options = {}) => {
@@ -796,7 +961,10 @@ const fillPreInspectionTemplate = async (zip, inspection) => {
       const insertAt = pPrEndIndex + "</w:pPr>".length;
       return `${paragraphXml.slice(0, insertAt)}${overlayXml}${paragraphXml.slice(insertAt)}`;
     }
-    return paragraphXml.replace(/<w:p\b[^>]*>/, (match) => `${match}${overlayXml}`);
+    return paragraphXml.replace(
+      /<w:p\b[^>]*>/,
+      (match) => `${match}${overlayXml}`,
+    );
   };
 
   let documentXml = documentFile.asText();
@@ -807,152 +975,159 @@ const fillPreInspectionTemplate = async (zip, inspection) => {
   const paragraphs = documentXml.match(/<w:p\b[\s\S]*?<\/w:p>/g) || [];
 
   for (const paragraphXml of paragraphs) {
-      if (paragraphXml.includes("Released") && paragraphXml.includes("Accepted")) {
-        signatureLineMode = "signature";
+    if (
+      paragraphXml.includes("Released") &&
+      paragraphXml.includes("Accepted")
+    ) {
+      signatureLineMode = "signature";
+      continue;
+    }
+
+    if (paragraphXml.includes("RP-C") && paragraphXml.includes("Date")) {
+      paragraphReplacements.set(
+        paragraphXml,
+        insertOverlays(paragraphXml, [
+          inspection.rpc
+            ? await addTextOverlay(inspection.rpc, {
+                xPt: 52,
+                yPt: -1,
+                width: 170,
+                widthPt: 100,
+                fontSize: 24,
+              })
+            : "",
+          inspection.date
+            ? await addTextOverlay(inspection.date, {
+                xPt: 520,
+                yPt: -1,
+                width: 190,
+                widthPt: 110,
+                fontSize: 24,
+              })
+            : "",
+        ]),
+      );
+      continue;
+    }
+
+    if (paragraphXml.includes("F.O.B")) {
+      paragraphReplacements.set(
+        paragraphXml,
+        insertOverlays(paragraphXml, [
+          await addTextOverlay(normalizeFob(inspection.fob), {
+            xPt: 76,
+            yPt: -1,
+            width: 120,
+            widthPt: 80,
+            fontSize: 24,
+          }),
+        ]),
+      );
+      continue;
+    }
+
+    const itemKey = PRE_INSPECTION_TEMPLATE_KEYS[itemIndex];
+    const isTemplateInfoLine =
+      paragraphXml.includes("RP-C") ||
+      paragraphXml.includes("Date") ||
+      paragraphXml.includes("F.O.B") ||
+      paragraphXml.includes("Released") ||
+      paragraphXml.includes("Accepted");
+    if (itemKey && !isTemplateInfoLine && paragraphXml.includes("__________")) {
+      itemIndex += 1;
+      if (inspection[itemKey] !== true) {
         continue;
       }
 
-      if (paragraphXml.includes("RP-C") && paragraphXml.includes("Date")) {
-        paragraphReplacements.set(
-          paragraphXml,
-          insertOverlays(paragraphXml, [
-            inspection.rpc
-              ? await addTextOverlay(inspection.rpc, {
-                  xPt: 52,
-                  yPt: -1,
-                  width: 170,
-                  widthPt: 100,
-                  fontSize: 24,
-                })
-              : "",
-            inspection.date
-              ? await addTextOverlay(inspection.date, {
-                  xPt: 520,
-                  yPt: -1,
-                  width: 190,
-                  widthPt: 110,
-                  fontSize: 24,
-                })
-              : "",
-          ]),
-        );
-        continue;
-      }
+      paragraphReplacements.set(
+        paragraphXml,
+        insertOverlays(paragraphXml, [
+          addImageOverlay(checkRelId, {
+            xPt: 408,
+            yPt: -2,
+            widthPt: 14,
+            heightPt: 14,
+          }),
+          releasedSignatureRelId
+            ? addImageOverlay(releasedSignatureRelId, {
+                xPt: 476,
+                yPt: -10,
+                widthPt: 58,
+                heightPt: 24,
+              })
+            : await addTextOverlay(inspection.releasedBy?.name || "", {
+                xPt: 472,
+                yPt: -2,
+                width: 120,
+                widthPt: 70,
+                fontSize: 16,
+              }),
+        ]),
+      );
+      continue;
+    }
 
-      if (paragraphXml.includes("F.O.B")) {
-        paragraphReplacements.set(
-          paragraphXml,
-          insertOverlays(paragraphXml, [
-            await addTextOverlay(normalizeFob(inspection.fob), {
-              xPt: 76,
-              yPt: -1,
-              width: 120,
-              widthPt: 80,
-              fontSize: 24,
-            }),
-          ]),
-        );
-        continue;
-      }
+    if (
+      signatureLineMode === "signature" &&
+      paragraphXml.includes("_______________________________")
+    ) {
+      signatureLineMode = "license";
+      paragraphReplacements.set(
+        paragraphXml,
+        insertOverlays(paragraphXml, [
+          releasedSignatureRelId
+            ? addImageOverlay(releasedSignatureRelId, {
+                xPt: 42,
+                yPt: -32,
+                widthPt: 98,
+                heightPt: 38,
+              })
+            : "",
+          inspection.releasedBy?.name
+            ? await addTextOverlay(inspection.releasedBy.name, {
+                xPt: 55,
+                yPt: -3,
+                width: 180,
+                widthPt: 112,
+                fontSize: 22,
+              })
+            : "",
+          acceptedSignatureRelId
+            ? addImageOverlay(acceptedSignatureRelId, {
+                xPt: 510,
+                yPt: -32,
+                widthPt: 98,
+                heightPt: 38,
+              })
+            : "",
+        ]),
+      );
+      continue;
+    }
 
-      const itemKey = PRE_INSPECTION_TEMPLATE_KEYS[itemIndex];
-      const isTemplateInfoLine =
-        paragraphXml.includes("RP-C") ||
-        paragraphXml.includes("Date") ||
-        paragraphXml.includes("F.O.B") ||
-        paragraphXml.includes("Released") ||
-        paragraphXml.includes("Accepted");
-      if (itemKey && !isTemplateInfoLine && paragraphXml.includes("__________")) {
-        itemIndex += 1;
-        if (inspection[itemKey] !== true) {
-          continue;
-        }
-
-        paragraphReplacements.set(
-          paragraphXml,
-          insertOverlays(paragraphXml, [
-            addImageOverlay(checkRelId, {
-              xPt: 408,
-              yPt: -2,
-              widthPt: 14,
-              heightPt: 14,
-            }),
-            releasedSignatureRelId
-              ? addImageOverlay(releasedSignatureRelId, {
-                  xPt: 476,
-                  yPt: -10,
-                  widthPt: 58,
-                  heightPt: 24,
-                })
-              : await addTextOverlay(inspection.releasedBy?.name || "", {
-                  xPt: 472,
-                  yPt: -2,
-                  width: 120,
-                  widthPt: 70,
-                  fontSize: 16,
-                }),
-          ]),
-        );
-        continue;
-      }
-
-      if (signatureLineMode === "signature" && paragraphXml.includes("_______________________________")) {
-        signatureLineMode = "license";
-        paragraphReplacements.set(
-          paragraphXml,
-          insertOverlays(paragraphXml, [
-            releasedSignatureRelId
-              ? addImageOverlay(releasedSignatureRelId, {
-                  xPt: 42,
-                  yPt: -32,
-                  widthPt: 98,
-                  heightPt: 38,
-                })
-              : "",
-            inspection.releasedBy?.name
-              ? await addTextOverlay(inspection.releasedBy.name, {
-                  xPt: 55,
-                  yPt: -3,
-                  width: 180,
-                  widthPt: 112,
-                  fontSize: 22,
-                })
-              : "",
-            acceptedSignatureRelId
-              ? addImageOverlay(acceptedSignatureRelId, {
-                  xPt: 510,
-                  yPt: -32,
-                  widthPt: 98,
-                  heightPt: 38,
-                })
-              : "",
-          ]),
-        );
-        continue;
-      }
-
-      if (signatureLineMode === "license" && paragraphXml.includes("_______________________________")) {
-        signatureLineMode = null;
-        const license =
-          inspection.releasedBy?.licenseNo ||
-          inspection.releasedBy?.id ||
-          "";
-        paragraphReplacements.set(
-          paragraphXml,
-          insertOverlays(paragraphXml, [
-            license
-              ? await addTextOverlay(license, {
-                  xPt: 55,
-                  yPt: -3,
-                  width: 190,
-                  widthPt: 120,
-                  fontSize: 22,
-                })
-              : "",
-          ]),
-        );
-        continue;
-      }
+    if (
+      signatureLineMode === "license" &&
+      paragraphXml.includes("_______________________________")
+    ) {
+      signatureLineMode = null;
+      const license =
+        inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "";
+      paragraphReplacements.set(
+        paragraphXml,
+        insertOverlays(paragraphXml, [
+          license
+            ? await addTextOverlay(license, {
+                xPt: 55,
+                yPt: -3,
+                width: 190,
+                widthPt: 120,
+                fontSize: 22,
+              })
+            : "",
+        ]),
+      );
+      continue;
+    }
   }
 
   const nextDocumentXml = documentXml.replace(
@@ -982,7 +1157,7 @@ const formatInspectionItems = (inspection) => {
     });
   }
 
-  // Handle post-inspection items
+  // Handle post-flight inspection items
   if (inspection.postInspectionItems) {
     Object.entries(inspection.postInspectionItems).forEach(([key, value]) => {
       items.push({
@@ -1007,7 +1182,9 @@ const formatInspectionItems = (inspection) => {
     });
   });
 
-  return items.length > 0 ? items : [{ item: "No items recorded", status: "", notes: "", initial: "" }];
+  return items.length > 0
+    ? items
+    : [{ item: "No items recorded", status: "", notes: "", initial: "" }];
 };
 
 /**
@@ -1018,41 +1195,46 @@ const formatInspectionItems = (inspection) => {
  */
 const generateDocument = async (templateName, inspection) => {
   try {
+    const normalizedInspection =
+      await withResolvedSignatureLicenses(inspection);
     const zip = loadTemplate(templateName);
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
     });
 
-    const data = formatInspectionData(inspection);
+    const data = formatInspectionData(normalizedInspection);
     doc.render(data);
-    if (templateName === "pre-inspection.docx") {
-      await fillPreInspectionTemplate(doc.getZip(), inspection);
+    if (templateName === "pre-flight inspection.docx") {
+      await fillPreInspectionTemplate(doc.getZip(), normalizedInspection);
     }
 
     return doc.getZip().generate({ type: "nodebuffer" });
   } catch (error) {
-    console.error(`Error generating document from template ${templateName}:`, error);
+    console.error(
+      `Error generating document from template ${templateName}:`,
+      error,
+    );
     throw new Error(`Failed to generate document: ${error.message}`);
   }
 };
 
 /**
- * Get pre-inspection document
+ * Get pre-flight inspection document
  * @param {Object} inspection - Pre-inspection data
  * @returns {Buffer} - Generated document buffer
  */
 const getPreInspectionDocument = async (inspection) => {
-  return generateDocument("pre-inspection.docx", inspection);
+  return generateDocument("pre-flight inspection.docx", inspection);
 };
 
 /**
- * Get post-inspection document
+ * Get post-flight inspection document
  * @param {Object} inspection - Post-inspection data
  * @returns {Buffer} - Generated document buffer
  */
 const getPostInspectionDocument = async (inspection) => {
-  return generateDocument("post-inspection.docx", inspection);
+  return generateDocument("post-flight inspection.docx", inspection);
 };
 
 const convertDocxBufferToPdf = (documentBuffer, filePrefix) => {
@@ -1064,14 +1246,20 @@ const convertDocxBufferToPdf = (documentBuffer, filePrefix) => {
 
   try {
     fs.writeFileSync(docxPath, documentBuffer);
-    const output = execFileSync("cscript.exe", ["//NoLogo", DOCX_TO_PDF_SCRIPT, docxPath, pdfPath], {
-      windowsHide: true,
-      stdio: "pipe",
-      encoding: "utf8",
-    });
+    const output = execFileSync(
+      "cscript.exe",
+      ["//NoLogo", DOCX_TO_PDF_SCRIPT, docxPath, pdfPath],
+      {
+        windowsHide: true,
+        stdio: "pipe",
+        encoding: "utf8",
+      },
+    );
 
     if (!fs.existsSync(pdfPath)) {
-      throw new Error(`PDF conversion did not create an output file. ${output || ""}`.trim());
+      throw new Error(
+        `PDF conversion did not create an output file. ${output || ""}`.trim(),
+      );
     }
 
     return fs.readFileSync(pdfPath);
@@ -1094,6 +1282,33 @@ const normalizePngForPdf = async (buffer) => {
   }
 };
 
+const getNgcpLogoBuffer = async () => {
+  try {
+    return await normalizePngForPdf(await fs.promises.readFile(NGCP_LOGO_PATH));
+  } catch {
+    return null;
+  }
+};
+
+const drawNgcpLogo = (doc, logoBuffer, x, y, width, height) => {
+  if (logoBuffer) {
+    doc.image(logoBuffer, x, y, { fit: [width, height] });
+    return;
+  }
+
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(28)
+    .fillColor("#0a8f63")
+    .text("N", x, y + 4, { continued: true });
+  doc.fillColor("#000").text("GCP", { continued: false });
+  doc
+    .font("Helvetica")
+    .fontSize(7)
+    .fillColor("#000")
+    .text("BRIDGING POWER & PROGRESS", x, y + 36);
+};
+
 const drawPdfLine = (doc, x1, y1, x2, y2) => {
   doc.moveTo(x1, y1).lineTo(x2, y2).stroke();
 };
@@ -1108,9 +1323,15 @@ const drawSignature = (doc, signatureBuffer, x, y, width = 78, height = 28) => {
 };
 
 const getPreInspectionPdfDirect = async (inspection = {}) => {
-  const releasedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.releasedBy));
-  const acceptedSignature = await normalizePngForPdf(signatureImageBuffer(inspection.acceptedBy));
+  inspection = await withResolvedSignatureLicenses(inspection);
+  const releasedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.releasedBy),
+  );
+  const acceptedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.acceptedBy),
+  );
   const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 36 });
@@ -1134,18 +1355,34 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
     };
 
     const drawHeader = () => {
-      doc.font("Helvetica-Bold").fontSize(30).fillColor("#0a8f63").text("N", 42, 38, { continued: true });
-      doc.fillColor("#000").text("GCP", { continued: false });
-      doc.font("Helvetica").fontSize(7).fillColor("#000").text("BRIDGING POWER & PROGRESS", 42, 72);
-      doc.font("Helvetica-Bold").fontSize(18).text("AS 350 B3e 360° PRE-FLIGHT INSPECTION", 182, 54);
+      drawNgcpLogo(doc, ngcpLogo, 42, 34, 96, 42);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(18)
+        .text("AS 350 B3e 360° PRE-FLIGHT INSPECTION", 182, 54);
       drawPdfLine(doc, 182, 76, 525, 76);
 
       doc.fontSize(12).text("RP-C", 42, 118);
-      doc.font("Helvetica").fontSize(9).text(inspection.rpc || "", 82, 119);
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text(inspection.rpc || "", 82, 119);
       drawPdfLine(doc, 82, 132, 186, 132);
-      doc.font("Helvetica-Bold").fontSize(12).text("Date", 505, 118);
-      doc.font("Helvetica").fontSize(9).text(inspection.date || "", 542, 119);
-      drawPdfLine(doc, 542, 132, 610, 132);
+      doc.font("Helvetica-Bold").fontSize(12).text("Date", 470, 118);
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text(
+          formatInspectionDate(
+            inspection.date ||
+              inspection.inspectionDate ||
+              inspection.createdAt,
+          ),
+          505,
+          119,
+          { width: 66, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 505, 132, 571, 132);
 
       doc.font("Helvetica").fontSize(9).text("Status", statusX, 150);
       drawPdfLine(doc, statusX, 164, statusX + 40, 164);
@@ -1158,9 +1395,15 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       ensureSpace(18);
       const y = doc.y;
       doc.font("Helvetica").fontSize(8.7).fillColor("#000");
-      doc.text(`${number}. ${title}`, itemX, y, { width: 200, lineBreak: false });
+      doc.text(`${number}. ${title}`, itemX, y, {
+        width: 200,
+        lineBreak: false,
+      });
       doc.text("-", descX - 22, y);
-      doc.text(description, descX, y, { width: statusX - descX - 4, lineBreak: false });
+      doc.text(description, descX, y, {
+        width: statusX - descX - 4,
+        lineBreak: false,
+      });
       drawPdfLine(doc, statusX, y + 10, statusX + 48, y + 10);
       drawPdfLine(doc, initialX, y + 10, initialX + 52, y + 10);
 
@@ -1179,7 +1422,13 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       doc.moveDown(1.15);
       const y = doc.y;
       doc.font("Helvetica-Bold").fontSize(12).text(group.title, itemX, y);
-      drawPdfLine(doc, itemX, y + 14, itemX + doc.widthOfString(group.title), y + 14);
+      drawPdfLine(
+        doc,
+        itemX,
+        y + 14,
+        itemX + doc.widthOfString(group.title),
+        y + 14,
+      );
       doc.y = y + 19;
       group.items.forEach(([key, title, description], index) =>
         drawChecklistItem(key, title, description, index + 1),
@@ -1193,31 +1442,74 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
     doc.moveDown(2);
     const bottomY = doc.y;
     doc.font("Helvetica-Bold").fontSize(12).text("F.O.B", 42, bottomY);
-    doc.font("Helvetica").fontSize(9).text(normalizeFob(inspection.fob), 118, bottomY + 1);
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text(normalizeFob(inspection.fob), 118, bottomY + 1);
     drawPdfLine(doc, 78, bottomY + 14, 210, bottomY + 14);
 
     const signY = bottomY + 54;
     doc.font("Helvetica").fontSize(11).text("Released by:", 42, signY);
-    doc.text("Accepted by:", 430, signY);
+    doc.text("Accepted by:", 362, signY);
     drawSignature(doc, releasedSignature, 72, signY + 16, 105, 42);
-    drawSignature(doc, acceptedSignature, 462, signY + 16, 105, 42);
-    doc.fontSize(9).text(inspection.releasedBy?.name || "", 88, signY + 60, { width: 170, align: "center" });
+    drawSignature(doc, acceptedSignature, 394, signY + 16, 105, 42);
+    doc.fontSize(9).text(inspection.releasedBy?.name || "", 88, signY + 60, {
+      width: 170,
+      align: "center",
+    });
+    doc.text(inspection.acceptedBy?.name || "", 381, signY + 60, {
+      width: 170,
+      align: "center",
+      lineBreak: false,
+    });
     drawPdfLine(doc, 42, signY + 76, 250, signY + 76);
-    drawPdfLine(doc, 430, signY + 76, 638, signY + 76);
-    doc.font("Helvetica-Bold").fontSize(12).text("Mechanic", 122, signY + 82);
-    doc.text("Pilot", 520, signY + 82);
+    drawPdfLine(doc, 362, signY + 76, 570, signY + 76);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(
+        getSignatureTitle(inspection.releasedBy, "Mechanic"),
+        122,
+        signY + 82,
+      );
+    doc.text(
+      getSignatureTitle(inspection.acceptedBy, "Pilot"),
+      442,
+      signY + 82,
+      {
+        width: 50,
+        align: "center",
+        lineBreak: false,
+      },
+    );
 
     const licenseY = signY + 118;
-    doc.font("Helvetica").fontSize(9).text(
-      inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
-      92,
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text(
+        inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
+        92,
+        licenseY - 1,
+        { width: 150, align: "center" },
+      );
+    doc.text(
+      inspection.acceptedBy?.licenseNo || inspection.acceptedBy?.id || "",
+      381,
       licenseY - 1,
-      { width: 150, align: "center" },
+      { width: 170, align: "center", lineBreak: false },
     );
     drawPdfLine(doc, 42, licenseY + 14, 250, licenseY + 14);
-    drawPdfLine(doc, 430, licenseY + 14, 638, licenseY + 14);
-    doc.font("Helvetica-Bold").fontSize(12).text("A & P License Nr.", 92, licenseY + 20);
-    doc.text("CHPL Nr.", 510, licenseY + 20);
+    drawPdfLine(doc, 362, licenseY + 14, 570, licenseY + 14);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text("A & P License Nr.", 92, licenseY + 20);
+    doc.text("CHPL Nr.", 430, licenseY + 20, {
+      width: 72,
+      align: "center",
+      lineBreak: false,
+    });
 
     doc.end();
   });
@@ -1226,18 +1518,183 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
 const getPreInspectionPdf = (inspection) =>
   getPreInspectionPdfDirect(inspection);
 
-const getPostInspectionPdf = (inspection) =>
-  getPostInspectionDocument(inspection).then((documentBuffer) =>
-    convertDocxBufferToPdf(documentBuffer, "post-inspection"),
+const POST_INSPECTION_PDF_SECTIONS = [
+  ["station1_", "STATION 1"],
+  ["station2_", "STATION 2"],
+  ["engine_", "ENGINE AND ENGINE BAY"],
+  ["station3_", "STATION 3"],
+  ["mainRotor_", "MAIN ROTOR HEAD"],
+  ["cabin_", "CABIN INTERIOR"],
+];
+
+const getPostInspectionPdfDirect = async (inspection = {}) => {
+  inspection = await withResolvedSignatureLicenses(inspection);
+  const releasedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.releasedBy),
   );
+  const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 36 });
+    const chunks = [];
+    const left = 42;
+    const right = doc.page.width - 42;
+    const statusX = right - 126;
+    const initialX = right - 58;
+    const itemWidth = statusX - left - 12;
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const drawHeader = () => {
+      drawNgcpLogo(doc, ngcpLogo, left, 32, 96, 42);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(17)
+        .text("AS 350 B3e POST-FLIGHT INSPECTION", 182, 51, {
+          width: 388,
+          align: "center",
+          lineBreak: false,
+        });
+      drawPdfLine(doc, 182, 74, right, 74);
+
+      doc.fontSize(11).text("RP-C", left, 100);
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text(inspection.rpc || "", 82, 101, {
+          width: 104,
+          lineBreak: false,
+        });
+      drawPdfLine(doc, 82, 114, 186, 114);
+      doc.font("Helvetica-Bold").fontSize(11).text("Date", 470, 100);
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text(
+          formatInspectionDate(
+            inspection.date ||
+              inspection.inspectionDate ||
+              inspection.createdAt,
+          ),
+          505,
+          101,
+          { width: 66, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 505, 114, 571, 114);
+
+      doc.font("Helvetica-Bold").fontSize(8).text("INSPECTION ITEM", left, 130);
+      doc.text("STATUS", statusX, 130, { width: 48, align: "center" });
+      doc.text("INITIAL", initialX, 130, { width: 52, align: "center" });
+      drawPdfLine(doc, left, 143, right, 143);
+      doc.y = 149;
+    };
+
+    const ensureSpace = (height) => {
+      if (doc.y + height <= doc.page.height - 52) return;
+      doc.addPage();
+      drawHeader();
+    };
+
+    drawHeader();
+
+    POST_INSPECTION_PDF_SECTIONS.forEach(([prefix, title]) => {
+      const items = Object.entries(inspection).filter(
+        ([key, value]) => key.startsWith(prefix) && typeof value === "boolean",
+      );
+      if (!items.length) return;
+
+      ensureSpace(30);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text(title, left, doc.y + 4);
+      doc.y += 19;
+
+      items.forEach(([key, checked], index) => {
+        const label = formatFieldLabel(key.slice(prefix.length));
+        doc.font("Helvetica").fontSize(8);
+        const textHeight = Math.max(
+          11,
+          doc.heightOfString(`${index + 1}. ${label}`, {
+            width: itemWidth,
+          }),
+        );
+        const rowHeight = textHeight + 5;
+        ensureSpace(rowHeight);
+        const y = doc.y;
+
+        doc.text(`${index + 1}. ${label}`, left, y, { width: itemWidth });
+        drawPdfLine(
+          doc,
+          statusX,
+          y + rowHeight - 3,
+          statusX + 48,
+          y + rowHeight - 3,
+        );
+        drawPdfLine(
+          doc,
+          initialX,
+          y + rowHeight - 3,
+          initialX + 52,
+          y + rowHeight - 3,
+        );
+        if (checked && checkImage) {
+          doc.image(checkImage, statusX + 18, y - 1, { fit: [12, 12] });
+          drawSignature(doc, releasedSignature, initialX + 2, y - 5, 48, 16);
+        }
+        doc.y = y + rowHeight;
+      });
+    });
+
+    ensureSpace(145);
+    const signY = doc.y + 24;
+    doc.font("Helvetica").fontSize(10).text("Released by:", left, signY);
+    drawSignature(doc, releasedSignature, 72, signY + 12, 105, 38);
+    doc.fontSize(9).text(inspection.releasedBy?.name || "", 62, signY + 52, {
+      width: 170,
+      align: "center",
+      lineBreak: false,
+    });
+    drawPdfLine(doc, left, signY + 68, 250, signY + 68);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text(
+        getSignatureTitle(inspection.releasedBy, "Mechanic"),
+        92,
+        signY + 74,
+        { width: 110, align: "center", lineBreak: false },
+      );
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .text(
+        inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
+        62,
+        signY + 101,
+        { width: 170, align: "center", lineBreak: false },
+      );
+    drawPdfLine(doc, left, signY + 115, 250, signY + 115);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("A & P License Nr.", 87, signY + 121);
+
+    doc.end();
+  });
+};
+
+const getPostInspectionPdf = (inspection) =>
+  getPostInspectionPdfDirect(inspection);
 
 module.exports = {
   loadTemplate,
   generateDocument,
   formatInspectionData,
   formatInspectionItems,
-  getPreInspectionDocument,
-  getPostInspectionDocument,
   getPreInspectionPdf,
   getPostInspectionPdf,
 };

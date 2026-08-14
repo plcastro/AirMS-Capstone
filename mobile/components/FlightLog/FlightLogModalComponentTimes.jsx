@@ -1,10 +1,10 @@
 import React, { useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -62,7 +62,7 @@ export default function FlightLogModalComponentTimes({
     
     return (
       <View style={{ marginBottom: 16 }}>
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             color: COLORS.black,
@@ -71,8 +71,8 @@ export default function FlightLogModalComponentTimes({
           }}
         >
           {label}
-        </Text>
-        <TextInput
+        </AppText>
+        <AppInput
           style={{
             backgroundColor: isFieldEditable ? "#F2F2F2" : "#E8E8E8",
             borderRadius: 6,
@@ -91,9 +91,9 @@ export default function FlightLogModalComponentTimes({
           editable={isFieldEditable}
         />
         {isLocked && (
-          <Text style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}>
+          <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}>
             This section is locked and cannot be edited
-          </Text>
+          </AppText>
         )}
       </View>
     );
@@ -107,7 +107,7 @@ export default function FlightLogModalComponentTimes({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           fontWeight: "700",
@@ -116,7 +116,7 @@ export default function FlightLogModalComponentTimes({
         }}
       >
         Component Times
-      </Text>
+      </AppText>
 
       <View
         style={{
@@ -139,19 +139,19 @@ export default function FlightLogModalComponentTimes({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}
           >
             {getPageTitle()}
             {isLocked && currentComponentPage === 0 && (
-              <Text
+              <AppText
                 style={{ fontSize: 12, color: COLORS.white, marginLeft: 8 }}
               >
                 {" "}
                 (Locked)
-              </Text>
+              </AppText>
             )}
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>

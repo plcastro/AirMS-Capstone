@@ -1,15 +1,13 @@
 import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
+import AppText from "../../components/common/AppText";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
@@ -18,10 +16,17 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
+import FlightLogSignatureModal from "../../components/FlightLog/FlightLogSignatureModal";
+import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders as getMobileAuthHeaders } from "../../utilities/mobileApi";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
+import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -38,21 +43,51 @@ const getComparableStatus = (statusValue = "") => {
   if (normalized === "released") {
     return "pending_acceptance";
   }
+  if (normalized === "for_completion") {
+    return "accepted";
+  }
 
   return normalized;
 };
 
+const parseFlightLogDate = (log = {}) => {
+  const value = log?.date || log?.dateAdded || log?.createdAt || log?.updatedAt;
+
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+
+  const raw = String(value).trim();
+  const slashDate = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+
+  if (slashDate) {
+    const [, month, day, yearValue] = slashDate;
+    const year =
+      yearValue.length === 2 ? Number(`20${yearValue}`) : Number(yearValue);
+    return new Date(year, Number(month) - 1, Number(day)).getTime();
+  }
+
+  const parsed = new Date(raw).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const sortNewestFlightLogs = (logs = []) =>
-  [...logs].sort((a, b) => {
-    const bDate = new Date(b?.date || b?.createdAt || 0).getTime();
-    const aDate = new Date(a?.date || a?.createdAt || 0).getTime();
-    return (
-      (Number.isNaN(bDate) ? 0 : bDate) - (Number.isNaN(aDate) ? 0 : aDate)
-    );
-  });
+  [...logs].sort((a, b) => parseFlightLogDate(b) - parseFlightLogDate(a));
 
 const mergeFlightLogs = (logs = []) =>
   Array.from(new Map(logs.map((log) => [log?._id || log?.id, log])).values());
+
+const hasDestinationInfo = (log = {}) =>
+  Array.isArray(log.legs) &&
+  log.legs.some(
+    (leg) =>
+      Array.isArray(leg?.stations) &&
+      leg.stations.some(
+        (station) =>
+          String(station?.from || "").trim() &&
+          String(station?.to || "").trim(),
+      ),
+  );
 
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
@@ -68,33 +103,80 @@ export default function FlightLog({ route, navigation }) {
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [signatureWorkflow, setSignatureWorkflow] = useState({
+    visible: false,
+    action: "",
+    log: null,
+  });
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    onConfirm: null,
+    onCancel: null,
+  });
   const hasLoadedRef = useRef(false);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportFlightLogs = canExportModule(userRole, "flightLogs");
 
-  const getAuthHeaders = useCallback(async () => {
-    const token = await AsyncStorage.getItem("currentUserToken");
-    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
-    let sessionMeta = {};
+  const getAuthHeaders = useCallback(
+    () => getMobileAuthHeaders({ "x-action-confirmed": "true" }),
+    [],
+  );
 
-    try {
-      sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
-    } catch {
-      sessionMeta = {};
-    }
+  const getUserDisplayName = useCallback(() => {
+    const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+    return fullName || user?.username || userRole || "Unknown";
+  }, [user?.firstName, user?.lastName, user?.username, userRole]);
+
+  const buildToDateData = (log = {}) => {
+    const broughtForward = log?.componentData?.broughtForwardData || {};
+    const thisFlight = log?.componentData?.thisFlightData || {};
 
     return {
-      "Content-Type": "application/json",
-      "x-action-confirmed": "true",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      "x-platform": "MOBILE",
-      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
-      ...(sessionMeta.sessionId
-        ? { "x-session-id": sessionMeta.sessionId }
-        : {}),
+      airframe:
+        (parseFloat(broughtForward.airframe) || 0) +
+        (parseFloat(thisFlight.airframe) || 0),
+      engine:
+        (parseFloat(broughtForward.engine) || 0) +
+        (parseFloat(thisFlight.engine) || 0),
+      cycleN1:
+        (parseFloat(broughtForward.cycleN1) || 0) +
+        (parseFloat(thisFlight.cycleN1) || 0),
+      cycleN2:
+        (parseFloat(broughtForward.cycleN2) || 0) +
+        (parseFloat(thisFlight.cycleN2) || 0),
+      landingCycle:
+        (parseFloat(broughtForward.landingCycle) || 0) +
+        (parseFloat(thisFlight.landingCycle) || 0),
     };
-  }, []);
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((current) => ({ ...current, visible: false }));
+  };
+
+  const confirmWithAlert = ({ title, message, confirmText = "Confirm" }) =>
+    new Promise((resolve) => {
+      const finish = (result) => {
+        setAlertConfig((current) => ({ ...current, visible: false }));
+        resolve(result);
+      };
+
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        confirmText,
+        cancelText: "Cancel",
+        onConfirm: () => finish(true),
+        onCancel: () => finish(false),
+      });
+    });
 
   /// FETCH ALL FLIGHT LOGS (NO AUTH)
   const fetchFlightLogs = useCallback(
@@ -218,7 +300,9 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
-      const authHeaders = await getAuthHeaders();
+      const authHeaders = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
         headers: authHeaders,
@@ -258,7 +342,9 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
-      const authHeaders = await getAuthHeaders();
+      const authHeaders = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${updatedLog._id}`,
         {
@@ -361,15 +447,12 @@ export default function FlightLog({ route, navigation }) {
     { label: "Pending Release", value: "pending_release" },
     { label: "Released", value: "pending_acceptance" },
     { label: "Accepted", value: "accepted" },
+    { label: "For Completion", value: "for_completion" },
     { label: "Completed", value: "completed" },
   ];
 
   const filteredLogs = flightLogs.filter((log) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      log.rpc?.includes(searchQuery) ||
-      log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.date?.includes(searchQuery);
+    const matchesSearchText = matchesSearch(searchQuery, log);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -378,9 +461,16 @@ export default function FlightLog({ route, navigation }) {
 
     const matchesStatus =
       selectedStatus === "all" ||
-      getComparableStatus(log.status) === getComparableStatus(selectedStatus);
+      (selectedStatus === "for_completion"
+        ? getComparableStatus(log.status) === "accepted" &&
+          log.notifiedForCompletion
+        : selectedStatus === "accepted"
+          ? getComparableStatus(log.status) === "accepted" &&
+            !log.notifiedForCompletion
+          : getComparableStatus(log.status) ===
+            getComparableStatus(selectedStatus));
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesAircraft && matchesStatus;
   });
 
   useEffect(() => {
@@ -427,6 +517,162 @@ export default function FlightLog({ route, navigation }) {
     await exportFlightLogPdf(log);
   };
 
+  const openSignedWorkflow = (action, log) => {
+    if (!log?._id) return;
+    setSignatureWorkflow({ visible: true, action, log });
+  };
+
+  const closeSignedWorkflow = () => {
+    setSignatureWorkflow({ visible: false, action: "", log: null });
+  };
+
+  const handleSignedWorkflow = async (signature) => {
+    const { action, log } = signatureWorkflow;
+    if (!action || !log?._id) return;
+
+    try {
+      const endpoint = action === "release" ? "release" : "accept";
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${log._id}/${endpoint}`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            name: getUserDisplayName(),
+            signature,
+            ...(action === "accept" ? { userRole: "pilot" } : {}),
+          }),
+        },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            `Failed to ${action === "release" ? "release" : "accept"} flight log`,
+        );
+      }
+
+      closeSignedWorkflow();
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast(
+        action === "release"
+          ? "Flight log released successfully."
+          : "Flight log accepted successfully.",
+      );
+    } catch (error) {
+      console.error("Signed flight log workflow failed:", error);
+      showToast(error.message || "Flight log workflow failed.");
+    }
+  };
+
+  const handleNotify = async (log) => {
+    if (!hasDestinationInfo(log)) {
+      showToast(
+        "Add at least one complete From-To station in Destination/s before notifying for completion.",
+      );
+      return;
+    }
+
+    const confirmed = await confirmWithAlert({
+      title: "Notify Mechanic",
+      message:
+        "Notify the mechanic that this accepted flight log is ready for completion?",
+      confirmText: "Notify",
+    });
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/flightlogs/${log._id}`, {
+        method: "PUT",
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({
+          ...log,
+          _id: log._id,
+          notifiedForCompletion: true,
+          confirmAction: true,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to notify mechanic");
+      }
+
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast("Mechanic notified for completion.");
+    } catch (error) {
+      console.error("Notify mechanic failed:", error);
+      showToast(error.message || "Failed to notify mechanic.");
+    }
+  };
+
+  const handleComplete = async (log) => {
+    const confirmed = await confirmWithAlert({
+      title: "Complete Flight Log",
+      message:
+        "Complete this flight log and update parts-monitoring totals from its to-date values?",
+      confirmText: "Complete",
+    });
+    if (!confirmed) return;
+
+    try {
+      const toDateData =
+        log?.componentData?.toDateData &&
+        Object.keys(log.componentData.toDateData).length > 0
+          ? log.componentData.toDateData
+          : buildToDateData(log);
+      const aircraft = log.aircraft || log.rpc;
+
+      if (!aircraft) {
+        throw new Error("Aircraft identifier is missing.");
+      }
+
+      const totalsResponse = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            acftTT: Number(toDateData.airframe) || 0,
+            n1Cycles: Number(toDateData.cycleN1) || 0,
+            n2Cycles: Number(toDateData.cycleN2) || 0,
+            landings: Number(toDateData.landingCycle) || 0,
+            updatedBy: getUserDisplayName(),
+            confirmAction: true,
+          }),
+        },
+      );
+      const totalsData = await totalsResponse.json();
+      if (!totalsResponse.ok) {
+        throw new Error(
+          totalsData.message || "Failed to update aircraft totals.",
+        );
+      }
+
+      const completeResponse = await fetch(
+        `${API_BASE}/api/flightlogs/${log._id}/complete`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders(),
+        },
+      );
+      const completeData = await completeResponse.json();
+      if (!completeResponse.ok) {
+        throw new Error(completeData.message || "Failed to complete flight log");
+      }
+
+      await fetchFlightLogs({ silent: true });
+      await fetchNotifications();
+      showToast("Flight log completed successfully.");
+    } catch (error) {
+      console.error("Complete flight log failed:", error);
+      showToast(error.message || "Failed to complete flight log.");
+    }
+  };
+
   const handleNewEntry = () => {
     setShowNewEntryModal(true);
   };
@@ -454,20 +700,12 @@ export default function FlightLog({ route, navigation }) {
       <View style={{ flex: 1, paddingHorizontal: 7, marginTop: 10 }}>
         {/* Search Bar Row with New Entry Button */}
         <View style={styles.unifiedControlRow}>
-          <View style={styles.unifiedSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <TextInput
-              placeholder="Search"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder="Search"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
 
           {!isOfficerInCharge && (
             <TouchableOpacity
@@ -479,7 +717,7 @@ export default function FlightLog({ route, navigation }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -506,7 +744,7 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -520,7 +758,7 @@ export default function FlightLog({ route, navigation }) {
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP-C: ${selectedAircraft}`
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -542,11 +780,11 @@ export default function FlightLog({ route, navigation }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
+                      <AppText style={styles.unifiedDropdownItemText}>
                         {aircraft === "all"
                           ? "All Aircraft"
                           : `RP/C: ${aircraft}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -566,10 +804,10 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -590,9 +828,9 @@ export default function FlightLog({ route, navigation }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -611,9 +849,9 @@ export default function FlightLog({ route, navigation }) {
             }}
           >
             <ActivityIndicator size="large" color={COLORS.primaryLight} />
-            <Text style={{ marginTop: 10, color: COLORS.grayDark }}>
+            <AppText style={{ marginTop: 10, color: COLORS.grayDark }}>
               Loading flight logs...
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -621,7 +859,7 @@ export default function FlightLog({ route, navigation }) {
         {!loading && (
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 110 }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -644,7 +882,7 @@ export default function FlightLog({ route, navigation }) {
                   size={60}
                   color={COLORS.grayMedium}
                 />
-                <Text
+                <AppText
                   style={{
                     marginTop: 10,
                     fontSize: 12,
@@ -653,7 +891,7 @@ export default function FlightLog({ route, navigation }) {
                   }}
                 >
                   No flight logs found
-                </Text>
+                </AppText>
                 {!isOfficerInCharge && (
                   <TouchableOpacity
                     onPress={handleNewEntry}
@@ -665,9 +903,9 @@ export default function FlightLog({ route, navigation }) {
                       borderRadius: 8,
                     }}
                   >
-                    <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                    <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                       Create New Entry
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -675,7 +913,11 @@ export default function FlightLog({ route, navigation }) {
               <FlightLogCards
                 logs={filteredLogs}
                 onEdit={handleEdit}
-                onExport={handleExport}
+                onExport={canExportFlightLogs ? handleExport : undefined}
+                onRelease={(log) => openSignedWorkflow("release", log)}
+                onAccept={(log) => openSignedWorkflow("accept", log)}
+                onNotify={handleNotify}
+                onComplete={handleComplete}
                 userRole={userRole}
                 readOnly={isOfficerInCharge}
               />
@@ -690,6 +932,7 @@ export default function FlightLog({ route, navigation }) {
         onClose={() => setShowNewEntryModal(false)}
         onSave={handleSaveNewEntry}
         userRole={userRole}
+        currentUser={user}
       />
 
       {/* Edit Entry Modal */}
@@ -702,7 +945,33 @@ export default function FlightLog({ route, navigation }) {
         }}
         onSave={handleSaveEdit}
         userRole={userRole}
-        readOnly={isOfficerInCharge}
+        currentUser={user}
+        readOnly={
+          isOfficerInCharge ||
+          normalizeFlightLogStatus(selectedLog?.status) === "completed"
+        }
+      />
+
+      <FlightLogSignatureModal
+        visible={signatureWorkflow.visible}
+        title={
+          signatureWorkflow.action === "release"
+            ? "Release Signature"
+            : "Accept Signature"
+        }
+        onClose={closeSignedWorkflow}
+        onSave={handleSignedWorkflow}
+        aircraftRPC={signatureWorkflow.log?.rpc || signatureWorkflow.log?.aircraft}
+      />
+
+      <AlertComp
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={alertConfig.onCancel || closeAlert}
       />
     </View>
   );

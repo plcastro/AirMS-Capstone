@@ -7,6 +7,7 @@ This document explains how to add merge fields to your Word templates so that in
 Merge fields are placeholders in your Word document surrounded by curly braces `{}`. When a document is generated from a template, these fields are replaced with actual inspection data.
 
 **Example:**
+
 ```
 Template: "This inspection was performed on {date} for aircraft {rpc}"
 Result:  "This inspection was performed on May 4, 2026 for aircraft N123AB"
@@ -15,19 +16,21 @@ Result:  "This inspection was performed on May 4, 2026 for aircraft N123AB"
 ## Available Merge Fields
 
 ### Basic Information Fields
-| Field Name | Example Value | Usage |
-|-----------|---------------|-------|
-| `{rpc}` | N123AB | Aircraft registration/call sign |
-| `{date}` | 2026-05-04 | Inspection date |
-| `{aircraftType}` | AS 350 B3 | Aircraft model/type |
-| `{fob}` | 85% | Fuel on board |
-| `{engineer}` | John Smith | Inspector name |
-| `{status}` | Completed | Inspection status |
-| `{remarks}` | All systems normal | Additional notes |
-| `{createdAt}` | 2026-05-04 | Creation timestamp |
-| `{createdBy}` | Alice Johnson | User who created record |
+
+| Field Name       | Example Value      | Usage                           |
+| ---------------- | ------------------ | ------------------------------- |
+| `{rpc}`          | N123AB             | Aircraft registration/call sign |
+| `{date}`         | 2026-05-04         | Inspection date                 |
+| `{aircraftType}` | AS 350 B3          | Aircraft model/type             |
+| `{fob}`          | 85%                | Fuel on board                   |
+| `{engineer}`     | John Smith         | Inspector name                  |
+| `{status}`       | Completed          | Inspection status               |
+| `{remarks}`      | All systems normal | Additional notes                |
+| `{createdAt}`    | 2026-05-04         | Creation timestamp              |
+| `{createdBy}`    | Alice Johnson      | User who created record         |
 
 ### Inspection Items Loop
+
 For multiple inspection items, use this structure:
 
 ```
@@ -107,6 +110,7 @@ The field will appear with a gray background.
 ### Method 3: Manual Text (if above doesn't work)
 
 Simply type the merge field text directly:
+
 - For single fields: `{fieldName}`
 - For loops: `{#loopName}...{/loopName}`
 
@@ -175,23 +179,27 @@ Form Completed: {createdAt}
 ## Important Notes
 
 ### Field Naming
+
 - Field names are **case-sensitive**
 - Use exactly: `{rpc}` not `{RPC}` or `{Rpc}`
 - No spaces inside: `{rpc}` not `{ rpc }`
 
 ### Loop Structure
+
 - Start loop: `{#inspectionItems}`
 - End loop: `{/inspectionItems}`
 - All fields inside loop work with current item
 - Loops repeat for each item in the data array
 
 ### Data Types
+
 - Text fields are converted to strings automatically
 - Boolean values become "Yes" or "No"
 - Dates are formatted as readable strings
 - Missing/null values become "N/A"
 
 ### Formatting Preserved
+
 - Font, colors, and styles in your template are preserved
 - Merge fields take on the formatting of surrounding text
 - Tables and layouts work normally with merge fields
@@ -202,7 +210,7 @@ Before using your template:
 
 - [ ] File saved as .docx (not .doc)
 - [ ] File placed in `server/templates/`
-- [ ] Filename matches: `pre-inspection.docx` or `post-inspection.docx`
+- [ ] Filename matches: `pre-flight inspection.docx` or `post-inspection.docx`
 - [ ] All merge fields have matching data in code
 - [ ] Loop fields properly surrounded with `{#...}{/...}`
 - [ ] No extra spaces in field names
@@ -223,23 +231,27 @@ Once template is set up:
 ## Common Issues
 
 ### Fields Show as Code
+
 - This is normal in Word
 - Fields display correctly when document opens
 - Try pressing Ctrl+A then F9 to update all fields
 
 ### Fields Not Replaced
+
 - Verify field names exactly match (case-sensitive)
 - Ensure field uses curly braces: `{fieldName}`
 - Check inspection data contains the field
 - Restart the server after template changes
 
 ### Merge Fields Showing in Export
+
 - Verify your .docx file is properly saved
 - Check file is not corrupted
 - Try opening in Word, saving again, and uploading
 - Clear server cache and try again
 
 ### Layout/Formatting Lost
+
 - Ensure template is .docx format
 - Complex headers/footers might need adjustment
 - Test with simple template first
@@ -248,6 +260,7 @@ Once template is set up:
 ## Support
 
 For more detailed information:
+
 - See TEMPLATE_SETUP_GUIDE.md
 - Review documentTemplateService.js for available fields
 - Check TEMPLATE_IMPLEMENTATION.md for overview

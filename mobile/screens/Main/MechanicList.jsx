@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useState } from "react";
+import AppText from "../../components/common/AppText";
 import {
   View,
-  Text,
   FlatList,
-  TextInput,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import MechanicAssignment from "./MechanicAssignment";
+import { SearchBar } from "../../components/common/MobileModule";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const getMechanicStatus = (taskCount) =>
@@ -74,15 +75,19 @@ export default function MechanicList() {
       setMechanics(
         (usersData.data || [])
           .filter((user) => isAssignableUser(user) && user.status === "active")
-          .map((user) => ({
-            id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
-            avatar: user.image || null,
-            jobTitle: user.jobTitle,
-            isOnline: Boolean(user?.isOnline ?? user?.online),
-            online: Boolean(user?.isOnline ?? user?.online),
-            platform: user?.platform || "unknown",
-          })),
+          .map((user) => {
+            const isOnline = Boolean(user?.isOnline ?? user?.online);
+
+            return {
+              id: user._id,
+              name: `${user.firstName} ${user.lastName}`,
+              avatar: user.image || null,
+              jobTitle: user.jobTitle,
+              isOnline,
+              online: isOnline,
+              platform: isOnline ? user?.platform || "unknown" : "",
+            };
+          }),
       );
     } catch (error) {
       console.error("Error fetching assignable user list:", error);
@@ -118,13 +123,7 @@ export default function MechanicList() {
       };
     })
     .filter((mechanic) => {
-      if (
-        searchQuery &&
-        !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      return true;
+      return matchesSearch(searchQuery, mechanic);
     });
 
   const renderMechanicItem = ({ item }) => {
@@ -161,16 +160,16 @@ export default function MechanicList() {
             marginRight: 15,
           }}
         >
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+          <AppText style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
             {item.name.charAt(0)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Mechanic Info */}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 4 }}>
+          <AppText style={{ fontSize: 14, fontWeight: "600", marginBottom: 4 }}>
             {item.name}
-          </Text>
+          </AppText>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <View
               style={{
@@ -181,7 +180,7 @@ export default function MechanicList() {
                 marginRight: 6,
               }}
             />
-            <Text
+            <AppText
               style={{
                 color: statusColor,
                 fontWeight: "500",
@@ -189,16 +188,16 @@ export default function MechanicList() {
               }}
             >
               {displayStatus}
-            </Text>
+            </AppText>
 
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               {item.taskCount} task{item.taskCount !== 1 ? "s" : ""}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         {/* Arrow Icon */}
-        <Text style={{ fontSize: 12, color: COLORS.grayDark }}></Text>
+        <AppText style={{ fontSize: 12, color: COLORS.grayDark }}></AppText>
       </TouchableOpacity>
     );
   };
@@ -228,25 +227,15 @@ export default function MechanicList() {
               marginBottom: 15,
             }}
           >
-            <TextInput
-              placeholder="Search by mechanic"
-              placeholderTextColor={COLORS.grayDark}
-              style={[
-                styles.searchInput,
-                {
-                  flex: 1,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  height: 48,
-                },
-              ]}
+            <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
+              placeholder="Search by mechanic"
+              containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
             />
           </View>
           <View style={{ marginBottom: 15 }}>
-            <Text
+            <AppText
               style={{
                 color: "#5a5a5a",
                 fontWeight: "500",
@@ -255,18 +244,18 @@ export default function MechanicList() {
               }}
             >
               Total Mechanics ({filteredMechanics.length})
-            </Text>
+            </AppText>
           </View>
         </View>
       }
       ListEmptyComponent={
         <View style={{ alignItems: "center", marginTop: 50 }}>
-          <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
             No mechanics found
-          </Text>
+          </AppText>
         </View>
       }
-      contentContainerStyle={{ paddingBottom: 20 }}
+      contentContainerStyle={{ paddingBottom: 110 }}
     />
   );
 }

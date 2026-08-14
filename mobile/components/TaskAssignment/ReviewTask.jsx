@@ -1,13 +1,13 @@
 import React, { useContext, useRef, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   View,
-  Text,
   Modal,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  ScrollView
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -153,16 +153,16 @@ export default function ReviewTask({
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.alertOverlay}>
         <View style={[styles.alertContainer, { width: 400, padding: 24 }]}>
-          <Text
+          <AppText
             style={[
               styles.alertTitle,
               { fontSize: 12, marginBottom: 20, textAlign: "center" },
             ]}
           >
             {mode === "return" ? "RETURN TASK" : "APPROVE TASK"}
-          </Text>
+          </AppText>
 
-          <Text
+          <AppText
             style={{
               fontSize: 12,
               color: "#666",
@@ -175,13 +175,13 @@ export default function ReviewTask({
               : step === "signature"
                 ? "Draw your approval signature below. This signature will be attached to the reviewed task."
                 : "Enter your 6-digit PIN to confirm that you want to sign and approve this task."}
-          </Text>
+          </AppText>
 
           {mode === "return" && (
             <>
               {checkedChecklistItems.length > 0 && (
                 <View style={{ marginBottom: 20 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: COLORS.grayDark,
@@ -189,7 +189,7 @@ export default function ReviewTask({
                     }}
                   >
                     Uncheck checklist items that need rework:
-                  </Text>
+                  </AppText>
 
                   <View style={{ maxHeight: 170 }}>
                     <ScrollView nestedScrollEnabled>
@@ -237,7 +237,7 @@ export default function ReviewTask({
 
                             <View style={{ flex: 1 }}>
                               {!!meta && (
-                                <Text
+                                <AppText
                                   style={{
                                     fontSize: 12,
                                     color: COLORS.grayDark,
@@ -245,16 +245,16 @@ export default function ReviewTask({
                                   }}
                                 >
                                   {meta}
-                                </Text>
+                                </AppText>
                               )}
-                              <Text
+                              <AppText
                                 style={{
                                   fontSize: 12,
                                   color: COLORS.black,
                                 }}
                               >
                                 {item.taskName || "Checklist item"}
-                              </Text>
+                              </AppText>
                             </View>
                           </TouchableOpacity>
                         );
@@ -263,7 +263,7 @@ export default function ReviewTask({
                   </View>
                 </View>
               )}
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -271,8 +271,8 @@ export default function ReviewTask({
                 }}
               >
                 Leave a note...
-              </Text>
-              <TextInput
+              </AppText>
+              <AppInput
                 style={{
                   borderWidth: 1,
                   borderColor: COLORS.border,
@@ -294,17 +294,17 @@ export default function ReviewTask({
 
           {mode === "approve" && step === "signature" && (
             <>
-              <Text
+              <AppText
                 style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Approval signature
-              </Text>
+              </AppText>
               <View
                 style={{
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   borderRadius: 8,
-                  height: 180,
+                  height: 220,
                   marginBottom: 12,
                   overflow: "hidden",
                   backgroundColor: COLORS.white,
@@ -326,34 +326,16 @@ export default function ReviewTask({
                   imageType="image/png"
                 />
               </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginBottom: 24,
-                }}
-              >
-                <Button
-                  label="CLEAR"
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  buttonStyle={[styles.dangerBtn, { width: 90 }]}
-                  buttonTextStyle={styles.primaryBtnTxt}
-                />
-              </View>
             </>
           )}
 
           {mode === "approve" && step === "pin" && (
             <>
-              <Text
+              <AppText
                 style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 8 }}
               >
                 Confirm PIN
-              </Text>
+              </AppText>
               <CodeInputField
                 code={pin}
                 setCode={setPin}
@@ -391,12 +373,26 @@ export default function ReviewTask({
               gap: 12,
             }}
           >
-            <Button
-              label="CANCEL"
-              onPress={handleCancel}
-              buttonStyle={[styles.secondaryBtn, { width: 100 }]}
-              buttonTextStyle={styles.secondaryBtnTxt}
-            />
+            {!(mode === "approve" && step === "signature") && (
+              <Button
+                label="CANCEL"
+                onPress={handleCancel}
+                buttonStyle={[styles.secondaryBtn, { width: 100 }]}
+                buttonTextStyle={styles.secondaryBtnTxt}
+              />
+            )}
+            {mode === "approve" && step === "signature" && (
+              <Button
+                label="CLEAR"
+                iconName="clear"
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                }}
+                buttonStyle={[styles.dangerBtn, { width: 90 }]}
+                buttonTextStyle={styles.primaryBtnTxt}
+              />
+            )}
             <Button
               label={
                 submitting

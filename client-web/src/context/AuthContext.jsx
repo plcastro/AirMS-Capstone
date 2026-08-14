@@ -5,6 +5,8 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 2 * 60 * 1000;
+const ACTIVITY_EVENTS = ["scroll", "touchstart"];
+const ACTIVITY_THROTTLE_MS = 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
@@ -13,6 +15,7 @@ const AUTH_SYNC_KEY = "authSyncEvent";
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
     useState(false);
   const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
@@ -21,15 +24,26 @@ export const AuthProvider = ({ children }) => {
   const [rememberMePreference, setRememberMePreferenceState] = useState(
     localStorage.getItem(REMEMBER_ME_KEY) === "true",
   );
-
   const syncChannelRef = useRef(null);
   const inactivityWarningTimeoutRef = useRef(null);
   const inactivityLogoutTimeoutRef = useRef(null);
   const warningCountdownIntervalRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
+  const refreshTokenPromiseRef = useRef(null);
+  const sessionEndedRef = useRef(false);
+  const lastActivityRecordedAtRef = useRef(0);
 
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
+
+  const hasStoredSessionHint = () =>
+    Boolean(
+      sessionStorage.getItem("currentUser") ||
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem(SESSION_META_KEY),
+    );
 
   const normalizeUser = (userData) => ({
     ...userData,
@@ -92,7 +106,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("token");
     localStorage.removeItem(SESSION_META_KEY);
     localStorage.removeItem(SESSION_TIMING_KEY);
-    localStorage.setItem(REMEMBER_ME_KEY, "false");
   };
 
   const isTokenValid = (token) => {
@@ -183,93 +196,196 @@ export const AuthProvider = ({ children }) => {
   const scheduleInactivityTimers = (elapsed = 0) => {
     clearInactivityTimers();
     if (!user) return;
-    // Web should stay signed in while token refresh is valid.
-    // Disable inactivity-based forced logout; rely on token validity/refresh flow.
+
+    const safeElapsed = Math.max(0, Number(elapsed) || 0);
+    const warningLeadTimeMs = WARNING_DURATION_MS;
+    const warningStartAfterMs =
+      INACTIVITY_LIMIT_MS - warningLeadTimeMs - safeElapsed;
+    const autoLogoutAfterMs = INACTIVITY_LIMIT_MS - safeElapsed;
+
+    const triggerWarning = (remainingMs) => {
+      const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+      startWarningCountdown(remainingSeconds);
+    };
+
+    inactivityLogoutTimeoutRef.current = setTimeout(
+      () => {
+        logoutUser();
+      },
+      Math.max(0, autoLogoutAfterMs),
+    );
+
+    if (warningStartAfterMs <= 0) {
+      triggerWarning(Math.max(1000, autoLogoutAfterMs));
+    } else {
+      inactivityWarningTimeoutRef.current = setTimeout(() => {
+        triggerWarning(warningLeadTimeMs);
+      }, warningStartAfterMs);
+    }
+  };
+
+  const forceLogoutOnce = (broadcast = true) => {
+    if (sessionEndedRef.current) return;
+    sessionEndedRef.current = true;
     setShowSessionTimeoutWarning(false);
+    clearInactivityTimers();
+    clearTokenExpiryTimer();
+    setUser(null);
+    clearAuthStorage();
+    setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
+    if (broadcast) {
+      publishAuthSync({ type: "LOGOUT" });
+    }
   };
 
   const recordActivity = () => {
-    if (!user) return;
+    if (!user || showSessionTimeoutWarning || sessionEndedRef.current) return;
+    const now = Date.now();
+    if (now - lastActivityRecordedAtRef.current < ACTIVITY_THROTTLE_MS) return;
+    lastActivityRecordedAtRef.current = now;
     setShowSessionTimeoutWarning(false);
     scheduleInactivityTimers(0);
   };
 
   const buildSessionHeaders = () => {
     const sessionMeta = getSessionMeta();
+    const lastClientActivityAt = lastActivityRecordedAtRef.current;
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
       ...(sessionMeta.sessionId
         ? { "x-session-id": sessionMeta.sessionId }
         : {}),
+      ...(lastClientActivityAt
+        ? { "x-client-active-at": String(lastClientActivityAt) }
+        : {}),
     };
   };
 
   const refreshAccessToken = async () => {
-    const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildSessionHeaders(),
-      },
-    });
-    const text = await response.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      throw new Error("Failed to refresh token (invalid response)");
+    if (sessionEndedRef.current) {
+      return null;
     }
-    if (!response.ok)
-      throw new Error(data?.message || "Failed to refresh token");
-    if (!data.token) throw new Error("No token received");
 
-    sessionStorage.setItem("token", data.token);
-    if (rememberMePreference) {
-      localStorage.setItem("token", data.token);
-    } else {
-      localStorage.removeItem("token");
+    if (refreshTokenPromiseRef.current) {
+      return refreshTokenPromiseRef.current;
     }
-    persistSessionTiming(data.token, "refresh");
-    publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
-    scheduleTokenExpiryLogout(data.token, logoutUser);
-    return data.token;
+
+    refreshTokenPromiseRef.current = (async () => {
+      const response = await fetch(`${API_BASE}/api/user/refresh-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildSessionHeaders(),
+        },
+      });
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error("Failed to refresh token (invalid response)");
+      }
+
+      if (!response.ok) {
+        const backendMessage = String(data?.message || "");
+        if (
+          response.status === 401 ||
+          response.status === 403 ||
+          backendMessage.toLowerCase().includes("session is no longer active")
+        ) {
+          forceLogoutOnce(true);
+        }
+        throw new Error(data?.message || "Failed to refresh token");
+      }
+
+      if (!data.token) throw new Error("No token received");
+
+      if (sessionEndedRef.current) {
+        throw new Error("Session already ended");
+      }
+
+      sessionStorage.setItem("token", data.token);
+      if (rememberMePreference) {
+        localStorage.setItem("token", data.token);
+      } else {
+        localStorage.removeItem("token");
+      }
+      persistSessionTiming(data.token, "refresh");
+      publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
+      scheduleTokenExpiryLogout(data.token, handleAccessTokenExpired);
+      return data.token;
+    })();
+
+    try {
+      return await refreshTokenPromiseRef.current;
+    } finally {
+      refreshTokenPromiseRef.current = null;
+    }
   };
 
   const logoutUser = async (options = {}) => {
     const { broadcast = true } = options;
+    const token = getStoredToken();
+    const sessionHeaders = buildSessionHeaders();
     try {
-      setLoading(true);
+      sessionEndedRef.current = true;
       setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();
-      const token = getStoredToken();
-      if (token) {
-        await fetch(`${API_BASE}/api/user/logout`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...buildSessionHeaders(),
-          },
-          credentials: "include",
-        });
-      }
       setUser(null);
       clearAuthStorage();
-      setRememberMePreferenceState(false);
+      setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
       if (broadcast) {
         publishAuthSync({ type: "LOGOUT" });
       }
+
+      await fetch(`${API_BASE}/api/user/logout`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...sessionHeaders,
+        },
+        credentials: "include",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAccessTokenExpired = () => {
+    if (sessionEndedRef.current) return;
+    refreshAccessToken().catch((err) => {
+      console.error("Token refresh on expiry failed:", err);
+      forceLogoutOnce(true);
+    });
+  };
+
+  const continueSession = async () => {
+    if (!user || sessionEndedRef.current) return;
+    try {
+      setShowSessionTimeoutWarning(false);
+      const token = await refreshAccessToken();
+      if (token) {
+        persistSessionTiming(token, "continue-session", {
+          restartFullWindow: true,
+        });
+      }
+      scheduleInactivityTimers(0);
+    } catch (err) {
+      console.error("Continue session failed:", err);
+      forceLogoutOnce(true);
+    }
+  };
+
   const getValidToken = async () => {
+    if (sessionEndedRef.current) {
+      return null;
+    }
     const token = getStoredToken();
     if (token && isTokenValid(token)) {
-      scheduleTokenExpiryLogout(token, logoutUser);
+      scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
       return token;
     }
     return await refreshAccessToken();
@@ -287,6 +403,8 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
+    sessionEndedRef.current = false;
+    lastActivityRecordedAtRef.current = Date.now();
     const rememberMe = Boolean(options.rememberMe);
     const normalized = normalizeUser({
       ...userData,
@@ -306,7 +424,7 @@ export const AuthProvider = ({ children }) => {
     persistAuthState(normalized, token, rememberMe);
     persistSessionTiming(token, "login");
     publishAuthSync({ type: "LOGIN", token, user: normalized, rememberMe });
-    scheduleTokenExpiryLogout(token, logoutUser);
+    scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
   };
 
   const updateRememberMePreference = async (
@@ -368,11 +486,13 @@ export const AuthProvider = ({ children }) => {
       syncChannelRef.current.onmessage = (event) => {
         const payload = event?.data || {};
         if (payload.type === "LOGOUT") {
+          sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(false);
+          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
         }
         if (payload.type === "TOKEN_REFRESH" && payload.token) {
+          if (sessionEndedRef.current) return;
           sessionStorage.setItem("token", payload.token);
           if (rememberMePreference) {
             localStorage.setItem("token", payload.token);
@@ -387,13 +507,16 @@ export const AuthProvider = ({ children }) => {
       try {
         const payload = JSON.parse(event.newValue);
         if (payload.type === "LOGOUT") {
+          sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(false);
+          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
           return;
         }
         if (payload.type === "LOGIN" && payload.user && payload.token) {
+          sessionEndedRef.current = false;
           setUser(normalizeUser(payload.user));
+          lastActivityRecordedAtRef.current = Date.now();
           sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
           sessionStorage.setItem("token", payload.token);
           setRememberMePreferenceState(Boolean(payload.rememberMe));
@@ -427,24 +550,27 @@ export const AuthProvider = ({ children }) => {
           localStorage.getItem("currentUser");
         let token = getStoredToken();
 
-        if (!storedUser && !token) {
-          setUser(null);
-          return;
-        }
-
         if (!storedUser && token) {
           token = await refreshAccessToken();
+          if (sessionEndedRef.current) return;
         }
 
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
+          if (sessionEndedRef.current) return;
+          lastActivityRecordedAtRef.current = Date.now();
           setUser(normalizeUser(parsedUser));
           persistSessionTiming(token, "restore", { restartFullWindow: true });
-          scheduleTokenExpiryLogout(token, logoutUser);
+          scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
+          return;
+        }
+
+        if (!hasStoredSessionHint()) {
           return;
         }
 
         token = await refreshAccessToken();
+        if (sessionEndedRef.current || !token) return;
         const payload = getTokenPayload(token);
         const normalizedFromToken =
           parsedUser ||
@@ -455,6 +581,7 @@ export const AuthProvider = ({ children }) => {
                 email: payload.email,
                 jobTitle: payload.jobTitle,
                 access: payload.access,
+                licenseNo: payload.licenseNo,
                 base: payload.base,
                 sessionId: payload.sessionId,
               }
@@ -464,6 +591,7 @@ export const AuthProvider = ({ children }) => {
           normalizedFromToken ? normalizeUser(normalizedFromToken) : null,
         );
         if (normalizedFromToken) {
+          lastActivityRecordedAtRef.current = Date.now();
           persistAuthState(
             normalizeUser(normalizedFromToken),
             token,
@@ -473,7 +601,7 @@ export const AuthProvider = ({ children }) => {
         persistSessionTiming(token, "restore-refresh", {
           restartFullWindow: true,
         });
-        scheduleTokenExpiryLogout(token, logoutUser);
+        scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
       } catch (err) {
         console.error("Auth load error:", err);
         clearAuthStorage();
@@ -491,20 +619,13 @@ export const AuthProvider = ({ children }) => {
       setShowSessionTimeoutWarning(false);
       return undefined;
     }
+    lastActivityRecordedAtRef.current = Date.now();
     scheduleInactivityTimers(0);
-    const events = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
-    events.forEach((eventName) =>
+    ACTIVITY_EVENTS.forEach((eventName) =>
       window.addEventListener(eventName, recordActivity),
     );
     return () => {
-      events.forEach((eventName) =>
+      ACTIVITY_EVENTS.forEach((eventName) =>
         window.removeEventListener(eventName, recordActivity),
       );
       clearInactivityTimers();
@@ -524,7 +645,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         showSessionTimeoutWarning,
         warningSecondsRemaining,
-        continueSession: recordActivity,
+        continueSession,
         token: getStoredToken(),
         rememberMePreference,
         updateRememberMePreference,

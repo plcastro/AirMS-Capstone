@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -10,21 +11,24 @@ import {
   Row,
   Col,
   Button,
-  Table,
   Space,
-  message,
   Modal,
   Typography,
   Select,
   Card,
   Grid,
+  Tooltip,
 } from "antd";
 import {
+  CheckCircleOutlined,
+  CheckOutlined,
   PlusOutlined,
   SearchOutlined,
   ExportOutlined,
   EyeOutlined,
   EditOutlined,
+  NotificationOutlined,
+  SendOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -32,13 +36,27 @@ import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import ResultPopup from "../../../components/common/ResultPopup";
+import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
+import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 export default function FlightLog() {
   const screens = useBreakpoint();
+  const isMobile = !screens.md;
+  const actionButtonStyles = {
+    accept: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    complete: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    edit: { background: "#faad14", borderColor: "#faad14", color: "#1f1f1f" },
+    export: { background: "#1677ff", borderColor: "#1677ff", color: "#fff" },
+    notify: { background: "#fa8c16", borderColor: "#fa8c16", color: "#fff" },
+    release: { background: "#048a25", borderColor: "#048a25", color: "#fff" },
+    view: { background: "#f0f2f5", borderColor: "#d9d9d9", color: "#344054" },
+  };
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
 
@@ -68,10 +86,13 @@ export default function FlightLog() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [saving, setSaving] = useState(false);
   const [entryModalVisible, setEntryModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const hasRunRemoteSearchRef = useRef(false);
   const [workflowModal, setWorkflowModal] = useState({
     open: false,
     action: null,
@@ -82,15 +103,25 @@ export default function FlightLog() {
     action: null,
     log: null,
   });
+  const pendingWorkflowPopupRef = useRef(null);
+  const pendingSignaturePopupRef = useRef(null);
+
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const userRole = user?.jobTitle?.toLowerCase() || "pilot";
   const isPilot = userRole === "pilot";
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportFlightLogs = canExportModule(userRole, "flightLogs");
   const isMechanic = [
     "engineer",
     "mechanic",
     "maintenance manager",
-    "admin",
+    "superadmin",
     "head of maintenance",
   ].includes(userRole);
 
@@ -249,7 +280,12 @@ export default function FlightLog() {
         );
       } catch (error) {
         console.error("Fetch flight logs error:", error);
-        message.error(error.message || "Failed to fetch flight logs");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to fetch flight logs",
+        });
       } finally {
         if (!silent) {
           setLoading(false);
@@ -290,11 +326,16 @@ export default function FlightLog() {
       return;
     }
 
+    if (isDateLikeSearchQuery(query)) {
+      await fetchFlightLogs({ silent: true });
+      return;
+    }
+
     try {
       setLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=500`,
+        `${API_BASE}/api/flightlogs/search?q=${encodeURIComponent(query)}&limit=300`,
         {
           method: "GET",
           headers: {
@@ -312,7 +353,12 @@ export default function FlightLog() {
       setFlightLogs(sortFlightLogsByDate(data.data || []));
     } catch (error) {
       console.error("Search flight logs error:", error);
-      message.error(error.message || "Failed to search flight logs");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to search flight logs",
+      });
     } finally {
       setLoading(false);
     }
@@ -347,10 +393,20 @@ export default function FlightLog() {
 
       await fetchFlightLogs();
       setEntryModalVisible(false);
-      message.success("Flight log added successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Flight log added",
+        subTitle: "The flight log has been added successfully.",
+      });
     } catch (error) {
       console.error("Create flight log error:", error);
-      message.error(error.message || "Failed to add flight log");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Flight log added failed",
+        subTitle: "Failed to add flight log.",
+      });
     } finally {
       setSaving(false);
     }
@@ -394,17 +450,27 @@ export default function FlightLog() {
       await fetchFlightLogs();
       setEditModalVisible(false);
       setSelectedLog(null);
-      message.success("Flight log updated successfully");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Flight log updated",
+        subTitle: "The flight log has been successfully updated.",
+      });
     } catch (error) {
       console.error("Update flight log error:", error);
-      message.error(error.message || "Failed to update flight log");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Updated failed",
+        subTitle: "Failed to update flight log.",
+      });
     } finally {
       setSaving(false);
     }
   };
 
   const handleExport = async (record) => {
-    await exportFlightLogToPDF(record);
+    await exportFlightLogToPDF(record, { setPopup });
   };
 
   const getUserDisplayName = () => {
@@ -471,6 +537,16 @@ export default function FlightLog() {
     setSignatureWorkflow({ open: false, action: null, log: null });
   };
 
+  const queueWorkflowResult = (payload) => {
+    pendingWorkflowPopupRef.current = payload;
+    closeWorkflowModal();
+  };
+
+  const queueSignatureResult = (payload) => {
+    pendingSignaturePopupRef.current = payload;
+    closeSignatureWorkflow();
+  };
+
   const runSignedWorkflowForLog = async (action, log) => {
     if (!log?._id) return;
     setSignatureWorkflow({ open: true, action, log });
@@ -478,6 +554,18 @@ export default function FlightLog() {
 
   const runNotifyWorkflowForLog = async (log) => {
     if (!log?._id) return;
+
+    if (!hasDestinationInfo(log)) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Flight log failed",
+        subTitle:
+          "Add at least one complete From-To station in Destination/s before notifying for completion.",
+      });
+      return;
+    }
+
     setWorkflowModal({ open: true, action: "notify", log });
   };
 
@@ -493,6 +581,7 @@ export default function FlightLog() {
     try {
       setSaving(true);
       const authHeader = getAuthHeader ? await getAuthHeader() : {};
+      let successResult = null;
 
       if (action === "release") {
         const response = await fetch(
@@ -514,7 +603,12 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
         }
-        message.success("Flight log released");
+        successResult = {
+          open: true,
+          status: "success",
+          title: "Flight log released",
+          subTitle: "The flight log has been successfully released.",
+        };
       }
 
       if (action === "accept") {
@@ -538,14 +632,19 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
         }
-        message.success("Flight log accepted");
+        successResult = {
+          open: true,
+          status: "success",
+          title: "Flight log accepted",
+          subTitle: "The flight log has been successfully accepted.",
+        };
       }
 
-      closeSignatureWorkflow();
+      if (successResult) queueSignatureResult(successResult);
       await fetchFlightLogs();
     } catch (error) {
       console.error("Signed workflow action error:", error);
-      message.error(error.message || "Flight log workflow action failed");
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -582,7 +681,13 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to notify mechanic");
         }
-        message.success("Mechanic notified for completion");
+        queueWorkflowResult({
+          open: true,
+          status: "success",
+          title: "Mechanic notified",
+          subTitle:
+            "The flight log has been successfully notified for completion.",
+        });
       }
 
       if (action === "complete") {
@@ -639,14 +744,23 @@ export default function FlightLog() {
             completeData.message || "Failed to complete flight log",
           );
         }
-        message.success("Flight log completed");
+        queueWorkflowResult({
+          open: true,
+          status: "success",
+          title: "Flight log completed",
+          subTitle: "The flight log has been successfully completed.",
+        });
       }
 
-      closeWorkflowModal();
       await fetchFlightLogs();
     } catch (error) {
       console.error("Workflow action error:", error);
-      message.error(error.message || "Flight log workflow action failed");
+      queueWorkflowResult({
+        open: true,
+        status: "error",
+        title: "Flight log failed",
+        subTitle: error.message || "Failed to complete flight log.",
+      });
     } finally {
       setSaving(false);
     }
@@ -671,12 +785,19 @@ export default function FlightLog() {
   }, [fetchFlightLogs]);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim()) {
-        searchFlightLogs(searchQuery);
-      } else {
+    const trimmedSearch = searchQuery.trim();
+
+    if (!trimmedSearch) {
+      if (hasRunRemoteSearchRef.current) {
+        hasRunRemoteSearchRef.current = false;
         fetchFlightLogs();
       }
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      hasRunRemoteSearchRef.current = true;
+      searchFlightLogs(trimmedSearch);
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -694,7 +815,9 @@ export default function FlightLog() {
 
     setSelectedAircraft("");
     if (notificationStatus) {
-      setSelectedStatus(normalizeStatusFilterValue(notificationStatus || "all"));
+      setSelectedStatus(
+        normalizeStatusFilterValue(notificationStatus || "all"),
+      );
     }
     fetchFlightLogs();
   }, [fetchFlightLogs, location.search, normalizeStatusFilterValue]);
@@ -705,40 +828,56 @@ export default function FlightLog() {
   );
 
   const statusOptions = [
-    { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending_release" },
-    { label: "Released", value: "pending_acceptance" },
-    { label: "Accepted", value: "accepted" },
-    { label: "For Completion", value: "for_completion" },
-    { label: "Completed", value: "completed" },
+    { label: "ALL STATUS", value: "all" },
+    { label: "PENDING RELEASE", value: "pending_release" },
+    { label: "RELEASED", value: "pending_acceptance" },
+    { label: "ACCEPTED", value: "accepted" },
+    { label: "FOR COMPLETION", value: "for_completion" },
+    { label: "COMPLETED", value: "completed" },
   ];
 
-  const filteredLogs = sortFlightLogsByDate(
-    flightLogs.filter((log) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        log.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.aircraftType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(log.date || "").includes(searchQuery);
+  const filteredLogs = useMemo(() => {
+    const trimmedSearch = searchQuery.trim();
+    const shouldApplyLocalSearch =
+      trimmedSearch && isDateLikeSearchQuery(trimmedSearch);
 
-      const matchesAircraft =
-        selectedAircraft === "" ||
-        selectedAircraft === "all" ||
-        log.rpc === selectedAircraft;
+    return sortFlightLogsByDate(
+      flightLogs.filter((log) => {
+        const matchesSearchText =
+          !shouldApplyLocalSearch || matchesSearch(trimmedSearch, log);
 
-      const normalizedStatus = getComparableStatus(log.status);
-      const matchesStatus =
-        selectedStatus === "all" ||
-        (selectedStatus === "for_completion"
-          ? normalizedStatus === "accepted" && log.notifiedForCompletion
-          : selectedStatus === "accepted"
-            ? normalizedStatus === "accepted" && !log.notifiedForCompletion
-            : normalizedStatus ===
-              getComparableStatus(normalizeStatusFilterValue(selectedStatus)));
+        const matchesAircraft =
+          selectedAircraft === "" ||
+          selectedAircraft === "all" ||
+          log.rpc === selectedAircraft;
 
-      return matchesSearch && matchesAircraft && matchesStatus;
-    }),
-  );
+        const normalizedStatus = getComparableStatus(log.status);
+        const matchesStatus =
+          selectedStatus === "all" ||
+          (selectedStatus === "for_completion"
+            ? normalizedStatus === "accepted" && log.notifiedForCompletion
+            : selectedStatus === "accepted"
+              ? normalizedStatus === "accepted" && !log.notifiedForCompletion
+              : normalizedStatus ===
+                getComparableStatus(
+                  normalizeStatusFilterValue(selectedStatus),
+                ));
+
+        return matchesSearchText && matchesAircraft && matchesStatus;
+      }),
+    );
+  }, [
+    flightLogs,
+    getComparableStatus,
+    normalizeStatusFilterValue,
+    searchQuery,
+    selectedAircraft,
+    selectedStatus,
+  ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedAircraft, selectedStatus]);
 
   useEffect(() => {
     const openTargetFlightLog = async () => {
@@ -771,6 +910,9 @@ export default function FlightLog() {
     ["pending_acceptance", "released"].includes(
       normalizeFlightLogStatus(status),
     );
+
+  const isCompletedFlightLog = (record = {}) =>
+    normalizeFlightLogStatus(record.status) === "completed";
 
   const getStatusMeta = (record = {}) => {
     const status = normalizeFlightLogStatus(record.status);
@@ -840,70 +982,94 @@ export default function FlightLog() {
     {
       title: "Action",
       key: "action",
-      width: 320,
-
-      render: (_, record) => (
-        <Space size={4} wrap>
-          <Button
-            type={isOfficerInCharge ? "default" : "primary"}
-            size="small"
-            onClick={() => handleEdit(record)}
-            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
-          >
-            {isOfficerInCharge ? "View" : "Edit"}
-          </Button>
-          {!isOfficerInCharge &&
-            isMechanic &&
-            record.status === "pending_release" && (
+      width: 120,
+      render: (_, record) => {
+        const isViewOnly = isOfficerInCharge || isCompletedFlightLog(record);
+        return (
+          <Space size={12} wrap>
+            <Tooltip title={isViewOnly ? "View" : "Edit"}>
               <Button
+                type={isViewOnly ? "default" : "primary"}
                 size="small"
-                onClick={() => openWorkflowModal("release", record)}
-              >
-                Release
-              </Button>
+                aria-label={isViewOnly ? "View" : "Edit"}
+                style={
+                  isViewOnly ? actionButtonStyles.view : actionButtonStyles.edit
+                }
+                onClick={() => handleEdit(record)}
+                icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
+              />
+            </Tooltip>
+            {!isOfficerInCharge &&
+              isMechanic &&
+              record.status === "pending_release" && (
+                <Tooltip title="Release">
+                  <Button
+                    size="small"
+                    aria-label="Release"
+                    style={actionButtonStyles.release}
+                    icon={<SendOutlined />}
+                    onClick={() => openWorkflowModal("release", record)}
+                  />
+                </Tooltip>
+              )}
+            {isPilot && isPilotAcceptableStatus(record.status) && (
+              <Tooltip title="Accept">
+                <Button
+                  size="small"
+                  aria-label="Accept"
+                  style={actionButtonStyles.accept}
+                  icon={<CheckOutlined />}
+                  onClick={() => openWorkflowModal("accept", record)}
+                />
+              </Tooltip>
             )}
-          {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button
-              size="small"
-              onClick={() => openWorkflowModal("accept", record)}
-            >
-              Accept
-            </Button>
-          )}
-          {isPilot &&
-            record.status === "accepted" &&
-            !record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={() => openWorkflowModal("notify", record)}
-              >
-                Notify
-              </Button>
+            {isPilot &&
+              record.status === "accepted" &&
+              !record.notifiedForCompletion && (
+                <Tooltip title="Notify">
+                  <Button
+                    size="small"
+                    aria-label="Notify"
+                    style={actionButtonStyles.notify}
+                    icon={<NotificationOutlined />}
+                    onClick={() => openWorkflowModal("notify", record)}
+                  />
+                </Tooltip>
+              )}
+            {!isOfficerInCharge &&
+              isMechanic &&
+              record.status === "accepted" &&
+              record.notifiedForCompletion && (
+                <Tooltip title="Complete">
+                  <Button
+                    size="small"
+                    aria-label="Complete"
+                    style={actionButtonStyles.complete}
+                    icon={<CheckCircleOutlined />}
+                    onClick={() => openWorkflowModal("complete", record)}
+                  />
+                </Tooltip>
+              )}
+            {canExportFlightLogs && (
+              <Tooltip title="Export">
+                <Button
+                  size="small"
+                  aria-label="Export"
+                  style={actionButtonStyles.export}
+                  icon={<ExportOutlined />}
+                  onClick={() => handleExport(record)}
+                />
+              </Tooltip>
             )}
-          {!isOfficerInCharge &&
-            isMechanic &&
-            record.status === "accepted" &&
-            record.notifiedForCompletion && (
-              <Button
-                size="small"
-                onClick={() => openWorkflowModal("complete", record)}
-              >
-                Complete
-              </Button>
-            )}
-          <Button
-            type="text"
-            size="small"
-            icon={<ExportOutlined />}
-            onClick={() => handleExport(record)}
-          />
-        </Space>
-      ),
+          </Space>
+        );
+      },
     },
   ];
 
   const renderCard = (record) => {
     const statusMeta = getStatusMeta(record);
+    const isViewOnly = isOfficerInCharge || isCompletedFlightLog(record);
     return (
       <Card
         key={record._id || record.id}
@@ -921,12 +1087,16 @@ export default function FlightLog() {
           }}
         >
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{record.rpc || "N/A"}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              {record.rpc || "N/A"}
+            </div>
             <div style={{ color: "#667085", fontSize: 12 }}>
               {formatDisplayDate(record.date)}
             </div>
           </div>
-          <span className={`fl-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+          <span className={`fl-badge ${statusMeta.className}`}>
+            {statusMeta.label}
+          </span>
         </div>
 
         <div style={{ marginTop: 8, color: "#475467", fontSize: 12 }}>
@@ -936,74 +1106,99 @@ export default function FlightLog() {
           Control: {record.controlNo || record.control || "N/A"}
         </div>
 
-        <Space size={4} wrap style={{ marginTop: 10 }}>
-          <Button
-            type={isOfficerInCharge ? "default" : "primary"}
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(record);
-            }}
-            icon={isOfficerInCharge ? <EyeOutlined /> : <EditOutlined />}
-          >
-            {isOfficerInCharge ? "View" : "Edit"}
-          </Button>
-          {!isOfficerInCharge && isMechanic && record.status === "pending_release" && (
+        <Space size={12} wrap style={{ marginTop: 10 }}>
+          <Tooltip title={isViewOnly ? "View" : "Edit"}>
             <Button
+              type={isViewOnly ? "default" : "primary"}
               size="small"
+              aria-label={isViewOnly ? "View" : "Edit"}
+              style={
+                isViewOnly ? actionButtonStyles.view : actionButtonStyles.edit
+              }
               onClick={(e) => {
                 e.stopPropagation();
-                openWorkflowModal("release", record);
+                handleEdit(record);
               }}
-            >
-              Release
-            </Button>
-          )}
+              icon={isViewOnly ? <EyeOutlined /> : <EditOutlined />}
+            />
+          </Tooltip>
+          {!isOfficerInCharge &&
+            isMechanic &&
+            record.status === "pending_release" && (
+              <Tooltip title="Release">
+                <Button
+                  size="small"
+                  aria-label="Release"
+                  style={actionButtonStyles.release}
+                  icon={<SendOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("release", record);
+                  }}
+                />
+              </Tooltip>
+            )}
           {isPilot && isPilotAcceptableStatus(record.status) && (
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWorkflowModal("accept", record);
-              }}
-            >
-              Accept
-            </Button>
+            <Tooltip title="Accept">
+              <Button
+                size="small"
+                aria-label="Accept"
+                style={actionButtonStyles.accept}
+                icon={<CheckOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openWorkflowModal("accept", record);
+                }}
+              />
+            </Tooltip>
           )}
-          {isPilot && record.status === "accepted" && !record.notifiedForCompletion && (
-            <Button
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                openWorkflowModal("notify", record);
-              }}
-            >
-              Notify
-            </Button>
-          )}
+          {isPilot &&
+            record.status === "accepted" &&
+            !record.notifiedForCompletion && (
+              <Tooltip title="Notify">
+                <Button
+                  size="small"
+                  aria-label="Notify"
+                  style={actionButtonStyles.notify}
+                  icon={<NotificationOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("notify", record);
+                  }}
+                />
+              </Tooltip>
+            )}
           {!isOfficerInCharge &&
             isMechanic &&
             record.status === "accepted" &&
             record.notifiedForCompletion && (
+              <Tooltip title="Complete">
+                <Button
+                  size="small"
+                  aria-label="Complete"
+                  style={actionButtonStyles.complete}
+                  icon={<CheckCircleOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openWorkflowModal("complete", record);
+                  }}
+                />
+              </Tooltip>
+            )}
+          {canExportFlightLogs && (
+            <Tooltip title="Export">
               <Button
                 size="small"
+                aria-label="Export"
+                style={actionButtonStyles.export}
+                icon={<ExportOutlined />}
                 onClick={(e) => {
                   e.stopPropagation();
-                  openWorkflowModal("complete", record);
+                  handleExport(record);
                 }}
-              >
-                Complete
-              </Button>
-            )}
-          <Button
-            type="text"
-            size="small"
-            icon={<ExportOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleExport(record);
-            }}
-          />
+              />
+            </Tooltip>
+          )}
         </Space>
       </Card>
     );
@@ -1024,7 +1219,7 @@ export default function FlightLog() {
               allowClear
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
+          <Col xs={12} sm={12} md={4}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1039,7 +1234,7 @@ export default function FlightLog() {
               }))}
             />
           </Col>
-          <Col xs={24} sm={12} md={5}>
+          <Col xs={12} sm={12} md={5}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1049,7 +1244,7 @@ export default function FlightLog() {
             />
           </Col>
           {!isOfficerInCharge && (
-            <Col xs={24} md={4} style={{ textAlign: "right" }}>
+            <Col xs={12} md={7}>
               <Button
                 type="primary"
                 size="large"
@@ -1063,33 +1258,34 @@ export default function FlightLog() {
         </Row>
       </Card>
 
-      {screens.xs ? (
-        <div>
-          {filteredLogs.length ? (
-            filteredLogs.map(renderCard)
-          ) : (
-            <Card style={{ borderRadius: 10 }}>
-              <Text type="secondary">No flight logs found</Text>
-            </Card>
-          )}
-        </div>
-      ) : (
-        <Table
-          columns={columns}
-          dataSource={filteredLogs}
-          loading={loading}
-          rowKey={(record) => record._id || record.id}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          scroll={{ x: 1100 }}
-          locale={{
-            emptyText:
-              searchQuery || selectedAircraft || selectedStatus !== "all"
-                ? "No flight logs found"
-                : "No flight logs yet",
-          }}
-          size="small"
-        />
-      )}
+      <FLogTable
+        columns={columns}
+        dataSource={filteredLogs}
+        loading={loading}
+        rowKey={(record) => record._id || record.id}
+        renderCard={renderCard}
+        mobileCardBreakpoint="xs"
+        pagination={{
+          pageSize,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50"],
+          current: currentPage,
+          onChange: (page, nextPageSize) => {
+            setPageSize(nextPageSize);
+            setCurrentPage(nextPageSize !== pageSize ? 1 : page);
+          },
+          showLessItems: isMobile,
+          size: isMobile ? "small" : "default",
+          placement: isMobile ? "bottom" : "bottomEnd",
+        }}
+        scroll={{ x: "max-content" }}
+        locale={{
+          emptyText:
+            searchQuery || selectedAircraft || selectedStatus !== "all"
+              ? "No flight logs found"
+              : "No flight logs yet",
+        }}
+      />
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
@@ -1118,7 +1314,7 @@ export default function FlightLog() {
           editMode={true}
           initialData={selectedLog}
           initialComponentData={selectedLog.componentData}
-          readOnly={isOfficerInCharge}
+          readOnly={isOfficerInCharge || isCompletedFlightLog(selectedLog)}
           onRelease={(log) => runSignedWorkflowForLog("release", log)}
           onAccept={(log) => runSignedWorkflowForLog("accept", log)}
           onNotify={runNotifyWorkflowForLog}
@@ -1129,6 +1325,7 @@ export default function FlightLog() {
 
       <PinVerifiedSignatureModal
         open={signatureWorkflow.open}
+        zIndex={6000}
         title={
           signatureWorkflow.action === "release"
             ? "Flight Log - Release"
@@ -1146,6 +1343,12 @@ export default function FlightLog() {
         }
         onCancel={closeSignatureWorkflow}
         onSave={handleSignedWorkflowAction}
+        afterOpenChange={(isOpen) => {
+          if (!isOpen && pendingSignaturePopupRef.current) {
+            setPopup(pendingSignaturePopupRef.current);
+            pendingSignaturePopupRef.current = null;
+          }
+        }}
       />
 
       <Modal
@@ -1153,6 +1356,17 @@ export default function FlightLog() {
         onCancel={closeWorkflowModal}
         onOk={handleWorkflowAction}
         confirmLoading={saving}
+        destroyOnHidden
+        afterOpenChange={(isOpen) => {
+          if (!isOpen && pendingWorkflowPopupRef.current) {
+            setPopup(pendingWorkflowPopupRef.current);
+            pendingWorkflowPopupRef.current = null;
+          }
+        }}
+        rootClassName="fl-workflow-confirm-modal"
+        wrapClassName="fl-workflow-confirm-wrap"
+        centered
+        zIndex={9999}
         okText="OK"
         cancelText="Cancel"
         title={
@@ -1174,6 +1388,14 @@ export default function FlightLog() {
           </p>
         )}
       </Modal>
+      <ResultPopup
+        open={popup.open}
+        zIndex={7000}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

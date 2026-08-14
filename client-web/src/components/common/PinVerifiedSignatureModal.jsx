@@ -1,9 +1,9 @@
 import React, { useContext, useRef, useState } from "react";
-import { Button, Input, message, Modal, Space, Typography } from "antd";
+import { Alert, Button, Input, message, Modal, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-
+import { ClearOutlined } from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function PinVerifiedSignatureModal({
@@ -11,8 +11,10 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
+  zIndex = 6000,
   onCancel,
   onSave,
+  afterOpenChange,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -20,12 +22,14 @@ export default function PinVerifiedSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const reset = () => {
     setStep("signature");
     setSignature("");
     setPin("");
     setSaving(false);
+    setErrorMessage("");
     signatureRef.current?.clear();
   };
 
@@ -36,6 +40,12 @@ export default function PinVerifiedSignatureModal({
 
   const handleSignatureEnd = () => {
     setSignature(signatureRef.current?.toDataURL("image/png") || "");
+  };
+
+  const handleClearSignature = () => {
+    signatureRef.current?.clear();
+    setSignature("");
+    setErrorMessage("");
   };
 
   const verifyPin = async () => {
@@ -64,16 +74,21 @@ export default function PinVerifiedSignatureModal({
   const handleOk = async () => {
     if (step === "signature") {
       if (!signature || signatureRef.current?.isEmpty()) {
-        message.error("Please draw your signature before continuing.");
+        const error = "Please draw your signature before continuing.";
+        setErrorMessage(error);
+        message.error(error);
         return;
       }
 
+      setErrorMessage("");
       setStep("pin");
       return;
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      message.error("Enter your 6-digit PIN to confirm this signature.");
+      const error = "Enter your 6-digit PIN to confirm this signature.";
+      setErrorMessage(error);
+      message.error(error);
       return;
     }
 
@@ -84,7 +99,9 @@ export default function PinVerifiedSignatureModal({
       reset();
       onCancel?.();
     } catch (error) {
-      message.error(error.message || "Could not verify your PIN.");
+      const errorText = error.message || "Could not verify your PIN.";
+      setErrorMessage(errorText);
+      message.error(errorText);
     } finally {
       setSaving(false);
     }
@@ -95,35 +112,67 @@ export default function PinVerifiedSignatureModal({
       open={open}
       title={title}
       onCancel={handleCancel}
-      onOk={handleOk}
-      confirmLoading={saving}
-      okText={step === "signature" ? "Continue" : "Sign and Confirm"}
-      cancelText="Cancel"
+      afterOpenChange={afterOpenChange}
+      zIndex={zIndex}
+      centered
       destroyOnHidden
+      footer={
+        step === "signature"
+          ? [
+              <Button
+                key="clear"
+                danger
+                icon={<ClearOutlined />}
+                onClick={handleClearSignature}
+              >
+                Clear
+              </Button>,
+              <Button key="continue" type="primary" onClick={handleOk}>
+                Continue
+              </Button>,
+            ]
+          : [
+              <Button
+                key="redraw"
+                onClick={() => {
+                  setErrorMessage("");
+                  setStep("signature");
+                }}
+              >
+                Redraw Signature
+              </Button>,
+              <Button
+                key="confirm"
+                type="primary"
+                loading={saving}
+                onClick={handleOk}
+              >
+                Sign and Confirm
+              </Button>,
+            ]
+      }
     >
+      {errorMessage && (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          message={errorMessage}
+          onClose={() => setErrorMessage("")}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {step === "signature" ? (
         <>
           <p>{description}</p>
-          <div className="fl-sig-box" style={{ height: 140, marginBottom: 8 }}>
+          <div className="fl-sig-box" style={{ height: 220, marginBottom: 8 }}>
             <SignatureCanvas
               ref={signatureRef}
               penColor="#000"
-              canvasProps={{ style: { width: "100%", height: 140 } }}
+              canvasProps={{ style: { width: "100%", height: 220 } }}
               onEnd={handleSignatureEnd}
             />
           </div>
-          <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                signatureRef.current?.clear();
-                setSignature("");
-              }}
-            >
-              Clear
-            </Button>
-          </Space>
         </>
       ) : (
         <>
@@ -133,7 +182,10 @@ export default function PinVerifiedSignatureModal({
             type="password"
             formatter={(value) => value.replace(/\D/g, "")}
             value={pin}
-            onChange={setPin}
+            onChange={(value) => {
+              setPin(value);
+              setErrorMessage("");
+            }}
           />
           <div style={{ marginTop: 16 }}>
             <Text type="secondary">Signature to be applied:</Text>
@@ -144,13 +196,6 @@ export default function PinVerifiedSignatureModal({
                 style={{ width: "100%", height: 60, objectFit: "contain" }}
               />
             </div>
-            <Button
-              size="small"
-              style={{ marginTop: 8 }}
-              onClick={() => setStep("signature")}
-            >
-              Redraw Signature
-            </Button>
           </div>
         </>
       )}

@@ -1,21 +1,31 @@
 import React, { useState } from "react";
-import { Table, Grid, Tag } from "antd";
-import dayjs from "dayjs";
+import { Grid, Tag, Typography } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
+import DateTimeCell from "../common/DateTimeCell";
 const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 const getPlatformColor = (platform) => {
-  if (!platform) return "N/A";
   if (platform.toUpperCase().includes("WEB")) return "blue";
   if (platform.toUpperCase().includes("MOBILE")) return "purple";
   return "geekblue";
 };
 
 const getBaseColor = (base) => {
-  if (!base) return "N/A";
   if (base.toUpperCase().includes("MANILA")) return "green";
   if (base.toUpperCase().includes("CEBU")) return "orange";
   if (base.toUpperCase().includes("CDO")) return "brown";
   return "cyan";
+};
+
+const renderContextValue = (value, getColor) => {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
+  if (!normalized) {
+    return <Text type="secondary">Not captured</Text>;
+  }
+  return <Tag color={getColor(normalized)}>{normalized}</Tag>;
 };
 
 const headers = [
@@ -37,7 +47,7 @@ const headers = [
     title: "Performed by",
     dataIndex: "username",
     key: "username",
-    width: 100,
+    width: 120,
     render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
   },
   {
@@ -45,26 +55,28 @@ const headers = [
     dataIndex: "platform",
     key: "platform",
     width: 100,
-    render: (text) => <Tag color={getPlatformColor(text)}>{text}</Tag>,
+    render: (text) => renderContextValue(text, getPlatformColor),
   },
   {
     title: "Base",
     dataIndex: "base",
     key: "base",
     width: 100,
-    render: (text) => <Tag color={getBaseColor(text)}>{text}</Tag>,
+    render: (text) => renderContextValue(text, getBaseColor),
   },
   {
     title: "Date and Time",
     dataIndex: "dateTime",
     key: "dateTime",
     sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
-    width: 260,
+    width: 100,
     render: (_, record) =>
-      record.displayDateTime ||
-      (record.dateTime
-        ? dayjs(record.dateTime).format("MMM DD, YYYY hh:mm A")
-        : "N/A"),
+      (
+        <DateTimeCell
+          value={record.dateTime}
+          fallback={record.displayDateTime || "N/A"}
+        />
+      ),
   },
 ];
 export default function ActivityLogTable({ data = [], loading }) {
@@ -79,12 +91,12 @@ export default function ActivityLogTable({ data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) => record._id || record.index}
       loading={loading}
-      size={isMobile ? "small" : "middle"}
+      size={"small"}
       scroll={{ x: 980 }}
       pagination={{
         current: currentPage,
@@ -97,7 +109,7 @@ export default function ActivityLogTable({ data = [], loading }) {
         showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
         showLessItems: isMobile,
         size: isMobile ? "small" : "default",
-        position: ["bottomRight"],
+        placement: "bottomEnd",
       }}
     />
   );

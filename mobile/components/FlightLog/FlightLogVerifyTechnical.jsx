@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   Modal,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  Dimensions
 } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import AlertComp from "../AlertComp";
@@ -338,7 +338,11 @@ export default function FlightLogVerifyTechnical({
     const verifiedLog = {
       ...entry,
       status: "verified",
-      verifiedAt: new Date().toLocaleDateString(),
+      verifiedAt: new Date().toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      }),
       vorCheckData: pendingVorCheckData, // Store VOR check data
     };
 
@@ -364,10 +368,10 @@ export default function FlightLogVerifyTechnical({
   const renderPage = (fields) => {
     return fields.map((field, index) => (
       <View key={index} style={{ marginBottom: 10 }}>
-        <Text style={{ fontSize: 12, fontWeight: "500", marginBottom: 4 }}>
+        <AppText style={{ fontSize: 12, fontWeight: "500", marginBottom: 4 }}>
           {field.label}
-        </Text>
-        <TextInput
+        </AppText>
+        <AppInput
           style={[
             styles.flightFormInput,
             {
@@ -408,11 +412,11 @@ export default function FlightLogVerifyTechnical({
                 onPress={onClose}
                 style={{ alignSelf: "flex-end", marginBottom: 10 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: "600"}}>✕</Text>
+                <AppText style={{ fontSize: 14, fontWeight: "600"}}>✕</AppText>
               </TouchableOpacity>
 
               {/* Title */}
-              <Text
+              <AppText
                 style={[
                   styles.newEntryTitle,
                   {
@@ -423,7 +427,7 @@ export default function FlightLogVerifyTechnical({
                 ]}
               >
                 Verify Technical Log
-              </Text>
+              </AppText>
 
               {renderPage(pages[currentPage])}
 
@@ -441,13 +445,13 @@ export default function FlightLogVerifyTechnical({
                     onPress={handleApprove}
                     style={[styles.primaryBtn, { minWidth: 100 }]}
                   >
-                    <Text style={styles.primaryBtnTxt}>Approve</Text>
+                    <AppText style={styles.primaryBtnTxt}>Approve</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleDiscard}
                     style={[styles.secondaryBtn, { minWidth: 100 }]}
                   >
-                    <Text style={styles.secondaryBtnTxt}>Cancel</Text>
+                    <AppText style={styles.secondaryBtnTxt}>Cancel</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -475,15 +479,15 @@ export default function FlightLogVerifyTechnical({
                     width: 100,
                   }}
                 >
-                  <Text style={{ textAlign: "center" }}>Previous</Text>
+                  <AppText style={{ textAlign: "center" }}>Previous</AppText>
                 </TouchableOpacity>
 
                 <View
                   style={{ backgroundColor: "#26866F", padding: 7, width: 50 }}
                 >
-                  <Text style={{ color: "#fff", textAlign: "center" }}>
+                  <AppText style={{ color: "#fff", textAlign: "center" }}>
                     {currentPage + 1}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <TouchableOpacity
@@ -501,7 +505,7 @@ export default function FlightLogVerifyTechnical({
                     width: 100,
                   }}
                 >
-                  <Text style={{ textAlign: "center" }}>Next</Text>
+                  <AppText style={{ textAlign: "center" }}>Next</AppText>
                 </TouchableOpacity>
               </View>
             </View>

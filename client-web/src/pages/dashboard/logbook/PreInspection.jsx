@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useEffect,
@@ -17,9 +17,8 @@ import {
   Row,
   Select,
   Space,
-  Table,
-  Tag,
   Tabs,
+  Tooltip,
   Typography,
   DatePicker,
   Grid,
@@ -27,19 +26,26 @@ import {
 } from "antd";
 import {
   CheckOutlined,
+  ExportOutlined,
   EyeOutlined,
   PlusOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import { confirmAction } from "../../../utils/confirmAction";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
+import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_OPTIONS = ["all", "released", "completed"];
 const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
 const isValidDate = (value) =>
@@ -401,20 +407,48 @@ const CHECKLIST_GROUPS = {
   ],
 };
 
-const signaturePayload = (user, signature) => ({
-  name:
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    user?.username ||
-    "User",
-  id: user?.id || user?._id || "",
-  signature,
-  timestamp: new Date().toISOString(),
-});
+const RELEASE_CHECK_FIELDS = Object.values(CHECKLIST_GROUPS).flatMap((groups) =>
+  groups.flatMap((group) => group.fields),
+);
+const areAllReleaseChecksComplete = (record = {}) =>
+  RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
+const hasValidFob = (record = {}) => {
+  const value = String(record.fob ?? "").trim();
+  if (!value) return false;
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0;
+};
+
+const sanitizeFileName = (value) =>
+  String(value || "pre-flight inspection")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
+
+const signaturePayload = (user, signature) => {
+  const licenseNo =
+    user?.licenseNo || user?.licenseNumber || user?.license || "";
+  return {
+    name:
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      user?.username ||
+      "User",
+    id: licenseNo,
+    licenseNo,
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
+};
 
 export default function PreInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPreInspections = canExportModule(
+    user?.jobTitle,
+    "preInspection",
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
@@ -428,11 +462,17 @@ export default function PreInspection() {
   const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
   const [createSelectAllState, setCreateSelectAllState] = useState({});
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
   const canCreate = role !== "pilot" && !readOnly;
-  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
   const canAccept = role === "pilot";
@@ -449,7 +489,9 @@ export default function PreInspection() {
     getDisplayStatus(record?.status) === "released" &&
     !record?.acceptedBy?.name;
   const isRecordReadOnly = (record) =>
-    readOnly || isCompletedInspection(record) || getDisplayStatus(record?.status) === "released";
+    readOnly ||
+    isCompletedInspection(record) ||
+    getDisplayStatus(record?.status) === "released";
   const getRecordActionLabel = (record) =>
     isAcceptableByPilot(record) ? "Accept" : "View";
 
@@ -457,15 +499,22 @@ export default function PreInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+        `${API_BASE}/api/pre-flight/getAllPreInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to load pre-inspections");
+        throw new Error(
+          data.message || "Failed to load pre-flight inspections",
+        );
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load pre-inspections");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load pre-flight inspections",
+      });
     } finally {
       setLoading(false);
     }
@@ -512,7 +561,7 @@ export default function PreInspection() {
     if (!match) return;
 
     setEditing(match);
-    navigate("/dashboard/pre-inspection", { replace: true });
+    navigate("/dashboard/pre-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
   const aircraftOptions = useMemo(
@@ -546,14 +595,7 @@ export default function PreInspection() {
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const needle = query.trim().toLowerCase();
-        const matchesQuery =
-          !needle ||
-          [item.rpc, item.aircraftType, item.date].some((value) =>
-            String(value || "")
-              .toLowerCase()
-              .includes(needle),
-          );
+        const matchesQuery = matchesSearch(query, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||
@@ -572,8 +614,12 @@ export default function PreInspection() {
   );
   const editingReadOnly = editing ? isRecordReadOnly(editing) : readOnly;
   const editingCanAccept = editing ? isAcceptableByPilot(editing) : false;
+  const allDraftReleaseChecksComplete = useMemo(
+    () => areAllReleaseChecksComplete(draft),
+    [draft],
+  );
 
-  const saveCreate = async () => {
+  const saveCreate = async (releaseSignature = "") => {
     if (
       !draft.rpc?.trim() ||
       !draft.base?.trim() ||
@@ -590,8 +636,9 @@ export default function PreInspection() {
 
     try {
       setCreating(true);
+      const releasedBy = signaturePayload(user, releaseSignature);
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/createPreInspection`,
+        `${API_BASE}/api/pre-flight/createPreInspection`,
         {
           method: "POST",
           headers: {
@@ -600,7 +647,8 @@ export default function PreInspection() {
           },
           body: JSON.stringify({
             ...draft,
-            status: "pending",
+            status: "released",
+            releasedBy,
             createdBy:
               `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
             confirmAction: true,
@@ -609,35 +657,53 @@ export default function PreInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to create pre-inspection");
-      message.success("Pre-inspection created");
+        throw new Error(
+          data.message || "Failed to release pre-flight inspection",
+        );
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-Flight Inspection Released!",
+        subTitle: "The pre-flight inspection has been released successfully.",
+      });
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
       setCreateSelectAllState({});
       await load();
     } catch (error) {
       setCreating(false);
-      message.error(error.message || "Failed to create pre-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to release pre-flight inspection",
+      });
     }
   };
 
-  const saveEdit = async (nextPayload = editing) => {
-    if (!nextPayload?._id) return;
-    if (isCompletedInspection(nextPayload)) {
-      message.info("Completed pre-inspections are view-only.");
-      return;
+  const saveEdit = async (
+    nextPayload = editing,
+    { throwOnError = false } = {},
+  ) => {
+    if (!nextPayload?._id) return false;
+    const currentRecord = records.find(
+      (record) => String(record._id) === String(nextPayload._id),
+    );
+    if (isCompletedInspection(currentRecord || editing)) {
+      message.info("Completed pre-flight inspections are view-only.");
+      return false;
     }
     if (!nextPayload.rpc?.trim() || !nextPayload.aircraftType?.trim()) {
       message.warning("RP/C and aircraft type are required");
-      return;
+      return false;
     }
     if (!nextPayload.date || !isValidDate(nextPayload.date)) {
       message.warning("Please select a valid date");
-      return;
+      return false;
     }
     try {
       const response = await fetch(
-        `${API_BASE}/api/pre-inspections/updatePreInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/pre-flight/updatePreInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
@@ -649,30 +715,156 @@ export default function PreInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to update pre-inspection");
+        throw new Error(
+          data.message || "Failed to update pre-flight inspection",
+        );
       setEditing(data.data);
       await load();
-      message.success("Pre-inspection updated");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-inspection updated",
+        subTitle: "The pre-flight inspection has been updated successfully.",
+      });
+      return true;
     } catch (error) {
-      message.error(error.message || "Failed to update pre-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update pre-flight inspection",
+      });
+      if (throwOnError) throw error;
+      return false;
     }
   };
 
-  const handleSignedAction = async (signature) => {
-    if (!editing) return;
-    if (signatureMode === "release") {
-      await saveEdit({
-        ...editing,
-        status: "released",
-        releasedBy: signaturePayload(user, signature),
+  const exportInspectionPdf = async (record) => {
+    if (!record?._id) return;
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/pre/${record._id}/export-pdf`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.message ||
+            data.error ||
+            "Failed to export pre-flight inspection",
+        );
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFileName(
+        `Pre-Flight Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+      )}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Pre-Flight Inspection Exported!",
+        subTitle:
+          "The pre-flight inspection PDF has been exported successfully.",
+      });
+    } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to export pre-flight inspection",
       });
     }
+  };
+
+  const requestCreateRelease = async () => {
+    if (!areAllReleaseChecksComplete(draft)) {
+      message.warning(
+        "Please check all pre-flight inspection items before release",
+      );
+      return;
+    }
+    if (!hasValidFob(draft)) {
+      message.warning("FOB must be filled in before release.");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Release Pre-Flight Inspection",
+      content:
+        "This will create and release the pre-flight inspection log. Continue?",
+      okText: "Release",
+    });
+    if (confirmed) setSignatureMode("create-release");
+  };
+
+  const requestEditRelease = async () => {
+    if (!editing) return;
+    if (!areAllReleaseChecksComplete(editing)) {
+      message.warning(
+        "Please check all pre-flight inspection items before release",
+      );
+      return;
+    }
+    if (!hasValidFob(editing)) {
+      message.warning("FOB must be filled in before release.");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Release Pre-Flight Inspection",
+      content: "Release this pre-flight inspection log?",
+      okText: "Release",
+    });
+    if (confirmed) setSignatureMode("release");
+  };
+
+  const requestAccept = async () => {
+    if (!editingCanAccept) return;
+    if (!hasValidFob(editing)) {
+      message.warning("FOB must be filled in before acceptance.");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Accept Pre-Flight Inspection",
+      content: "Accept and complete this pre-flight inspection log?",
+      okText: "Accept",
+    });
+    if (confirmed) setSignatureMode("accept");
+  };
+
+  const handleSignedAction = async (signature) => {
+    if (signatureMode === "create-release") {
+      await saveCreate(signature);
+      setSignatureMode(null);
+      return;
+    }
+    if (!editing) return;
+    if (signatureMode === "release") {
+      await saveEdit(
+        {
+          ...editing,
+          status: "released",
+          releasedBy: signaturePayload(user, signature),
+        },
+        { throwOnError: true },
+      );
+    }
     if (signatureMode === "accept") {
-      await saveEdit({
-        ...editing,
-        status: "completed",
-        acceptedBy: signaturePayload(user, signature),
-      });
+      await saveEdit(
+        {
+          ...editing,
+          status: "completed",
+          acceptedBy: signaturePayload(user, signature),
+        },
+        { throwOnError: true },
+      );
     }
     setSignatureMode(null);
   };
@@ -763,7 +955,7 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={4}>
+          <Col xs={12} md={4}>
             <Select
               style={{ width: "100%" }}
               value={aircraft}
@@ -775,14 +967,14 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={4}>
+          <Col xs={12} md={6}>
             <Select
               style={{ width: "100%" }}
               value={status}
               onChange={setStatus}
               options={STATUS_OPTIONS.map((value) => ({
                 value,
-                label: value === "all" ? "All Status" : value,
+                label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
               }))}
               size="large"
             />
@@ -803,12 +995,13 @@ export default function PreInspection() {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
         dataSource={filtered}
         pagination={{ pageSize: 10 }}
+        size={"small"}
         columns={[
           { title: "RP/C", dataIndex: "rpc" },
           { title: "Aircraft Type", dataIndex: "aircraftType" },
@@ -816,29 +1009,47 @@ export default function PreInspection() {
           {
             title: "Status",
             dataIndex: "status",
-            render: (value) => (
-              <Tag>{String(value || "pending").toUpperCase()}</Tag>
-            ),
+            render: (value) => renderStatusTag(value, "pending"),
           },
           {
             title: "Action",
             render: (_, record) => (
-              <Button
-                icon={
-                  isAcceptableByPilot(record) ? (
-                    <CheckOutlined />
-                  ) : (
-                    <EyeOutlined />
-                  )
-                }
-                onClick={() => setEditing(record)}
-              >
-                {getRecordActionLabel(record)}
-              </Button>
+              <Space size={12}>
+                <Tooltip title={getRecordActionLabel(record)}>
+                  <Button
+                    aria-label={getRecordActionLabel(record)}
+                    icon={
+                      isAcceptableByPilot(record) ? (
+                        <CheckOutlined />
+                      ) : (
+                        <EyeOutlined />
+                      )
+                    }
+                    onClick={() => setEditing(record)}
+                  />
+                </Tooltip>
+                {canExportPreInspections && (
+                  <Tooltip title="Export">
+                    <Button
+                      aria-label="Export"
+                      icon={<ExportOutlined />}
+                      onClick={() => exportInspectionPdf(record)}
+                    />
+                  </Tooltip>
+                )}
+              </Space>
             ),
           },
         ]}
       />
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filtered.length}</Text> pre-flight inspection
+            log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <Modal
         open={creating}
@@ -847,11 +1058,14 @@ export default function PreInspection() {
           setDraft(getDefaultPreInspectionDraft(user));
           setCreateSelectAllState({});
         }}
-        onOk={saveCreate}
-        title="Create Pre-Inspection"
-        okText="Create"
+        onOk={requestCreateRelease}
+        title="Release Pre-Flight Inspection"
+        okText="Release"
+        okButtonProps={{ disabled: !allDraftReleaseChecksComplete }}
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
+        centered
+        zIndex={9999}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
@@ -946,6 +1160,7 @@ export default function PreInspection() {
                             }))
                           }
                           placeholder="Aircraft Type"
+                          readOnly={true}
                         />
                       </Col>
                       <Col xs={24} md={12}>
@@ -1037,6 +1252,8 @@ export default function PreInspection() {
       </Modal>
 
       <Modal
+        centered
+        zIndex={9999}
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
@@ -1046,8 +1263,10 @@ export default function PreInspection() {
         }}
         title={
           editingCanAccept
-            ? "Accept Pre-Inspection"
-            : "View Pre-Inspection"
+            ? "Accept Pre-Flight Inspection"
+            : editingReadOnly
+              ? "View Entry - Pre-Flight Inspection"
+              : "Edit Entry - Pre-Flight Inspection"
         }
         okText="Save"
         cancelText="Close"
@@ -1061,11 +1280,15 @@ export default function PreInspection() {
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
-                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                <Text
+                  strong
+                  style={{ display: "block", marginBottom: 6, width: "100%" }}
+                >
                   RP/C
                 </Text>
                 <Select
                   size="large"
+                  style={{ width: "100%" }}
                   value={editing.rpc}
                   onChange={async (value) => {
                     const aircraftType = await resolveAircraftTypeByRpc(value);
@@ -1123,7 +1346,7 @@ export default function PreInspection() {
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
-                {editing.status}
+                {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
@@ -1132,6 +1355,28 @@ export default function PreInspection() {
                 {editing.acceptedBy?.name || "-"}
               </Descriptions.Item>
             </Descriptions>
+
+            <Row gutter={[10, 10]}>
+              <Col xs={24} md={8}>
+                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                  Fuel On Board <span style={{ color: "red" }}>*</span>
+                </Text>
+                <Input
+                  type="number"
+                  size="large"
+                  value={editing.fob}
+                  onChange={(e) =>
+                    setEditing((prev) => ({
+                      ...prev,
+                      fob: e.target.value,
+                    }))
+                  }
+                  disabled={editingReadOnly}
+                  placeholder="Fuel On Board"
+                  suffix="%"
+                />
+              </Col>
+            </Row>
 
             <Divider style={{ margin: "6px 0" }}>Checklist Points</Divider>
             <Row gutter={[8, 8]}>
@@ -1158,28 +1403,16 @@ export default function PreInspection() {
                 editing.status === "pending" &&
                 !editing.releasedBy?.name &&
                 !editingReadOnly && (
-                  <Button
-                    type="primary"
-                    onClick={() => setSignatureMode("release")}
-                  >
+                  <Button type="primary" onClick={requestEditRelease}>
                     Release
                   </Button>
                 )}
-              {canAccept &&
-                editing.status === "released" &&
-                !editing.acceptedBy?.name && (
-                  <Button
-                    type="primary"
-                    onClick={() => setSignatureMode("accept")}
-                  >
-                    Accept / Complete
-                  </Button>
-                )}
+              {editingCanAccept && (
+                <Button type="primary" onClick={requestAccept}>
+                  Accept / Complete
+                </Button>
+              )}
             </Space>
-            <Text type="secondary">
-              Mobile parity note: signatures and role-based release/accept are
-              now enforced on web too.
-            </Text>
           </Space>
         )}
       </Modal>
@@ -1187,18 +1420,26 @@ export default function PreInspection() {
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title={
-          signatureMode === "release"
-            ? "Release Pre-Inspection"
-            : "Accept Pre-Inspection"
+          signatureMode === "release" || signatureMode === "create-release"
+            ? "Release Pre-Flight Inspection"
+            : "Accept Pre-Flight Inspection"
         }
         description={
-          signatureMode === "release"
+          signatureMode === "release" || signatureMode === "create-release"
             ? "Draw your release signature."
             : "Draw your acceptance signature."
         }
         confirmDescription="Enter your 6-digit PIN to confirm this signature."
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
+      />
+      <ResultPopup
+        open={popup.open}
+        zIndex={7000}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

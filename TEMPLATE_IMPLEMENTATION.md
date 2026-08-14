@@ -7,38 +7,42 @@ You have successfully set up a Word document template export system for pre-flig
 ## What Was Implemented
 
 ### 1. **Backend Services** (Node.js/Express)
-   - **documentTemplateService.js**: Handles template loading and document generation
-   - **inspectionExportController.js**: API endpoints for document export
-   - **inspectionExportRoutes.js**: Route definitions for export endpoints
+
+- **documentTemplateService.js**: Handles template loading and document generation
+- **inspectionExportController.js**: API endpoints for document export
+- **inspectionExportRoutes.js**: Route definitions for export endpoints
 
 ### 2. **Mobile App Integration** (React Native/Expo)
-   - **documentExport.js**: Mobile-friendly export utilities
-   - Updated **PreInspectionCards.jsx**: Export menu with PDF and Word options
-   - Updated **PostInspectionCards.jsx**: Export menu with PDF and Word options
-   - Updated **PreInspection.jsx**: Word export handler
-   - Updated **PostInspection.jsx**: Word export handler
+
+- **documentExport.js**: Mobile-friendly export utilities
+- Updated **PreInspectionCards.jsx**: Export menu with PDF and Word options
+- Updated **PostInspectionCards.jsx**: Export menu with PDF and Word options
+- Updated **PreInspection.jsx**: Word export handler
+- Updated **PostInspection.jsx**: Word export handler
 
 ### 3. **Configuration Files**
-   - Updated **server.js**: Added route imports and registration
-   - Updated **server/package.json**: Added docxtemplater and pizzip dependencies
-   - Updated **mobile/package.json**: Added expo-file-system dependency
+
+- Updated **server.js**: Added route imports and registration
+- Updated **server/package.json**: Added docxtemplater and pizzip dependencies
+- Updated **mobile/package.json**: Added expo-file-system dependency
 
 ### 4. **Documentation**
-   - **TEMPLATE_SETUP_GUIDE.md**: Comprehensive setup and troubleshooting guide
-   - **setup-templates.sh**: Linux/Mac setup script
-   - **setup-templates.ps1**: Windows PowerShell setup script
+
+- **TEMPLATE_SETUP_GUIDE.md**: Comprehensive setup and troubleshooting guide
+- **setup-templates.sh**: Linux/Mac setup script
+- **setup-templates.ps1**: Windows PowerShell setup script
 
 ## File Structure Overview
 
 ```
 AirMS-Capstone/
 ├── TEMPLATE_SETUP_GUIDE.md          ← Setup documentation
-├── setup-templates.sh               ← Linux/Mac setup script  
+├── setup-templates.sh               ← Linux/Mac setup script
 ├── setup-templates.ps1              ← Windows setup script
 │
 ├── server/
 │   ├── templates/                   ← WHERE TO PLACE YOUR TEMPLATES
-│   │   ├── pre-inspection.docx
+│   │   ├── pre-flight inspection.docx
 │   │   └── post-inspection.docx
 │   │
 │   ├── services/
@@ -74,6 +78,7 @@ AirMS-Capstone/
 ## Quick Start
 
 ### 1. Install Dependencies
+
 ```bash
 # Run the setup script (Windows)
 .\setup-templates.ps1
@@ -87,13 +92,15 @@ cd ../mobile && npm install
 ```
 
 ### 2. Prepare Your Templates
+
 1. Place your Word documents in `server/templates/`:
-   - Rename to `pre-inspection.docx`
+   - Rename to `pre-flight inspection.docx`
    - Rename to `post-inspection.docx`
 
 2. Edit templates to include merge field placeholders (see section below)
 
 ### 3. Start the Services
+
 ```bash
 # Terminal 1: Start the server
 cd server
@@ -109,6 +116,7 @@ npm start
 Edit your Word documents to include placeholder fields that will be replaced with inspection data:
 
 ### Common Fields:
+
 ```
 {rpc}              - Aircraft registration/call sign
 {date}             - Inspection date
@@ -122,6 +130,7 @@ Edit your Word documents to include placeholder fields that will be replaced wit
 ```
 
 ### Loop for Inspection Items:
+
 ```
 For multiple items, use the loop structure:
 {#inspectionItems}
@@ -133,6 +142,7 @@ Initial: {initial}
 ```
 
 ### How to Add Fields in Word (MS Word)
+
 1. Click where you want the field
 2. Go to **Insert** → **Field**
 3. Type the field name (e.g., `rpc`, `date`, etc.)
@@ -143,6 +153,7 @@ The field will be replaced when the document is generated.
 ## How It Works
 
 ### User Flow:
+
 1. User opens an inspection in the mobile app
 2. Clicks the **export icon** on an inspection card
 3. Selects **"Export as Word"** from the menu
@@ -153,6 +164,7 @@ The field will be replaced when the document is generated.
 8. User can download, email, or share the document
 
 ### Data Flow:
+
 ```
 Mobile App
     ↓
@@ -174,6 +186,7 @@ Mobile App shares/downloads file
 ## API Endpoints
 
 ### Pre-Inspection Export
+
 ```
 GET /api/inspections/pre/:id/export-document
 Authorization: Bearer <token>
@@ -181,6 +194,7 @@ Response: Word document (.docx)
 ```
 
 ### Post-Inspection Export
+
 ```
 GET /api/inspections/post/:id/export-document
 Authorization: Bearer <token>
@@ -188,6 +202,7 @@ Response: Word document (.docx)
 ```
 
 ### Error Responses
+
 ```json
 {
   "error": "Error description",
@@ -209,22 +224,26 @@ Response: Word document (.docx)
 ## Troubleshooting
 
 ### Templates Not Found
+
 - Check templates are in `server/templates/`
-- Verify filenames are exactly: `pre-inspection.docx`, `post-inspection.docx`
+- Verify filenames are exactly: `pre-flight inspection.docx`, `post-inspection.docx`
 - Ensure file read permissions
 
 ### Merge Fields Not Replaced
+
 - Verify field names match exactly (case-sensitive)
 - Ensure template contains proper field syntax: `{fieldName}`
 - Check inspection data contains the field
 
 ### Mobile Export Not Working
+
 - Verify API is accessible from mobile device
 - Check internet connection
 - Review browser console for errors
 - Ensure server is running
 
 ### Package Installation Issues
+
 - Clear npm cache: `npm cache clean --force`
 - Delete node_modules and package-lock.json
 - Run npm install again
@@ -243,6 +262,7 @@ Response: Word document (.docx)
 For detailed information and troubleshooting, see **TEMPLATE_SETUP_GUIDE.md**
 
 Key files to reference:
+
 - **documentTemplateService.js** - Implementation details
 - **documentExport.js** - Mobile integration
 - **TEMPLATE_SETUP_GUIDE.md** - Comprehensive guide

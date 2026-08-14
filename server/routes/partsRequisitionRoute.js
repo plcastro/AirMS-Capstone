@@ -7,6 +7,7 @@ const {
   getAllRequisitions,
   getRequisitionSummary,
   getRequisitionById,
+  exportRequisitionExcel,
   createRequisition,
   updateRequisitionStatus,
 } = require("../controllers/partsRequisitionController");
@@ -14,6 +15,12 @@ const {
 router.get("/get-all-requisition", getAllRequisitions);
 router.get("/summary", verifyToken, getRequisitionSummary);
 router.get("/get-requisition-by-id/:id", getRequisitionById);
+router.get(
+  "/:id/export-excel",
+  verifyToken,
+  touchSessionActivity,
+  exportRequisitionExcel,
+);
 router.post(
   "/create-requisition",
   verifyToken,

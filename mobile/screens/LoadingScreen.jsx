@@ -1,4 +1,9 @@
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator
+} from "react-native";
+import AppText from "../components/common/AppText";
 import React from "react";
 import LoginLayout from "../Layout/LoginLayout";
 import { COLORS } from "../stylesheets/colors";
@@ -11,11 +16,11 @@ export default function LoadingScreen({
     <LoginLayout cardTitle="Please wait" cardsubTitle={message}>
       <View style={styles.content}>
         <ActivityIndicator size="large" color="#244D3B" />
-        <Text style={styles.text}>
+        <AppText style={styles.text}>
           {showLogo
             ? "We are preparing your session."
             : "Loading your request."}
-        </Text>
+        </AppText>
       </View>
     </LoginLayout>
   );

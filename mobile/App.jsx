@@ -1,21 +1,20 @@
 import React, { useContext, useEffect } from "react";
+import AppText from "./components/common/AppText";
 import {
   Platform,
   Image,
   TouchableOpacity,
-  Text,
   View,
-  Modal,
-  Pressable,
   PermissionsAndroid,
 } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import { Provider as PaperProvider, DefaultTheme } from "react-native-paper";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthProvider, AuthContext } from "./Context/AuthContext";
 import { NotificationProvider } from "./Context/NotificationContext";
+import { FontScaleProvider, useFontScale } from "./Context/FontScaleContext";
 import Login from "./screens/Auth/Login";
 import ForgotPassword from "./screens/Auth/ForgotPassword";
 import ResetPassword from "./screens/Auth/ResetPassword";
@@ -31,6 +30,8 @@ import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
+import { getUserImageUri, getUserInitials } from "./utilities/avatar";
+import { resolveUserRole } from "../shared/navigationAccess";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -46,6 +47,28 @@ const withDashboard = (loadScreen) => {
   }
 
   return DashboardScreen;
+};
+
+const getRoleHomeRoute = (role = "") => {
+  switch (
+    String(role || "")
+      .trim()
+      .toLowerCase()
+  ) {
+    case "superadmin":
+      return "Manage Users";
+    case "mechanic":
+      return "Maintenance Logs";
+    case "pilot":
+      return "Flight Logs";
+    case "maintenance manager":
+    case "officer-in-charge":
+      return "Reports and Analytics";
+    case "warehouse staff":
+      return "Parts Requisition";
+    default:
+      return "Profile";
+  }
 };
 
 const Screens = {
@@ -90,90 +113,84 @@ const Screens = {
 
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
-  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const { scale } = useFontScale();
+  const normalizedRole = resolveUserRole(user);
   const canAccessFlightAndPreInspection = [
     "maintenance manager",
     "pilot",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
-  const canAccessMechanics = ["maintenance manager", "admin"].includes(
+  const canAccessMechanics = ["maintenance manager", "superadmin"].includes(
     normalizedRole,
   );
-  const canAccessTasks = ["maintenance manager", "mechanic"].includes(
-    normalizedRole,
-  );
+  const canAccessTasks = [
+    "superadmin",
+    "maintenance manager",
+    "mechanic",
+  ].includes(normalizedRole);
   const canAccessPartsRequisition = [
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
-    "warehouse department",
-    "admin",
+    "warehouse staff",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenancePriority = [
     "maintenance manager",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "admin",
+    "superadmin",
   ].includes(normalizedRole);
   const canAccessMessages = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
   const canAccessProfile = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
-  const canAccessUserManagement = normalizedRole === "admin";
-  const canAccessActivityLogs = normalizedRole === "admin";
-  const initialDrawerRoute = canAccessReports
-    ? "Reports and Analytics"
-    : canAccessMessages
-      ? "Messages"
-      : canAccessUserManagement
-        ? "Manage Users"
-        : canAccessFlightAndPreInspection
-          ? "Flight Logs"
-          : canAccessTasks
-            ? "Tasks"
-            : canAccessPartsRequisition
-              ? "Parts Requisition Monitoring"
-              : "Profile";
-  const profileImage =
-    user?.image && typeof user.image === "string"
-      ? user.image.startsWith("http")
-        ? user.image
-        : `${API_BASE}${user.image}`
-      : `${API_BASE}/uploads/default_avatar.jpg`;
+  const canAccessUserManagement = normalizedRole === "superadmin";
+  const canAccessActivityLogs = normalizedRole === "superadmin";
+  const roleHomeRoute = getRoleHomeRoute(normalizedRole);
+  const canAccessInitialRoute =
+    (roleHomeRoute === "Reports and Analytics" && canAccessReports) ||
+    (roleHomeRoute === "Manage Users" && canAccessUserManagement) ||
+    (roleHomeRoute === "Maintenance Logs" && canAccessMaintenanceLog) ||
+    (roleHomeRoute === "Flight Logs" && canAccessFlightAndPreInspection) ||
+    (roleHomeRoute === "Parts Requisition" && canAccessPartsRequisition) ||
+    roleHomeRoute === "Profile";
+  const initialDrawerRoute = canAccessInitialRoute ? roleHomeRoute : "Profile";
+  const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
 
@@ -181,11 +198,11 @@ function DrawerNav({ navigation }) {
     return <LoadingScreen />;
   }
 
-  if (!user) return null;
+  if (!user) return <LoadingScreen message="Preparing your session..." />;
 
   const navLabel = {
     headerTitleStyle: {
-      fontSize: 14,
+      fontSize: scale(11),
       fontWeight: 200,
     },
   };
@@ -219,25 +236,43 @@ function DrawerNav({ navigation }) {
               }}
               onPress={() => navigation.navigate("Profile")}
             >
-              <Image
-                source={{
-                  uri: profileImage,
-                }}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  marginRight: 5,
-                }}
-              />
+              {profileImage ? (
+                <Image
+                  source={{
+                    uri: profileImage,
+                  }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
+                    backgroundColor: "#E6F4F1",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AppText style={{ color: "#26866F", fontWeight: "700" }}>
+                    {getUserInitials(user?.firstName, user?.lastName)}
+                  </AppText>
+                </View>
+              )}
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600" }}>
+                  <AppText style={{ fontSize: scale(14), fontWeight: "600" }}>
                     {`${user.firstName} ${user.lastName}` || "User"}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#777" }}>
+                  </AppText>
+                  <AppText style={{ fontSize: scale(12), color: "#777" }}>
                     {user?.jobTitle || ""}
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </TouchableOpacity>
@@ -249,7 +284,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Reports and Analytics"
           component={Screens.ReportsAndAnalytics}
-          options={navLabel}
+          options={{ ...navLabel, swipeEnabled: false }}
         />
       )}
 
@@ -297,14 +332,14 @@ function DrawerNav({ navigation }) {
           )}
           {canAccessFlightAndPreInspection && (
             <Drawer.Screen
-              name="Pre-Inspection"
+              name="Pre-Flight Inspection"
               component={Screens.PreInspection}
               options={navLabel}
             />
           )}
           {canAccessPostInspection && (
             <Drawer.Screen
-              name="Post-Inspection"
+              name="Post-Flight Inspection"
               component={Screens.PostInspection}
               options={navLabel}
             />
@@ -378,17 +413,18 @@ function LoginWrapper({ navigation, ...props }) {
     if (loading) return;
     if (!user) return;
 
-    if (user.status === "deactivated") {
+    if (user.status === "active") {
+      navigation.replace("dashboard");
       return;
     }
-    if (user.jobTitle === "Admin") {
+
+    if (user.status === "deactivated") {
       return;
     }
 
     if (user.status === "inactive") {
-      console.log(user.setupToken);
-      navigation.navigate("securitySetup", {
-        setupToken: user.token,
+      navigation.replace("securitySetup", {
+        setupToken: user.setupToken,
         email: user.email,
       });
 
@@ -405,13 +441,13 @@ function LoginWrapper({ navigation, ...props }) {
 
 // --- Stack navigator ---
 function StackNavWrapper() {
-  const { loading } = useContext(AuthContext);
+  const { user, loading } = useContext(AuthContext);
 
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
 
   return (
     <Stack.Navigator
-      initialRouteName="login"
+      initialRouteName={user ? "dashboard" : "login"}
       screenOptions={{
         headerShown: false,
       }}
@@ -431,116 +467,18 @@ function StackNavWrapper() {
 }
 
 function AppShell({ linking }) {
-  const {
-    user,
-    recordActivity,
-    showSessionTimeoutWarning,
-    warningSecondsRemaining,
-    continueSession,
-    logoutUser,
-  } = useContext(AuthContext);
-  const shouldShowSessionWarning =
-    Boolean(user) &&
-    showSessionTimeoutWarning === true &&
-    Number.isFinite(warningSecondsRemaining) &&
-    warningSecondsRemaining > 0;
-
   return (
-    <View
-      style={{ flex: 1 }}
-      onStartShouldSetResponderCapture={() => {
-        if (user) {
-          recordActivity?.();
-        }
-        return false;
-      }}
-    >
+    <View style={{ flex: 1 }}>
       <NavigationContainer
         linking={linking}
         ref={navigationRef}
-        onStateChange={() => {
-          if (user) {
-            recordActivity?.();
-          }
-        }}
       >
         <StackNavWrapper />
       </NavigationContainer>
-      <Modal
-        transparent
-        animationType="fade"
-        visible={shouldShowSessionWarning}
-        onRequestClose={() => continueSession?.()}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0, 0, 0, 0.35)",
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              backgroundColor: "#fff",
-              borderRadius: 10,
-              padding: 18,
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: "600", marginBottom: 10 }}>
-              Session Timeout Warning
-            </Text>
-            <Text style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
-              You&apos;ve been inactive for a while. For your security,
-              you&apos;ll be signed out in 2 minutes unless you continue.
-            </Text>
-            <Text style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
-              Auto sign-out in {Math.max(0, warningSecondsRemaining || 0)}{" "}
-              seconds.
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-              }}
-            >
-              <Pressable
-                onPress={() => logoutUser?.()}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#d9d9d9",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text style={{ color: "#333" }}>Sign out now</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => continueSession?.()}
-                style={{
-                  backgroundColor: "#26866F",
-                  borderRadius: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  marginLeft: 8,
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "600" }}>
-                  Continue session
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
-export default function App() {
+function AppProviders() {
   const linking = LinkingConfig;
   const theme = {
     ...DefaultTheme,
@@ -578,12 +516,20 @@ export default function App() {
   }, []);
 
   return (
+    <NotificationProvider>
+      <PaperProvider theme={theme}>
+        <AppShell linking={linking} />
+      </PaperProvider>
+    </NotificationProvider>
+  );
+}
+
+export default function App() {
+  return (
     <AuthProvider>
-      <NotificationProvider>
-        <PaperProvider theme={theme}>
-          <AppShell linking={linking} />
-        </PaperProvider>
-      </NotificationProvider>
+      <FontScaleProvider>
+        <AppProviders />
+      </FontScaleProvider>
     </AuthProvider>
   );
 }

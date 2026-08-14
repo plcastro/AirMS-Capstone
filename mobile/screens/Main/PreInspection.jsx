@@ -1,27 +1,21 @@
 import React, { useState, useContext, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AppText from "../../components/common/AppText";
+import { View, ScrollView, TouchableOpacity, StatusBar } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
 import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
-import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
-import {
-  exportPreInspectionTemplatePdf,
-  exportPreInspectionToWord,
-} from "../../utilities/documentExport";
+import { getAuthHeaders } from "../../utilities/mobileApi";
+import { exportPreInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
+import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const getDisplayStatus = (status) =>
   status === "completed"
@@ -47,36 +41,30 @@ export default function PreInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
-  const [exportAlert, setExportAlert] = useState({
-    visible: false,
-    inspection: null,
-  });
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportPreInspections = canExportModule(userRole, "preInspection");
 
   useEffect(() => {
     const fetchPreInspections = async () => {
       try {
-        const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
-          `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+          `${API_BASE}/api/pre-flight/getAllPreInspection`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch pre-inspections");
+          throw new Error("Failed to fetch pre-flight inspections");
         }
 
         const data = await response.json();
         setInspections(data.data || []);
       } catch (error) {
-        console.error("Error fetching pre-inspections:", error);
-        showToast("Failed to fetch pre-inspections");
+        console.error("Error fetching pre-flight inspections:", error);
+        showToast("Failed to fetch pre-flight inspections");
       }
     };
 
@@ -145,19 +133,12 @@ export default function PreInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
 
   const filteredInspections = inspections.filter((inspection) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      inspection.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.aircraftType
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      inspection.date?.includes(searchQuery);
+    const matchesSearchText = matchesSearch(searchQuery, inspection);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -168,7 +149,7 @@ export default function PreInspection({ route }) {
       selectedStatus === "all" ||
       getDisplayStatus(inspection.status) === selectedStatus;
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesAircraft && matchesStatus;
   });
 
   const handleEdit = (inspection) => {
@@ -177,7 +158,7 @@ export default function PreInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    setExportAlert({ visible: true, inspection });
+    await exportPreInspectionTemplatePdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
@@ -197,20 +178,12 @@ export default function PreInspection({ route }) {
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
         {/* Search Bar Row with New Entry Button */}
         <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
-          <View style={styles.unifiedSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <TextInput
-              placeholder="Search aircraft"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder="Search aircraft"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
 
           {/* Only show New Entry button for non-pilot roles */}
           {userRole !== "pilot" && !isOfficerInCharge && (
@@ -223,7 +196,9 @@ export default function PreInspection({ route }) {
                 size={20}
                 color={COLORS.white}
               />
-              <Text style={styles.unifiedActionButtonText}>New Entry</Text>
+              <AppText style={styles.unifiedActionButtonText}>
+                New Entry
+              </AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -238,7 +213,7 @@ export default function PreInspection({ route }) {
                 setShowStatusDropdown(false);
               }}
             >
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -250,9 +225,9 @@ export default function PreInspection({ route }) {
                 ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? selectedAircraft
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -274,11 +249,9 @@ export default function PreInspection({ route }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
-                      </Text>
+                      <AppText style={styles.unifiedDropdownItemText}>
+                        {aircraft === "all" ? "All Aircraft" : aircraft}
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -294,10 +267,10 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -318,9 +291,9 @@ export default function PreInspection({ route }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -331,7 +304,7 @@ export default function PreInspection({ route }) {
         {/* Pre-Inspection Cards */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
         >
           {filteredInspections.length === 0 ? (
             <View
@@ -347,7 +320,7 @@ export default function PreInspection({ route }) {
                 size={60}
                 color={COLORS.grayMedium}
               />
-              <Text
+              <AppText
                 style={{
                   marginTop: 10,
                   fontSize: 12,
@@ -355,8 +328,8 @@ export default function PreInspection({ route }) {
                   textAlign: "center",
                 }}
               >
-                No pre-inspections found
-              </Text>
+                No pre-flight inspections found
+              </AppText>
               {/* Only show Create New Entry button for non-pilot roles */}
               {userRole !== "pilot" && !isOfficerInCharge && (
                 <TouchableOpacity
@@ -369,9 +342,9 @@ export default function PreInspection({ route }) {
                     borderRadius: 8,
                   }}
                 >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                     Create New Entry
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
             </View>
@@ -379,7 +352,7 @@ export default function PreInspection({ route }) {
             <PreInspectionCards
               inspections={filteredInspections}
               onEdit={handleEdit}
-              onExport={handleExport}
+              onExport={canExportPreInspections ? handleExport : undefined}
               userRole={userRole}
             />
           )}
@@ -393,16 +366,13 @@ export default function PreInspection({ route }) {
         rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
         onSave={async (newEntry) => {
           try {
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-inspections/createPreInspection`,
+              `${API_BASE}/api/pre-flight/createPreInspection`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveNewEntry(newEntry),
                   confirmAction: true,
@@ -411,7 +381,7 @@ export default function PreInspection({ route }) {
             );
 
             if (!response.ok) {
-              throw new Error("Failed to create pre-inspection");
+              throw new Error("Failed to create pre-flight inspection");
             }
 
             const data = await response.json();
@@ -419,8 +389,8 @@ export default function PreInspection({ route }) {
             setShowNewEntryModal(false);
             showToast("Pre-inspection created successfully");
           } catch (error) {
-            console.error("Error creating pre-inspection:", error);
-            showToast("Failed to create pre-inspection");
+            console.error("Error creating pre-flight inspection:", error);
+            showToast("Failed to create pre-flight inspection");
             throw error;
           }
         }}
@@ -440,22 +410,19 @@ export default function PreInspection({ route }) {
         onSave={async (updatedInspection) => {
           try {
             if (isCompletedInspection(selectedInspection)) {
-              showToast("Completed pre-inspections are view-only.");
+              showToast("Completed pre-flight inspections are view-only.");
               setShowEditModal(false);
               setSelectedInspection(null);
               return;
             }
 
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/pre-inspections/updatePreInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/pre-flight/updatePreInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveEdit(updatedInspection),
                   confirmAction: true,
@@ -464,7 +431,7 @@ export default function PreInspection({ route }) {
             );
 
             if (!response.ok) {
-              throw new Error("Failed to update pre-inspection");
+              throw new Error("Failed to update pre-flight inspection");
             }
 
             const data = await response.json();
@@ -477,30 +444,13 @@ export default function PreInspection({ route }) {
             setSelectedInspection(null);
             showToast("Pre-inspection updated successfully");
           } catch (error) {
-            console.error("Error updating pre-inspection:", error);
-            showToast("Failed to update pre-inspection");
+            console.error("Error updating pre-flight inspection:", error);
+            showToast("Failed to update pre-flight inspection");
             throw error;
           }
         }}
         userRole={userRole}
         readOnly={isCompletedInspection(selectedInspection)}
-      />
-      <AlertComp
-        visible={exportAlert.visible}
-        title="Export Pre-Inspection"
-        message="Choose export format."
-        confirmText="PDF"
-        cancelText="Word Template"
-        onCancel={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPreInspectionToWord(inspection);
-        }}
-        onConfirm={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPreInspectionTemplatePdf(inspection);
-        }}
       />
     </View>
   );

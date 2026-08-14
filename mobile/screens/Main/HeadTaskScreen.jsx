@@ -1,9 +1,8 @@
 import React, { useContext, useState, useEffect } from "react";
+import AppText from "../../components/common/AppText";
 import {
   View,
-  TextInput,
   FlatList,
-  Text,
   Dimensions,
   RefreshControl,
 } from "react-native";
@@ -14,11 +13,13 @@ import AddTask from "../../components/TaskAssignment/AddTask";
 import EditTask from "../../components/TaskAssignment/EditTask";
 import Button from "../../components/Button";
 import AlertComp from "../../components/AlertComp";
+import { SearchBar } from "../../components/common/MobileModule";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -90,8 +91,7 @@ export default function HeadTaskScreen({
     .map((employee) => ({
       ...employee,
       isBusy: isEmployeeBusy(employee.id),
-    }))
-    .filter((employee) => !employee.isBusy);
+    }));
 
   useEffect(() => {
     if (addTaskDraft) {
@@ -201,13 +201,7 @@ export default function HeadTaskScreen({
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
-    const taskTitle = task?.title || task?.maintenanceType || "";
-
-    if (
-      searchQuery &&
-      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
+    if (!matchesSearch(searchQuery, task)) return false;
 
     switch (activeTab) {
       case "Assigned":
@@ -523,9 +517,9 @@ export default function HeadTaskScreen({
             borderTopRightRadius: 4,
           }}
         >
-          <Text style={{ fontWeight: "600", fontSize: 16 }}>
+          <AppText style={{ fontWeight: "600", fontSize: 16 }}>
             {formatDisplayDate(item.endDateTime || item.dueDate)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Task Card */}
@@ -555,22 +549,11 @@ export default function HeadTaskScreen({
       <View
         style={[styles.searchRow, { marginBottom: 10, flexWrap: "nowrap" }]}
       >
-        <TextInput
-          placeholder="Search tasks"
-          placeholderTextColor={COLORS.grayDark}
-          style={[
-            styles.searchInput,
-            {
-              flex: 1,
-              minWidth: 0,
-              width: "auto",
-              marginRight: 0,
-              height: 48,
-              borderRadius: 10,
-            },
-          ]}
+        <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholder="Search tasks"
+          containerStyle={{ flex: 1, minWidth: 0, height: 48, marginBottom: 0 }}
         />
         <Button
           label="+ Task"
@@ -608,7 +591,7 @@ export default function HeadTaskScreen({
               activeTab === tab
                 ? styles.primaryBtnTxt
                 : [styles.secondaryBtnTxt, { color: COLORS.grayDark }],
-              { fontSize: 12 },
+              { fontSize: 10 },
             ]}
           />
         ))}
@@ -620,17 +603,18 @@ export default function HeadTaskScreen({
           data={filteredTasks}
           keyExtractor={(item) => item.id || item._id}
           renderItem={renderTask}
+          contentContainerStyle={{ paddingBottom: 110 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={fetchTasks} />
           }
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 20 }}>
+            <AppText style={{ textAlign: "center", marginTop: 20 }}>
               {activeTab === "Assigned"
                 ? "No tasks assigned in this tab"
                 : activeTab === "For Review"
                   ? "No tasks for review in this tab"
                   : "No tasks reviewed in this tab"}
-            </Text>
+            </AppText>
           }
         />
       </View>

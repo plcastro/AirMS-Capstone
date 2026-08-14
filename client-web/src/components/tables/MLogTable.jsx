@@ -1,5 +1,6 @@
 import React from "react";
-import { Input, Table } from "antd";
+import { Input } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function MLogTable({
   headers,
@@ -48,7 +49,7 @@ export default function MLogTable({
   }));
 
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={tableData}
       rowKey="__rowKey"

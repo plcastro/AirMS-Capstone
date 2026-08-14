@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
-import { View, TextInput } from "react-native";
+import {
+  View,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -9,6 +11,8 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
 import AlertComp from "../../components/AlertComp";
+import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -192,13 +196,7 @@ export default function MechanicTaskScreen({
   }, []);
 
   const filteredTasks = tasks.filter((task) => {
-    const taskTitle = task?.title || task?.maintenanceType || "";
-
-    if (
-      searchQuery &&
-      !taskTitle.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
+    if (!matchesSearch(searchQuery, task)) return false;
 
     if (selectedAircraft !== "all") {
       if (task.aircraft !== selectedAircraft) {
@@ -400,15 +398,12 @@ export default function MechanicTaskScreen({
           },
         ]}
       >
-        <View style={[styles.unifiedSearchBox, { flex: 0.58 }]}>
-          <TextInput
-            placeholder="Search tasks"
-            placeholderTextColor="#666"
-            style={styles.unifiedSearchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search tasks"
+          containerStyle={{ flex: 0.58, height: 48, marginBottom: 0 }}
+        />
 
         <View
           style={{

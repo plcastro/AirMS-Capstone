@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Button, Grid, Space, Table, Tag, Typography } from "antd";
+import { Button, Grid, Space, Tag, Tooltip, Typography } from "antd";
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
+  DownloadOutlined,
   EyeOutlined,
   FileDoneOutlined,
   InboxOutlined,
@@ -10,6 +11,8 @@ import {
   SyncOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
+import DateOnlyCell from "../common/DateOnlyCell";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 const { Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -62,25 +65,12 @@ const getStatusMeta = (status) => {
 const getStatusDisplayLabel = (status) =>
   status === "Ordered" ? "Restocked" : status || "N/A";
 
-const parseTableDate = (dateValue) => {
-  const parsed = new Date(dateValue);
-
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.getTime();
-  }
-
-  const [month, day, year] = String(dateValue || "")
-    .split("/")
-    .map(Number);
-
-  return new Date(year, month - 1, day).getTime() || 0;
-};
-
 export default function PRMTable({
   data = [],
   loading = false,
   onUpdated,
   initialSelectedRecord = null,
+  onExportExcel,
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -90,6 +80,7 @@ export default function PRMTable({
     Boolean(initialSelectedRecord),
   );
   const [selectedWRS, setSelectedWRS] = useState(initialSelectedRecord);
+  const [exportingRecordId, setExportingRecordId] = useState(null);
 
   const handleShowModal = (record) => {
     setSelectedWRS(record);
@@ -101,13 +92,25 @@ export default function PRMTable({
     setPageSize(nextPageSize);
   };
 
+  const handleExportExcel = async (event, record) => {
+    event.stopPropagation();
+    if (!onExportExcel || exportingRecordId) return;
+
+    setExportingRecordId(record._id);
+    try {
+      await onExportExcel(record);
+    } finally {
+      setExportingRecordId(null);
+    }
+  };
+
   const columns = useMemo(
     () => [
       {
         title: "WRS No.",
         dataIndex: "wrsNo",
         key: "wrsNo",
-        width: 140,
+        width: 100,
         sorter: (a, b) => String(a.wrsNo ?? "").localeCompare(b.wrsNo ?? ""),
         render: (value) => <strong>{value || "N/A"}</strong>,
       },
@@ -115,18 +118,20 @@ export default function PRMTable({
         title: "Aircraft",
         dataIndex: "aircraft",
         key: "aircraft",
-        width: 130,
+        width: 120,
         sorter: (a, b) =>
           String(a.aircraft ?? "").localeCompare(String(b.aircraft ?? "")),
       },
       {
         title: "Requester",
         key: "requester",
-        width: 220,
+        width: 200,
         render: (_, record) =>
           record.staff?.employeeName || record.staff?.requisitioner || "N/A",
         sorter: (a, b) =>
-          String(a.staff?.employeeName ?? a.staff?.requisitioner ?? "").localeCompare(
+          String(
+            a.staff?.employeeName ?? a.staff?.requisitioner ?? "",
+          ).localeCompare(
             String(b.staff?.employeeName ?? b.staff?.requisitioner ?? ""),
           ),
       },
@@ -135,14 +140,15 @@ export default function PRMTable({
         dataIndex: "dateRequested",
         key: "dateRequested",
         width: 150,
-        sorter: (a, b) =>
-          parseTableDate(a.dateRequested) - parseTableDate(b.dateRequested),
+        render: (value) => (
+          <DateOnlyCell value={value} fallback={value || "N/A"} />
+        ),
       },
       {
         title: "Items",
         dataIndex: "noOfItems",
         key: "noOfItems",
-        width: 100,
+        width: 50,
         align: "right",
         sorter: (a, b) => Number(a.noOfItems || 0) - Number(b.noOfItems || 0),
       },
@@ -150,7 +156,7 @@ export default function PRMTable({
         title: "Total Qty",
         dataIndex: "totalQty",
         key: "totalQty",
-        width: 110,
+        width: 100,
         align: "right",
         sorter: (a, b) => Number(a.totalQty || 0) - Number(b.totalQty || 0),
       },
@@ -207,35 +213,54 @@ export default function PRMTable({
       {
         title: "Action",
         key: "action",
-        width: 120,
+        width: onExportExcel ? 140 : 120,
         fixed: screens.lg ? "right" : undefined,
         render: (_, record) => (
-          <Button
-            type="primary"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={(event) => {
-              event.stopPropagation();
-              handleShowModal(record);
-            }}
-          >
-            Review
-          </Button>
+          <Space size={6}>
+            <Tooltip title="Review">
+              <Button
+                type="primary"
+                size="small"
+                aria-label="Review"
+                icon={<EyeOutlined />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleShowModal(record);
+                }}
+              />
+            </Tooltip>
+            {onExportExcel && (
+              <Tooltip title="Export Excel">
+                <Button
+                  size="small"
+                  aria-label="Export Excel"
+                  icon={<DownloadOutlined />}
+                  loading={exportingRecordId === record._id}
+                  disabled={
+                    Boolean(exportingRecordId) &&
+                    exportingRecordId !== record._id
+                  }
+                  onClick={(event) => handleExportExcel(event, record)}
+                />
+              </Tooltip>
+            )}
+          </Space>
         ),
       },
     ],
-    [screens.lg],
+    [exportingRecordId, onExportExcel, screens.lg],
   );
 
   return (
     <>
-      <Table
+      <ResponsiveTable
         columns={columns}
         dataSource={data}
+        autoDateSort={false}
         rowKey={(record) => record._id}
-        size={isMobile ? "small" : "middle"}
         loading={loading}
         scroll={{ x: "max-content" }}
+        size={"small"}
         onRow={(record) => ({
           onClick: () => handleShowModal(record),
           style: { cursor: "pointer" },
@@ -251,7 +276,7 @@ export default function PRMTable({
           showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
           showLessItems: isMobile,
           size: isMobile ? "small" : "default",
-          position: ["bottomRight"],
+          placement: ["bottomRight"],
         }}
       />
 

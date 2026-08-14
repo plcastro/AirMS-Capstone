@@ -13,19 +13,65 @@ export default function FlightLogModalInfo({
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
 
-  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
+  const normalizeRpc = (value = "") =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
+
+  const normalizeAircraftOptions = (payload) => {
+    const source = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+    return [
+      ...new Set(
+        source
+          .map((item) =>
+            typeof item === "string"
+              ? item
+              : item?.tailNum || item?.aircraft || item?.rpc || "",
+          )
+          .map(normalizeRpc)
+          .filter(Boolean),
+      ),
+    ].sort();
+  };
 
   useEffect(() => {
     const fetchAircraftOptions = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
-        const data = await response.json();
+        const [partsResult, aircraftResult, aircraftWithBasesResult] =
+          await Promise.allSettled([
+            fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`).then(
+              (response) => response.json(),
+            ),
+          ]);
+        const partsData =
+          partsResult.status === "fulfilled" ? partsResult.value : null;
+        const aircraftData =
+          aircraftResult.status === "fulfilled" ? aircraftResult.value : null;
+        const aircraftWithBasesData =
+          aircraftWithBasesResult.status === "fulfilled"
+            ? aircraftWithBasesResult.value
+            : null;
+        const options = [
+          ...normalizeAircraftOptions(partsData),
+          ...normalizeAircraftOptions(aircraftData),
+          ...normalizeAircraftOptions(aircraftWithBasesData),
+        ];
 
-        if (response.ok && Array.isArray(data.data)) {
-          setAircraftOptions(data.data);
-        }
+        setAircraftOptions([...new Set(options)].sort());
       } catch (error) {
         console.error("Error fetching aircraft options:", error);
+        setAircraftOptions([]);
       }
     };
 
@@ -39,7 +85,7 @@ export default function FlightLogModalInfo({
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
-              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+              `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
             ),
           ),
         );
@@ -49,9 +95,7 @@ export default function FlightLogModalInfo({
 
         const nextOngoingAircraft = payloads.flatMap((payload, index) =>
           responses[index].ok && Array.isArray(payload.data)
-            ? payload.data
-                .map((log) => normalizeRpc(log.rpc))
-                .filter(Boolean)
+            ? payload.data.map((log) => normalizeRpc(log.rpc)).filter(Boolean)
             : [],
         );
 
@@ -81,13 +125,20 @@ export default function FlightLogModalInfo({
     [formData.aircraftType],
   );
 
-  const availableAircraftOptions = useMemo(() => {
+  const aircraftSelectOptions = useMemo(() => {
     const ongoingSet = new Set(ongoingAircraftRpcs);
     const currentRpc = normalizeRpc(formData.rpc);
 
-    return aircraftOptions.filter((rpc) => {
+    return aircraftOptions.map((rpc) => {
       const normalizedRpc = normalizeRpc(rpc);
-      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+      const disabled =
+        ongoingSet.has(normalizedRpc) && normalizedRpc !== currentRpc;
+
+      return {
+        disabled,
+        label: disabled ? `${rpc} (ongoing flight log)` : rpc,
+        value: rpc,
+      };
     });
   }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
@@ -117,7 +168,9 @@ export default function FlightLogModalInfo({
       <div className="fl-section-title">BASIC INFORMATION</div>
 
       <div className="fl-card">
-        <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
+        <div className="fl-card-header">
+          Rotary Winged Aircraft - Single Engine
+        </div>
         <div className="fl-card-body">
           <div className="fl-field-row">
             <span className="fl-label">RP-C: *</span>
@@ -128,14 +181,12 @@ export default function FlightLogModalInfo({
                 placeholder="Select RP/C"
                 onChange={handleRPCSelect}
                 disabled={!isEditable || !isRPCEditable}
+                aria-required="true"
                 showSearch
                 optionFilterProp="label"
                 popupMatchSelectWidth
                 getPopupContainer={() => document.body}
-                options={availableAircraftOptions.map((rpc) => ({
-                  value: rpc,
-                  label: rpc,
-                }))}
+                options={aircraftSelectOptions}
               />
             </div>
           </div>
@@ -146,7 +197,7 @@ export default function FlightLogModalInfo({
           </div>
 
           <div className="fl-field-row">
-            <span className="fl-label">Date:</span>
+            <span className="fl-label">Date: *</span>
             <DatePicker
               className="fl-input"
               style={{ width: "100%" }}
@@ -159,6 +210,8 @@ export default function FlightLogModalInfo({
                 )
               }
               disabled={!isEditable}
+              required
+              aria-required="true"
             />
           </div>
 

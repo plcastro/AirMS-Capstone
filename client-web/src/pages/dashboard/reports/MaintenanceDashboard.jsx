@@ -1,8 +1,4 @@
 import React, { useContext, useEffect, useState, useMemo } from "react";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   App,
   Row,
@@ -14,27 +10,52 @@ import {
   Statistic,
   Typography,
   Segmented,
-  Table,
   Tag,
   Grid,
+  Masonry,
+  Space,
 } from "antd";
 import { SearchOutlined, ExportOutlined } from "@ant-design/icons";
 
-import MaintenancePerformance from "./MaintenancePerformance";
-import MaintenanceSummary from "./MaintenanceSummary";
-import MaintenanceHistory from "./MaintenanceHistory";
-import ComponentUsage from "./ComponentUsage";
-import GeneralReports from "./GeneralReports";
-import {
-  FlightLogReport,
-  InspectionReport,
-  PartsRequisitionReport,
-} from "./ModuleReports";
-import { SDMChart } from "../../../components/common/PieChart";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
+import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  drawPdfReportHeader,
+  loadNgcpLogoDataUrl,
+} from "../../../components/common/ExportFile";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+const MaintenancePerformance = React.lazy(() => import("./MaintenancePerformance"));
+const MaintenanceSummary = React.lazy(() => import("./MaintenanceSummary"));
+const MaintenanceHistory = React.lazy(() => import("./MaintenanceHistory"));
+const ComponentUsage = React.lazy(() => import("./ComponentUsage"));
+const GeneralReports = React.lazy(() => import("./GeneralReports"));
+const FlightLogReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.FlightLogReport,
+  })),
+);
+const InspectionReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.InspectionReport,
+  })),
+);
+const PartsRequisitionReport = React.lazy(() =>
+  import("./ModuleReports").then((module) => ({
+    default: module.PartsRequisitionReport,
+  })),
+);
+const SDMChart = React.lazy(() =>
+  import("../../../components/common/PieChart").then((module) => ({
+    default: module.SDMChart,
+  })),
+);
 
 const normalizeReportStatus = (value) =>
   String(value || "Unknown")
@@ -53,6 +74,12 @@ const toRows = (counts) =>
     .map(([label, value]) => ({ label, value }))
     .sort((left, right) => right.value - left.value);
 
+const toKnownBaseRows = (counts) =>
+  Object.entries(counts)
+    .filter(([label]) => isKnownBase(label))
+    .map(([label, value]) => ({ label, value }))
+    .sort((left, right) => right.value - left.value);
+
 const monthLabel = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "No date";
@@ -66,10 +93,29 @@ const getRecordDate = (record = {}) =>
   record.createdAt ||
   record.updatedAt;
 
-const buildSafeFileName = (value) =>
-  String(value || "reports-analytics")
+const buildModuleName = (value) =>
+  String(value || "Reports and Analytics")
+    .trim()
+    .replace(/\bReport\b/gi, "")
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (moduleName, extension) =>
+  `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
 
 const UNKNOWN_BASE_VALUES = new Set(["", "UNKNOWN", "N/A", "NA", "UNASSIGNED"]);
 
@@ -156,8 +202,10 @@ const isRepairedTask = (task = {}) => {
 export default function MaintenanceDashboard() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isCompactReports = !screens.lg;
   const { message } = App.useApp();
-  const { getValidToken } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportReports = canExportModule(user?.jobTitle, "reports");
   const [searchText, setSearchText] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
@@ -173,6 +221,13 @@ export default function MaintenanceDashboard() {
   const [stats, setStats] = useState({ completed: 0, dueSoon: 0, overdue: 0 });
   const [taskDetailView, setTaskDetailView] = useState("dueSoon");
   const [activeKpi, setActiveKpi] = useState("dueSoon");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+  const [showAnalyticsWidgets, setShowAnalyticsWidgets] = useState(false);
   const statTitleStyle = {
     fontSize: 12,
     lineHeight: 1.25,
@@ -183,12 +238,14 @@ export default function MaintenanceDashboard() {
     lineHeight: 1.1,
     wordBreak: "break-word",
   };
-  const compactStatValueStyle = {
-    fontSize: 18,
-    lineHeight: 1.15,
-    wordBreak: "break-word",
+  const reportMasonryColumns = {
+    xs: 1,
+    sm: 1,
+    md: 1,
+    lg: 2,
+    xl: 2,
+    xxl: 2,
   };
-
   const isCompletedTask = (task = {}) => {
     const status = String(task.status || "")
       .trim()
@@ -199,6 +256,24 @@ export default function MaintenanceDashboard() {
       Boolean(task.completedAt)
     );
   };
+
+  useEffect(() => {
+    let timeoutId;
+    let idleId;
+
+    const revealAnalytics = () => setShowAnalyticsWidgets(true);
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(revealAnalytics, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(revealAnalytics, 800);
+    }
+
+    return () => {
+      if (idleId) window.cancelIdleCallback?.(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   const getTaskDueDate = (task = {}) => {
     const value = task.dueDate || task.endDateTime || task.dateRectified;
@@ -251,12 +326,10 @@ export default function MaintenanceDashboard() {
       try {
         setLoadingTasks(true);
 
-        const token = await getValidToken();
-        if (!token) {
+        const headers = await getAuthHeader();
+        if (!headers.Authorization) {
           throw new Error("No authentication token found. Please log in.");
         }
-
-        const headers = { Authorization: `Bearer ${token}` };
         const requests = {
           tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
           baseAnalytics: fetch(
@@ -272,15 +345,15 @@ export default function MaintenanceDashboard() {
             headers,
           }),
           flightLogs: fetch(
-            `${API_BASE}/api/flightlogs?page=1&limit=500&sortBy=date&sortOrder=desc`,
+            `${API_BASE}/api/flightlogs?page=1&limit=300&sortBy=date&sortOrder=desc`,
             { headers },
           ),
           preInspections: fetch(
-            `${API_BASE}/api/pre-inspections/getAllPreInspection`,
+            `${API_BASE}/api/pre-flight/getAllPreInspection`,
             { headers },
           ),
           postInspections: fetch(
-            `${API_BASE}/api/post-inspections/getAllPostInspection`,
+            `${API_BASE}/api/post-flight/getAllPostInspection`,
             { headers },
           ),
           partsRequisitions: fetch(
@@ -351,7 +424,7 @@ export default function MaintenanceDashboard() {
     };
 
     fetchReportData();
-  }, [getValidToken]);
+  }, [getAuthHeader]);
 
   const cards = [
     {
@@ -369,6 +442,13 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["general", "reports", "overview", "cross-module"],
+      searchRecords: [
+        tasks,
+        flightLogs,
+        preInspections,
+        postInspections,
+        partsRequisitions,
+      ],
     },
     {
       key: "performance",
@@ -376,6 +456,7 @@ export default function MaintenanceDashboard() {
       title: "Performance Overview",
       component: <MaintenancePerformance tasks={tasks} />,
       keywords: ["performance", "overview"],
+      searchRecords: tasks,
     },
     {
       key: "history",
@@ -383,6 +464,7 @@ export default function MaintenanceDashboard() {
       title: "Maintenance History",
       component: <MaintenanceHistory tasks={tasks} loading={loadingTasks} />,
       keywords: ["history", "maintenance", "record"],
+      searchRecords: tasks,
     },
     {
       key: "summary",
@@ -390,6 +472,7 @@ export default function MaintenanceDashboard() {
       title: "Maintenance Insights",
       component: <MaintenanceSummary tasks={tasks} loading={loadingTasks} />,
       keywords: ["summary", "insights", "repair"],
+      searchRecords: tasks,
     },
     {
       key: "component",
@@ -399,41 +482,45 @@ export default function MaintenanceDashboard() {
         <ComponentUsage records={partsRecords} loading={loadingTasks} />
       ),
       keywords: ["component", "usage", "analysis"],
+      searchRecords: partsRecords,
     },
     {
       key: "flight-log",
       category: "Logbook",
-      title: "Flight Log Report",
+      title: "",
       component: (
         <FlightLogReport records={flightLogs} loading={loadingTasks} />
       ),
       keywords: ["flight", "log", "aircraft", "release"],
+      searchRecords: flightLogs,
     },
     {
-      key: "pre-inspection",
+      key: "pre-flight inspection",
       category: "Logbook",
-      title: "Pre-Inspection Report",
+      title: "",
       component: (
         <InspectionReport
-          title="Pre-Inspection Report"
+          title="Pre-Flight Inspection Report"
           records={preInspections}
           loading={loadingTasks}
         />
       ),
-      keywords: ["pre", "inspection", "pre-inspection", "aircraft"],
+      keywords: ["pre", "inspection", "pre-flight inspection", "aircraft"],
+      searchRecords: preInspections,
     },
     {
-      key: "post-inspection",
+      key: "post-flight inspection",
       category: "Logbook",
-      title: "Post-Inspection Report",
+      title: "",
       component: (
         <InspectionReport
-          title="Post-Inspection Report"
+          title="Post-Flight Inspection Report"
           records={postInspections}
           loading={loadingTasks}
         />
       ),
-      keywords: ["post", "inspection", "post-inspection", "aircraft"],
+      keywords: ["post", "inspection", "post-flight inspection", "aircraft"],
+      searchRecords: postInspections,
     },
     {
       key: "parts-requisition",
@@ -446,6 +533,7 @@ export default function MaintenanceDashboard() {
         />
       ),
       keywords: ["parts", "requisition", "warehouse", "wrs", "stock"],
+      searchRecords: partsRequisitions,
     },
   ];
 
@@ -473,6 +561,7 @@ export default function MaintenanceDashboard() {
         if (haystack.includes(token)) relevance += 1;
       });
       if (haystack.includes(query)) relevance += 2;
+      if (matchesSearch(query, card.searchRecords || [])) relevance += 2;
 
       return { ...card, relevance };
     })
@@ -582,14 +671,14 @@ export default function MaintenanceDashboard() {
       dataIndex: "dueDate",
       key: "dueDate",
       width: 140,
-      render: formatDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "Completed",
       dataIndex: "completedDate",
       key: "completedDate",
       width: 140,
-      render: formatDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "Priority",
@@ -608,15 +697,8 @@ export default function MaintenanceDashboard() {
       key: "status",
       width: 130,
       render: (value) => {
-        const normalized = String(value || "").toLowerCase();
-        const color =
-          taskDetailView === "overdue"
-            ? "red"
-            : ["completed", "turned in", "approved"].includes(normalized)
-              ? "green"
-              : "gold";
-
-        return <Tag color={color}>{String(value || "N/A").toUpperCase()}</Tag>;
+        if (taskDetailView === "overdue") return renderStatusTag("overdue");
+        return renderStatusTag(value);
       },
     },
     {
@@ -634,29 +716,23 @@ export default function MaintenanceDashboard() {
     );
 
     if (knownAnalyticsRows.length > 0) {
-      const rows = knownAnalyticsRows.map((row) => ({
-        label: row.base,
-        value: row.damagedCount || 0,
-      }));
-      const repairedRows = knownAnalyticsRows.map((row) => ({
-        label: row.base,
-        value: row.repairedCount || 0,
-      }));
+      const rows = knownAnalyticsRows
+        .map((row) => ({
+          label: row.base,
+          value: row.damagedCount || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
+      const repairedRows = knownAnalyticsRows
+        .map((row) => ({
+          label: row.base,
+          value: row.repairedCount || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
       return {
-        topDamagedBase: baseAnalytics.topDamagedBase
-          ? {
-              label: baseAnalytics.topDamagedBase.base,
-              value: baseAnalytics.topDamagedBase.damagedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
-        topRepairedBase: baseAnalytics.topRepairedBase
-          ? {
-              label: baseAnalytics.topRepairedBase.base,
-              value: baseAnalytics.topRepairedBase.repairedCount || 0,
-            }
-          : { label: "N/A", value: 0 },
-        damageRows: rows.sort((a, b) => b.value - a.value),
-        repairRows: repairedRows.sort((a, b) => b.value - a.value),
+        topDamagedBase: rows[0] || { label: "N/A", value: 0 },
+        topRepairedBase: repairedRows[0] || { label: "N/A", value: 0 },
+        damageRows: rows,
+        repairRows: repairedRows,
         averageRectificationHours:
           baseAnalytics?.totals?.averageRectificationHours || 0,
         sameDayRepairCount: baseAnalytics?.totals?.sameDayRepairCount || 0,
@@ -676,8 +752,8 @@ export default function MaintenanceDashboard() {
       }
     });
 
-    const damageRows = toRows(damageCounts);
-    const repairRows = toRows(repairCounts);
+    const damageRows = toKnownBaseRows(damageCounts);
+    const repairRows = toKnownBaseRows(repairCounts);
 
     return {
       topDamagedBase: damageRows[0] || { label: "N/A", value: 0 },
@@ -760,8 +836,8 @@ export default function MaintenanceDashboard() {
           ["Tracked Components", componentRows.length],
           ["Due / Due Soon Components", dueComponents.length],
           ["Flight Logs", flightLogs.length],
-          ["Pre-Inspections", preInspections.length],
-          ["Post-Inspections", postInspections.length],
+          ["Pre-Flight Inspections", preInspections.length],
+          ["Post-Flight Inspections", postInspections.length],
           ["Parts Requisitions", partsRequisitions.length],
           ["Requested Line Items", totalRequisitionItems],
           [
@@ -856,7 +932,7 @@ export default function MaintenanceDashboard() {
         ).map((row) => [row.label, row.value]),
       },
       {
-        title: "Pre-Inspection Status Counts",
+        title: "Pre-Flight Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
           countBy(preInspections, (record) =>
@@ -865,7 +941,7 @@ export default function MaintenanceDashboard() {
         ).map((row) => [row.label, row.value]),
       },
       {
-        title: "Post-Inspection Status Counts",
+        title: "Post-Flight Inspection Status Counts",
         columns: ["Status", "Count"],
         rows: toRows(
           countBy(postInspections, (record) =>
@@ -924,6 +1000,10 @@ export default function MaintenanceDashboard() {
 
   const exportReportsToExcel = async () => {
     try {
+      const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+        import("exceljs"),
+        import("file-saver"),
+      ]);
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "AirMS";
       workbook.created = new Date();
@@ -960,22 +1040,48 @@ export default function MaintenanceDashboard() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      saveAs(
-        blob,
-        `${buildSafeFileName("Reports and Analytics")} Numbers.xlsx`,
-      );
-      message.success("Reports and analytics Excel exported successfully.");
+      saveAs(blob, buildReportFileName("Reports and Analytics", "xlsx"));
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Excel Exported!",
+        subTitle: "Reports and analytics Excel has been exported successfully.",
+      });
     } catch (error) {
       console.error("Reports Excel export failed:", error);
-      message.error(`Excel export failed: ${error.message}`);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: `Excel export failed: ${error.message}`,
+      });
     }
   };
 
   const exportReportsToPdf = async () => {
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF("p", "pt", "a4");
       const sections = buildReportExportSections();
-      let y = 42;
+      const generatedAt = `Generated: ${new Date().toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })}`;
+      const logoDataUrl = await loadNgcpLogoDataUrl().catch((error) => {
+        console.warn(error);
+        return null;
+      });
+      let y = drawPdfReportHeader(doc, {
+        title: "Reports and Analytics - Statistics",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
       const pageWidth = doc.internal.pageSize.getWidth();
 
       const drawKpiCard = ({
@@ -1055,15 +1161,6 @@ export default function MaintenanceDashboard() {
         });
       };
 
-      doc.setFontSize(18);
-      doc.text("Reports and Analytics - Statistics", 40, y);
-      y += 18;
-      doc.setFontSize(10);
-      doc.setTextColor(90);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 40, y);
-      doc.setTextColor(0);
-      y += 20;
-
       const cardGap = 12;
       const cardWidth = (pageWidth - 80 - cardGap) / 2;
       const cardHeight = 52;
@@ -1140,12 +1237,20 @@ export default function MaintenanceDashboard() {
       });
 
       doc.addPage();
-      y = 42;
+      y = drawPdfReportHeader(doc, {
+        title: "Reports and Analytics - Details",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
 
       sections.forEach((section, index) => {
         if (index > 0 && y > 650) {
           doc.addPage();
-          y = 42;
+          y = drawPdfReportHeader(doc, {
+            title: "Reports and Analytics - Details",
+            subtitle: generatedAt,
+            logoDataUrl,
+          });
         }
 
         doc.setFontSize(13);
@@ -1172,11 +1277,21 @@ export default function MaintenanceDashboard() {
         y = doc.lastAutoTable.finalY + 22;
       });
 
-      doc.save(`${buildSafeFileName("Reports and Analytics")} Numbers.pdf`);
-      message.success("Reports and analytics PDF exported successfully.");
+      doc.save(buildReportFileName("Reports and Analytics", "pdf"));
+      setPopup({
+        open: true,
+        status: "success",
+        title: "PDF Exported!",
+        subTitle: "Reports and analytics PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Reports PDF export failed:", error);
-      message.error(`PDF export failed: ${error.message}`);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: `PDF export failed: ${error.message}`,
+      });
     }
   };
 
@@ -1187,6 +1302,10 @@ export default function MaintenanceDashboard() {
       exportReportsToExcel();
     }
   };
+
+  const analyticsFallback = (
+    <Card size="small" loading styles={{ body: { minHeight: 160 } }} />
+  );
 
   return (
     <div
@@ -1209,30 +1328,34 @@ export default function MaintenanceDashboard() {
             />
           </Col>
 
-          <Col xs={12} sm={8} md={6} lg={5}>
-            <Select
-              value={selectedFileType}
-              onChange={setSelectedFileType}
-              size="large"
-              style={{ width: "100%" }}
-              options={fileTypeOptions.map((type) => ({
-                label: type,
-                value: type,
-              }))}
-            />
-          </Col>
+          {canExportReports && (
+            <>
+              <Col xs={12} sm={8} md={6} lg={5}>
+                <Select
+                  value={selectedFileType}
+                  onChange={setSelectedFileType}
+                  size="large"
+                  style={{ width: "100%" }}
+                  options={fileTypeOptions.map((type) => ({
+                    label: type,
+                    value: type,
+                  }))}
+                />
+              </Col>
 
-          <Col xs={12} sm={8} md={6} lg={4}>
-            <Button
-              type="primary"
-              icon={<ExportOutlined />}
-              block
-              onClick={handleExportReports}
-              width={"100%"}
-            >
-              Export
-            </Button>
-          </Col>
+              <Col xs={12} sm={8} md={6} lg={4}>
+                <Button
+                  type="primary"
+                  icon={<ExportOutlined />}
+                  block
+                  onClick={handleExportReports}
+                  width={"100%"}
+                >
+                  Export
+                </Button>
+              </Col>
+            </>
+          )}
         </Row>
       </Card>
       {!hasActiveSearch ? (
@@ -1243,7 +1366,7 @@ export default function MaintenanceDashboard() {
                 Operations
               </Title>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1267,7 +1390,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1290,7 +1413,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1313,7 +1436,7 @@ export default function MaintenanceDashboard() {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
                 styles={{ body: { padding: 12 } }}
@@ -1353,11 +1476,17 @@ export default function MaintenanceDashboard() {
                     activeKpi === "baseDamage" ? "#cf1322" : undefined,
                 }}
               >
-                <SDMChart
-                  data={damageBasePieData}
-                  height={190}
-                  outerRadius={58}
-                />
+                {showAnalyticsWidgets ? (
+                  <React.Suspense fallback={analyticsFallback}>
+                    <SDMChart
+                      data={damageBasePieData}
+                      height={290}
+                      outerRadius={78}
+                    />
+                  </React.Suspense>
+                ) : (
+                  analyticsFallback
+                )}
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topDamagedBase.label} (
                   {baseDamageRepairSummary.topDamagedBase.value})
@@ -1376,11 +1505,17 @@ export default function MaintenanceDashboard() {
                     activeKpi === "baseRepair" ? "#048a25" : undefined,
                 }}
               >
-                <SDMChart
-                  data={repairedBasePieData}
-                  height={190}
-                  outerRadius={58}
-                />
+                {showAnalyticsWidgets ? (
+                  <React.Suspense fallback={analyticsFallback}>
+                    <SDMChart
+                      data={repairedBasePieData}
+                      height={290}
+                      outerRadius={78}
+                    />
+                  </React.Suspense>
+                ) : (
+                  analyticsFallback
+                )}
                 <Text type="secondary">
                   Top: {baseDamageRepairSummary.topRepairedBase.label} (
                   {baseDamageRepairSummary.topRepairedBase.value})
@@ -1389,7 +1524,11 @@ export default function MaintenanceDashboard() {
             </Col>
           </Row>
 
-          <Card style={{ marginBottom: 20 }} title="Insight Drilldown">
+          <Card
+            style={{ marginBottom: 20 }}
+            title="Insight Drilldown"
+            styles={{ body: { padding: isMobile ? 10 : 24 } }}
+          >
             {(activeKpi === "completed" ||
               activeKpi === "dueSoon" ||
               activeKpi === "overdue") && (
@@ -1420,7 +1559,8 @@ export default function MaintenanceDashboard() {
                 >
                   Task records for the selected operational KPI.
                 </Text>
-                <Table
+                <ResponsiveTable
+                  size={"small"}
                   columns={taskDetailColumns}
                   dataSource={taskDetailRows}
                   rowKey={(record) => record.key}
@@ -1431,15 +1571,20 @@ export default function MaintenanceDashboard() {
                     pageSizeOptions: ["5", "10", "15"],
                     showTotal: (total, range) =>
                       `${range[0]}-${range[1]} of ${total}`,
-                    position: ["bottomRight"],
+                    placement: "bottomEnd",
                   }}
-                  scroll={{ x: isMobile ? 980 : 1300 }}
+                  scroll={isMobile ? undefined : { x: 1300 }}
+                  mobilePrimaryColumn="aircraft"
+                  mobileSecondaryColumn="dueDate"
+                  mobileMetaLimit={6}
+                  mobileStackMeta
                 />
               </>
             )}
 
             {activeKpi === "baseDamage" && (
-              <Table
+              <ResponsiveTable
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
                   { title: "Damage Reports", dataIndex: "value", key: "value" },
@@ -1454,7 +1599,8 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "baseRepair" && (
-              <Table
+              <ResponsiveTable
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "label", key: "label" },
                   {
@@ -1473,7 +1619,8 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "avgRectification" && (
-              <Table
+              <ResponsiveTable
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
                   {
@@ -1494,7 +1641,8 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "sameDay" && (
-              <Table
+              <ResponsiveTable
+                size={"small"}
                 columns={[
                   { title: "Base", dataIndex: "base", key: "base" },
                   {
@@ -1515,7 +1663,8 @@ export default function MaintenanceDashboard() {
             )}
 
             {activeKpi === "modules" && (
-              <Table
+              <ResponsiveTable
+                size={"small"}
                 columns={[
                   { title: "Category", dataIndex: "category", key: "category" },
                   { title: "Report Module", dataIndex: "title", key: "title" },
@@ -1547,36 +1696,89 @@ export default function MaintenanceDashboard() {
           style={{ marginBottom: 16, borderColor: "#26866f" }}
           styles={{ body: { padding: isMobile ? 10 : 12 } }}
         >
-          {topMatchedCard.component}
+          {showAnalyticsWidgets ? (
+            <React.Suspense fallback={analyticsFallback}>
+              {topMatchedCard.component}
+            </React.Suspense>
+          ) : (
+            analyticsFallback
+          )}
         </Card>
       ) : null}
 
-      {remainingCardsByGroup.map(([category, categoryCards]) => (
+      {!showAnalyticsWidgets ? (
         <Card
-          key={category}
           size="small"
-          title={`${category} Reports`}
+          title="Analytics Modules"
           style={{ marginBottom: 16 }}
-          styles={{
-            body: { paddingTop: 10, paddingInline: isMobile ? 10 : 16 },
-          }}
-        >
-          <Row gutter={[isMobile ? 10 : 16, isMobile ? 10 : 16]}>
-            {categoryCards.map((card) => (
-              <Col xs={24} xl={12} key={card.key}>
-                <Card
-                  size="small"
-                  title={card.title}
-                  style={{ height: "100%" }}
-                  styles={{ body: { padding: isMobile ? 10 : 12 } }}
-                >
-                  {card.component}
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Card>
-      ))}
+          loading
+        />
+      ) : null}
+
+      {showAnalyticsWidgets && remainingCardsByGroup.map(([category, categoryCards]) => {
+        const useSingleColumn = isCompactReports || category === "Logbook";
+
+        return (
+          <Card
+            key={category}
+            size="small"
+            title={`${category} Reports`}
+            style={{ marginBottom: 16 }}
+            styles={{
+              body: {
+                paddingTop: 10,
+                paddingInline: isCompactReports ? 10 : 16,
+              },
+            }}
+          >
+            {useSingleColumn ? (
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+                {categoryCards.map((card) => (
+                  <Card
+                    key={card.key}
+                    size="small"
+                    title={card.title}
+                    style={{ width: "100%" }}
+                    styles={{ body: { padding: 10 } }}
+                  >
+                    <React.Suspense fallback={analyticsFallback}>
+                      {card.component}
+                    </React.Suspense>
+                  </Card>
+                ))}
+              </Space>
+            ) : (
+              <Masonry
+                columns={reportMasonryColumns}
+                gutter={[16, 16]}
+                items={categoryCards.map((card) => ({
+                  key: card.key,
+                  data: card,
+                }))}
+                itemRender={({ data: card }) => (
+                  <Card
+                    size="small"
+                    title={card.title}
+                    style={{ width: "100%" }}
+                    styles={{ body: { padding: 12 } }}
+                  >
+                    <React.Suspense fallback={analyticsFallback}>
+                      {card.component}
+                    </React.Suspense>
+                  </Card>
+                )}
+              />
+            )}
+          </Card>
+        );
+      })}
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

@@ -29,4 +29,13 @@ const userSessionSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// Keep inactive session history for audit, then let MongoDB remove old records.
+userSessionSchema.index(
+  { logoutAt: 1 },
+  {
+    expireAfterSeconds: 365 * 24 * 60 * 60,
+    partialFilterExpression: { isActive: false },
+  },
+);
+
 module.exports = mongoose.model("UserSession", userSessionSchema);

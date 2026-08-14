@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import AppText from "../common/AppText";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -109,7 +113,7 @@ export default function PostInspectionModalStation1({
   const renderItemWithChecks = (index, item) => {
     return (
       <View key={item.key} style={{ marginBottom: 20 }}>
-        <Text
+        <AppText
           style={{
             fontSize: 12,
             fontWeight: "bold",
@@ -118,7 +122,7 @@ export default function PostInspectionModalStation1({
           }}
         >
           {index + 1}. {item.title}
-        </Text>
+        </AppText>
 
         {item.checks.map((check, checkIndex) => {
           const fieldKey = `${item.key}_${check.subKey}`;
@@ -160,7 +164,7 @@ export default function PostInspectionModalStation1({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   color: COLORS.grayDark,
@@ -169,7 +173,7 @@ export default function PostInspectionModalStation1({
                 }}
               >
                 {check.label}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           );
         })}
@@ -200,11 +204,11 @@ export default function PostInspectionModalStation1({
             paddingHorizontal: 16,
           }}
         >
-          <Text
+          <AppText
             style={{ fontSize: 14, fontWeight: "600", color: COLORS.white }}
           >
             Station 1
-          </Text>
+          </AppText>
         </View>
 
         {isEditable && (
@@ -243,11 +247,11 @@ export default function PostInspectionModalStation1({
                   />
                 )}
               </View>
-              <Text
+              <AppText
                 style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
               >
                 Select All
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         )}

@@ -11,6 +11,8 @@ const getOrdinalSuffix = (n) => {
   return "th";
 };
 
+const REQUIRED_LEG_FIELDS = new Set(["date"]);
+
 export default function FlightLogModalDestinations({ formData, handlers, isEditable = true }) {
   const { updateLeg, addLeg, removeLeg, addStation, removeStation, updateStation } = handlers;
   const legs = formData.legs || [];
@@ -47,6 +49,8 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                         onChange={(e) => updateStation(legIdx, stIdx, "from", e.target.value)}
                         placeholder="From"
                         disabled={!isEditable}
+                        required
+                        aria-required="true"
                         style={{ flex: 1 }}
                       />
                       <span className="fl-station-sep">-</span>
@@ -56,6 +60,8 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                         onChange={(e) => updateStation(legIdx, stIdx, "to", e.target.value)}
                         placeholder="To"
                         disabled={!isEditable}
+                        required
+                        aria-required="true"
                         style={{ flex: 1 }}
                       />
                       {isEditable && leg.stations.length > 1 && (
@@ -93,7 +99,9 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                 ["Passengers:", "passengers"],
               ].map(([label, key]) => (
                 <div className="fl-field-row" key={key}>
-                  <span className="fl-label">{label}</span>
+                  <span className="fl-label">
+                    {label}{REQUIRED_LEG_FIELDS.has(key) ? " *" : ""}
+                  </span>
                   {key === "date" ? (
                     <DatePicker
                       className="fl-input"
@@ -110,6 +118,8 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                         )
                       }
                       disabled={!isEditable}
+                      required
+                      aria-required="true"
                     />
                   ) : (
                     <Input
@@ -117,6 +127,8 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                       value={leg[key] || ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
                       disabled={!isEditable}
+                      required={REQUIRED_LEG_FIELDS.has(key)}
+                      aria-required={REQUIRED_LEG_FIELDS.has(key)}
                     />
                   )}
                 </div>

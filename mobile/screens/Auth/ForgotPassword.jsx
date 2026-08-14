@@ -1,8 +1,8 @@
 //Mobile
 import React, { useState } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   ScrollView,
   TouchableOpacity,
@@ -95,10 +95,10 @@ export default function ForgotPassword() {
           cardTitle="Forgot Password"
           cardsubTitle="Please provide your email to proceed"
         >
-          <Text style={styles.label}>
-            Email <Text style={{ color: "red" }}>*</Text>
-          </Text>
-          <TextInput
+          <AppText style={styles.label}>
+            Email <AppText style={{ color: "red" }}>*</AppText>
+          </AppText>
+          <AppInput
             style={[styles.formInput, { marginBottom: 0 }]}
             maxLength={254}
             placeholder="Enter email address"
@@ -113,7 +113,7 @@ export default function ForgotPassword() {
             }}
           />
           {error ? (
-            <Text
+            <AppText
               style={{
                 color: "red",
                 textAlign: "left",
@@ -122,10 +122,10 @@ export default function ForgotPassword() {
               }}
             >
               {error}
-            </Text>
+            </AppText>
           ) : null}
           <Button
-            label={loading ? "SENDING..." : "SEND RESET INSTRUCTIONS"}
+            label={loading ? "SENDING..." : "CONTINUE"}
             onPress={sendResetLink}
             disabled={!isFormValid || loading}
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
@@ -135,27 +135,27 @@ export default function ForgotPassword() {
             onPress={() => nav.replace("login")}
             activeOpacity={0.8}
           >
-            <Text
+            <AppText
               style={{
                 marginTop: 20,
                 color: "#374151",
               }}
             >
               Remember your password?
-              <Text
+              <AppText
                 style={{
                   color: "#059670",
                   fontWeight: "bold",
                 }}
               >
                 {" "}
-                Sign In
-              </Text>
-            </Text>
+                Log in
+              </AppText>
+            </AppText>
           </TouchableOpacity>
 
           {message ? (
-            <Text
+            <AppText
               style={{
                 color: "green",
                 textAlign: "left",
@@ -164,7 +164,7 @@ export default function ForgotPassword() {
               }}
             >
               {message}
-            </Text>
+            </AppText>
           ) : null}
         </LoginLayout>
       </ScrollView>

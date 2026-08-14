@@ -4,15 +4,17 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
-const ROLE_WAREHOUSE = "warehouse department";
+const ROLE_WAREHOUSE = "warehouse staff";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
-const uniqueStrings = (values = []) =>
-  [...new Set(values.map((value) => String(value)).filter(Boolean))];
+const uniqueStrings = (values = []) => [
+  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+];
 
-const uniqueRoles = (roles = []) =>
-  [...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean))];
+const uniqueRoles = (roles = []) => [
+  ...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean)),
+];
 
 const resolveUserIdByFullName = async (fullName) => {
   const trimmedName = fullName?.trim();
@@ -66,7 +68,7 @@ const createNotification = async ({
     return;
   }
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
     description,
     module: "parts-requisition",
@@ -88,6 +90,8 @@ const createNotification = async ({
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
     data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
       module: "parts-requisition",
       targetScreen: "Parts Requisition",
       targetRequestId: String(requisition._id),

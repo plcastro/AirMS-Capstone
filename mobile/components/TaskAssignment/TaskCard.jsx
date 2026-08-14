@@ -1,8 +1,12 @@
-import { View, Text, TouchableOpacity } from "react-native";
-import React, { useContext } from "react";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
+import AppText from "../common/AppText";
+import React from "react";
 import * as Progress from "react-native-progress";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { AuthContext } from "../../Context/AuthContext";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function TaskCard({
@@ -21,10 +25,10 @@ export default function TaskCard({
     aircraft,
     maintenanceType,
     assignedToName,
+    priority,
     returnComments,
     checklistItems,
     checklistState,
-    completedAt,
   } = data;
 
   const deadline = endDateTime || dueDate;
@@ -84,7 +88,7 @@ export default function TaskCard({
           marginBottom: 6,
         }}
       >
-        <Text
+        <AppText
           style={{
             fontSize: 13,
             fontWeight: "bold",
@@ -94,7 +98,7 @@ export default function TaskCard({
           }}
         >
           {title || maintenanceType || "Maintenance Task"}
-        </Text>
+        </AppText>
 
         {/* STATUS */}
         <View
@@ -110,7 +114,7 @@ export default function TaskCard({
             borderRadius: 12,
           }}
         >
-          <Text
+          <AppText
             style={{
               fontSize: 10,
               fontWeight: "600",
@@ -123,27 +127,53 @@ export default function TaskCard({
             }}
           >
             {status}
-          </Text>
+          </AppText>
         </View>
-        {showEditDelete && (
-          <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
-            <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
-          </TouchableOpacity>
-        )}
+      </View>
+
+      <View style={{ flexDirection: "row", marginBottom: 6 }}>
+        <View
+          style={{
+            backgroundColor:
+              priority === "High"
+                ? COLORS.dangerBg
+                : priority === "Low"
+                  ? COLORS.successBg
+                  : COLORS.infoBg,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 10,
+          }}
+        >
+          <AppText
+            style={{
+              fontSize: 10,
+              fontWeight: "700",
+              color:
+                priority === "High"
+                  ? COLORS.dangerBorder
+                  : priority === "Low"
+                    ? COLORS.successBorder
+                    : COLORS.infoBorder,
+            }}
+          >
+            Priority: {priority || "Normal"}
+          </AppText>
+        </View>
       </View>
 
       {/* BODY INFO */}
-      <Text style={{ fontSize: 12, color: "#555", marginBottom: 2 }}>
+      <AppText style={{ fontSize: 12, color: "#555", marginBottom: 2 }}>
         Aircraft: {aircraft}
-      </Text>
+      </AppText>
 
-      <Text style={{ fontSize: 12, color: "#777", marginBottom: 2 }}>
+      <AppText style={{ fontSize: 12, color: "#777", marginBottom: 2 }}>
         Start: {formatDate(startDateTime)}
-      </Text>
+      </AppText>
 
-      <Text style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
+      <AppText style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
         Due: {formatDate(deadline)}
-      </Text>
+      </AppText>
 
       {/* PROGRESS */}
       {(status === "Ongoing" || status === "Returned") && (
@@ -155,10 +185,10 @@ export default function TaskCard({
               marginBottom: 4,
             }}
           >
-            <Text style={{ fontSize: 12, color: "#666" }}>Progress</Text>
-            <Text style={{ fontSize: 12, color: "#666" }}>
+            <AppText style={{ fontSize: 12, color: "#666" }}>Progress</AppText>
+            <AppText style={{ fontSize: 12, color: "#666" }}>
               {progressPercentage}%
-            </Text>
+            </AppText>
           </View>
 
           <Progress.Bar
@@ -175,9 +205,9 @@ export default function TaskCard({
 
       {/* ASSIGNED INFO */}
       {assignedToName && (
-        <Text style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
+        <AppText style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
           Assigned to: {assignedToName}
-        </Text>
+        </AppText>
       )}
 
       {/* RETURN COMMENTS */}
@@ -190,25 +220,32 @@ export default function TaskCard({
             marginTop: 8,
           }}
         >
-          <Text style={{ fontSize: 12, color: "#C62828" }}>
+          <AppText style={{ fontSize: 12, color: "#C62828" }}>
             {returnComments}
-          </Text>
+          </AppText>
         </View>
       )}
 
       {/* ACTIONS */}
       {showEditDelete && (
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            marginTop: 10,
-          }}
-        >
-          <TouchableOpacity onPress={() => onEditTask?.(data)}>
-            <MaterialCommunityIcons name="pencil" size={21} color="#777" />
-          </TouchableOpacity>
-        </View>
+        <CardActionRow>
+          <ActionIconButton
+            icon="pencil"
+            tooltip="Edit"
+            onPress={() => onEditTask?.(data)}
+            color="#777"
+            size={32}
+            iconSize={21}
+          />
+          <ActionIconButton
+            icon="delete"
+            tooltip="Delete"
+            onPress={() => onDeleteTask?.(data)}
+            color="#F45B5B"
+            size={32}
+            iconSize={21}
+          />
+        </CardActionRow>
       )}
     </Card>
   );

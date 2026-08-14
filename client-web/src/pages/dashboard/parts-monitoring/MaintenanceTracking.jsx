@@ -1,23 +1,37 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   App,
   Alert,
   Button,
   Card,
+  Checkbox,
   Col,
+  Input,
   Modal,
   Row,
   Select,
   Space,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import MTrackingTable from "../../../components/tables/MTrackingTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
+import ResultPopup from "../../../components/common/ResultPopup";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
+import DateTimeCell from "../../../components/common/DateTimeCell";
+import { useNavigate } from "react-router-dom";
+import { matchesSearch } from "../../../utils/search";
 
 const { Title, Text } = Typography;
 
@@ -72,6 +86,21 @@ const columnHeader = [
   },
 ];
 
+const optionalFindingColumnOptions = [
+  { label: "Recommended Action", value: "recommendedAction" },
+  { label: "AMM Summary", value: "procedureSummary" },
+  { label: "Reference", value: "manualReference" },
+];
+
+const optionalFindingColumnKeys = optionalFindingColumnOptions.map(
+  (option) => option.value,
+);
+const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
+const normalizeStatus = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
 const inferRectificationInspectionName = (item = {}) => {
   const text = [
     item.issueTitle,
@@ -97,11 +126,9 @@ const inferRectificationInspectionName = (item = {}) => {
   return "OC Inspection";
 };
 
-const getIndefiniteArticle = (value = "") =>
-  /^[aeiou]/i.test(String(value || "").trim()) ? "an" : "a";
-
 const buildNoMaintenanceIssueInsight = (item = {}) => ({
   ...item,
+  riskLevel: "Low",
   issueTitle: "No maintenance issue detected",
   shortFinding: "No active maintenance flags found from the current records.",
   managerSummary: "No active maintenance flags found from the current records.",
@@ -119,21 +146,6 @@ const buildNoMaintenanceIssueInsight = (item = {}) => ({
   defectDetailsSource: "none",
 });
 
-const formatScheduleDate = (value) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
 const getTaskScheduleState = (task = {}) => {
   const status = String(task.status || "").toLowerCase();
   const endDate = new Date(task.endDateTime || task.dueDate || "");
@@ -149,15 +161,94 @@ const getTaskScheduleState = (task = {}) => {
   return { label: "Scheduled", color: "blue" };
 };
 
+const getInspectionDueState = (record = {}) => {
+  const remainingHours = Number(record.remainingHours);
+  const remainingDays = Number(record.remainingDays);
+  const hasRemainingHours = Number.isFinite(remainingHours);
+  const hasRemainingDays = Number.isFinite(remainingDays);
+
+  if (
+    (hasRemainingHours && remainingHours <= 0) ||
+    (hasRemainingDays && remainingDays <= 0)
+  ) {
+    return {
+      label: "Overdue",
+      color: "red",
+      note: "Schedule or review immediately.",
+      rank: 0,
+    };
+  }
+
+  if (
+    (hasRemainingHours && remainingHours <= 25) ||
+    (hasRemainingDays && remainingDays <= 30)
+  ) {
+    return {
+      label: "Due Soon",
+      color: "orange",
+      note: "Plan parts, labor, and downtime.",
+      rank: 1,
+    };
+  }
+
+  if (hasRemainingHours || hasRemainingDays) {
+    return {
+      label: "On Track",
+      color: "green",
+      note: "Monitor during normal planning.",
+      rank: 2,
+    };
+  }
+
+  return {
+    label: "Needs Review",
+    color: "default",
+    note: "Remaining limit data is incomplete.",
+    rank: 3,
+  };
+};
+
+const formatRemainingLimit = (record = {}) => {
+  const parts = [];
+
+  if (record.remainingHours !== null && record.remainingHours !== undefined) {
+    parts.push(`${record.remainingHours} FH`);
+  }
+
+  if (record.remainingDays !== null && record.remainingDays !== undefined) {
+    parts.push(`${record.remainingDays} day(s)`);
+  }
+
+  return parts.length ? parts.join(" / ") : "N/A";
+};
+
+const matchesInspectionLimitSearch = (record = {}, query = "") => {
+  const dueState = getInspectionDueState(record);
+  return matchesSearch(query, {
+    ...record,
+    dueState,
+    remainingLimit: formatRemainingLimit(record),
+  });
+};
+
 export default function MaintenanceTracking() {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
-  const isOfficerInCharge =
-    user?.jobTitle?.toLowerCase() === "officer-in-charge";
+  const userRole = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const userAccess = String(user?.access || "")
+    .trim()
+    .toLowerCase();
+  const isOfficerInCharge = userRole === "officer-in-charge";
+  const canScheduleInspectionTasks =
+    userRole === "maintenance manager" ||
+    userRole === "superadmin" ||
+    userAccess === "superadmin";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);
-  const [meta, setMeta] = useState(null);
   const [llmHealth, setLlmHealth] = useState(null);
   const [inspectionRemainingRows, setInspectionRemainingRows] = useState([]);
   const [inspectionRemainingLoading, setInspectionRemainingLoading] =
@@ -165,7 +256,25 @@ export default function MaintenanceTracking() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
+  const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
+  const [visibleOptionalFindingColumns, setVisibleOptionalFindingColumns] =
+    useState(["recommendedAction"]);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const llmLimit = 0;
+
+  const showOperationError = useCallback((subTitle) => {
+    setPopup({
+      open: true,
+      status: "error",
+      title: "Operation failed!",
+      subTitle,
+    });
+  }, []);
 
   const refreshLlmHealth = async () => {
     const refreshedHealth = await fetch(`${API_BASE}/api/ai-insights/health`, {
@@ -256,7 +365,6 @@ export default function MaintenanceTracking() {
         setInsights(
           Array.isArray(insightsResult.data) ? insightsResult.data : [],
         );
-        setMeta(insightsResult.meta || null);
         setLlmHealth(healthResult || null);
         setInspectionRemainingRows(
           inspectionRemainingResponse.ok &&
@@ -267,7 +375,7 @@ export default function MaintenanceTracking() {
         await refreshLlmHealth();
       } catch (error) {
         console.error("Failed to load AI maintenance insights:", error);
-        message.error(
+        showOperationError(
           error.message || "Failed to load AI maintenance insights",
         );
       } finally {
@@ -277,7 +385,7 @@ export default function MaintenanceTracking() {
     };
 
     fetchInsights();
-  }, []);
+  }, [showOperationError]);
 
   const fetchLlmSummaries = async () => {
     const confirmed = await confirmAction({
@@ -319,7 +427,6 @@ export default function MaintenanceTracking() {
       }
 
       setInsights(Array.isArray(result.data) ? result.data : []);
-      setMeta(result.meta || null);
       const refreshedHealth = await refreshLlmHealth();
       const llmCount = result.meta?.llmSummaryCount || 0;
       const llmLastResult =
@@ -344,7 +451,7 @@ export default function MaintenanceTracking() {
       }
     } catch (error) {
       console.error("Failed to load OpenAI summaries:", error);
-      message.error(error.message || "Failed to load OpenAI summaries");
+      showOperationError(error.message || "Failed to load OpenAI summaries");
     } finally {
       setSummaryLoading(false);
     }
@@ -373,15 +480,18 @@ export default function MaintenanceTracking() {
     [insights, selectedAircraftFilter],
   );
 
-  const filteredInspectionRemainingRows = useMemo(
-    () =>
+  const filteredInspectionRemainingRows = useMemo(() => {
+    const aircraftFiltered =
       selectedAircraftFilter === "all"
         ? inspectionRemainingRows
         : inspectionRemainingRows.filter(
             (row) => row.aircraft === selectedAircraftFilter,
-          ),
-    [inspectionRemainingRows, selectedAircraftFilter],
-  );
+          );
+
+    return aircraftFiltered.filter((row) =>
+      matchesInspectionLimitSearch(row, inspectionLimitSearch),
+    );
+  }, [inspectionLimitSearch, inspectionRemainingRows, selectedAircraftFilter]);
 
   const summary = useMemo(
     () =>
@@ -451,7 +561,9 @@ export default function MaintenanceTracking() {
           message.success("Maintenance finding marked rectified.");
         } catch (error) {
           console.error("Failed to mark finding rectified:", error);
-          message.error(error.message || "Failed to mark finding rectified");
+          showOperationError(
+            error.message || "Failed to mark finding rectified",
+          );
         } finally {
           setRectifyingKey("");
         }
@@ -522,6 +634,16 @@ export default function MaintenanceTracking() {
     [filteredInsights, rectifyingKey],
   );
 
+  const visibleFindingHeaders = useMemo(
+    () =>
+      columnHeader.filter(
+        (header) =>
+          !optionalFindingColumnKeys.includes(header.key) ||
+          visibleOptionalFindingColumns.includes(header.key),
+      ),
+    [visibleOptionalFindingColumns],
+  );
+
   const summarySourceCounts = useMemo(
     () =>
       filteredInsights.reduce(
@@ -537,6 +659,39 @@ export default function MaintenanceTracking() {
       ),
     [filteredInsights],
   );
+
+  const aiStatusNotice = useMemo(() => {
+    if (!llmHealth) return null;
+
+    if (llmHealth.cooldown?.active) {
+      return {
+        type: "warning",
+        message: `AI summaries are cooling down. Rule-based recommendations are still available. Try again in ${
+          cooldownRemaining || llmHealth.cooldown.retryAfterSeconds
+        } seconds.`,
+      };
+    }
+
+    if (llmHealth.configured === false) {
+      return {
+        type: "warning",
+        message:
+          llmHealth.message ||
+          "AI summaries are not configured. Rule-based recommendations are still available.",
+      };
+    }
+
+    if (llmHealth.configured && llmHealth.reachable === false) {
+      return {
+        type: "warning",
+        message:
+          llmHealth.message ||
+          "AI summaries are temporarily unavailable. Rule-based recommendations are still available.",
+      };
+    }
+
+    return null;
+  }, [cooldownRemaining, llmHealth]);
 
   const scheduledTaskRows = useMemo(() => {
     const rows = filteredInsights.flatMap((insight) =>
@@ -576,6 +731,70 @@ export default function MaintenanceTracking() {
       ),
     [scheduledTaskRows],
   );
+
+  const scheduledInspectionTaskKeys = useMemo(() => {
+    const keys = new Set();
+    scheduledTaskRows.forEach((task) => {
+      if (!ACTIVE_OPEN.has(normalizeStatus(task.status))) return;
+      const aircraft = String(task.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const title = String(task.title || "")
+        .trim()
+        .toLowerCase();
+      const checklistNames = Array.isArray(task.checklistItems)
+        ? task.checklistItems
+            .map((item) => item.inspectionName || item.inspectionTypeFull)
+            .filter(Boolean)
+            .map((value) => String(value).trim().toLowerCase())
+        : [];
+
+      [title, ...checklistNames].forEach((inspectionName) => {
+        if (aircraft && inspectionName) {
+          keys.add(`${aircraft}|${inspectionName}`);
+        }
+      });
+    });
+    return keys;
+  }, [scheduledTaskRows]);
+
+  const hasScheduledInspectionTask = useCallback(
+    (record = {}) => {
+      const aircraft = String(record.aircraft || "")
+        .trim()
+        .toLowerCase();
+      const inspectionName = String(record.inspectionName || "")
+        .trim()
+        .toLowerCase();
+      return Boolean(
+        aircraft &&
+        inspectionName &&
+        scheduledInspectionTaskKeys.has(`${aircraft}|${inspectionName}`),
+      );
+    },
+    [scheduledInspectionTaskKeys],
+  );
+
+  const scheduleInspectionTask = (record = {}) => {
+    const state = getInspectionDueState(record);
+    navigate("/dashboard/tasks", {
+      state: {
+        createTaskFromInspectionLimit: {
+          aircraft: record.aircraft || "",
+          aircraftModel: record.aircraftModel || "",
+          inspectionName: record.inspectionName || "",
+          dueDate: record.dueDate || "",
+          dueAtHours: record.dueAtHours ?? null,
+          remainingHours: record.remainingHours ?? null,
+          remainingDays: record.remainingDays ?? null,
+          priority: ["Overdue", "Due Soon"].includes(state.label)
+            ? "High"
+            : "Normal",
+          dueStatus: state.label,
+        },
+      },
+    });
+  };
 
   const maintenanceTrackingInsights = useMemo(() => {
     const highestRisk =
@@ -646,15 +865,16 @@ export default function MaintenanceTracking() {
       dataIndex: "startDateTime",
       key: "startDateTime",
       width: 180,
-      render: formatScheduleDate,
+      render: (value) => <DateTimeCell value={value} />,
     },
     {
       title: "End / Due",
       dataIndex: "endDateTime",
       key: "endDateTime",
       width: 180,
-      render: (_, record) =>
-        formatScheduleDate(record.endDateTime || record.dueDate),
+      render: (_, record) => (
+        <DateTimeCell value={record.endDateTime || record.dueDate} />
+      ),
     },
     {
       title: "Priority",
@@ -689,6 +909,17 @@ export default function MaintenanceTracking() {
       render: (value) => <Text strong>{value || "N/A"}</Text>,
     },
     {
+      title: "Due Status",
+      key: "dueStatus",
+      width: 130,
+      sorter: (left, right) =>
+        getInspectionDueState(left).rank - getInspectionDueState(right).rank,
+      render: (_, record) => {
+        const state = getInspectionDueState(record);
+        return <Tag color={state.color}>{state.label}</Tag>;
+      },
+    },
+    {
       title: "Inspection",
       dataIndex: "inspectionName",
       key: "inspectionName",
@@ -708,37 +939,27 @@ export default function MaintenanceTracking() {
       ),
     },
     {
-      title: "Remaining FH",
-      dataIndex: "remainingHours",
-      key: "remainingHours",
-      width: 130,
-      render: (value) =>
-        value === null || value === undefined ? "N/A" : `${value} FH`,
-    },
-    {
-      title: "Remaining Days",
-      dataIndex: "remainingDays",
-      key: "remainingDays",
-      width: 140,
-      render: (value) =>
-        value === null || value === undefined ? "N/A" : `${value} day(s)`,
+      title: "Remaining",
+      key: "remaining",
+      width: 170,
+      sorter: (left, right) => {
+        const leftHours = Number(left.remainingHours);
+        const rightHours = Number(right.remainingHours);
+        if (Number.isFinite(leftHours) && Number.isFinite(rightHours)) {
+          return leftHours - rightHours;
+        }
+        return (
+          getInspectionDueState(left).rank - getInspectionDueState(right).rank
+        );
+      },
+      render: (_, record) => <Text strong>{formatRemainingLimit(record)}</Text>,
     },
     {
       title: "Due Date",
       dataIndex: "dueDate",
       key: "dueDate",
       width: 150,
-      render: (value) => {
-        if (!value) return "N/A";
-        const date = new Date(value);
-        return Number.isNaN(date.getTime())
-          ? "N/A"
-          : date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
-      },
+      render: (value) => <DateOnlyCell value={value} />,
     },
     {
       title: "Due At",
@@ -749,11 +970,33 @@ export default function MaintenanceTracking() {
         value === null || value === undefined ? "N/A" : `${value} FH`,
     },
     {
-      title: "Source Row",
-      dataIndex: "sourceRow",
-      key: "sourceRow",
-      width: 260,
-      render: (value) => value || "No matching lifespan row",
+      title: "Planning Note",
+      key: "planningNote",
+      width: 230,
+      render: (_, record) => {
+        const state = getInspectionDueState(record);
+        return <Text type="secondary">{state.note}</Text>;
+      },
+    },
+    {
+      title: "Task",
+      key: "actions",
+      fixed: "right",
+      width: 150,
+      render: (_, record) =>
+        hasScheduledInspectionTask(record) ? (
+          <Tag color="blue">Task Scheduled</Tag>
+        ) : !canScheduleInspectionTasks ? (
+          <Text type="secondary">Not scheduled</Text>
+        ) : (
+          <Button
+            size="small"
+            type="primary"
+            onClick={() => scheduleInspectionTask(record)}
+          >
+            Schedule Task
+          </Button>
+        ),
     },
   ];
 
@@ -785,12 +1028,26 @@ export default function MaintenanceTracking() {
           </Col>
 
           <Col xs={24} md={12}>
-            <Space style={{ float: "right" }}>
+            <Space.Compact style={{ width: "100%" }}>
+              <Select
+                value={selectedAircraftFilter}
+                onChange={setSelectedAircraftFilter}
+                style={{ width: "100%" }}
+                size="large"
+                options={[
+                  { label: "All aircraft", value: "all" },
+                  ...aircraftFilterOptions.map((aircraft) => ({
+                    label: aircraft,
+                    value: aircraft,
+                  })),
+                ]}
+              />
               {!isOfficerInCharge && (
                 <Button
                   type="primary"
                   onClick={fetchLlmSummaries}
                   loading={summaryLoading}
+                  size="large"
                   disabled={
                     !llmHealth?.configured || llmHealth?.cooldown?.active
                   }
@@ -800,10 +1057,18 @@ export default function MaintenanceTracking() {
                     : "Regenerate AI Insights"}
                 </Button>
               )}
-            </Space>
+            </Space.Compact>
           </Col>
         </Row>
       </Card>
+
+      {aiStatusNotice && (
+        <Alert
+          type={aiStatusNotice.type}
+          showIcon
+          message={aiStatusNotice.message}
+        />
+      )}
 
       {/* ================= KPI ROW ================= */}
       <Row gutter={16}>
@@ -829,7 +1094,7 @@ export default function MaintenanceTracking() {
             value: summarySourceCounts.fallback,
           },
         ].map((item) => (
-          <Col xs={12} md={4} key={item.title}>
+          <Col xs={12} sm={12} md={4} key={item.title}>
             <Card
               style={{
                 borderRadius: 10,
@@ -840,37 +1105,6 @@ export default function MaintenanceTracking() {
             </Card>
           </Col>
         ))}
-      </Row>
-
-      {/* ================= AI STATUS PANEL ================= */}
-      <Row gutter={16}>
-        <Col xs={24} md={12}>
-          {meta && (
-            <Alert
-              type="info"
-              showIcon
-              title="AI Mode"
-              description={`This release uses a rule-based maintenance assessment engine by default. ${meta.llmEnabled ? `${meta.activeModel} summaries can be requested on demand` : "OpenAI summaries are not configured on the server right now"}. If the model is unavailable, AirMS stays on the rule-derived finding text.${meta?.llmLimitApplied ? ` Current OpenAI request limit: top ${meta.llmLimitApplied} aircraft.` : ""}`}
-            />
-          )}
-        </Col>
-
-        <Col xs={24} md={12}>
-          {llmHealth && (
-            <Alert
-              type={
-                llmHealth.reachable
-                  ? "success"
-                  : llmHealth.configured
-                    ? "warning"
-                    : "error"
-              }
-              showIcon
-              title="OpenAI health"
-              description={`Configured: ${llmHealth.configured ? "Yes" : "No"} | Available: ${llmHealth.reachable ? "Yes" : "No"} | Model: ${llmHealth.model || meta?.activeModel || "Unknown"}${llmHealth.cooldown?.active ? ` | Cooldown: ${cooldownRemaining || llmHealth.cooldown.retryAfterSeconds}s` : ""}${llmHealth.message ? ` | ${llmHealth.message}` : ""}`}
-            />
-          )}
-        </Col>
       </Row>
 
       {/* ================= INSIGHTS ================= */}
@@ -887,11 +1121,21 @@ export default function MaintenanceTracking() {
       {/* ================= MAIN TABLE ================= */}
       <Card
         title="Condensed AI Findings"
+        extra={
+          <Space wrap>
+            <Text type="secondary">Columns</Text>
+            <Checkbox.Group
+              options={optionalFindingColumnOptions}
+              value={visibleOptionalFindingColumns}
+              onChange={setVisibleOptionalFindingColumns}
+            />
+          </Space>
+        }
         style={{ borderRadius: 12 }}
         styles={{ body: { padding: 12 } }}
       >
         <MTrackingTable
-          headers={columnHeader}
+          headers={visibleFindingHeaders}
           data={tableData}
           loading={loading || summaryLoading}
           onRectifyFinding={confirmFindingRectified}
@@ -925,12 +1169,12 @@ export default function MaintenanceTracking() {
           </Col>
 
           <Col span={24}>
-            <Table
+            <ResponsiveTable
               columns={scheduledTaskColumns}
               dataSource={scheduledTaskRows}
               rowKey={(record) => record.id || record.key}
               loading={loading}
-              size="small"
+              size={"small"}
               pagination={{ pageSize: 5 }}
               scroll={{ x: 1000 }}
             />
@@ -939,24 +1183,50 @@ export default function MaintenanceTracking() {
       </Card>
 
       {/* ================= INSPECTION TABLE ================= */}
-      <Card title="Inspection Remaining Hours" style={{ borderRadius: 12 }}>
-        <Text type="secondary">
-          Aircraft inspection lifecycle tracking and parts lifespan monitoring
-        </Text>
+      <Card title="Upcoming Inspection Limits" style={{ borderRadius: 12 }}>
+        <Space
+          orientation="vertical"
+          size={12}
+          style={{ width: "100%", marginBottom: 12 }}
+        >
+          <Text type="secondary">
+            Use this to see which aircraft inspection limits need immediate
+            action or upcoming schedule planning.
+          </Text>
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Search aircraft, due status, inspection, remaining, due date..."
+            value={inspectionLimitSearch}
+            onChange={(event) => setInspectionLimitSearch(event.target.value)}
+            size="large"
+            style={{ width: "100%", maxWidth: 460 }}
+          />
+        </Space>
 
-        <Table
-          style={{ marginTop: 12 }}
+        <ResponsiveTable
           columns={inspectionRemainingColumns}
           dataSource={filteredInspectionRemainingRows}
-          rowKey={(record) =>
-            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}`
+          rowKey={(record, index) =>
+            `${record.aircraft || "N/A"}-${record.inspectionName || "N/A"}-${record.sourceRow || "N/A"}-${index}`
           }
           loading={loading || inspectionRemainingLoading}
-          size="small"
+          size={"small"}
           pagination={{ pageSize: 8 }}
-          scroll={{ x: 1100 }}
+          mobileBreakpoint="sm"
+          mobilePrimaryColumn="inspectionName"
+          mobileSecondaryColumn="aircraft"
+          mobileMetaLimit={5}
+          scroll={{ x: 1200 }}
         />
       </Card>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

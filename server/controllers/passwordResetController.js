@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
 const sendEmail = require("../utils/sendEmail");
+const { buildOtpEmail } = require("../utils/emailTemplates");
 const generateOTP = require("../utils/generateOTP");
 const { auditLog } = require("./logsController");
 const getAuditActorId = (req, fallbackId = null) =>
@@ -16,6 +17,8 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const TOKEN_EXPIRATION = 60 * 60 * 1000;
 const OTP_EXPIRATION = 15 * 60 * 1000;
+const MAX_PIN_OTP_ATTEMPTS = 5;
+const PIN_OTP_LOCK_TIME = 15 * 60 * 1000;
 
 const requestPasswordReset = async (req, res) => {
   try {
@@ -43,28 +46,27 @@ const requestPasswordReset = async (req, res) => {
 
     await user.save();
 
+    const emailMessage = buildOtpEmail({
+      title: "Password Reset Request",
+      intro:
+        "We received a request to reset the password for your AirMS account. Use this one-time code to continue.",
+      otp,
+      validityMinutes: 15,
+      warning:
+        "If you did not request this change, ignore this email or contact support if you have concerns.",
+    });
+
     await sendEmail({
       to: user.email,
       subject: "Reset your password",
-      html: `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-      <h2 style="color: #333;">Password Reset Request</h2>
-      <p>Hello,</p>
-      <p>We received a request to reset the password for your account. Use the following One-Time Password (OTP) to proceed:</p>
-      
-      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
-      </div>
-
-      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
-      
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
-    </div>
-  `,
+      ...emailMessage,
     });
 
-    const audit = withActorId(req, `Password reset requested for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `Password reset requested for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
@@ -76,12 +78,12 @@ const requestPasswordReset = async (req, res) => {
 const verifyOtp = async (req, res) => {
   const { token, otp } = req.body;
 
-  const user = await UserModel.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: Date.now() },
-  });
+  const user = await UserModel.findOne({ resetPasswordToken: token });
 
   if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  if (!user.otpExpires || user.otpExpires < Date.now())
+    return res.status(400).json({ message: "OTP expired" });
 
   const valid = await bcrypt.compare(otp, user.otp);
   if (!valid) return res.status(400).json({ message: "Invalid OTP" });
@@ -141,30 +143,31 @@ const requestPinReset = async (req, res) => {
     user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
     user.pinOtp = await bcrypt.hash(otp, 10);
     user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+    user.pinOtpAttempts = 0;
+    user.pinOtpLockUntil = undefined;
     await user.save();
+
+    const emailMessage = buildOtpEmail({
+      title: "PIN Reset Request",
+      intro:
+        "We received a request to reset the PIN for your AirMS account. Use this one-time code to continue.",
+      otp,
+      validityMinutes: 15,
+      warning:
+        "If you did not request this change, ignore this email or contact support if you have concerns.",
+    });
 
     await sendEmail({
       to: user.email,
       subject: "Reset your PIN",
-      html: `
-    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-      <h2 style="color: #333;">PIN Reset Request</h2>
-      <p>Hello,</p>
-      <p>We received a request to reset the PIN for your account. Use the following One-Time Password (OTP) to proceed:</p>
-      
-      <div style="background: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
-      </div>
-
-      <p style="margin-top: 25px;">This code is valid for <b>15 minutes</b>. If you did not request this change, please ignore this email or contact support if you have concerns.</p>
-      
-      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 12px; color: #888;">This is an automated message, please do not reply.</p>
-    </div>
-  `,
+      ...emailMessage,
     });
 
-    const audit = withActorId(req, `PIN reset requested for ${user.username}`, user._id);
+    const audit = withActorId(
+      req,
+      `PIN reset requested for ${user.username}`,
+      user._id,
+    );
     await auditLog(audit.action, audit.actorId);
     res.json({ token });
   } catch (err) {
@@ -180,17 +183,49 @@ const verifyPinOtp = async (req, res) => {
   const user = await UserModel.findOne({ resetPinToken: token });
   if (!user) return res.status(400).json({ message: "Invalid token" });
 
+  if (!user.resetPinExpires || user.resetPinExpires < Date.now())
+    return res.status(400).json({ message: "Invalid token" });
+
+  if (user.pinOtpLockUntil && user.pinOtpLockUntil > Date.now()) {
+    const remainingTime = Math.ceil((user.pinOtpLockUntil - Date.now()) / 60000);
+    return res.status(403).json({
+      message: `Too many invalid OTP attempts. Try again in ${remainingTime} minutes.`,
+    });
+  }
+
   if (user.pinOtpExpires < Date.now())
     return res.status(400).json({ message: "OTP expired" });
 
   const valid = await bcrypt.compare(otp, user.pinOtp);
-  if (!valid) return res.status(400).json({ message: "Invalid OTP" });
+  if (!valid) {
+    user.pinOtpAttempts += 1;
+
+    if (user.pinOtpAttempts >= MAX_PIN_OTP_ATTEMPTS) {
+      user.pinOtpLockUntil = Date.now() + PIN_OTP_LOCK_TIME;
+      await user.save();
+      return res.status(403).json({
+        message: `Too many invalid OTP attempts. Try again in ${Math.ceil(
+          PIN_OTP_LOCK_TIME / 60000,
+        )} minutes.`,
+      });
+    }
+
+    await user.save();
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  user.pinOtpAttempts = 0;
+  user.pinOtpLockUntil = undefined;
+  await user.save();
 
   res.json({ message: "OTP verified", token: user.resetPinToken });
 };
 
 // RESET PIN
 const resetPin = async (req, res) => {
+  console.log("Reached resetPin");
+  console.log(req.headers);
+  console.log(req.body);
   const { token, newPin } = req.body;
 
   const user = await UserModel.findOne({

@@ -22,7 +22,9 @@ const requestContextMiddleware = (req, _res, next) => {
   const store = {
     requestId: req.headers["x-request-id"] || null,
     sessionId: req.headers["x-session-id"] || null,
-    platform: normalizePlatform(req.headers["x-platform"]),
+    platform:
+      normalizePlatform(req.headers["x-platform"]) ||
+      normalizePlatform(req.body?.client),
     base: normalizeBase(req.headers["x-base"]),
     ipAddress: req.ip || req.socket?.remoteAddress || null,
     userAgent: req.headers["user-agent"] || null,

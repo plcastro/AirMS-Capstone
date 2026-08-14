@@ -1,31 +1,98 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
+import { Input, Row, Col, Card, Button, Typography } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+const NGCP_LOGO_ASPECT_RATIO = 493 / 243;
 const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
-
 const formatPdfValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
     ? fallback
     : String(value);
 
-const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
+const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9.-]+/g, "") || fallback;
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatReportDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatReportDate();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
+const buildWorkDoneReportFileName = (record = {}) => {
+  const aircraft =
+    record.aircraft || record.rpc || record.aircraftNo || "Aircraft";
+  const date =
+    record.dateDefectRectified ||
+    record.dateRectified ||
+    record.completedAt ||
+    record.updatedAt ||
+    record.createdAt;
+  return `WorkDoneReport_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
+
+const getMechanicInCharge = (record = {}) =>
+  record.mechanicInCharge || record.reportedBy || "";
+
+const getInspector = (record = {}) =>
+  record.inspector || record.approvedBy || "";
+
+const getMechanicLicenseNo = (record = {}) =>
+  record.mechanicLicenseNo ||
+  record.mechanicLicense ||
+  record.mechanicInCharge?.licenseNo ||
+  record.releasedBy?.licenseNo ||
+  record.licenseNo ||
+  "";
+const getInspectorLicenseNo = (record = {}) =>
+  record.inspectorLicenseNo ||
+  record.inspectorLicense ||
+  record.inspector?.licenseNo ||
+  record.approvedBy?.licenseNo ||
+  "";
+
+const formatAmtLicense = (value) => {
+  const licenseNo = formatPdfValue(value, "N/A");
+  return `${licenseNo} - AMT`;
+};
+
+const getReportDate = (record = {}) =>
+  formatReportDate(
+    record.dateDefectRectified ||
+      record.dateRectified ||
+      record.completedAt ||
+      record.updatedAt ||
+      record.createdAt,
+  );
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -155,14 +222,17 @@ const drawMaintenanceReportHeader = (
 
   doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
   if (logoDataUrl) {
-    doc.addImage(
-      logoDataUrl,
-      "PNG",
-      centerX + 10,
-      metadataY + 4,
-      centerWidth - 20,
-      38,
+    const maxLogoWidth = centerWidth - 24;
+    const maxLogoHeight = rowHeight * 4 - 8;
+    const logoWidth = Math.min(
+      maxLogoWidth,
+      maxLogoHeight * NGCP_LOGO_ASPECT_RATIO,
     );
+    const logoHeight = logoWidth / NGCP_LOGO_ASPECT_RATIO;
+    const logoX = centerX + (centerWidth - logoWidth) / 2;
+    const logoY = metadataY + (rowHeight * 4 - logoHeight) / 2;
+
+    doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(32);
@@ -222,8 +292,77 @@ const drawMaintenanceReportHeader = (
   };
 };
 
+const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const bottomMargin = 28;
+  const certificationHeight = 44;
+  const signoffHeight = 66;
+  const totalHeight = certificationHeight + signoffHeight;
+  let y = startY + 8;
+
+  if (y + totalHeight > pageHeight - bottomMargin) {
+    doc.addPage();
+    y = bottomMargin;
+  }
+
+  doc.setDrawColor(25, 25, 25);
+  doc.setLineWidth(0.9);
+  doc.rect(header.marginX, y, header.contentWidth, totalHeight);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const certificationLines = doc.splitTextToSize(
+    "I hereby certify that unless otherwise specified, the work has been carried out in accordance with the current rules of CAAP and in respect to that work the aircraft or aircraft component is considered fit for return to service.",
+    header.contentWidth - 24,
+  );
+  doc.text(certificationLines, header.marginX + 12, y + 16);
+
+  const dateY = y + certificationHeight + 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(
+    `Date: ${getReportDate(record)}`,
+    header.marginX + header.contentWidth / 2,
+    dateY,
+    {
+      align: "center",
+    },
+  );
+
+  const signoffY = dateY + 22;
+  const signoffColumnWidth = header.contentWidth / 2;
+  const leftCenterX = header.marginX + signoffColumnWidth / 2;
+  const rightCenterX =
+    header.marginX + signoffColumnWidth + signoffColumnWidth / 2;
+  const mechanicLicense = formatAmtLicense(getMechanicLicenseNo(record));
+  const inspectorLicense = formatAmtLicense(getInspectorLicenseNo(record));
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(
+    `Mechanic-in-charge: ${formatPdfValue(getMechanicInCharge(record))}`,
+    leftCenterX,
+    signoffY,
+    { align: "center" },
+  );
+  doc.text(
+    `Inspector: ${formatPdfValue(getInspector(record))}`,
+    rightCenterX,
+    signoffY,
+    { align: "center" },
+  );
+
+  doc.setFontSize(10);
+  doc.text(mechanicLicense, leftCenterX, signoffY + 22, { align: "center" });
+  doc.text(inspectorLicense, rightCenterX, signoffY + 22, { align: "center" });
+};
+
 export default function MaintenanceLog() {
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportMaintenanceLogs = canExportModule(
+    user?.jobTitle,
+    "maintenanceLogs",
+  );
   const [allEntries, setAllEntries] = useState([]);
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(true);
@@ -231,6 +370,12 @@ export default function MaintenanceLog() {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const [seenLogIds, setSeenLogIds] = useState(() => {
     try {
       const stored = JSON.parse(
@@ -248,7 +393,7 @@ export default function MaintenanceLog() {
     overflowX: "hidden",
   };
   const contentWrapStyle = {
-    maxWidth: 1280,
+    maxWidth: "100%",
     margin: "0 auto",
   };
   const persistSeenLogIds = (nextSet) => {
@@ -323,10 +468,23 @@ export default function MaintenanceLog() {
           };
         });
 
+        // console.log(
+        //   "Maintenance log mechanic license numbers:",
+        //   normalized.map((entry) => ({
+        //     id: entry.sourceTaskId || entry._id || entry.id,
+        //     mechanicLicenseNo: getMechanicLicenseNo(entry),
+        //   })),
+        // );
         setAllEntries(normalized);
       } catch (error) {
         console.error("Failed to fetch maintenance logs:", error);
         setAllEntries([]);
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to fetch maintenance logs.",
+        });
       } finally {
         setLoading(false);
       }
@@ -334,6 +492,14 @@ export default function MaintenanceLog() {
 
     fetchMaintenanceLogs();
   }, [getAuthHeader]);
+
+  // useEffect(() => {
+  //   if (!selectedWO) return;
+  //   console.log(
+  //     "Selected maintenance log mechanicLicenseNo:",
+  //     getMechanicLicenseNo(selectedWO),
+  //   );
+  // }, [selectedWO]);
 
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
@@ -347,22 +513,8 @@ export default function MaintenanceLog() {
   };
 
   const filteredEntries = useMemo(() => {
-    const needle = searchValue.trim().toLowerCase();
-    if (!needle) {
-      return allEntries;
-    }
-
-    return allEntries.filter((entry) =>
-      [
-        entry.aircraft,
-        entry.taskTitle,
-        entry.defects,
-        entry.correctiveActionDone,
-        entry.reportedBy,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    if (!searchValue.trim()) return allEntries;
+    return allEntries.filter((entry) => matchesSearch(searchValue, entry));
   }, [allEntries, searchValue]);
 
   const uniqueAircraft = useMemo(
@@ -409,30 +561,53 @@ export default function MaintenanceLog() {
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
   };
 
-  const renderReadOnlyField = (label, value) => (
-    <Space.Compact style={{ width: "100%" }}>
-      <span
-        style={{
-          minWidth: 120,
-          padding: "0 11px",
-          border: "1px solid #d9d9d9",
-          borderRight: 0,
-          borderRadius: "6px 0 0 6px",
-          background: "#fafafa",
-          lineHeight: "30px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-      <Input
-        value={value || ""}
-        readOnly
-        style={{ borderRadius: "0 6px 6px 0" }}
-      />
-    </Space.Compact>
-  );
+  const renderReadOnlyField = (label, value, isTag = false) => {
+    const labelStyle = {
+      width: 170,
+      flex: "0 0 170px",
+      padding: "0 11px",
+      fontWeight: 600,
+      lineHeight: "32px",
+      border: "1px solid #d9d9d9",
+      borderRight: 0,
+      background: "#fafafa",
+      whiteSpace: "normal",
+    };
+    const fieldStyle = {
+      display: "flex",
+      alignItems: "stretch",
+      width: "100%",
+    };
 
+    if (isTag) {
+      return (
+        <div style={fieldStyle}>
+          <span style={labelStyle}>{label}</span>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 32,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 11px",
+              border: "1px solid #d9d9d9",
+              background: "#fff",
+            }}
+          >
+            {renderStatusTag(value)}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={fieldStyle}>
+        <span style={labelStyle}>{label}</span>
+        <Input value={value || ""} readOnly />
+      </div>
+    );
+  };
   const fetchAircraftExportData = async (aircraft) => {
     if (!aircraft) return null;
 
@@ -462,11 +637,13 @@ export default function MaintenanceLog() {
           return null;
         }),
       ]);
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
 
       const doc = new jsPDF("p", "pt", "a4");
-      const fileName = buildSafeFileName(
-        `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
-      );
+      const fileName = buildWorkDoneReportFileName(selectedWO);
       const bodyRows = (
         Array.isArray(selectedWO.workDetails) &&
         selectedWO.workDetails.length > 0
@@ -480,7 +657,7 @@ export default function MaintenanceLog() {
       )
         .map((item) => formatPdfValue(item?.description || item, "").trim())
         .filter(Boolean)
-        .map((description, index) => ["", `${index + 1}. ${description}`]);
+        .map((description, index) => [String(index + 1), description]);
 
       const drawPageHeader = () =>
         drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
@@ -510,7 +687,7 @@ export default function MaintenanceLog() {
           minCellHeight: 16,
         },
         columnStyles: {
-          0: { cellWidth: header.numberColumnWidth },
+          0: { cellWidth: header.numberColumnWidth, halign: "center" },
           1: { cellWidth: header.contentWidth - header.numberColumnWidth },
         },
         didDrawPage: (data) => {
@@ -521,13 +698,42 @@ export default function MaintenanceLog() {
         },
       });
 
+      drawMaintenanceReportSignoff(
+        doc,
+        selectedWO,
+        header,
+        doc.lastAutoTable?.finalY || header.startY,
+      );
+
       doc.save(`${fileName}.pdf`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Maintenance Log Exported!",
+        subTitle: "The maintenance log PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Failed to export maintenance log:", error);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Maintenance log PDF export failed.",
+      });
     } finally {
       setExporting(false);
     }
   };
+
+  const resultPopup = (
+    <ResultPopup
+      open={popup.open}
+      status={popup.status}
+      title={popup.title}
+      subTitle={popup.subTitle}
+      onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+    />
+  );
 
   if (viewLevel === "dashboard") {
     return (
@@ -538,16 +744,6 @@ export default function MaintenanceLog() {
             styles={{ body: { padding: 16 } }}
           >
             <Row gutter={[12, 12]} align="middle" justify="space-between">
-              <Col xs={24} md={10}>
-                <Space orientation="vertical" size={2}>
-                  <Text type="secondary" style={{ letterSpacing: 0.3 }}>
-                    MAINTENANCE LOGBOOK
-                  </Text>
-                  <Title level={4} style={{ margin: 0 }}>
-                    Aircraft Maintenance Logs
-                  </Title>
-                </Space>
-              </Col>
               <Col xs={24} md={10}>
                 <Input
                   size="large"
@@ -656,6 +852,7 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </div>
+        {resultPopup}
       </div>
     );
   }
@@ -715,7 +912,7 @@ export default function MaintenanceLog() {
                   <Row gutter={[12, 12]}>
                     {[
                       {
-                        label: "Reported By",
+                        label: "Last Reported By",
                         value: selectedAircraft?.reportedBy || "N/A",
                       },
                       {
@@ -763,7 +960,9 @@ export default function MaintenanceLog() {
                               wordBreak: "break-word",
                             }}
                           >
-                            {item.value}
+                            {item.label === "Status"
+                              ? renderStatusTag(item.value)
+                              : item.value}
                           </Text>
                         </div>
                       </Col>
@@ -853,6 +1052,7 @@ export default function MaintenanceLog() {
             </Col>
           </Row>
         </div>
+        {resultPopup}
       </div>
     );
   }
@@ -871,17 +1071,19 @@ export default function MaintenanceLog() {
                 Back
               </Button>
             </Col>
-            <Col>
-              <Button
-                icon={<ExportOutlined />}
-                type="primary"
-                style={{ backgroundColor: BRAND, border: "none" }}
-                onClick={handleExport}
-                loading={exporting}
-              >
-                Export
-              </Button>
-            </Col>
+            {canExportMaintenanceLogs && (
+              <Col>
+                <Button
+                  icon={<ExportOutlined />}
+                  type="primary"
+                  style={{ backgroundColor: BRAND, border: "none" }}
+                  onClick={handleExport}
+                  loading={exporting}
+                >
+                  Export
+                </Button>
+              </Col>
+            )}
           </Row>
 
           <Card style={{ marginBottom: 15, borderRadius: 12 }}>
@@ -889,32 +1091,54 @@ export default function MaintenanceLog() {
               <Col xs={24} md={12}>
                 {renderReadOnlyField("Aircraft:", selectedWO?.aircraft)}
               </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Task ID:",
                   selectedWO?.sourceTaskId || selectedWO?.id,
                 )}
               </Col>
-              <Col xs={24} md={12}>
-                {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
-              </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
-                  "Task Status:",
-                  selectedWO?.sourceTaskStatus,
+                  "Mechanic-in-charge:",
+                  getMechanicInCharge(selectedWO),
                 )}
               </Col>
+
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Log Status:", selectedWO?.status)}
+                {renderReadOnlyField("Inspector:", getInspector(selectedWO))}
               </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("AMT:", getMechanicLicenseNo(selectedWO))}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("AMT:", getInspectorLicenseNo(selectedWO))}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+              </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Rectified:",
                   formatDisplayDate(selectedWO?.dateDefectRectified),
                 )}
               </Col>
+
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+                {renderReadOnlyField(
+                  "Task Status:",
+                  selectedWO?.sourceTaskStatus,
+                  true,
+                )}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("Log Status:", selectedWO?.status, true)}
               </Col>
             </Row>
           </Card>
@@ -937,6 +1161,7 @@ export default function MaintenanceLog() {
             />
           </Card>
         </div>
+        {resultPopup}
       </div>
     );
   }

@@ -10,6 +10,54 @@ import {
 } from "recharts";
 import { Card } from "antd";
 
+const ColorCodedLegend = ({ payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px 16px",
+      margin: 0,
+      padding: "14px 0 0",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {payload.map((entry) => (
+      <li
+        key={`${entry.value}-${entry.color}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          maxWidth: 180,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 10,
+            height: 10,
+            flex: "0 0 10px",
+            borderRadius: 2,
+            background: entry.color || "#8c8c8c",
+          }}
+        />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={String(entry.value || "")}
+        >
+          {entry.value}
+        </span>
+      </li>
+    ))}
+  </ul>
+);
+
 const RepairFrequencyChart = ({ data, title }) => {
   const containerRef = useRef(null);
   const [chartSize, setChartSize] = useState({ width: 0, height: 300 });
@@ -79,8 +127,8 @@ const RepairFrequencyChart = ({ data, title }) => {
             <Legend
               verticalAlign="bottom"
               align="left"
-              iconType="circle"
-              wrapperStyle={{ paddingTop: "20px" }}
+              height={58}
+              content={<ColorCodedLegend />}
             />
 
             {seriesKeys.map((key, index) => (

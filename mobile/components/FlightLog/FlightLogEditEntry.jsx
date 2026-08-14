@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Image,
+  Image
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -70,13 +70,55 @@ const formatSignatureDate = (timestamp) => {
   const parsed = new Date(timestamp);
   if (Number.isNaN(parsed.getTime())) return "";
 
-  return parsed.toLocaleString();
+  return parsed.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const toTitleCase = (value = "") =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getUserFullName = (user = {}) =>
+  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+  user?.name ||
+  user?.username ||
+  "";
+
+const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
+  const title =
+    user?.jobTitle || user?.access || toTitleCase(fallbackTitle) || "User";
+  const licenseNo =
+    user?.licenseNo ||
+    user?.licenseNumber ||
+    user?.license ||
+    user?.certificateNo ||
+    "";
+
+  return {
+    name: getUserFullName(user) || title,
+    title,
+    id: licenseNo,
+    licenseNo,
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
 };
 
 const getSignerLabel = (signatureData = {}) =>
   signatureData.id
     ? `${signatureData.name || "Unknown"} / ${signatureData.id}`
-    : signatureData.name || "Unknown";
+    : [signatureData.name || "Unknown", signatureData.title]
+        .filter(Boolean)
+        .join(" - ");
 
 export default function FlightLogEditEntry({
   visible,
@@ -84,6 +126,7 @@ export default function FlightLogEditEntry({
   onClose,
   onSave,
   userRole,
+  currentUser,
   readOnly = false,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
@@ -96,10 +139,10 @@ export default function FlightLogEditEntry({
     closeOnFinish: false,
   });
   const scrollViewRef = useRef(null);
-  const normalizedRole = (userRole || "").toLowerCase();
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(normalizedRole);
+    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -311,11 +354,7 @@ export default function FlightLogEditEntry({
   const handleRelease = async (signature) => {
     const updated = {
       ...formData,
-      releasedBy: {
-        name: "Mechanic",
-        signature,
-        timestamp: new Date().toISOString(),
-      },
+      releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
     };
     setFormData(updated);
@@ -334,11 +373,7 @@ export default function FlightLogEditEntry({
 
     const updated = {
       ...formData,
-      acceptedBy: {
-        name: "Pilot",
-        signature,
-        timestamp: new Date().toISOString(),
-      },
+      acceptedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "accepted",
     };
     setFormData(updated);
@@ -598,7 +633,8 @@ export default function FlightLogEditEntry({
   }
 
   return (
-    <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+    <>
+      <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
@@ -613,12 +649,12 @@ export default function FlightLogEditEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                Edit Entry - Flight Log
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -659,7 +695,7 @@ export default function FlightLogEditEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -668,7 +704,7 @@ export default function FlightLogEditEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -705,7 +741,7 @@ export default function FlightLogEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -713,7 +749,7 @@ export default function FlightLogEditEntry({
                     }}
                   >
                     Release
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -728,7 +764,7 @@ export default function FlightLogEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -736,7 +772,7 @@ export default function FlightLogEditEntry({
                     }}
                   >
                     Accept
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -751,7 +787,7 @@ export default function FlightLogEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -759,7 +795,7 @@ export default function FlightLogEditEntry({
                     }}
                   >
                     Notify Mechanic for Completing Flights
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -774,7 +810,7 @@ export default function FlightLogEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -782,7 +818,7 @@ export default function FlightLogEditEntry({
                     }}
                   >
                     Complete
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -805,7 +841,7 @@ export default function FlightLogEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -813,10 +849,10 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       RELEASED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -825,19 +861,19 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       {getSignerLabel(formData.releasedBy)}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "admin"].includes((userRole || "").toLowerCase())
+                      {["maintenance manager", "superadmin"].includes(normalizedRole)
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -845,7 +881,7 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       {formatSignatureDate(formData.releasedBy?.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.releasedBy?.signature && (
                       <Image
                         source={{ uri: formData.releasedBy.signature }}
@@ -881,7 +917,7 @@ export default function FlightLogEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -889,10 +925,10 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       ACCEPTED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -901,8 +937,8 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       {getSignerLabel(formData.acceptedBy)}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -910,8 +946,8 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       PILOT
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -919,7 +955,7 @@ export default function FlightLogEditEntry({
                       }}
                     >
                       {formatSignatureDate(formData.acceptedBy?.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.acceptedBy?.signature && (
                       <Image
                         source={{ uri: formData.acceptedBy.signature }}
@@ -962,9 +998,9 @@ export default function FlightLogEditEntry({
               opacity: currentPage === 0 ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View
@@ -975,11 +1011,11 @@ export default function FlightLogEditEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           <TouchableOpacity
@@ -998,7 +1034,7 @@ export default function FlightLogEditEntry({
               opacity: 1,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
               {isLastPage
@@ -1006,40 +1042,41 @@ export default function FlightLogEditEntry({
                   ? "Close"
                   : "Save"
                 : "Next"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
-
-        <FlightLogSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-        />
-
-        <FlightLogSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-        />
-
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
       </SafeAreaView>
-    </Modal>
+      </Modal>
+
+      <FlightLogSignatureModal
+        visible={showReleaseModal}
+        title="Release Signature"
+        onClose={() => setShowReleaseModal(false)}
+        onSave={handleRelease}
+        aircraftRPC={formData.rpc}
+      />
+
+      <FlightLogSignatureModal
+        visible={showAcceptModal}
+        title="Accept Signature"
+        onClose={() => setShowAcceptModal(false)}
+        onSave={handleAccept}
+        aircraftRPC={formData.rpc}
+      />
+
+      <AlertComp
+        visible={feedbackAlert.visible}
+        title={feedbackAlert.title}
+        message={feedbackAlert.message}
+        duration={1400}
+        onFinish={() => {
+          const shouldClose = feedbackAlert.closeOnFinish;
+          setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+          if (shouldClose) {
+            onClose();
+          }
+        }}
+      />
+    </>
   );
 }

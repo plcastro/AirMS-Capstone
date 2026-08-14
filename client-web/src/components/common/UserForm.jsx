@@ -5,8 +5,6 @@ import {
   Input,
   Button,
   Select,
-  Divider,
-  message as antMessage,
   Col,
   Row,
   Typography,
@@ -16,7 +14,7 @@ import {
   Descriptions,
   Avatar,
 } from "antd";
-import { PlusOutlined, UserOutlined } from "@ant-design/icons";
+import { PlusOutlined } from "@ant-design/icons";
 import ImgCrop from "antd-img-crop";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
@@ -24,14 +22,66 @@ import { AuthContext } from "../../context/AuthContext";
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
+const modalBodyStyle = (isMobile) => ({
+  maxHeight: isMobile ? "74vh" : "78vh",
+  overflowY: "auto",
+  padding: isMobile ? "12px 16px 16px" : "16px 24px 24px",
+});
+
+const footerButtonStyle = (isMobile) => ({
+  minWidth: isMobile ? 0 : 104,
+  width: isMobile ? "calc(50% - 4px)" : "auto",
+});
+
 const ROLE_MAP = {
-  Admin: "Admin",
+  Superadmin: "Superadmin",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
   Mechanic: "User",
-  "Warehouse Department": "User",
+  "Warehouse Staff": "User",
 };
+
+const resizeImage = (file, size = 128) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      // Crop to square
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2;
+      const sy = (img.height - minSide) / 2;
+
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to resize image"));
+            return;
+          }
+
+          resolve(
+            new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            }),
+          );
+        },
+        "image/jpeg",
+        0.85, // 85% quality
+      );
+    };
+
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 
 export default function UserForm({
   visible,
@@ -39,11 +89,13 @@ export default function UserForm({
   onUserSaved,
   user,
   allUsers,
+  onShowPopup,
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { getValidToken } = useContext(AuthContext);
   const [form] = Form.useForm();
+  const formValues = Form.useWatch([], form);
 
   const [joinedDate, setJoinedDate] = useState(new Date());
   const [imageUrl, setImageUrl] = useState(null);
@@ -74,7 +126,6 @@ export default function UserForm({
         email: user.email || "",
         username: user.username || "",
         jobTitle: user.jobTitle || undefined,
-        base: user.base || undefined,
         access: user.access || ROLE_MAP[user.jobTitle] || "",
         licenseNo: user.licenseNo || "",
       });
@@ -89,7 +140,6 @@ export default function UserForm({
         email: "",
         username: "",
         jobTitle: undefined,
-        base: undefined,
         access: "",
         licenseNo: "",
       });
@@ -122,17 +172,20 @@ export default function UserForm({
 
   useEffect(() => {
     form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
-    if (
-      ![
-        "maintenance manager",
-        "pilot",
-        "mechanic",
-        "officer-in-charge",
-      ].includes(jobTitleValue.toLowerCase())
-    ) {
+
+    const requiresLicense = [
+      "maintenance manager",
+      "pilot",
+      "mechanic",
+      "officer-in-charge",
+    ].includes(jobTitleValue.toLowerCase());
+
+    if (!requiresLicense) {
       form.setFieldValue("licenseNo", "");
+    } else if (user) {
+      form.setFieldValue("licenseNo", user.licenseNo);
     }
-  }, [jobTitleValue, form]);
+  }, [jobTitleValue, user, form]);
 
   const handleSave = async (values) => {
     setLoading(true);
@@ -152,7 +205,6 @@ export default function UserForm({
         body.append("email", values.email.trim());
         body.append("username", values.username.trim());
         body.append("jobTitle", values.jobTitle);
-        body.append("base", values.base);
         body.append("access", values.access);
         body.append("dateCreated", joinedDate.toISOString());
         body.append("confirmAction", "true");
@@ -176,7 +228,6 @@ export default function UserForm({
           email: values.email.trim(),
           username: values.username.trim(),
           jobTitle: values.jobTitle,
-          base: values.base,
           access: values.access,
           dateCreated: joinedDate.toISOString(),
           licenseNo: values.licenseNo || "",
@@ -201,14 +252,21 @@ export default function UserForm({
       const savedUser = await res.json();
       const savedUserData = savedUser?.data || savedUser?.user || null;
 
-      antMessage.success(
-        user ? "User updated successfully!" : "User added successfully!",
-      );
+      onShowPopup({
+        open: true,
+        status: "success",
+        title: user ? "User Updated!" : "User Added!",
+        subTitle: user
+          ? "The user has been updated successfully."
+          : "The user has been added successfully.",
+      });
 
       if (!user) {
-        Modal.success({
+        onShowPopup({
+          open: true,
+          status: "success",
           title: "Email Sent",
-          content: `An invitation email has been sent to ${values.email}.`,
+          subTitle: `An invitation email has been sent to ${values.email}.`,
         });
       }
 
@@ -219,7 +277,6 @@ export default function UserForm({
         email: values.email.trim(),
         username: values.username,
         jobTitle: values.jobTitle,
-        base: values.base,
         access: values.access,
         dateCreated: joinedDate.toISOString(),
         image: savedUserData?.image || imageUrl,
@@ -234,7 +291,12 @@ export default function UserForm({
       onClose();
     } catch (err) {
       console.error("Error saving user:", err);
-      antMessage.error(err.message || "Server error. Please try again.");
+      onShowPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Something went wrong. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -245,8 +307,8 @@ export default function UserForm({
       const values = await form.validateFields();
       setPreviewData(values);
       setPreviewOpen(true);
-    } catch {
-      // validation errors are displayed by Form
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -261,15 +323,36 @@ export default function UserForm({
     [jobTitleValue],
   );
   const actionLabel = user ? "update" : "create";
-  const hasUnsavedChanges = () => form.isFieldsTouched(true) || Boolean(file);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!visible) return false;
+
+    // New user
+    if (!user) {
+      return form.isFieldsTouched(true) || Boolean(file);
+    }
+
+    return (
+      formValues?.firstName !== (user.firstName || "") ||
+      formValues?.lastName !== (user.lastName || "") ||
+      formValues?.email !== (user.email || "") ||
+      formValues?.username !== (user.username || "") ||
+      formValues?.jobTitle !== (user.jobTitle || "") ||
+      formValues?.access !== (user.access || ROLE_MAP[user.jobTitle] || "") ||
+      (formValues?.licenseNo || "") !== (user.licenseNo || "") ||
+      Boolean(file)
+    );
+  }, [formValues, file, user, visible, form]);
+
   const handleCancelWithWarning = () => {
     if (loading) return;
-    if (hasUnsavedChanges()) {
+    if (hasUnsavedChanges) {
       Modal.confirm({
         title: "Discard changes?",
         content: "You have unsaved changes. Cancel and discard them?",
         okText: "Discard",
         cancelText: "Keep editing",
+        centered: true,
         okButtonProps: { danger: true },
         onOk: () => {
           setPreviewOpen(false);
@@ -290,20 +373,24 @@ export default function UserForm({
         onCancel={handleCancelWithWarning}
         width={isMobile ? "96vw" : 760}
         centered
+        zIndex={3000}
         styles={{
           header: {
-            padding: "8px 24px",
+            padding: isMobile ? "14px 16px 10px" : "16px 24px 10px",
           },
-          body: {
-            maxHeight: isMobile ? "76vh" : "80vh",
-            padding: "4px 24px 24px",
+          body: modalBodyStyle(isMobile),
+          footer: {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: isMobile ? "10px 16px 14px" : "12px 24px 16px",
           },
         }}
         footer={[
           <Button
             key="cancel"
             onClick={handleCancelWithWarning}
-            style={{ width: isMobile ? "48%" : "auto" }}
+            style={footerButtonStyle(isMobile)}
           >
             Cancel
           </Button>,
@@ -312,24 +399,42 @@ export default function UserForm({
             type="primary"
             onClick={handlePreview}
             loading={loading}
-            style={{ width: isMobile ? "48%" : "auto" }}
+            style={footerButtonStyle(isMobile)}
+            disabled={user ? !hasUnsavedChanges : false}
           >
             {user ? "Update" : "Create"}
           </Button>,
         ]}
       >
-        <Divider style={{ marginTop: 0 }} />
         <Form form={form} layout="vertical" requiredMark={true}>
-          <Space orientation="vertical" size={14} style={{ width: "100%" }}>
-            <Row justify="center">
-              <Col style={{ textAlign: "center" }}>
+          <Row gutter={[24, 12]} align="top">
+            <Col xs={24} md={7}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: isMobile ? "row" : "column",
+                  alignItems: "center",
+                  justifyContent: isMobile ? "flex-start" : "center",
+                  gap: isMobile ? 12 : 8,
+                  minHeight: isMobile ? 88 : 164,
+                  padding: isMobile ? "0 0 8px" : "8px 0",
+                  borderBottom: isMobile ? "1px solid #f0f0f0" : "none",
+                }}
+              >
                 <ImgCrop rotationSlider aspect={1 / 1}>
                   <Upload
                     listType="picture-card"
                     showUploadList={false}
-                    beforeUpload={(nextFile) => {
-                      setFile(nextFile);
-                      setImageUrl(URL.createObjectURL(nextFile));
+                    beforeUpload={async (nextFile) => {
+                      try {
+                        const resizedFile = await resizeImage(nextFile, 128);
+
+                        setFile(resizedFile);
+                        setImageUrl(URL.createObjectURL(resizedFile));
+                      } catch (err) {
+                        console.error(err);
+                      }
+
                       return false;
                     }}
                   >
@@ -337,181 +442,190 @@ export default function UserForm({
                       <img
                         src={imageUrl}
                         alt="avatar"
-                        style={{ width: "100%" }}
+                        loading="lazy"
+                        decoding="async"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
                       />
                     ) : (
                       <PlusOutlined />
                     )}
                   </Upload>
                 </ImgCrop>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Upload profile photo
-                </Text>
-              </Col>
-            </Row>
-
-            <Row gutter={[16, 14]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="First Name"
-                  name="firstName"
-                  rules={[
-                    { required: true, message: "First name is required" },
-                    {
-                      pattern: /^[a-zA-Z'\-\s]+$/,
-                      message:
-                        "First name can only contain letters, hyphens, or apostrophes",
-                    },
-                  ]}
+                <Space
+                  orientation="vertical"
+                  size={2}
+                  style={{
+                    alignItems: isMobile ? "flex-start" : "center",
+                    textAlign: isMobile ? "left" : "center",
+                  }}
                 >
-                  <Input
-                    maxLength={128}
-                    size="large"
-                    placeholder="Enter first name"
-                    onChange={(e) => {
-                      const value = e.target.value.replace(
-                        /[^a-zA-Z'\-\s]/g,
-                        "",
-                      );
-                      form.setFieldValue("firstName", value);
-                    }}
-                  />
-                </Form.Item>
-              </Col>
+                  <Text strong>
+                    {firstNameValue || lastNameValue
+                      ? `${firstNameValue} ${lastNameValue}`.trim()
+                      : "Profile photo"}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    JPG or PNG, square crop
+                  </Text>
+                </Space>
+              </div>
+            </Col>
 
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Last Name"
-                  name="lastName"
-                  rules={[
-                    { required: true, message: "Last name is required" },
-                    {
-                      pattern: /^[a-zA-Z'\-\s]+$/,
-                      message:
-                        "Last name can only contain letters, hyphens, or apostrophes",
-                    },
-                  ]}
-                >
-                  <Input
-                    maxLength={128}
-                    size="large"
-                    placeholder="Enter last name"
-                    onChange={(e) => {
-                      const value = e.target.value.replace(
-                        /[^a-zA-Z'\-\s]/g,
-                        "",
-                      );
-                      form.setFieldValue("lastName", value);
-                    }}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={24}>
-                <Form.Item
-                  label="Email Address"
-                  name="email"
-                  rules={[
-                    { required: true, message: "Email is required" },
-                    { type: "email", message: "Invalid email format" },
-                  ]}
-                >
-                  <Input
-                    placeholder="Enter email address"
-                    size="large"
-                    maxLength={256}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item label="Generated Username" name="username">
-                  <Input size="large" disabled />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Job Title"
-                  name="jobTitle"
-                  rules={[{ required: true, message: "Job Title is required" }]}
-                >
-                  <Select
-                    size="large"
-                    options={[
-                      { label: "Admin", value: "Admin" },
-                      {
-                        label: "Maintenance Manager",
-                        value: "Maintenance Manager",
-                      },
-                      { label: "Pilot", value: "Pilot" },
-                      {
-                        label: "Officer-In-Charge",
-                        value: "Officer-In-Charge",
-                      },
-                      { label: "Mechanic", value: "Mechanic" },
-                      {
-                        label: "Warehouse Department",
-                        value: "Warehouse Department",
-                      },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Base"
-                  name="base"
-                  rules={[{ required: true, message: "Base is required" }]}
-                >
-                  <Select
-                    size="large"
-                    placeholder="Select user base"
-                    options={[
-                      { label: "MANILA", value: "MANILA" },
-                      { label: "CEBU", value: "CEBU" },
-                      { label: "CDO", value: "CDO" },
-                    ]}
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item label="Access Level" name="access">
-                  <Input size="large" disabled />
-                </Form.Item>
-              </Col>
-
-              {requiresLicense ? (
+            <Col xs={24} md={17}>
+              <Row gutter={[16, 6]}>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="License No."
-                    name="licenseNo"
+                    label="First Name"
+                    name="firstName"
                     rules={[
-                      { required: true, message: "License number is required" },
+                      { required: true, message: "First name is required" },
                       {
-                        pattern: /^\d{6}$/,
-                        message: "License number must be 6 digits",
+                        pattern: /^[a-zA-Z'\-\s]+$/,
+                        message:
+                          "First name can only contain letters, hyphens, or apostrophes",
                       },
                     ]}
                   >
                     <Input
-                      placeholder="Enter license number"
+                      maxLength={128}
                       size="large"
-                      maxLength={6}
-                      onChange={(e) =>
-                        form.setFieldValue(
-                          "licenseNo",
-                          e.target.value.replace(/\D/g, ""),
-                        )
-                      }
+                      placeholder="Enter first name"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(
+                          /[^a-zA-Z'\-\s]/g,
+                          "",
+                        );
+                        form.setFieldValue("firstName", value);
+                      }}
                     />
                   </Form.Item>
                 </Col>
-              ) : null}
-            </Row>
-          </Space>
+
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Last Name"
+                    name="lastName"
+                    rules={[
+                      { required: true, message: "Last name is required" },
+                      {
+                        pattern: /^[a-zA-Z'\-\s]+$/,
+                        message:
+                          "Last name can only contain letters, hyphens, or apostrophes",
+                      },
+                    ]}
+                  >
+                    <Input
+                      maxLength={128}
+                      size="large"
+                      placeholder="Enter last name"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(
+                          /[^a-zA-Z'\-\s]/g,
+                          "",
+                        );
+                        form.setFieldValue("lastName", value);
+                      }}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={24}>
+                  <Form.Item
+                    label="Email Address"
+                    name="email"
+                    rules={[
+                      { required: true, message: "Email is required" },
+                      { type: "email", message: "Invalid email format" },
+                    ]}
+                  >
+                    <Input
+                      placeholder="Enter email address"
+                      size="large"
+                      maxLength={256}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Generated Username" name="username">
+                    <Input size="large" disabled />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Job Title"
+                    name="jobTitle"
+                    rules={[
+                      { required: true, message: "Job Title is required" },
+                    ]}
+                  >
+                    <Select
+                      size="large"
+                      options={[
+                        { label: "Superadmin", value: "Superadmin" },
+                        {
+                          label: "Maintenance Manager",
+                          value: "Maintenance Manager",
+                        },
+                        { label: "Pilot", value: "Pilot" },
+                        {
+                          label: "Officer-In-Charge",
+                          value: "Officer-In-Charge",
+                        },
+                        { label: "Mechanic", value: "Mechanic" },
+                        {
+                          label: "Warehouse Staff",
+                          value: "Warehouse Staff",
+                        },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Access Level" name="access">
+                    <Input size="large" disabled />
+                  </Form.Item>
+                </Col>
+
+                {requiresLicense ? (
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="License No."
+                      name="licenseNo"
+                      rules={[
+                        {
+                          required: true,
+                          message: "License number is required",
+                        },
+                        {
+                          pattern: /^\d{6}$/,
+                          message: "License number must be 6 digits",
+                        },
+                      ]}
+                    >
+                      <Input
+                        placeholder="Enter license number"
+                        size="large"
+                        maxLength={6}
+                        onChange={(e) =>
+                          form.setFieldValue(
+                            "licenseNo",
+                            e.target.value.replace(/\D/g, ""),
+                          )
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                ) : null}
+              </Row>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
@@ -521,8 +635,22 @@ export default function UserForm({
         onCancel={() => setPreviewOpen(false)}
         width={isMobile ? "94vw" : 640}
         centered
+        zIndex={9999}
+        styles={{
+          body: modalBodyStyle(isMobile),
+          footer: {
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: isMobile ? "10px 16px 14px" : "12px 24px 16px",
+          },
+        }}
         footer={[
-          <Button key="back" onClick={() => setPreviewOpen(false)}>
+          <Button
+            key="back"
+            onClick={() => setPreviewOpen(false)}
+            style={footerButtonStyle(isMobile)}
+          >
             Back
           </Button>,
           <Button
@@ -530,6 +658,7 @@ export default function UserForm({
             type="primary"
             loading={loading}
             onClick={() => previewData && handleSave(previewData)}
+            style={footerButtonStyle(isMobile)}
           >
             {user ? "Save Changes" : "Create User"}
           </Button>,
@@ -542,7 +671,7 @@ export default function UserForm({
           <Row justify="center">
             <Col style={{ textAlign: "center" }}>
               {imageUrl ? (
-                <Avatar size={84} src={imageUrl} />
+                <Avatar size={84} src={imageUrl} alt="User profile preview" />
               ) : (
                 <div
                   style={{
@@ -564,7 +693,10 @@ export default function UserForm({
                       fontSize: 32,
                     }}
                   >
-                    {getUserInitials(user?.firstName, user?.lastName)}
+                    {getUserInitials(
+                      previewData?.firstName,
+                      previewData?.lastName,
+                    )}
                   </span>
                 </div>
               )}
@@ -586,9 +718,6 @@ export default function UserForm({
             </Descriptions.Item>
             <Descriptions.Item label="Job Title">
               {previewData?.jobTitle || "-"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Base">
-              {previewData?.base || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Access Level">
               {previewData?.access || "-"}

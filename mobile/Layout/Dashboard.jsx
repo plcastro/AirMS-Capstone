@@ -15,12 +15,12 @@ export default function Dashboard({ children, currentRouteName }) {
 
   const normalizedRole = String(user?.jobTitle || "").toLowerCase();
   const canAccessMessages = [
-    "admin",
+    "superadmin",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse department",
+    "warehouse staff",
   ].includes(normalizedRole);
   const showChatFab = canAccessMessages && currentRouteName !== "Messages";
   const isManageUsers = currentRouteName === "Manage Users";
@@ -44,7 +44,7 @@ export default function Dashboard({ children, currentRouteName }) {
 
   return (
     <View style={{ flex: 1 }}>
-      {children}
+      <View style={{ flex: 1 }}>{children}</View>
       {showChatFab &&
         (isManageUsers ? (
           <>

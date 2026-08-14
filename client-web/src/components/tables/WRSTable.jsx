@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Table, InputNumber, Tag } from "antd";
+import { InputNumber, Tag } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function WRSTable({
   data = [],
@@ -82,7 +83,13 @@ export default function WRSTable({
       title: "PARTICULAR",
       dataIndex: "particular",
       key: "particular",
-      width: 400,
+      width: 250,
+      onCell: () => ({
+        style: {
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+        },
+      }),
     },
     {
       title: "REQUESTED QTY",
@@ -127,13 +134,13 @@ export default function WRSTable({
     },
 
     {
-      title: "UOM",
+      title: "UNIT",
       dataIndex: "unitOfMeasure",
       key: "unitOfMeasure",
       width: 120,
     },
     {
-      title: "AUTO STATUS",
+      title: "STATUS",
       key: "autoStatus",
       width: 150,
       render: (_, record) => getAutoStatus(record),
@@ -141,12 +148,13 @@ export default function WRSTable({
   ];
 
   return (
-    <Table
+    <ResponsiveTable
       columns={tableColumns}
       dataSource={data}
       rowKey={(record) => record._id}
       loading={loading}
       scroll={{ x: "max-content" }}
+      size={"small"}
       pagination={{
         pageSize,
         current: currentPage,

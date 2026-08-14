@@ -1,5 +1,7 @@
 const MaintenanceLog = require("../models/maintenanceLogModel");
 const AircraftModel = require("../models/aircraftModel");
+const TaskModel = require("../models/taskModel");
+const UserModel = require("../models/userModel");
 const { auditLog } = require("./logsController"); // optional for logging
 const {
   rewriteChecklistItemsWithAI,
@@ -12,6 +14,17 @@ const normalizeTaskCompletionStatus = (status) =>
   String(status || "").trim().toLowerCase();
 
 const normalizeBaseValue = (value) => String(value || "").trim().toUpperCase();
+
+const normalizeIdentity = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const getUserFullName = (user = {}) =>
+  `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
 
 const isKnownBase = (value) => !UNKNOWN_BASE_VALUES.has(normalizeBaseValue(value));
 
@@ -52,10 +65,128 @@ const resolveLogBase = (log = {}, aircraftBaseByTail = new Map()) =>
     aircraftBaseByTail.get(String(log.aircraft || "").trim().toUpperCase()),
   ) || "UNKNOWN";
 
-const serializeMaintenanceLog = (log, aircraftBaseByTail = new Map()) => {
+const buildTaskRoleMap = async (logs = []) => {
+  const sourceTaskIds = [
+    ...new Set(
+      logs.map((log) => String(log?.sourceTaskId || "").trim()).filter(Boolean),
+    ),
+  ];
+
+  if (!sourceTaskIds.length) {
+    return new Map();
+  }
+
+  const tasks = await TaskModel.find(
+    { id: { $in: sourceTaskIds } },
+    "id assignedTo assignedToName approvedBy",
+  ).lean();
+  const licenseByIdentity = await buildUserLicenseMap(
+    tasks.flatMap((task) => [task.assignedTo, task.assignedToName, task.approvedBy]),
+  );
+
+  return new Map(
+    tasks.map((task) => [
+      String(task.id),
+      {
+        ...task,
+        mechanicLicenseNo: getLicenseForIdentity(
+          licenseByIdentity,
+          task.assignedTo,
+          task.assignedToName,
+        ),
+        inspectorLicenseNo: getLicenseForIdentity(licenseByIdentity, task.approvedBy),
+      },
+    ]),
+  );
+};
+
+const buildUserLicenseMap = async (identities = []) => {
+  const normalizedIdentities = [
+    ...new Set(identities.map((value) => String(value || "").trim()).filter(Boolean)),
+  ];
+
+  if (!normalizedIdentities.length) {
+    return new Map();
+  }
+
+  const normalizedIdentitySet = new Set(normalizedIdentities.map(normalizeIdentity));
+  const objectIds = normalizedIdentities.filter(isObjectIdLike);
+  const directMatches = normalizedIdentities.filter((identity) => !isObjectIdLike(identity));
+  const query = [];
+
+  if (objectIds.length) {
+    query.push({ _id: { $in: objectIds } });
+  }
+
+  if (directMatches.length) {
+    query.push(
+      { username: { $in: directMatches } },
+      { email: { $in: directMatches } },
+      { licenseNo: { $in: directMatches } },
+    );
+  }
+
+  const directlyMatchedUsers = query.length
+    ? await UserModel.find(
+        { $or: query },
+        "firstName lastName username email licenseNo",
+      ).lean()
+    : [];
+  const licensedUsers = await UserModel.find(
+    { licenseNo: { $exists: true, $nin: [null, ""] } },
+    "firstName lastName username email licenseNo",
+  ).lean();
+  const licenseByIdentity = new Map();
+
+  [...directlyMatchedUsers, ...licensedUsers].forEach((user) => {
+    const licenseNo = user?.licenseNo || "";
+    const possibleIdentities = [
+      user?._id,
+      user?.username,
+      user?.email,
+      user?.licenseNo,
+      getUserFullName(user),
+    ];
+
+    if (!possibleIdentities.some((identity) => normalizedIdentitySet.has(normalizeIdentity(identity)))) {
+      return;
+    }
+
+    possibleIdentities
+      .map(normalizeIdentity)
+      .filter(Boolean)
+      .forEach((key) => licenseByIdentity.set(key, licenseNo));
+  });
+
+  return licenseByIdentity;
+};
+
+const getLicenseForIdentity = (licenseByIdentity, ...identities) =>
+  identities
+    .map((identity) => licenseByIdentity.get(normalizeIdentity(identity)))
+    .find(Boolean) || "";
+
+const serializeMaintenanceLog = (
+  log,
+  aircraftBaseByTail = new Map(),
+  taskRoleBySourceId = new Map(),
+) => {
   const plainLog = typeof log?.toObject === "function" ? log.toObject() : { ...log };
+  const sourceTaskRoles =
+    taskRoleBySourceId.get(String(plainLog.sourceTaskId || "")) || {};
+  const mechanicInCharge =
+    plainLog.mechanicInCharge ||
+    sourceTaskRoles.assignedToName ||
+    plainLog.reportedBy ||
+    "";
   return {
     ...plainLog,
+    mechanicInCharge,
+    mechanicLicenseNo:
+      plainLog.mechanicLicenseNo || sourceTaskRoles.mechanicLicenseNo || "",
+    inspector: plainLog.inspector || sourceTaskRoles.approvedBy || "",
+    inspectorLicenseNo:
+      plainLog.inspectorLicenseNo || sourceTaskRoles.inspectorLicenseNo || "",
     base: resolveLogBase(plainLog, aircraftBaseByTail),
   };
 };
@@ -394,6 +525,11 @@ const buildMaintenanceLogFromTask = async (task = {}) => {
     new Date().toISOString();
   const workDetails = await buildWorkDetailsFromTask(task);
   const aircraftBase = await resolveAircraftBase(task.aircraft);
+  const licenseByIdentity = await buildUserLicenseMap([
+    task.assignedTo,
+    task.assignedToName,
+    task.approvedBy,
+  ]);
 
   return {
     sourceTaskId,
@@ -414,6 +550,14 @@ const buildMaintenanceLogFromTask = async (task = {}) => {
     workDetails,
     dateDefectRectified: rectifiedAt,
     reportedBy: task.assignedToName || task.approvedBy || "Task Assignment",
+    mechanicInCharge: task.assignedToName || "",
+    mechanicLicenseNo: getLicenseForIdentity(
+      licenseByIdentity,
+      task.assignedTo,
+      task.assignedToName,
+    ),
+    inspector: task.approvedBy || "",
+    inspectorLicenseNo: getLicenseForIdentity(licenseByIdentity, task.approvedBy),
     status: completedStatus === "approved" || task.isApproved ? "verified" : "unverified",
   };
 };
@@ -471,6 +615,10 @@ const createMaintenanceLog = async (req, res) => {
       correctiveActionDone,
       dateDefectRectified,
       reportedBy,
+      mechanicInCharge,
+      mechanicLicenseNo,
+      inspector,
+      inspectorLicenseNo,
       status,
       workDetails,
     } = req.body;
@@ -492,6 +640,10 @@ const createMaintenanceLog = async (req, res) => {
       correctiveActionDone,
       dateDefectRectified,
       reportedBy,
+      mechanicInCharge: mechanicInCharge || reportedBy || "",
+      mechanicLicenseNo: mechanicLicenseNo || "",
+      inspector: inspector || "",
+      inspectorLicenseNo: inspectorLicenseNo || "",
       status,
       workDetails: Array.isArray(workDetails) ? workDetails : [],
     });
@@ -502,8 +654,8 @@ const createMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },
@@ -521,9 +673,12 @@ const getAllMaintenanceLogs = async (req, res) => {
   try {
     const logs = await MaintenanceLog.find().sort({ dateDefectDiscovered: -1 });
     const aircraftBaseByTail = await buildAircraftBaseMap();
+    const taskRoleBySourceId = await buildTaskRoleMap(logs);
     res.status(200).json({
       status: "Ok",
-      data: logs.map((log) => serializeMaintenanceLog(log, aircraftBaseByTail)),
+      data: logs.map((log) =>
+        serializeMaintenanceLog(log, aircraftBaseByTail, taskRoleBySourceId),
+      ),
     });
   } catch (err) {
     console.error("Error fetching maintenance logs:", err);
@@ -539,9 +694,10 @@ const getMaintenanceLogById = async (req, res) => {
       return res.status(404).json({ message: "Maintenance log not found" });
 
     const aircraftBaseByTail = await buildAircraftBaseMap();
+    const taskRoleBySourceId = await buildTaskRoleMap([log]);
     res.status(200).json({
       status: "Ok",
-      data: serializeMaintenanceLog(log, aircraftBaseByTail),
+      data: serializeMaintenanceLog(log, aircraftBaseByTail, taskRoleBySourceId),
     });
   } catch (err) {
     console.error("Error fetching maintenance log:", err);
@@ -560,6 +716,10 @@ const updateMaintenanceLog = async (req, res) => {
       correctiveActionDone,
       dateDefectRectified,
       reportedBy,
+      mechanicInCharge,
+      mechanicLicenseNo,
+      inspector,
+      inspectorLicenseNo,
       status,
       workDetails,
       workDetailsLocked,
@@ -604,6 +764,12 @@ const updateMaintenanceLog = async (req, res) => {
         correctiveActionDone,
         dateDefectRectified,
         reportedBy,
+        mechanicInCharge:
+          mechanicInCharge || reportedBy || existingLog.mechanicInCharge || "",
+        mechanicLicenseNo:
+          mechanicLicenseNo || existingLog.mechanicLicenseNo || "",
+        inspector: inspector || existingLog.inspector || "",
+        inspectorLicenseNo: inspectorLicenseNo || existingLog.inspectorLicenseNo || "",
         status,
         workDetails: normalizedWorkDetails,
         workDetailsLocked: Boolean(workDetailsLocked || existingLog.workDetailsLocked),
@@ -620,8 +786,8 @@ const updateMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },
@@ -652,8 +818,8 @@ const deleteMaintenanceLog = async (req, res) => {
       null,
       {
         sessionId: req.headers["x-session-id"] || null,
-        platform: req.headers["x-platform"] || "UNKNOWN",
-        base: req.headers["x-base"] || "UNKNOWN",
+        platform: req.headers["x-platform"] || null,
+        base: req.headers["x-base"] || null,
         ipAddress: req.ip || req.socket?.remoteAddress || "",
         userAgent: req.headers["user-agent"] || "",
       },

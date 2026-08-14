@@ -1,7 +1,7 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import AppText from "../common/AppText";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -37,9 +37,11 @@ export default function PreInspectionEditEntry({
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isPilot = userRole === "pilot";
-  const isMechanic =
-    ["mechanic", "maintenance manager", "admin"].includes(userRole);
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isPilot = normalizedRole === "pilot";
+  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+    normalizedRole,
+  );
 
   const tabs = [
     "Basic Information",
@@ -53,10 +55,9 @@ export default function PreInspectionEditEntry({
   const [formData, setFormData] = useState(
     getDefaultPreInspectionFormData(userRole),
   );
-  const isCompletedInspection = [
-    inspectionData?.status,
-    formData.status,
-  ].some((status) => String(status || "").toLowerCase() === "completed");
+  const isCompletedInspection = [inspectionData?.status, formData.status].some(
+    (status) => String(status || "").toLowerCase() === "completed",
+  );
 
   useEffect(() => {
     if (visible && inspectionData) {
@@ -93,7 +94,9 @@ export default function PreInspectionEditEntry({
   const isFormEditable = !isViewOnly && !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
-    if (!String(formData.fob || "").trim()) {
+    const fobValue = String(formData.fob || "").trim();
+    const numericFob = Number(fobValue);
+    if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
       showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
@@ -123,9 +126,7 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       acceptedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
@@ -137,8 +138,8 @@ export default function PreInspectionEditEntry({
       await persistInspection(updatedFormData);
       showToast("Pre-inspection has been completed");
     } catch (error) {
-      console.error("Error completing pre-inspection:", error);
-      showToast("Failed to complete pre-inspection");
+      console.error("Error completing pre-flight inspection:", error);
+      showToast("Failed to complete pre-flight inspection");
       throw error;
     }
   };
@@ -151,9 +152,7 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",
@@ -165,8 +164,8 @@ export default function PreInspectionEditEntry({
       await persistInspection(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      showToast("Failed to release pre-inspection");
+      console.error("Error releasing pre-flight inspection:", error);
+      showToast("Failed to release pre-flight inspection");
       throw error;
     }
   };
@@ -188,8 +187,8 @@ export default function PreInspectionEditEntry({
     try {
       await persistInspection(formData);
     } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
+      console.error("Error saving pre-flight inspection:", error);
+      showToast("Failed to save pre-flight inspection");
     }
   };
 
@@ -281,7 +280,13 @@ export default function PreInspectionEditEntry({
   const formatDate = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    return date.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -301,12 +306,20 @@ export default function PreInspectionEditEntry({
             }}
           >
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText
+                style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}
+              >
                 {isViewOnly ? "View Entry" : "Edit Entry"} - Pre-Inspection
-              </Text>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              </AppText>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: COLORS.grayDark,
+                }}
+              >
                 Select Section
-              </Text>
+              </AppText>
             </View>
 
             <TouchableOpacity
@@ -347,7 +360,7 @@ export default function PreInspectionEditEntry({
                     currentPage === index ? COLORS.primaryLight : "transparent",
                 }}
               >
-                <Text
+                <AppText
                   style={{
                     fontSize: 12,
                     fontWeight: "500",
@@ -356,7 +369,7 @@ export default function PreInspectionEditEntry({
                   }}
                 >
                   {tab}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -368,7 +381,6 @@ export default function PreInspectionEditEntry({
               marginTop: 12,
             }}
           />
-
         </View>
 
         {/* Page Content */}
@@ -399,7 +411,7 @@ export default function PreInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -407,7 +419,7 @@ export default function PreInspectionEditEntry({
                     }}
                   >
                     Release
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -426,7 +438,7 @@ export default function PreInspectionEditEntry({
                     marginBottom: 20,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color: COLORS.white,
                       fontWeight: "600",
@@ -434,7 +446,7 @@ export default function PreInspectionEditEntry({
                     }}
                   >
                     Accept
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               )}
 
@@ -457,7 +469,7 @@ export default function PreInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -465,10 +477,10 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       RELEASED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -477,8 +489,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formData.releasedBy.name} / {formData.releasedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -486,8 +498,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       MECHANIC
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -495,7 +507,7 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.releasedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.releasedBy.signature && (
                       <Image
                         source={{ uri: formData.releasedBy.signature }}
@@ -531,7 +543,7 @@ export default function PreInspectionEditEntry({
                       paddingHorizontal: 16,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.white,
@@ -539,10 +551,10 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       ACCEPTED BY:
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={{ padding: 20 }}>
-                    <Text
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.black,
@@ -551,8 +563,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formData.acceptedBy.name} / {formData.acceptedBy.id}
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -560,8 +572,8 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       PILOT
-                    </Text>
-                    <Text
+                    </AppText>
+                    <AppText
                       style={{
                         fontSize: 12,
                         color: COLORS.grayDark,
@@ -569,7 +581,7 @@ export default function PreInspectionEditEntry({
                       }}
                     >
                       {formatDate(formData.acceptedBy.timestamp)}
-                    </Text>
+                    </AppText>
                     {!!formData.acceptedBy.signature && (
                       <Image
                         source={{ uri: formData.acceptedBy.signature }}
@@ -615,9 +627,9 @@ export default function PreInspectionEditEntry({
               opacity: currentPage === 0 || isSubmitting ? 0.5 : 1,
             }}
           >
-            <Text style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View
@@ -628,11 +640,11 @@ export default function PreInspectionEditEntry({
               borderRadius: 4,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
             >
               {currentPage + 1}
-            </Text>
+            </AppText>
           </View>
 
           <TouchableOpacity
@@ -646,11 +658,11 @@ export default function PreInspectionEditEntry({
               opacity: isSubmitting ? 0.6 : 1,
             }}
           >
-            <Text
+            <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
               {isLastPage ? footerActionLabel : "Next"}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
 

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const TaskModel = require("../models/taskModel");
 const AircraftModel = require("../models/aircraftModel");
 const { auditLog } = require("./logsController");
@@ -8,12 +9,34 @@ const {
 } = require("./maintenanceLogController");
 const { publishTypedEvent } = require("../utils/realtimeEvents");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const BUSY_TASK_STATUSES = ["Pending", "Ongoing", "Returned"];
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
   return {
     actorId,
     action: actorId ? `${action} (actorId: ${actorId})` : action,
   };
+};
+
+const buildTaskIdentifierQuery = (value) => {
+  const identifier = String(value || "").trim();
+  const conditions = [{ id: identifier }];
+
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    conditions.push({ _id: identifier });
+  }
+
+  return { $or: conditions };
+};
+
+const findBusyTaskForMechanic = (mechanicId) => {
+  const assignedTo = String(mechanicId || "").trim();
+  if (!assignedTo) return null;
+
+  return TaskModel.findOne({
+    assignedTo,
+    status: { $in: BUSY_TASK_STATUSES },
+  }).lean();
 };
 
 const sanitizeTaskPayload = (payload = {}) => {
@@ -386,6 +409,14 @@ const createTask = async (req, res) => {
       return res.status(400).json({ message: scheduleError });
     }
 
+    const busyTask = await findBusyTaskForMechanic(taskData.assignedTo);
+    if (busyTask) {
+      return res.status(409).json({
+        message:
+          "Selected mechanic is busy with a Pending, Ongoing, or Returned task.",
+      });
+    }
+
     const task = new TaskModel(taskData);
     await task.save();
     await syncMaintenanceLogFromTask(task);
@@ -507,7 +538,9 @@ const cleanupAssignedMechanic = async (req, res) => {
 
 const deleteTask = async (req, res) => {
   try {
-    const task = await TaskModel.findOneAndDelete({ id: req.params.id });
+    const task = await TaskModel.findOneAndDelete(
+      buildTaskIdentifierQuery(req.params.id),
+    );
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }

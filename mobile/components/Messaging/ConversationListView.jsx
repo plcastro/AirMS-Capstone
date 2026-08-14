@@ -1,15 +1,17 @@
 import React from "react";
+import AppText from "../common/AppText";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import GroupModal from "./GroupModal";
+import { SearchBar } from "../common/MobileModule";
 
 export default function ConversationListView({
   navigation,
@@ -31,7 +33,10 @@ export default function ConversationListView({
   getDisplayName,
 }) {
   return (
-    <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <View
         style={{
           paddingHorizontal: 16,
@@ -40,48 +45,26 @@ export default function ConversationListView({
           backgroundColor: COLORS.white,
         }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
+        <SearchBar
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search users or groups"
+          containerStyle={{
             height: 42,
             borderRadius: 21,
-            paddingHorizontal: 14,
+            borderWidth: 0,
             backgroundColor: "#F1F3F5",
+            marginBottom: 0,
           }}
-        >
-          <MaterialCommunityIcons
-            name="magnify"
-            size={20}
-            color={COLORS.grayDark}
-          />
-          <TextInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search users or groups"
-            placeholderTextColor={COLORS.grayDark}
-            style={{
-              flex: 1,
-              marginLeft: 8,
-              fontSize: 13,
-              color: COLORS.black,
-            }}
-          />
-          {searchText ? (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+          inputStyle={{ fontSize: 13 }}
+        />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         {conversationItems.length === 0 ? (
           <View
@@ -96,7 +79,7 @@ export default function ConversationListView({
               size={42}
               color="#B7C6C2"
             />
-            <Text
+            <AppText
               style={{
                 marginTop: 10,
                 fontSize: 14,
@@ -105,7 +88,7 @@ export default function ConversationListView({
               }}
             >
               No conversations
-            </Text>
+            </AppText>
           </View>
         ) : (
           conversationItems.map((item) => {
@@ -148,7 +131,7 @@ export default function ConversationListView({
                         borderColor: COLORS.white,
                       }}
                     >
-                      <Text
+                      <AppText
                         style={{
                           color: COLORS.white,
                           fontSize: 9,
@@ -156,13 +139,13 @@ export default function ConversationListView({
                         }}
                       >
                         {unreadCount}
-                      </Text>
+                      </AppText>
                     </View>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, marginLeft: 12, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text
+                    <AppText
                       numberOfLines={1}
                       style={{
                         flex: 1,
@@ -172,9 +155,9 @@ export default function ConversationListView({
                       }}
                     >
                       {item.title}
-                    </Text>
+                    </AppText>
                     {preview?.time ? (
-                      <Text
+                      <AppText
                         style={{
                           marginLeft: 8,
                           fontSize: 11,
@@ -182,10 +165,10 @@ export default function ConversationListView({
                         }}
                       >
                         {preview.time}
-                      </Text>
+                      </AppText>
                     ) : null}
                   </View>
-                  <Text
+                  <AppText
                     numberOfLines={1}
                     style={{
                       marginTop: 0,
@@ -195,8 +178,8 @@ export default function ConversationListView({
                     }}
                   >
                     {item.subtitle}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     numberOfLines={1}
                     style={{
                       marginTop: 5,
@@ -206,7 +189,7 @@ export default function ConversationListView({
                     }}
                   >
                     {preview?.text || "Tap to start a conversation"}
-                  </Text>
+                  </AppText>
                 </View>
               </TouchableOpacity>
             );
@@ -250,6 +233,6 @@ export default function ConversationListView({
         renderAvatar={renderAvatar}
         getDisplayName={getDisplayName}
       />
-    </>
+    </KeyboardAvoidingView>
   );
 }

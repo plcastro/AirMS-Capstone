@@ -186,7 +186,7 @@ const createRectificationTask = async (req, res) => {
       aircraft: draft.aircraft,
       issueTitle: draft.issueTitle,
       component: draft.component || "",
-      riskLevel: draft.riskLevel || "",
+      riskLevel: "Low",
       matchedRuleCodes,
       rectifiedAt,
       rectifiedBy: req.user?.id || null,
@@ -238,7 +238,10 @@ const createRectificationTask = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Maintenance finding marked rectified",
-      data: rectification,
+      data: {
+        ...rectification.toObject(),
+        riskLevel: "Low",
+      },
     });
   } catch (error) {
     console.error("Error marking AI maintenance finding rectified:", error);

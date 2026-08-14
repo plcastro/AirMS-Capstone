@@ -1,15 +1,18 @@
 {
   "expo": {
     "name": "AirMS",
-    "slug": "AirMS",
+    "slug": "airMS",
     "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/AirMS_web.png",
       "resizeMode": "contain",
@@ -32,7 +35,6 @@
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "versionCode": 1
     },
     "web": {
@@ -42,13 +44,14 @@
       "@react-native-firebase/app",
       "@react-native-community/datetimepicker",
       "expo-font",
-
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

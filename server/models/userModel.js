@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   password: { type: String, required: true, select: false },
   pin: { type: String, default: "", select: false },
-  signature: { type: String, default: "" },
+  // signature: { type: String, default: "" },
   securitySetupCompleted: { type: Boolean, default: false },
   status: {
     type: String,
@@ -28,16 +28,16 @@ const userSchema = new mongoose.Schema({
     enum: [
       "Maintenance Manager",
       "Pilot",
-      "Admin",
+      "Superadmin",
       "Officer-In-Charge",
       "Mechanic",
-      "Warehouse Department",
+      "Warehouse Staff",
     ],
     default: "Mechanic",
   },
   access: {
     type: String,
-    enum: ["Admin", "Superuser", "User"],
+    enum: ["Superadmin", "Superuser", "User"],
     default: "User",
   },
   tempPasswordExpires: Date,
@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema({
   invitationSentAt: { type: Date, default: Date.now },
   invitationExpiresAt: { type: Date, default: null },
   invitationClaimedAt: { type: Date, default: null },
-  licenseNo: { type: String, unique: true, trim: true },
+  licenseNo: { type: String, trim: true, default: undefined },
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema({
     type: [
       {
         deviceId: { type: String, required: true },
-        expoPushToken: { type: String, required: true },
+        fcmToken: { type: String, required: true },
         platform: { type: String, default: "unknown" },
         lastSeenAt: { type: Date, default: Date.now },
       },
@@ -111,6 +111,29 @@ const userSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: Date,
   isLocked: { type: Boolean, default: false },
+});
+
+userSchema.index(
+  { licenseNo: 1 },
+  {
+    unique: true,
+    name: "licenseNo_1",
+    partialFilterExpression: {
+      licenseNo: { $type: "string", $gt: "" },
+    },
+  },
+);
+
+userSchema.pre("validate", function sanitizeMobilePushDevices() {
+  if (!Array.isArray(this.mobilePushDevices)) {
+    return;
+  }
+
+  this.mobilePushDevices = this.mobilePushDevices.filter((device) => {
+    const hasDeviceId = Boolean(String(device?.deviceId || "").trim());
+    const hasFcmToken = Boolean(String(device?.fcmToken || "").trim());
+    return hasDeviceId && hasFcmToken;
+  });
 });
 
 module.exports = mongoose.model("User", userSchema);

@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 import {
+  ActivityIndicator,
   Modal,
   Platform,
   ScrollView,
   StatusBar,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 
-const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
+const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
 const createEmptyItem = (id) => ({
   id,
   particular: "",
   quantity: "",
-  unit: "pcs",
+  unit: "PC",
   purpose: "",
 });
 
@@ -37,6 +38,7 @@ export default function PartsRequisitionEntry({
   initialItems = [],
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -46,7 +48,7 @@ export default function PartsRequisitionEntry({
               id: item.id || item._id || Date.now() + index,
               particular: item.particular || "",
               quantity: item.quantity ? String(item.quantity) : "",
-              unit: item.unit || item.unitOfMeasure || "pcs",
+              unit: item.unit || item.unitOfMeasure || "PC",
               purpose: item.purpose || "",
             }))
           : [createEmptyItem(1)];
@@ -72,7 +74,7 @@ export default function PartsRequisitionEntry({
 
   const renderInput = (label, value, onChangeText, extraInputStyle = {}) => (
     <View style={{ marginBottom: 16 }}>
-      <Text
+      <AppText
         style={{
           fontSize: 12,
           color: "#3E3E3E",
@@ -81,8 +83,8 @@ export default function PartsRequisitionEntry({
         }}
       >
         {label}
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         value={value}
         onChangeText={onChangeText}
         placeholder="-"
@@ -147,7 +149,7 @@ export default function PartsRequisitionEntry({
               borderBottomColor: "#E8E8E8",
             }}
           >
-            <Text
+            <AppText
               style={{
                 fontSize: 12,
                 fontWeight: "600",
@@ -155,10 +157,11 @@ export default function PartsRequisitionEntry({
               }}
             >
               {title}
-            </Text>
+            </AppText>
 
             <TouchableOpacity
               onPress={onClose}
+              disabled={submitting}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -195,7 +198,7 @@ export default function PartsRequisitionEntry({
                 borderColor: "#EEEEEE",
               }}
             >
-              <Text
+              <AppText
                 style={{
                   fontSize: 12,
                   fontWeight: "700",
@@ -204,7 +207,7 @@ export default function PartsRequisitionEntry({
                 }}
               >
                 Choose Aircraft *
-              </Text>
+              </AppText>
 
               <View
                 style={{
@@ -267,7 +270,7 @@ export default function PartsRequisitionEntry({
                     marginBottom: 18,
                   }}
                 >
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       fontWeight: "700",
@@ -275,12 +278,13 @@ export default function PartsRequisitionEntry({
                     }}
                   >
                     Item {index + 1}
-                  </Text>
+                  </AppText>
 
                   {items.length > 1 && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => removeItem(item.id)}
+                      disabled={submitting}
                     >
                       <MaterialCommunityIcons
                         name="delete"
@@ -297,7 +301,7 @@ export default function PartsRequisitionEntry({
                 )}
 
                 <View style={{ marginBottom: 16 }}>
-                  <Text
+                  <AppText
                     style={{
                       fontSize: 12,
                       color: "#3E3E3E",
@@ -306,7 +310,7 @@ export default function PartsRequisitionEntry({
                     }}
                   >
                     Quantity: *
-                  </Text>
+                  </AppText>
                   <View
                     style={{
                       flexDirection: "row",
@@ -317,7 +321,7 @@ export default function PartsRequisitionEntry({
                       minHeight: 44,
                     }}
                   >
-                    <TextInput
+                    <AppInput
                       value={item.quantity}
                       onChangeText={(value) =>
                         updateItem(item.id, "quantity", value)
@@ -373,6 +377,7 @@ export default function PartsRequisitionEntry({
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={addAnotherItem}
+                    disabled={submitting}
                     style={{
                       backgroundColor: "#62C982",
                       paddingHorizontal: 14,
@@ -387,7 +392,7 @@ export default function PartsRequisitionEntry({
                       size={16}
                       color={COLORS.white}
                     />
-                    <Text
+                    <AppText
                       style={{
                         color: COLORS.white,
                         fontSize: 12,
@@ -396,33 +401,54 @@ export default function PartsRequisitionEntry({
                       }}
                     >
                       Add Another Item
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
 
             <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => onSubmit?.({ aircraft: selectedAircraft, items })}
-                style={{
-                  backgroundColor: COLORS.primaryLight,
-                  paddingHorizontal: 22,
-                  paddingVertical: 14,
-                  borderRadius: 4,
-                }}
-              >
-                <Text
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    if (submitting) return;
+                    setSubmitting(true);
+                    try {
+                      await Promise.resolve(
+                        onSubmit?.({ aircraft: selectedAircraft, items }),
+                      );
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
                   style={{
-                    color: COLORS.white,
+                    backgroundColor: COLORS.primaryLight,
+                    paddingHorizontal: 22,
+                    paddingVertical: 14,
+                    borderRadius: 4,
+                    opacity: submitting ? 0.7 : 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  {submitting ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={COLORS.white}
+                      style={{ marginRight: 6 }}
+                    />
+                  ) : null}
+                  <AppText
+                    style={{
+                      color: COLORS.white,
                     fontSize: 12,
                     fontWeight: "600",
                   }}
                 >
-                  {submitLabel}
-                </Text>
-              </TouchableOpacity>
+                  {submitting ? "Submitting..." : submitLabel}
+                  </AppText>
+                </TouchableOpacity>
             </View>
           </ScrollView>
         </View>

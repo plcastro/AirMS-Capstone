@@ -9,7 +9,6 @@ import {
   Tag,
   Timeline,
   Typography,
-  message,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -22,11 +21,15 @@ import {
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import WRSTable from "../tables/WRSTable";
+import ResultPopup from "../common/ResultPopup";
+import DateOnlyCell from "../common/DateOnlyCell";
 
 const { Paragraph, Text, Title } = Typography;
 
 const normalizeRequisitionStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "pending":
@@ -57,7 +60,9 @@ const normalizeRequisitionStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalized) {
     case "ready for pickup":
@@ -141,7 +146,10 @@ const getItemStockStatus = (record, availQty) => {
     return "Cancelled";
   }
 
-  if (currentItemStatus === "To Be Ordered" || currentItemStatus === "Ordered") {
+  if (
+    currentItemStatus === "To Be Ordered" ||
+    currentItemStatus === "Ordered"
+  ) {
     return availQty >= record.quantity ? "Ordered" : "To Be Ordered";
   }
 
@@ -156,14 +164,23 @@ export default function WRSModal({
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const userRole = user?.jobTitle?.toLowerCase() || "";
-  const isWarehouseDepartment = userRole === "warehouse department";
+  const userTitle = user?.jobTitle || user?.access || "User";
+  const isWarehouseStaff = userRole === "warehouse staff";
   const isMaintenanceReviewer = [
+    "superadmin",
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
   const [availQtyMap, setAvailQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [closeAfterSuccess, setCloseAfterSuccess] = useState(false);
+  const [successPopup, setSuccessPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   useEffect(() => {
     if (!selectedRecord) {
@@ -179,7 +196,7 @@ export default function WRSModal({
     (selectedRecord.items || []).forEach((item) => {
       nextMap[item._id] = isInitialStockReview
         ? undefined
-        : item.availableQty ?? item.availQty;
+        : (item.availableQty ?? item.availQty);
     });
     setAvailQtyMap(nextMap);
     setPersistedQtyMap(nextMap);
@@ -258,14 +275,22 @@ export default function WRSModal({
 
   const allRestockItemsReady = useMemo(
     () =>
-      (selectedRecord?.items || [])
-        .filter((item) => normalizeItemStatus(item.stockStatus) === "To Be Ordered")
-        .every((item) => {
-          const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
-          return persistedValue >= Number(item.quantity || 0);
-        }),
+      (selectedRecord?.items || []).every((item) => {
+        const persistedValue = Number(persistedQtyMap[item._id] ?? 0);
+        return persistedValue >= Number(item.quantity || 0);
+      }),
     [persistedQtyMap, selectedRecord],
   );
+
+  const enteredRestockItemsReady = useMemo(
+    () =>
+      (selectedRecord?.items || []).every((item) => {
+        const enteredValue = Number(availQtyMap[item._id] ?? 0);
+        return enteredValue >= Number(item.quantity || 0);
+      }),
+    [availQtyMap, selectedRecord],
+  );
+
   const hasItemsStillOutOfStock = useMemo(
     () =>
       (selectedRecord?.items || []).some((item) => {
@@ -287,7 +312,7 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Approved") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return {
           title: "Awaiting Delivery",
           description:
@@ -299,7 +324,8 @@ export default function WRSModal({
 
       return {
         title: "Delivery",
-        description: "Warehouse can now mark this approved requisition as delivered.",
+        description:
+          "Warehouse can now mark this approved requisition as delivered.",
         buttonText: "Mark Delivered",
         disabled: false,
       };
@@ -308,8 +334,9 @@ export default function WRSModal({
     if (currentStatus === "Delivered" || currentStatus === "Cancelled") {
       return {
         title: "Completed",
-        description: "No further warehouse action is needed for this requisition.",
-        buttonText: "Done",
+        description:
+          "No further warehouse action is needed for this requisition.",
+        buttonText: "",
         disabled: true,
       };
     }
@@ -325,7 +352,7 @@ export default function WRSModal({
             : "All requested quantities are available. You can approve this requisition.",
           buttonText: hasItemsStillOutOfStock
             ? "Mark To Be Ordered"
-            : "Approve Requisition",
+            : "Approve",
           disabled: false,
         };
       }
@@ -333,14 +360,14 @@ export default function WRSModal({
       return {
         title: "Awaiting Maintenance Review",
         description:
-          "Stock availability has been submitted. Waiting for maintenance manager action.",
+          "Stock availability has been submitted. Waiting for maintenance reviewer action.",
         buttonText: "Waiting",
         disabled: true,
       };
     }
 
     if (currentStatus === "To Be Ordered") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return {
           title: "Awaiting Warehouse Restock",
           description:
@@ -350,16 +377,30 @@ export default function WRSModal({
         };
       }
 
+      if (!hasUnsavedStockChanges && !allRestockItemsReady) {
+        return {
+          title: "Restock Incomplete",
+          description:
+            "Available quantities must meet all requested quantities before this requisition can be marked as restocked.",
+          buttonText: "Mark as Restocked",
+          disabled: true,
+        };
+      }
+
       return {
-        title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
+        title:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Confirm Restock",
         description:
-          hasUnsavedStockChanges
+          hasUnsavedStockChanges && !enteredRestockItemsReady
             ? "Save the edited stock quantities first."
             : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
-        buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
-        disabled: hasUnsavedStockChanges
-          ? !allQuantitiesFilled
-          : !allRestockItemsReady,
+        buttonText:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Mark as Restocked",
+        disabled: hasUnsavedStockChanges ? !allQuantitiesFilled : false,
       };
     }
 
@@ -369,7 +410,7 @@ export default function WRSModal({
           title: "Final Approval",
           description:
             "Warehouse confirmed restock. You can now approve this requisition.",
-          buttonText: "Approve Requisition",
+          buttonText: "Approve",
           disabled: false,
         };
       }
@@ -377,35 +418,37 @@ export default function WRSModal({
       return {
         title: "Awaiting Approval",
         description:
-          "Warehouse already confirmed the items are restocked. Waiting for maintenance manager approval.",
+          "Warehouse already confirmed the items are restocked. Waiting for maintenance reviewer approval.",
         buttonText: "Waiting",
         disabled: true,
       };
     }
 
     return {
-      title: isWarehouseDepartment ? "Stock Review" : "Awaiting Warehouse Review",
-      description:
-        isWarehouseDepartment
-          ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
-          : "Warehouse is currently reviewing stock availability for this requisition.",
-      buttonText: isWarehouseDepartment ? "Submit Stock Review" : "Waiting",
-      disabled: isWarehouseDepartment ? !allQuantitiesFilled : true,
+      title: isWarehouseStaff ? "Stock Review" : "Awaiting Warehouse Review",
+      description: isWarehouseStaff
+        ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
+        : "Warehouse is currently reviewing stock availability for this requisition.",
+      buttonText: isWarehouseStaff ? "Submit Stock Review" : "Waiting",
+      disabled: isWarehouseStaff ? !allQuantitiesFilled : true,
     };
   }, [
     allQuantitiesFilled,
     allRestockItemsReady,
-    availQtyMap,
     currentStatus,
+    enteredRestockItemsReady,
     hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
     isMaintenanceReviewer,
-    isWarehouseDepartment,
-    persistedQtyMap,
+    isWarehouseStaff,
     selectedRecord,
   ]);
 
-  const updateRequisition = async (payload, successMessage, shouldClose = true) => {
+  const updateRequisition = async (
+    payload,
+    successMessage,
+    shouldClose = true,
+  ) => {
     setSubmitting(true);
 
     try {
@@ -432,18 +475,37 @@ export default function WRSModal({
           responseStatus: response.status,
           errorPayload,
         });
-        throw new Error(errorPayload?.message || "Failed to update requisition");
+        throw new Error(
+          errorPayload?.message || "Failed to update requisition",
+        );
       }
 
-      message.success(successMessage);
+      setCloseAfterSuccess(shouldClose);
+      setSuccessPopup({
+        open: true,
+        status: "success",
+        title: "Success",
+        subTitle: successMessage,
+      });
       onUpdated?.();
-      if (shouldClose) {
-        onClose();
-      }
     } catch (error) {
-      message.error(error.message || "Failed to update requisition");
+      setCloseAfterSuccess(false);
+      setSuccessPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update requisition",
+      });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSuccessPopupClose = () => {
+    setSuccessPopup((current) => ({ ...current, open: false }));
+    if (closeAfterSuccess) {
+      setCloseAfterSuccess(false);
+      onClose();
     }
   };
 
@@ -452,21 +514,59 @@ export default function WRSModal({
       return;
     }
 
+    const confirmSubmit = (content) =>
+      new Promise((resolve) => {
+        Modal.confirm({
+          title: nextAction.buttonText || "Confirm Action",
+          content:
+            content ||
+            nextAction.description ||
+            "Are you sure you want to continue?",
+          okText: nextAction.buttonText || "Confirm",
+          cancelText: "Cancel",
+          centered: true,
+          zIndex: 1200,
+          onOk: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      });
+
     const warehouseName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      "Warehouse Department";
+      "Warehouse Staff";
     const reviewerName =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      "Maintenance Manager";
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || userTitle;
 
     if (isMaintenanceReviewer && currentStatus === "Availability Checked") {
       const nextReviewerStatus = hasItemsStillOutOfStock
         ? "To Be Ordered"
         : "Approved";
+      const confirmed = await confirmSubmit(
+        nextReviewerStatus === "Approved"
+          ? "Approve this requisition?"
+          : "Mark this requisition as to be ordered?",
+      );
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: nextReviewerStatus,
-          approvedBy: nextReviewerStatus === "Approved" ? reviewerName : undefined,
+          ...(nextReviewerStatus === "To Be Ordered"
+            ? {
+                items: (selectedRecord.items || []).map((item) => ({
+                  ...item,
+                  stockStatus:
+                    Number(item.availableQty || 0) < Number(item.quantity || 0)
+                      ? "To Be Ordered"
+                      : normalizeItemStatus(item.stockStatus),
+                })),
+              }
+            : {}),
+          approvedBy: reviewerName,
+          approvedByTitle: userTitle,
+          dateApproved:
+            nextReviewerStatus === "Approved"
+              ? new Date().toISOString()
+              : undefined,
           approvedAt:
             nextReviewerStatus === "Approved"
               ? new Date().toISOString()
@@ -480,10 +580,16 @@ export default function WRSModal({
     }
 
     if (isMaintenanceReviewer && currentStatus === "Ordered") {
+      const confirmed = await confirmSubmit(
+        "Approve this restocked requisition?",
+      );
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: "Approved",
           approvedBy: reviewerName,
+          approvedByTitle: userTitle,
+          dateApproved: new Date().toISOString(),
           approvedAt: new Date().toISOString(),
         },
         "Requisition approved.",
@@ -492,20 +598,28 @@ export default function WRSModal({
     }
 
     if (currentStatus === "Approved") {
-      if (!isWarehouseDepartment) {
+      if (!isWarehouseStaff) {
         return;
       }
 
+      const confirmed = await confirmSubmit(
+        "Mark this approved requisition as delivered?",
+      );
+      if (!confirmed) return;
       await updateRequisition(
         {
           status: "Delivered",
           dateDelivered: new Date().toISOString(),
           dateReceived: new Date().toISOString(),
           deliveredBy: warehouseName,
+          deliveredByTitle: userTitle,
           warehouseBy: warehouseName,
+          warehouseByTitle: userTitle,
           items: (selectedRecord.items || []).map((item) => ({
             ...item,
-            availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
+            availableQty: Number(
+              availQtyMap[item._id] ?? item.availableQty ?? 0,
+            ),
             stockStatus: "Delivered",
           })),
         },
@@ -514,34 +628,59 @@ export default function WRSModal({
       return;
     }
 
-      const updatedItems = (selectedRecord.items || []).map((item) => {
-      const availableQty = Number(availQtyMap[item._id] ?? item.availableQty ?? 0);
+    const updatedItems = (selectedRecord.items || []).map((item) => {
+      const availableQty = Number(
+        availQtyMap[item._id] ?? item.availableQty ?? 0,
+      );
+      const requestedQty = Number(item.quantity) || 0;
 
       return {
         ...item,
         availableQty,
-        stockStatus: getItemStockStatus(item, availableQty),
+        stockStatus:
+          currentStatus === "To Be Ordered" && availableQty < requestedQty
+            ? "To Be Ordered"
+            : getItemStockStatus(item, availableQty),
       };
     });
 
-    if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
-      if (!isWarehouseDepartment) {
+    if (
+      currentStatus === "To Be Ordered" &&
+      hasUnsavedStockChanges &&
+      !enteredRestockItemsReady
+    ) {
+      if (!isWarehouseStaff) {
         return;
       }
 
-      const savedItems = (selectedRecord.items || []).map((item) => ({
-        ...item,
-        availableQty: Number(availQtyMap[item._id] ?? item.availableQty ?? 0),
-        stockStatus: normalizeItemStatus(item.stockStatus),
-      }));
+      const confirmed = await confirmSubmit(
+        "Save the updated stock quantities for this requisition?",
+      );
+      if (!confirmed) return;
+      const savedItems = (selectedRecord.items || []).map((item) => {
+        const availableQty = Number(
+          availQtyMap[item._id] ?? item.availableQty ?? 0,
+        );
+        const requestedQty = Number(item.quantity) || 0;
+
+        return {
+          ...item,
+          availableQty,
+          stockStatus:
+            availableQty < requestedQty
+              ? "To Be Ordered"
+              : normalizeItemStatus(item.stockStatus),
+        };
+      });
 
       await updateRequisition(
         {
           status: "To Be Ordered",
           warehouseBy: warehouseName,
+          warehouseByTitle: userTitle,
           items: savedItems,
         },
-        "Stock quantities saved.",
+        "Remaining items are still to be restocked.",
         false,
       );
       setPersistedQtyMap({ ...availQtyMap });
@@ -572,6 +711,8 @@ export default function WRSModal({
               "Some items have partial or zero available quantity. Submit stock review anyway?",
             okText: "Submit",
             cancelText: "Cancel",
+            centered: true,
+            zIndex: 1200,
             onOk: () => resolve(true),
             onCancel: () => resolve(false),
           });
@@ -580,7 +721,19 @@ export default function WRSModal({
         if (!proceed) {
           return;
         }
+      } else {
+        const confirmed = await confirmSubmit(
+          "Submit this warehouse stock review?",
+        );
+        if (!confirmed) return;
       }
+    } else {
+      const confirmed = await confirmSubmit(
+        currentStatus === "To Be Ordered"
+          ? "Mark this requisition as restocked?"
+          : undefined,
+      );
+      if (!confirmed) return;
     }
 
     await updateRequisition(
@@ -593,6 +746,7 @@ export default function WRSModal({
           ? { dateOrdered: new Date().toISOString() }
           : {}),
         warehouseBy: warehouseName,
+        warehouseByTitle: userTitle,
         items: finalItems,
       },
       currentStatus === "To Be Ordered"
@@ -606,162 +760,179 @@ export default function WRSModal({
   if (!selectedRecord) return null;
 
   return (
-    <Modal
-      open={visible}
-      onCancel={onClose}
-      width={"80%"}
-      centered
-      footer={null}
-      title={
-        <div>
-          <Title level={4} style={{ margin: 0 }}>
-            Warehouse Requisition Details
-          </Title>
-          <Text type="secondary">
-            Review stock, confirm ordered items, and mark approved requisitions as
-            delivered.
-          </Text>
-        </div>
-      }
-    >
-      <Row gutter={[20, 20]}>
-        <Col xs={24} xl={17}>
-          <Card
-            variant="borderless"
-            style={{ borderRadius: 18, background: "#fafafa" }}
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">WRS No.</Text>
-                <Title level={5} style={{ marginTop: 6 }}>
-                  {selectedRecord.wrsNo}
-                </Title>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Status</Text>
-                <div style={{ marginTop: 6 }}>
-                  <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                    {getStatusDisplayLabel(currentStatus)}
-                  </Tag>
-                </div>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Aircraft</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.aircraft}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Requested By</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>
-                    {selectedRecord.staff?.employeeName ||
-                      selectedRecord.staff?.requisitioner}
-                  </Text>
-                </Paragraph>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Date Requested</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.dateRequested}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Total Items</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{selectedRecord.items.length}</Text>
-                </Paragraph>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Text type="secondary">Total Quantity</Text>
-                <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                  <Text strong>{totalQty}</Text>
-                </Paragraph>
-              </Col>
-            </Row>
-          </Card>
+    <>
+      <Modal
+        open={visible}
+        onCancel={onClose}
+        width={"95%"}
+        height={"90vh"}
+        centered
+        zIndex={9999}
+        footer={null}
+        title={
+          <div>
+            <Title level={4} style={{ margin: 0 }}>
+              Warehouse Requisition Details
+            </Title>
+            <Text type="secondary">
+              Review stock, confirm ordered items, and mark approved
+              requisitions as delivered.
+            </Text>
+          </div>
+        }
+      >
+        <Row gutter={[20, 20]}>
+          <Col xs={24} xl={17}>
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 18, background: "#fafafa" }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">WRS No.</Text>
+                  <Title level={5} style={{ marginTop: 6 }}>
+                    {selectedRecord.wrsNo}
+                  </Title>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Status</Text>
+                  <div style={{ marginTop: 6 }}>
+                    <Tag color={statusMeta.color} icon={statusMeta.icon}>
+                      {getStatusDisplayLabel(currentStatus)}
+                    </Tag>
+                  </div>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Aircraft</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{selectedRecord.aircraft}</Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Requested By</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>
+                      {selectedRecord.staff?.employeeName ||
+                        selectedRecord.staff?.requisitioner}
+                    </Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Date Requested</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <DateOnlyCell
+                      value={selectedRecord.dateRequested}
+                      fallback={selectedRecord.dateRequested || "N/A"}
+                    />
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Total Items</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{selectedRecord.items.length}</Text>
+                  </Paragraph>
+                </Col>
+                <Col xs={12} sm={12} md={6}>
+                  <Text type="secondary">Total Quantity</Text>
+                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                    <Text strong>{totalQty}</Text>
+                  </Paragraph>
+                </Col>
+              </Row>
+            </Card>
 
-          <Divider titlePlacement="left">Requested Items</Divider>
+            <Divider titlePlacement="left">Requested Items</Divider>
 
-          <WRSTable
-            data={selectedRecord.items}
-            availQtyMap={availQtyMap}
-            persistedQtyMap={persistedQtyMap}
-            setAvailQtyMap={setAvailQtyMap}
-            disabled={
-              !isWarehouseDepartment ||
-              (currentStatus !== "Parts Requested" &&
-                currentStatus !== "To Be Ordered")
-            }
-          />
-        </Col>
-
-        <Col xs={24} xl={7}>
-          <Card
-            variant="borderless"
-            style={{ borderRadius: 18, marginBottom: 16 }}
-          >
-            <Title level={5}>Warehouse Flow</Title>
-            <Timeline
-              items={statusSteps.map((step, index) => {
-                const isCompleted = index < currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-
-                return {
-                  icon: isCompleted ? (
-                    <CheckCircleOutlined style={{ color: "#52c41a" }} />
-                  ) : isCurrent ? (
-                    <ClockCircleOutlined style={{ color: "#13c2c2" }} />
-                  ) : (
-                    <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
-                  ),
-                  content: (
-                    <div
-                      style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
-                    >
-                      <Text strong>{getStatusDisplayLabel(step)}</Text>
-                      <div>
-                        <Text type="secondary">
-                          {step === "Approved" &&
-                            "Maintenance manager approved the requisition because all items are available."}
-                          {step === "Parts Requested" &&
-                            "Warehouse checks whether each requested item is in stock or out of stock."}
-                          {step === "Availability Checked" &&
-                            "Stock review submitted. Maintenance is now reviewing warehouse availability."}
-                          {step === "To Be Ordered" &&
-                            "Maintenance manager requested ordering for the unavailable items."}
-                          {step === "Ordered" &&
-                            "Warehouse confirmed the previously unavailable items are now restocked."}
-                          {step === "Delivered" &&
-                            "Warehouse completed the release and marked the requisition as delivered."}
-                        </Text>
-                      </div>
-                    </div>
-                  ),
-                };
-              })}
+            <WRSTable
+              data={selectedRecord.items}
+              availQtyMap={availQtyMap}
+              persistedQtyMap={persistedQtyMap}
+              setAvailQtyMap={setAvailQtyMap}
+              disabled={
+                !isWarehouseStaff ||
+                (currentStatus !== "Parts Requested" &&
+                  currentStatus !== "To Be Ordered")
+              }
             />
-          </Card>
+          </Col>
 
-          <Card variant="borderless" style={{ borderRadius: 18 }}>
-            <Title level={5}>{nextAction.title}</Title>
-            <Paragraph type="secondary">{nextAction.description}</Paragraph>
+          <Col xs={24} xl={7}>
+            <Card
+              variant="borderless"
+              style={{ borderRadius: 18, marginBottom: 16 }}
+            >
+              <Title level={5}>Warehouse Flow</Title>
+              <Timeline
+                items={statusSteps.map((step, index) => {
+                  const isCompleted = index < currentStepIndex;
+                  const isCurrent = index === currentStepIndex;
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Button onClick={onClose}>Close</Button>
-              <Button
-                type="primary"
-                icon={<CheckCircleOutlined />}
-                loading={submitting}
-                disabled={nextAction.disabled}
-                onClick={handleSubmit}
-              >
-                {nextAction.buttonText}
-              </Button>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-    </Modal>
+                  return {
+                    icon: isCompleted ? (
+                      <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                    ) : isCurrent ? (
+                      <ClockCircleOutlined style={{ color: "#13c2c2" }} />
+                    ) : (
+                      <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
+                    ),
+                    content: (
+                      <div
+                        style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
+                      >
+                        <Text strong>{getStatusDisplayLabel(step)}</Text>
+                        <div>
+                          <Text type="secondary">
+                            {step === "Approved" &&
+                              "Maintenance manager approved the requisition because all items are available."}
+                            {step === "Parts Requested" &&
+                              "Warehouse checks whether each requested item is in stock or out of stock."}
+                            {step === "Availability Checked" &&
+                              "Stock review submitted. Maintenance is now reviewing warehouse availability."}
+                            {step === "To Be Ordered" &&
+                              "Maintenance manager requested ordering for the unavailable items."}
+                            {step === "Ordered" &&
+                              "Warehouse confirmed the previously unavailable items are now restocked."}
+                            {step === "Delivered" &&
+                              "Warehouse completed the release and marked the requisition as delivered."}
+                          </Text>
+                        </div>
+                      </div>
+                    ),
+                  };
+                })}
+              />
+            </Card>
+
+            <Card variant="borderless" style={{ borderRadius: 18 }}>
+              <Title level={5}>{nextAction.title}</Title>
+              <Paragraph type="secondary">{nextAction.description}</Paragraph>
+
+              {nextAction.buttonText && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    loading={submitting}
+                    disabled={nextAction.disabled}
+                    onClick={handleSubmit}
+                  >
+                    {nextAction.buttonText}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
+      </Modal>
+      <ResultPopup
+        open={successPopup.open}
+        status={successPopup.status}
+        title={successPopup.title}
+        subTitle={successPopup.subTitle}
+        duration={2000}
+        zIndex={1300}
+        onClose={handleSuccessPopupClose}
+      />
+    </>
   );
 }

@@ -1,9 +1,8 @@
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
 import {
-  App,
   Input,
   Checkbox,
   Button,
@@ -16,38 +15,56 @@ import {
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
   EnvironmentOutlined,
   LockOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import AirMSLogo from "../../assets/AirMS_web.png";
+import AirMSLogo from "../../assets/AirMS_web.webp";
+import ResultPopup from "../../components/common/ResultPopup";
 const { Text } = Typography;
 
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
 const Login = () => {
-  const { message } = App.useApp();
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
+  const pendingDashboardPathRef = useRef("");
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
     base: "",
   });
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
+    const savedBase = localStorage.getItem("rememberedBase") || "";
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+
+    setRememberMe(savedRememberMe);
 
     if (savedRememberMe && savedIdentifier) {
       setFormData({
         identifier: savedIdentifier,
         password: "",
-        base: "",
+        base: savedBase,
       });
-      setRememberMe(true);
     }
   }, []);
 
@@ -66,20 +83,29 @@ const Login = () => {
     if (!isChecked) {
       localStorage.setItem("rememberMe", "false");
       localStorage.removeItem("rememberedIdentifier");
+      localStorage.removeItem("rememberedBase");
     } else {
       localStorage.setItem("rememberMe", "true");
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async () => {
     setError("");
 
     const identifier = formData.identifier?.trim();
     const password = formData.password?.trim();
     const base = formData.base?.trim();
 
-    if (!identifier || !password) {
+    if (!identifier && !password) {
       setError("Username/email and password are required");
+      return;
+    }
+    if (!identifier && password) {
+      setError("Username/email are required");
+      return;
+    }
+    if (identifier && !password) {
+      setError("Password is required");
       return;
     }
     if (!base) {
@@ -89,12 +115,18 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const trustedDeviceToken =
-        localStorage.getItem("trustedDeviceToken") || "";
+      const trustedDeviceKey = getTrustedDeviceStorageKey(identifier);
+      const trustedDeviceToken = trustedDeviceKey
+        ? localStorage.getItem(trustedDeviceKey) || ""
+        : "";
 
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-base": base },
+        headers: {
+          "Content-Type": "application/json",
+          "x-platform": "WEB",
+          "x-base": base,
+        },
         body: JSON.stringify({
           identifier,
           password,
@@ -127,6 +159,7 @@ const Login = () => {
               token: data.verification.token,
               email: data.verification.email,
               maskedEmail: data.verification.maskedEmail,
+              identifier,
               rememberMe,
               base,
               client: "web",
@@ -148,11 +181,12 @@ const Login = () => {
           );
 
           localStorage.setItem("rememberMe", "true");
+          localStorage.setItem("rememberedBase", data.user?.base || base);
         } else {
           localStorage.removeItem("rememberedIdentifier");
+          localStorage.removeItem("rememberedBase");
           localStorage.removeItem("rememberMe");
         }
-        message.success("Logged in successfully!");
         handleNavigate(data.user);
       } else {
         if (response.status === 429) {
@@ -166,7 +200,12 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Network error. Please try again.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Login Failed",
+        subTitle: "Network error. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -174,26 +213,43 @@ const Login = () => {
 
   const handleNavigate = (loggedInUser) => {
     const pos = loggedInUser?.jobTitle?.toLowerCase() || "";
+    let dashboardPath = "/dashboard/profile";
 
     switch (pos) {
-      case "admin":
-        navigate("/dashboard/user-management/view-users");
+      case "superadmin":
+        dashboardPath = "/dashboard/user-management/view-users";
         break;
       case "mechanic":
-        navigate("/dashboard/maintenance-log");
+        dashboardPath = "/dashboard/maintenance-log";
+        break;
+      case "pilot":
+        dashboardPath = "/dashboard/flight-log";
         break;
       case "maintenance manager":
-        navigate("/dashboard/maintenance-dashboard");
-        break;
       case "officer-in-charge":
-        navigate("/dashboard/maintenance-dashboard");
+        dashboardPath = "/dashboard/maintenance-dashboard";
         break;
-      case "warehouse department":
-        navigate("/dashboard/parts-requisition");
+      case "warehouse staff":
+        dashboardPath = "/dashboard/parts-requisition";
         break;
-      default:
-        navigate("/dashboard/profile");
-        break;
+    }
+
+    pendingDashboardPathRef.current = dashboardPath;
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Login Successful",
+      subTitle: "You have been logged in successfully.",
+    });
+  };
+
+  const handlePopupClose = () => {
+    setPopup((prev) => ({ ...prev, open: false }));
+
+    if (pendingDashboardPathRef.current) {
+      const dashboardPath = pendingDashboardPathRef.current;
+      pendingDashboardPathRef.current = "";
+      navigate(dashboardPath);
     }
   };
   return (
@@ -217,41 +273,44 @@ const Login = () => {
 
       <LoginLayout>
         <Form layout="vertical" onFinish={handleSubmit}>
-          <Form.Item label="Username or Email" required>
+          <Form.Item
+            label="Username or Email"
+            required
+            style={{ fontWeight: "bold" }}
+          >
             <Input
               type="text"
               id="identifier"
               size="large"
-              placeholder="Enter username or email"
+              placeholder="Enter your username or email"
               value={formData.identifier}
               onChange={handleInputChange}
               autoComplete="username"
-              required
               allowClear
               prefix={<UserOutlined />}
             />
           </Form.Item>
 
-          <Form.Item label="Password" required>
+          <Form.Item label="Password" required style={{ fontWeight: "bold" }}>
             <Input.Password
               id="password"
-              placeholder="Enter password"
+              placeholder="Enter your password"
               size="large"
               value={formData.password}
               onChange={handleInputChange}
               autoComplete="current-password"
-              required
               allowClear
               prefix={<LockOutlined />}
             />
-            {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
           <Form.Item label="Logging in from" required>
             <Select
               id="base"
+              aria-label="Logging in from"
               size="large"
-              placeholder="Select base"
+              placeholder={<span style={{ color: "#595959" }}>Select base</span>}
+              required
               value={formData.base || undefined}
               onChange={(value) =>
                 setFormData((prevState) => ({ ...prevState, base: value }))
@@ -263,6 +322,7 @@ const Login = () => {
                 { value: "CDO", label: "CDO" },
               ]}
             />
+            {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
           <Row style={{ marginBottom: 20 }}>
@@ -272,7 +332,7 @@ const Login = () => {
                 checked={rememberMe}
                 onChange={handleRememberMeChange}
               >
-                Remember Me
+                Remember me
               </Checkbox>
             </Col>
             <Col
@@ -299,8 +359,52 @@ const Login = () => {
           >
             {loading ? "PLEASE WAIT..." : "LOGIN"}
           </Button>
+          <Text
+            className="auth-terms-copy"
+            style={{
+              display: "block",
+              marginTop: 16,
+              textAlign: "center",
+              fontSize: 13,
+            }}
+          >
+            By signing in, you agree to the{" "}
+            <Button
+              type="link"
+              size="small"
+              onClick={() => setTermsOpen(true)}
+              style={{ height: "auto", padding: 0, fontSize: 13 }}
+            >
+              Terms and Conditions
+            </Button>{" "}
+            and{" "}
+            <Button
+              type="link"
+              size="small"
+              onClick={() => setPrivacyOpen(true)}
+              style={{ height: "auto", padding: 0, fontSize: 13 }}
+            >
+              Privacy Policy
+            </Button>
+            .
+          </Text>
         </Form>
       </LoginLayout>
+      <PrivacyPolicyModal
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+      />
+      <TermsAndConditionsModal
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={handlePopupClose}
+      />
     </>
   );
 };

@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useContext,
   useEffect,
@@ -16,25 +16,37 @@ import {
   Row,
   Select,
   Space,
-  Table,
-  Tag,
   Tabs,
+  Tooltip,
   Typography,
   Grid,
   DatePicker,
-  message,
 } from "antd";
-import { EditOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  EditOutlined,
+  ExportOutlined,
+  EyeOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+import { matchesSearch } from "../../../utils/search";
+import { canExportModule } from "../../../../../shared/exportAccess";
 
-const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_OPTIONS = ["all", "pending", "completed"];
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
+const sanitizeFileName = (value) =>
+  String(value || "post-flight inspection")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
 const POST_TABS = [
   { key: "basic", label: "Basic Information" },
@@ -46,20 +58,30 @@ const POST_TABS = [
   { key: "notes", label: "Notes" },
 ];
 
-const signaturePayload = (user, signature) => ({
-  name:
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    user?.username ||
-    "User",
-  id: user?.id || user?._id || "",
-  signature,
-  timestamp: new Date().toISOString(),
-});
+const signaturePayload = (user, signature) => {
+  const licenseNo =
+    user?.licenseNo || user?.licenseNumber || user?.license || "";
+  return {
+    name:
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      user?.username ||
+      "User",
+    id: licenseNo,
+    licenseNo,
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
+};
 
 export default function PostInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPostInspections = canExportModule(
+    user?.jobTitle,
+    "postInspection",
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
@@ -70,10 +92,16 @@ export default function PostInspection() {
   const [editing, setEditing] = useState(null);
   const [signatureMode, setSignatureMode] = useState(null);
   const [editTab, setEditTab] = useState("basic");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canRelease = ["mechanic", "maintenance manager", "admin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
   const getDisplayStatus = (value) =>
@@ -87,15 +115,22 @@ export default function PostInspection() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/getAllPostInspection`,
+        `${API_BASE}/api/post-flight/getAllPostInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to load post-inspections");
+        throw new Error(
+          data.message || "Failed to load post-flight inspections",
+        );
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load post-inspections");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load post-flight inspections",
+      });
     } finally {
       setLoading(false);
     }
@@ -125,7 +160,7 @@ export default function PostInspection() {
     if (!match) return;
 
     setEditing(match);
-    navigate("/dashboard/post-inspection", { replace: true });
+    navigate("/dashboard/post-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
   const aircraftOptions = useMemo(
@@ -136,14 +171,7 @@ export default function PostInspection() {
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const needle = query.trim().toLowerCase();
-        const matchesQuery =
-          !needle ||
-          [item.rpc, item.aircraftType, item.date].some((value) =>
-            String(value || "")
-              .toLowerCase()
-              .includes(needle),
-          );
+        const matchesQuery = matchesSearch(query, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||
@@ -221,7 +249,7 @@ export default function PostInspection() {
     if (!nextPayload?._id) return;
     try {
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/updatePostInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/post-flight/updatePostInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
@@ -233,12 +261,67 @@ export default function PostInspection() {
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to update post-inspection");
+        throw new Error(
+          data.message || "Failed to update post-flight inspection",
+        );
       setEditing(data.data);
       await load();
-      message.success("Post-inspection updated");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Flight Inspection Updated!",
+        subTitle: "The post-flight inspection has been updated successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to update post-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update post-flight inspection",
+      });
+    }
+  };
+
+  const exportInspectionPdf = async (record) => {
+    if (!record?._id) return;
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/post/${record._id}/export-pdf`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.message ||
+            data.error ||
+            "Failed to export post-flight inspection",
+        );
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFileName(
+        `Post-Flight Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+      )}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Flight Inspection Exported!",
+        subTitle:
+          "The post-flight inspection PDF has been exported successfully.",
+      });
+    } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to export post-flight inspection",
+      });
     }
   };
 
@@ -265,7 +348,7 @@ export default function PostInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={7}>
+          <Col xs={12} md={7}>
             <Select
               style={{ width: "100%" }}
               value={aircraft}
@@ -277,14 +360,14 @@ export default function PostInspection() {
               size="large"
             />
           </Col>
-          <Col xs={24} md={6}>
+          <Col xs={12} md={6}>
             <Select
               style={{ width: "100%" }}
               value={status}
               onChange={setStatus}
               options={STATUS_OPTIONS.map((value) => ({
                 value,
-                label: value === "all" ? "All Status" : value,
+                label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
               }))}
               size="large"
             />
@@ -292,12 +375,13 @@ export default function PostInspection() {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
         dataSource={filtered}
         pagination={{ pageSize: 10 }}
+        size={"small"}
         columns={[
           { title: "RP/C", dataIndex: "rpc" },
           { title: "Aircraft Type", dataIndex: "aircraftType" },
@@ -305,34 +389,60 @@ export default function PostInspection() {
           {
             title: "Status",
             dataIndex: "status",
-            render: (value) => (
-              <Tag>{String(value || "pending").toUpperCase()}</Tag>
-            ),
+            render: (value) => renderStatusTag(value, "pending"),
           },
           {
             title: "Action",
             render: (_, record) => (
-              <Button
-                icon={<EditOutlined />}
-                onClick={() => setEditing(record)}
-              >
-                {readOnly ? "View" : "Edit"}
-              </Button>
+              <Space size={12}>
+                <Tooltip title={readOnly ? "View" : "Edit"}>
+                  <Button
+                    aria-label={readOnly ? "View" : "Edit"}
+                    icon={readOnly ? <EyeOutlined /> : <EditOutlined />}
+                    onClick={() => setEditing(record)}
+                  />
+                </Tooltip>
+                {canExportPostInspections && (
+                  <Tooltip title="Export">
+                    <Button
+                      aria-label="Export"
+                      icon={<ExportOutlined />}
+                      onClick={() => exportInspectionPdf(record)}
+                    />
+                  </Tooltip>
+                )}
+              </Space>
             ),
           },
         ]}
       />
+      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+        <Col span={24} style={{ textAlign: "right" }}>
+          <Text type="secondary">
+            Showing <Text strong>{filtered.length}</Text> post-flight inspection
+            log(s)
+          </Text>
+        </Col>
+      </Row>
 
       <Modal
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
         okButtonProps={{ disabled: readOnly }}
-        title={readOnly ? "View Post-Inspection" : "Edit Post-Inspection"}
+        title={
+          readOnly
+            ? "View Entry - Post-Flight Inspection"
+            : "Edit Entry - Post-Flight Inspection"
+        }
         okText="Save"
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
-        styles={{ body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 } }}
+        centered
+        zIndex={9999}
+        styles={{
+          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+        }}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
@@ -351,7 +461,10 @@ export default function PostInspection() {
                           <Input
                             value={editing.rpc}
                             onChange={(e) =>
-                              setEditing((prev) => ({ ...prev, rpc: e.target.value }))
+                              setEditing((prev) => ({
+                                ...prev,
+                                rpc: e.target.value,
+                              }))
                             }
                             disabled={readOnly}
                           />
@@ -376,7 +489,9 @@ export default function PostInspection() {
                             style={{ width: "100%" }}
                             format="MM/DD/YYYY"
                             value={
-                              editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
+                              editing.date
+                                ? dayjs(editing.date, "MM/DD/YYYY")
+                                : null
                             }
                             onChange={(date) =>
                               setEditing((prev) => ({
@@ -399,10 +514,13 @@ export default function PostInspection() {
                     children: (
                       <Input.TextArea
                         rows={4}
-                        placeholder="Enter post-inspection notes, discrepancy signals, or remarks"
+                        placeholder="Enter post-flight inspection notes, discrepancy signals, or remarks"
                         value={editing.notes || ""}
                         onChange={(e) =>
-                          setEditing((prev) => ({ ...prev, notes: e.target.value }))
+                          setEditing((prev) => ({
+                            ...prev,
+                            notes: e.target.value,
+                          }))
                         }
                         disabled={readOnly}
                       />
@@ -442,7 +560,9 @@ export default function PostInspection() {
                         ))
                       ) : (
                         <Col span={24}>
-                          <Text type="secondary">No checklist items in this section.</Text>
+                          <Text type="secondary">
+                            No checklist items in this section.
+                          </Text>
                         </Col>
                       )}
                     </Row>
@@ -453,7 +573,7 @@ export default function PostInspection() {
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
-                {editing.status}
+                {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
@@ -481,11 +601,18 @@ export default function PostInspection() {
 
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
-        title="Complete Post-Inspection"
+        title="Complete Post-Flight Inspection"
         description="Draw your completion signature."
         confirmDescription="Enter your 6-digit PIN to confirm completion."
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

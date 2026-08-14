@@ -1,9 +1,16 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const UserModel = require("../models/userModel");
+const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const verifyToken = (req, res, next) => {
+const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
+
+const isMobilePlatform = (platform) =>
+  String(platform || "").toUpperCase() === "MOBILE";
+
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "No token provided" });
@@ -13,10 +20,61 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.id;
+    const sessionId = req.headers["x-session-id"] || decoded?.sessionId || null;
+
+    if (!userId || !sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+
+    const session = await UserSession.findOne({
+      userId,
+      sessionId,
+      isActive: true,
+    });
+
+    if (!session) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const now = Date.now();
+    const lastActivityAt = new Date(
+      session.lastActivityAt || session.loginAt || now,
+    ).getTime();
+    const platform =
+      req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
+
+    if (!isMobilePlatform(platform)) {
+      const clientActiveAt = Number(req.headers["x-client-active-at"]);
+      const hasRecentClientActivity =
+        Number.isFinite(clientActiveAt) &&
+        clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
+        now - clientActiveAt <= DEFAULT_SESSION_IDLE_LIMIT_MS;
+      const effectiveLastActivityAt = hasRecentClientActivity
+        ? Math.max(lastActivityAt, clientActiveAt)
+        : lastActivityAt;
+      const inactiveForMs = now - effectiveLastActivityAt;
+
+      if (inactiveForMs > DEFAULT_SESSION_IDLE_LIMIT_MS) {
+        await UserSession.findOneAndUpdate(
+          { userId, sessionId, isActive: true },
+          { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+        );
+        return res
+          .status(401)
+          .json({ message: "Session timed out due to inactivity" });
+      }
+    }
+
+    await UserSession.findOneAndUpdate(
+      { userId, sessionId, isActive: true },
+      { lastActivityAt: new Date() },
+    );
+
     req.user = decoded;
     updateRequestContext({
-      sessionId: req.headers["x-session-id"] || decoded.sessionId,
-      platform: req.headers["x-platform"] || decoded.platform,
+      sessionId,
+      platform,
       base: req.headers["x-base"] || decoded.base,
     });
     next();

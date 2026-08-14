@@ -1,7 +1,13 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import AppText from "../common/AppText";
+import {
+  View,
+  TouchableOpacity
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 
 export default function PostInspectionCards({
   inspections,
@@ -9,6 +15,23 @@ export default function PostInspectionCards({
   onExport,
   userRole,
 }) {
+  const [exportingInspectionId, setExportingInspectionId] = useState(null);
+
+  const handleExportPress = async (inspection) => {
+    if (!onExport || exportingInspectionId) return;
+    const key = inspection?._id || inspection?.id;
+    if (!key) {
+      await onExport(inspection);
+      return;
+    }
+    setExportingInspectionId(String(key));
+    try {
+      await Promise.resolve(onExport(inspection));
+    } finally {
+      setExportingInspectionId(null);
+    }
+  };
+
   const getDisplayStatus = (status) =>
     status === "completed"
       ? "completed"
@@ -56,9 +79,9 @@ export default function PostInspectionCards({
           size={60}
           color={COLORS.grayMedium}
         />
-        <Text style={{ fontSize: 12, marginTop: 12 }}>
+        <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No post-inspections found
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -68,6 +91,8 @@ export default function PostInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const inspectionKey = String(inspection._id || inspection.id || "");
+        const exportLoading = exportingInspectionId === inspectionKey;
 
         return (
           <TouchableOpacity
@@ -98,18 +123,16 @@ export default function PostInspectionCards({
                 }}
               >
                 <View>
-                  <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+                  <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
-                  </Text>
+                  </AppText>
 
-                  <Text style={{ fontSize: 10, color: "#777" }}>
+                  <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}
-                  </Text>
+                  </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   {/* Status */}
                   <View
                     style={{
@@ -119,7 +142,7 @@ export default function PostInspectionCards({
                       borderRadius: 12,
                     }}
                   >
-                    <Text
+                    <AppText
                       style={{
                         color: statusStyle.textColor,
                         fontSize: 9,
@@ -127,17 +150,8 @@ export default function PostInspectionCards({
                       }}
                     >
                       {statusStyle.label}
-                    </Text>
+                    </AppText>
                   </View>
-
-                  {/* Export */}
-                  <TouchableOpacity onPress={() => onExport?.(inspection)}>
-                    <MaterialCommunityIcons
-                      name="export-variant"
-                      size={21}
-                      color="#444"
-                    />
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -148,31 +162,39 @@ export default function PostInspectionCards({
                   paddingBottom: 10,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Aircraft:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Aircraft:</AppText>{" "}
                   {inspection.aircraftType || "N/A"}
-                </Text>
+                </AppText>
 
-                <Text style={{ fontSize: 11, color: "#444" }}>
-                  <Text style={{ color: "#777" }}>Released By:</Text>{" "}
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Released By:</AppText>{" "}
                   {inspection?.releasedBy?.name || "N/A"}
-                </Text>
+                </AppText>
               </View>
 
-              {/* ICON (bottom-right like logs style) */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={isOfficerInCharge ? "eye-outline" : "pencil"}
-                  size={21}
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                <ActionIconButton
+                  icon={isOfficerInCharge ? "eye-outline" : "pencil"}
+                  tooltip={isOfficerInCharge ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
                   color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={21}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );

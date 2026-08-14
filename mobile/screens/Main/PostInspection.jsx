@@ -1,26 +1,25 @@
 import React, { useState, useContext, useEffect } from "react";
+import AppText from "../../components/common/AppText";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
+  StatusBar
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
-import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
-import {
-  exportPostInspectionTemplatePdf,
-  exportPostInspectionToWord,
-} from "../../utilities/documentExport";
+import { getAuthHeaders } from "../../utilities/mobileApi";
+import { exportPostInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
+import { SearchBar } from "../../components/common/MobileModule";
+import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 const getDisplayStatus = (status) =>
   status === "completed"
     ? "completed"
@@ -41,24 +40,21 @@ export default function PostInspection({ route }) {
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
-  const [exportAlert, setExportAlert] = useState({
-    visible: false,
-    inspection: null,
-  });
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportPostInspections = canExportModule(
+    userRole,
+    "postInspection",
+  );
 
   useEffect(() => {
     const fetchPostInspections = async () => {
       try {
-        const token = await AsyncStorage.getItem("currentUserToken");
         const response = await fetch(
-          `${API_BASE}/api/post-inspections/getAllPostInspection`,
+          `${API_BASE}/api/post-flight/getAllPostInspection`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
@@ -135,19 +131,12 @@ export default function PostInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
-    { label: "Released", value: "released" },
+    { label: "Pending", value: "pending" },
     { label: "Completed", value: "completed" },
   ];
 
   const filteredInspections = inspections.filter((inspection) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      inspection.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.aircraftType
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      inspection.date?.includes(searchQuery);
+    const matchesSearchText = matchesSearch(searchQuery, inspection);
 
     const matchesAircraft =
       selectedAircraft === "" ||
@@ -158,7 +147,7 @@ export default function PostInspection({ route }) {
       selectedStatus === "all" ||
       getDisplayStatus(inspection.status) === selectedStatus;
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesAircraft && matchesStatus;
   });
 
   const handleEdit = (inspection) => {
@@ -167,7 +156,7 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    setExportAlert({ visible: true, inspection });
+    await exportPostInspectionTemplatePdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
@@ -187,20 +176,12 @@ export default function PostInspection({ route }) {
       <View style={{ flex: 1, paddingHorizontal: 7 }}>
         {/* Search Bar Row */}
         <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
-          <View style={styles.unifiedSearchBox}>
-            <MaterialCommunityIcons
-              name="magnify"
-              size={22}
-              color={COLORS.grayDark}
-            />
-            <TextInput
-              placeholder="Search aircraft"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            placeholder="Search aircraft"
+            containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
+          />
         </View>
 
         {/* Filters */}
@@ -213,7 +194,7 @@ export default function PostInspection({ route }) {
                 setShowStatusDropdown(false);
               }}
             >
-              <Text
+              <AppText
                 style={[
                   styles.unifiedFilterButtonText,
                   {
@@ -225,9 +206,9 @@ export default function PostInspection({ route }) {
                 ]}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? selectedAircraft
                   : "Choose Aircraft"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -249,11 +230,9 @@ export default function PostInspection({ route }) {
                       }}
                       onPress={() => selectAircraft(aircraft)}
                     >
-                      <Text style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
-                      </Text>
+                      <AppText style={styles.unifiedDropdownItemText}>
+                        {aircraft === "all" ? "All Aircraft" : aircraft}
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -269,10 +248,10 @@ export default function PostInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <Text style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
-              </Text>
+              </AppText>
               <MaterialCommunityIcons
                 name={showStatusDropdown ? "chevron-up" : "chevron-down"}
                 size={22}
@@ -293,9 +272,9 @@ export default function PostInspection({ route }) {
                     }}
                     onPress={() => selectStatus(option.value)}
                   >
-                    <Text style={styles.unifiedDropdownItemText}>
+                    <AppText style={styles.unifiedDropdownItemText}>
                       {option.label}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -306,7 +285,7 @@ export default function PostInspection({ route }) {
         {/* Post-Inspection Cards */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
         >
           {filteredInspections.length === 0 ? (
             <View
@@ -322,7 +301,7 @@ export default function PostInspection({ route }) {
                 size={60}
                 color={COLORS.grayMedium}
               />
-              <Text
+              <AppText
                 style={{
                   marginTop: 10,
                   fontSize: 12,
@@ -331,13 +310,13 @@ export default function PostInspection({ route }) {
                 }}
               >
                 No post-inspections found
-              </Text>
+              </AppText>
             </View>
           ) : (
             <PostInspectionCards
               inspections={filteredInspections}
               onEdit={handleEdit}
-              onExport={handleExport}
+              onExport={canExportPostInspections ? handleExport : undefined}
               userRole={userRole}
             />
           )}
@@ -355,16 +334,13 @@ export default function PostInspection({ route }) {
         }}
         onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/post-inspections/updatePostInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/post-flight/updatePostInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveEdit(updatedInspection),
                   confirmAction: true,
@@ -397,23 +373,6 @@ export default function PostInspection({ route }) {
         }}
         userRole={userRole}
         readOnly={isOfficerInCharge}
-      />
-      <AlertComp
-        visible={exportAlert.visible}
-        title="Export Post-Inspection"
-        message="Choose export format."
-        confirmText="PDF"
-        cancelText="Word Template"
-        onCancel={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPostInspectionToWord(inspection);
-        }}
-        onConfirm={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPostInspectionTemplatePdf(inspection);
-        }}
       />
     </View>
   );

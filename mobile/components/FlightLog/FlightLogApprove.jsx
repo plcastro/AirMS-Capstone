@@ -1,14 +1,14 @@
 import react, { useState } from "react";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
 
 import {
   View,
-  Text,
-  TextInput,
   Modal,
   TouchableOpacity,
   Platform,
   Dimensions,
-  ScrollView,
+  ScrollView
 } from "react-native";
 
 import { styles } from "../../stylesheets/styles";
@@ -68,24 +68,24 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
             >
               {/* LEFT COLUMN */}
               <View style={styles.flightColumn}>
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   VOR CHECK (30 Days)
-                </Text>
+                </AppText>
 
-                <Text
+                <AppText
                   style={[
                     styles.verificationLabel,
                     { fontSize: isMobile ? 12 : 14 },
                   ]}
                 >
                   Station
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -99,15 +99,15 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="Station"
                 />
 
-                <Text
+                <AppText
                   style={[
                     styles.verificationLabel,
                     { fontSize: isMobile ? 12 : 14 },
                   ]}
                 >
                   Frequency
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -121,15 +121,15 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="Frequency"
                 />
 
-                <Text
+                <AppText
                   style={[
                     styles.verificationLabel,
                     { fontSize: isMobile ? 12 : 14 },
                   ]}
                 >
                   Date
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -143,15 +143,15 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="Date"
                 />
 
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   VOR 1
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -165,15 +165,15 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="Bering/Error"
                 />
 
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   VOR 2
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -187,15 +187,15 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="Bering/Error"
                 />
 
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   Due next
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -212,18 +212,18 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
 
               {/* RIGHT COLUMN */}
               <View style={styles.flightColumn}>
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   MMEL item(s)
-                </Text>
+                </AppText>
 
                 <View style={styles.mmelGrid}>
                   {data.mmel.map((value, i) => (
-                    <TextInput
+                    <AppInput
                       key={i}
                       style={[
                         styles.verificationInput,
@@ -246,17 +246,17 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   ))}
                 </View>
 
-                <Text
+                <AppText
                   style={[
                     styles.flightSectionTitle,
                     { fontSize: isMobile ? 13 : 14 },
                   ]}
                 >
                   Released for flight by
-                </Text>
+                </AppText>
 
                 <View style={styles.signatureWrapper}>
-                  <TextInput
+                  <AppInput
                     style={[
                       styles.verificationInput,
                       {
@@ -279,12 +279,12 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                       ]}
                       onPress={() => update("signature", "")}
                     >
-                      <Text style={{ fontSize: isMobile ? 16 : 18 }}>✕</Text>
+                      <AppText style={{ fontSize: isMobile ? 16 : 18 }}>✕</AppText>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                <TextInput
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -298,7 +298,7 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   placeholder="PreFlight Release Date"
                 />
 
-                <TextInput
+                <AppInput
                   style={[
                     styles.verificationInput,
                     {
@@ -337,14 +337,14 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                 ]}
                 onPress={() => onConfirm?.(data)}
               >
-                <Text
+                <AppText
                   style={[
                     styles.verificationBtnText,
                     { fontSize: isMobile ? 15 : 16 },
                   ]}
                 >
                   Confirm
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -359,14 +359,14 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                 ]}
                 onPress={onCancel}
               >
-                <Text
+                <AppText
                   style={[
                     styles.verificationBtnText,
                     { fontSize: isMobile ? 15 : 16 },
                   ]}
                 >
                   Cancel
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -378,11 +378,11 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
             style={styles.primaryAlertBtn}
             onPress={() => onConfirm?.(data)}
           >
-            <Text style={styles.primaryBtnTxt}>Confirm</Text>
+            <AppText style={styles.primaryBtnTxt}>Confirm</AppText>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryBtn} onPress={onCancel}>
-            <Text style={styles.secondaryBtnTxt}>Cancel</Text>
+            <AppText style={styles.secondaryBtnTxt}>Cancel</AppText>
           </TouchableOpacity>
         </View>
       </View>

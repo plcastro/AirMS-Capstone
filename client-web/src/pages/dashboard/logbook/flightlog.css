@@ -134,6 +134,15 @@
   padding: 0;
 }
 
+.fl-entry-modal-root,
+.fl-entry-modal-root .ant-modal-mask {
+  z-index: 1000 !important;
+}
+
+.fl-entry-modal-root .ant-modal-wrap {
+  z-index: 1001 !important;
+}
+
 /* ── Tab nav bar ────────────────────────────────────────── */
 .fl-tab-nav {
   display: flex;

@@ -7,6 +7,7 @@ const path = require("path");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
+const { ensureUserIndexes } = require("./utils/userIndexes");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
@@ -30,6 +31,7 @@ const http = require("http");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
+const { startSessionRetentionJob } = require("./utils/sessionRetentionService");
 const {
   subscribeSSE,
   publishEvent,
@@ -37,6 +39,7 @@ const {
 } = require("./utils/realtimeEvents");
 const { requestContextMiddleware } = require("./middleware/requestContext");
 const { auditMutatingRequest } = require("./middleware/auditRequestMiddleware");
+const { responseTimeLogger } = require("./middleware/responseTimeLogger");
 const app = express();
 
 const allowedOrigins = [
@@ -49,29 +52,67 @@ const allowedOrigins = [
   "http://10.0.2.2:8081", // Android emulator (if using different port)
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log("Blocked by CORS:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "x-platform",
-      "x-base",
-      "x-session-id",
-      "x-action-confirmed",
-      "x-confirm-action",
-    ],
-    credentials: true,
-  }),
-);
+const allowedOriginPatterns = [
+  /^https:\/\/([a-z0-9-]+\.)?airms\.online$/i,
+  /^http:\/\/localhost(?::\d+)?$/i,
+  /^http:\/\/10\.0\.2\.2(?::\d+)?$/i,
+];
+
+const isAllowedOrigin = (origin) =>
+  allowedOrigins.includes(origin) ||
+  allowedOriginPatterns.some((pattern) => pattern.test(origin));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      console.log("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-platform",
+    "x-base",
+    "x-session-id",
+    "x-client-active-at",
+    "x-action-confirmed",
+    "x-confirm-action",
+  ],
+  exposedHeaders: ["X-Response-Time", "Server-Timing"],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
+const corsAllowedHeaders = corsOptions.allowedHeaders.join(", ");
+const corsAllowedMethods = corsOptions.methods.join(", ");
+const corsExposedHeaders = corsOptions.exposedHeaders.join(", ");
+
+// Defensive CORS fallback for preflight/proxy edge-cases.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", corsAllowedMethods);
+    res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders);
+    res.setHeader("Access-Control-Expose-Headers", corsExposedHeaders);
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
+// app.use(responseTimeLogger);
 
 app.get("/api/events/stream", subscribeSSE);
 
@@ -89,7 +130,7 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         connectSrc: [
           "'self'",
@@ -112,12 +153,8 @@ app.use(
         camera: [],
         microphone: [],
         geolocation: [],
-        payment: [],
-        usb: [],
-        bluetooth: [],
         gyroscope: [],
         magnetometer: [],
-        midi: [],
       },
     },
   }),
@@ -135,9 +172,15 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     console.log("Connected to MongoDB");
+    try {
+      await ensureUserIndexes();
+    } catch (error) {
+      console.error("User index maintenance failed:", error);
+    }
     startInvitationLifecycleJob();
+    startSessionRetentionJob();
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -196,8 +239,8 @@ app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/inspections", inspectionExportRoutes);
-app.use("/api/pre-inspections", preInspectionRoutes);
-app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/pre-flight", preInspectionRoutes);
+app.use("/api/post-flight", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
@@ -243,4 +286,4 @@ if (process.env.VERCEL !== "1") {
   });
 }
 
-module.exports = app;
+module.exports = server;

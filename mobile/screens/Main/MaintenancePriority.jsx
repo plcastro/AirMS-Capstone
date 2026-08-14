@@ -1,5 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
+import {
+  TouchableOpacity,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
@@ -18,6 +29,8 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
 
 const DEFAULT_RULES = {
   criticalDueDays: 5,
@@ -49,6 +62,7 @@ const formatDueSummary = (record) => {
 };
 
 export default function MaintenancePriority() {
+  const { refreshSession } = useContext(AuthContext);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,19 +122,7 @@ export default function MaintenancePriority() {
   }, [loadRules]);
 
   const filteredData = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return priorityData;
-    return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    return priorityData.filter((item) => matchesSearch(search, item));
   }, [priorityData, search]);
 
   const stats = useMemo(
@@ -155,6 +157,25 @@ export default function MaintenancePriority() {
     setRankingPage(0);
   }, [search]);
 
+  const getPrioritySaveHeaders = useCallback(async () => {
+    let headers = await getAuthHeaders({
+      "x-action-confirmed": "true",
+    });
+
+    if (!headers.Authorization && refreshSession) {
+      await refreshSession();
+      headers = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
+    }
+
+    if (!headers.Authorization) {
+      throw new Error("Session not found. Please log in again.");
+    }
+
+    return headers;
+  }, [refreshSession]);
+
   const saveRules = async () => {
     const confirmed = await confirmAction({
       title: "Save Priority Rules",
@@ -169,9 +190,7 @@ export default function MaintenancePriority() {
         `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
         {
           method: "PUT",
-          headers: await getAuthHeaders({
-            "x-action-confirmed": "true",
-          }),
+          headers: await getPrioritySaveHeaders(),
           body: JSON.stringify({
             ...draftRules,
             confirmAction: true,
@@ -228,9 +247,9 @@ export default function MaintenancePriority() {
         subtitle="Rule-based aircraft ranking for upcoming maintenance work"
         right={<StatusChip label="Manager" color={COLORS.primaryLight} />}
       >
-        <Text style={[moduleStyles.subtitle, { marginTop: 8 }]}>
+        <AppText style={[moduleStyles.subtitle, { marginTop: 8 }]}>
           Ranked records follow the same priority rules used on the web module.
-        </Text>
+        </AppText>
       </InfoCard>
 
       <SearchBar
@@ -271,10 +290,10 @@ export default function MaintenancePriority() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {Object.keys(DEFAULT_RULES).map((key) => (
               <View key={key} style={{ width: "48%", marginTop: 8 }}>
-                <Text style={moduleStyles.label}>
+                <AppText style={moduleStyles.label}>
                   {key.replace(/([A-Z])/g, " $1")}
-                </Text>
-                <TextInput
+                </AppText>
+                <AppInput
                   keyboardType="numeric"
                   value={String(draftRules[key])}
                   onChangeText={(value) => updateDraftRule(key, value)}
@@ -293,16 +312,16 @@ export default function MaintenancePriority() {
           </View>
           <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
             <TouchableOpacity style={[moduleStyles.button, { flex: 1 }]} onPress={applyRules}>
-              <Text style={moduleStyles.buttonText}>Apply</Text>
+              <AppText style={moduleStyles.buttonText}>Apply</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[moduleStyles.button, { flex: 1, backgroundColor: COLORS.primary }]}
               onPress={saveRules}
               disabled={saving}
             >
-              <Text style={moduleStyles.buttonText}>
+              <AppText style={moduleStyles.buttonText}>
                 {saving ? "Saving..." : "Save"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         </InfoCard>
@@ -359,9 +378,9 @@ export default function MaintenancePriority() {
               }
             />
           </View>
-          <Text style={[moduleStyles.subtitle, { marginTop: 10 }]}>
+          <AppText style={[moduleStyles.subtitle, { marginTop: 10 }]}>
             {record.priorityReason || "No decision basis available."}
-          </Text>
+          </AppText>
         </InfoCard>
       ))}
       {filteredData.length > RANKING_DISPLAY_LIMIT && (
@@ -383,9 +402,9 @@ export default function MaintenancePriority() {
               size={18}
               color={COLORS.white}
             />
-            <Text style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginLeft: 4 }]}>
               Previous
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <View
             style={[
@@ -399,9 +418,9 @@ export default function MaintenancePriority() {
               },
             ]}
           >
-            <Text style={{ color: COLORS.primary, fontWeight: "800" }}>
+            <AppText style={{ color: COLORS.primary, fontWeight: "800" }}>
               {rankingPage + 1}/{totalRankingPages}
-            </Text>
+            </AppText>
           </View>
           <TouchableOpacity
             style={[
@@ -421,9 +440,9 @@ export default function MaintenancePriority() {
               )
             }
           >
-            <Text style={[moduleStyles.buttonText, { marginRight: 4 }]}>
+            <AppText style={[moduleStyles.buttonText, { marginRight: 4 }]}>
               Next
-            </Text>
+            </AppText>
             <MaterialCommunityIcons
               name="chevron-right"
               size={18}

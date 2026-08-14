@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Table, Button, Tag, Space, Grid, Dropdown, Modal } from "antd";
+import { Button, Tag, Space, Grid, Dropdown, Tooltip } from "antd";
 import { EditOutlined, MoreOutlined } from "@ant-design/icons";
+import ResponsiveTable from "../common/ResponsiveTable";
+import DateTimeCell from "../common/DateTimeCell";
 
 const { useBreakpoint } = Grid;
 
@@ -13,6 +15,7 @@ export default function UserTable({
   onResendInvite,
   onExtendInvite,
   onRevokeInvite,
+  onUnlockUser,
   currentUserId,
   loading = false,
 }) {
@@ -30,18 +33,24 @@ export default function UserTable({
           render: (_, record) => {
             const moreActions = [];
 
+            if (record.isLocked) {
+              moreActions.push({
+                key: "unlock",
+                label: "Unlock User",
+                action: () => onUnlockUser?.(record),
+              });
+            }
+
             if (record.status === "deactivated") {
               moreActions.push({
                 key: "reactivate",
                 label: "Reactivate",
-                title: "Reactivate this user?",
                 action: () => onReactivateUser?.(record),
               });
             } else if (record.status === "inactive") {
               moreActions.push({
                 key: "resend",
                 label: "Resend",
-                title: "Resend activation credentials?",
                 action: () => onResendInvite?.(record),
               });
 
@@ -49,7 +58,6 @@ export default function UserTable({
                 moreActions.push({
                   key: "extend",
                   label: "Extend 24h",
-                  title: "Extend invitation expiry by 24 hours?",
                   action: () => onExtendInvite?.(record),
                 });
               }
@@ -58,16 +66,17 @@ export default function UserTable({
                 moreActions.push({
                   key: "revoke",
                   label: "Revoke Invite",
-                  title: "Revoke this invitation?",
                   action: () => onRevokeInvite?.(record),
                   danger: true,
                 });
               }
-            } else if (record.status === "active" && record._id !== currentUserId) {
+            } else if (
+              record.status === "active" &&
+              record._id !== currentUserId
+            ) {
               moreActions.push({
                 key: "deactivate",
                 label: "Deactivate",
-                title: "Deactivate this user?",
                 action: () => onDeactivateUser?.(record),
                 danger: true,
               });
@@ -80,33 +89,38 @@ export default function UserTable({
             }));
 
             return (
-              <Space>
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<EditOutlined />}
-                  onClick={() => onEditUser?.(record)}
-                >
-                  Edit
-                </Button>
+              <Space size={12}>
+                <Tooltip title="Edit">
+                  <Button
+                    type="primary"
+                    size="small"
+                    aria-label="Edit"
+                    icon={<EditOutlined />}
+                    onClick={() => onEditUser?.(record)}
+                  />
+                </Tooltip>
 
                 <Dropdown
                   trigger={["click"]}
                   menu={{
                     items: menuItems,
                     onClick: ({ key }) => {
-                      const selected = moreActions.find((item) => item.key === key);
+                      const selected = moreActions.find(
+                        (item) => item.key === key,
+                      );
                       if (!selected) return;
-
-                      Modal.confirm({
-                        title: selected.title,
-                        onOk: selected.action,
-                        okText: "Confirm",
-                      });
+                      selected.action();
                     },
                   }}
                 >
-                  <Button size="small" icon={<MoreOutlined />} disabled={!menuItems.length} />
+                  <Tooltip title="More actions">
+                    <Button
+                      size="small"
+                      aria-label="More actions"
+                      icon={<MoreOutlined />}
+                      disabled={!menuItems.length}
+                    />
+                  </Tooltip>
                 </Dropdown>
               </Space>
             );
@@ -162,11 +176,23 @@ export default function UserTable({
           key: "invitationExpiresAt",
           render: (value, record) => {
             if (record.status === "active") return "N/A";
-            return value ? new Date(value).toLocaleString() : "N/A";
+            return <DateTimeCell value={value} />;
           },
           sorter: (a, b) =>
             new Date(a.invitationExpiresAt || 0).getTime() -
             new Date(b.invitationExpiresAt || 0).getTime(),
+        };
+      }
+
+      if (header.key === "dateCreated") {
+        return {
+          title: header.label,
+          dataIndex: "dateCreated",
+          key: "dateCreated",
+          render: (value) => <DateTimeCell value={value} />,
+          sorter: (a, b) =>
+            new Date(a.dateCreated || 0).getTime() -
+            new Date(b.dateCreated || 0).getTime(),
         };
       }
 
@@ -189,14 +215,15 @@ export default function UserTable({
     onResendInvite,
     onExtendInvite,
     onRevokeInvite,
+    onUnlockUser,
   ]);
 
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}
-      size={isMobile ? "small" : "middle"}
+      size={"small"}
       loading={loading}
       scroll={{ x: "max-content" }}
       pagination={{

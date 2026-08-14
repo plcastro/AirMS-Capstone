@@ -2,6 +2,71 @@ body {
   margin: 0;
 }
 
+:root {
+  --airms-primary: #26866f;
+  --airms-primary-hover: #1f6654;
+  --airms-danger: #d9363e;
+  --airms-danger-hover: #b8202a;
+  --airms-modal-z-index: 3000;
+}
+
+.ant-modal-root .ant-modal-mask,
+.ant-modal-root .ant-modal-wrap,
+.ant-modal-confirm-root .ant-modal-mask,
+.ant-modal-confirm-root .ant-modal-wrap {
+  z-index: var(--airms-modal-z-index) !important;
+}
+
+.ant-image-preview-root .ant-image-preview-mask,
+.ant-image-preview-root .ant-image-preview-wrap {
+  z-index: calc(var(--airms-modal-z-index) + 100) !important;
+}
+
+.ant-modal .ant-modal-footer .ant-btn-primary,
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary {
+  background: var(--airms-primary);
+  border-color: var(--airms-primary);
+  box-shadow: none;
+}
+
+.ant-modal .ant-modal-footer .ant-btn-primary:hover,
+.ant-modal .ant-modal-footer .ant-btn-primary:focus,
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary:hover,
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary:focus {
+  background: var(--airms-primary-hover);
+  border-color: var(--airms-primary-hover);
+}
+
+.ant-modal .ant-modal-footer .ant-btn-primary.ant-btn-dangerous,
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary.ant-btn-dangerous {
+  background: var(--airms-danger);
+  border-color: var(--airms-danger);
+}
+
+.ant-modal .ant-modal-footer .ant-btn-primary.ant-btn-dangerous:hover,
+.ant-modal .ant-modal-footer .ant-btn-primary.ant-btn-dangerous:focus,
+.ant-modal-confirm
+  .ant-modal-confirm-btns
+  .ant-btn-primary.ant-btn-dangerous:hover,
+.ant-modal-confirm
+  .ant-modal-confirm-btns
+  .ant-btn-primary.ant-btn-dangerous:focus {
+  background: var(--airms-danger-hover);
+  border-color: var(--airms-danger-hover);
+}
+
+@media (max-width: 575px) {
+  .airms-dashboard-content > * {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  .airms-dashboard-content .parts-monitoring-container {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+}
+
 #root {
   width: 100%;
   margin: 0 auto;

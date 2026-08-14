@@ -15,6 +15,7 @@ import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
 import ConversationListView from "../../components/Messaging/ConversationListView";
 import ChatView from "../../components/Messaging/ChatView";
@@ -66,7 +67,11 @@ const formatConversationTime = (value) => {
     return `${displayHour}:${minutes} ${period}`;
   }
 
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const getMessageStatus = (message, conversationType) => {
@@ -104,14 +109,15 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
 };
 
 const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+  const wsBase = String(API_BASE || "")
+    .replace(/\/+$/, "")
+    .replace(/^http/i, (match) =>
+      match.toLowerCase() === "https" ? "wss" : "ws",
+    );
+  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
-export default function Messaging({ navigation }) {
+export default function Messaging({ navigation, route }) {
   const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -133,6 +139,7 @@ export default function Messaging({ navigation }) {
   const selectedConversationRef = useRef(null);
   const liveSyncPausedUntilRef = useRef(0);
   const notifiedMessageIdsRef = useRef(new Set());
+  const handledNotificationTargetRef = useRef("");
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -244,19 +251,8 @@ export default function Messaging({ navigation }) {
       const messageId = String(messagePayload?._id || "");
       if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
       notifiedMessageIdsRef.current.add(messageId);
-
-      const senderId = String(getEntityId(messagePayload?.sender));
-      if (!senderId || senderId === String(currentUserId)) return;
-
-      const senderUser = usersById.get(senderId) || {};
-      const senderName = getDisplayName(senderUser);
-      const preview =
-        String(messagePayload?.body || "").trim() ||
-        getAttachmentLabel(messagePayload?.attachments || []) ||
-        "sent a message";
-      showToast(`${senderName}: ${preview}`);
     },
-    [currentUserId, usersById],
+    [],
   );
 
   useEffect(() => {
@@ -495,16 +491,18 @@ export default function Messaging({ navigation }) {
       ...groupFromConversations,
       ...directFromConversations,
       ...remainingUsers,
-    ].filter(Boolean);
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) return merged;
-
-    return merged.filter((item) =>
-      [item.title, item.subtitle, item.user?.username, item.user?.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    ]
+      .filter(Boolean)
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.lastMessage?.createdAt || first.group?.updatedAt || 0,
+        ).getTime();
+        const secondTime = new Date(
+          second.lastMessage?.createdAt || second.group?.updatedAt || 0,
+        ).getTime();
+        return secondTime - firstTime;
+      });
+    return merged.filter((item) => matchesSearch(searchText, item));
   }, [conversations, searchText, users]);
 
   const selectedConversationDetails = useMemo(() => {
@@ -533,6 +531,31 @@ export default function Messaging({ navigation }) {
 
     return selectedConversation;
   }, [conversationItems, selectedConversation, usersById]);
+
+  useEffect(() => {
+    const targetConversationId = route?.params?.targetConversationId;
+    const targetConversationType = route?.params?.targetConversationType;
+    const refreshAt = route?.params?.refreshAt;
+    if (!targetConversationId || !targetConversationType) return;
+
+    const targetKey = `${targetConversationType}:${targetConversationId}:${refreshAt || ""}`;
+    if (handledNotificationTargetRef.current === targetKey) return;
+
+    const target = conversationItems.find(
+      (item) =>
+        String(item.type) === String(targetConversationType) &&
+        String(item.id) === String(targetConversationId),
+    );
+    if (!target) return;
+
+    handledNotificationTargetRef.current = targetKey;
+    setSelectedConversation(target);
+  }, [
+    conversationItems,
+    route?.params?.refreshAt,
+    route?.params?.targetConversationId,
+    route?.params?.targetConversationType,
+  ]);
 
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;

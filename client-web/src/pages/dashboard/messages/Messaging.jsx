@@ -34,14 +34,13 @@ import {
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { subscribeRealtime } from "../../../utils/realtimeSocket";
+import { matchesSearch } from "../../../utils/search";
 import "./Messaging.css";
 
 const { Text } = Typography;
 const { TextArea } = Input;
 const LIVE_SYNC_INTERVAL_MS = 1000;
-
-const getStoredToken = () =>
-  localStorage.getItem("token") || sessionStorage.getItem("token");
 
 const getDisplayFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
@@ -88,7 +87,11 @@ const formatConversationTime = (value) => {
     return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
 
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const getMessageStatus = (message, conversationType) => {
@@ -125,14 +128,6 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   });
 };
 
-const buildWsUrl = (token) => {
-  const baseUrl = API_BASE || window.location.origin;
-  const url = new URL(baseUrl, window.location.origin);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.searchParams.set("token", token);
-  return url.toString();
-};
-
 export default function Messaging() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const { useBreakpoint } = Grid;
@@ -153,11 +148,11 @@ export default function Messaging() {
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [mobileView, setMobileView] = useState("list");
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
+  const threadContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
 
   const currentUserId = user?.id || user?._id;
@@ -262,6 +257,7 @@ export default function Messaging() {
 
   useEffect(() => {
     if (selectedConversationId) {
+      shouldAutoScrollRef.current = true;
       fetchThread(selectedConversationId).catch((error) => {
         antdMessage.error(error.message || "Failed to load thread");
       });
@@ -269,6 +265,7 @@ export default function Messaging() {
   }, [fetchThread, selectedConversationId]);
 
   useEffect(() => {
+    if (!shouldAutoScrollRef.current) return;
     threadBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -302,117 +299,82 @@ export default function Messaging() {
   }, [syncMessaging]);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token || !currentUserId) return undefined;
+    if (!currentUserId) return undefined;
 
-    let closedByEffect = false;
+    const unsubscribeRealtime = subscribeRealtime((payload) => {
+      if (payload.event === "chat:conversation") {
+        fetchConversations();
+        return;
+      }
 
-    const connect = () => {
-      const ws = new WebSocket(buildWsUrl(token));
-      wsRef.current = ws;
+      if (payload.event === "chat:read") {
+        const readReceipt = payload.data || {};
+        const messageIds = new Set((readReceipt.messageIds || []).map(String));
 
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
+        setMessages((current) =>
+          current.map((item) =>
+            messageIds.has(String(item._id))
+              ? {
+                  ...item,
+                  readAt: readReceipt.readAt,
+                  deliveryStatus: "sent",
+                }
+              : item,
+          ),
+        );
+        fetchConversations();
+        return;
+      }
 
-          if (payload.event === "chat:conversation") {
-            fetchConversations();
-            return;
-          }
-
-          if (payload.event === "chat:read") {
-            const readReceipt = payload.data || {};
-            const messageIds = new Set(
-              (readReceipt.messageIds || []).map(String),
-            );
-
-            setMessages((current) =>
-              current.map((item) =>
-                messageIds.has(String(item._id))
-                  ? {
-                      ...item,
-                      readAt: readReceipt.readAt,
-                      deliveryStatus: "sent",
-                    }
-                  : item,
-              ),
-            );
-            fetchConversations();
-            return;
-          }
-
-          if (
-            payload.event === "data-changed" &&
-            String(payload.data?.url || "").startsWith("/api/messages")
-          ) {
-            fetchConversations();
-            if (selectedConversationRef.current?.id) {
-              fetchThread(selectedConversationRef.current.id).catch((error) => {
-                console.error("Failed to refresh realtime messages:", error);
-              });
-            }
-            return;
-          }
-
-          if (payload.event !== "chat:message") return;
-
-          const nextMessage = withSentStatus(payload.data);
-          notifyIncomingChat(nextMessage);
-          const conversationId = nextMessage.conversation
-            ? String(getEntityId(nextMessage.conversation))
-            : String(getEntityId(nextMessage.sender)) === String(currentUserId)
-              ? String(getEntityId(nextMessage.recipient))
-              : String(getEntityId(nextMessage.sender));
-
-          if (
-            String(conversationId) ===
-            String(selectedConversationRef.current?.id)
-          ) {
-            setMessages((current) => {
-              if (current.some((item) => item._id === nextMessage._id)) {
-                return current.map((item) =>
-                  item._id === nextMessage._id
-                    ? withSentStatus({ ...item, ...nextMessage })
-                    : item,
-                );
-              }
-              return [...current, nextMessage];
-            });
-
-            if (
-              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
-            ) {
-              fetchThread(conversationId).catch((error) => {
-                console.error("Failed to refresh realtime thread:", error);
-              });
-            }
-          }
-
-          fetchConversations();
-        } catch (error) {
-          console.error("Message websocket parse error:", error);
+      if (
+        payload.event === "data-changed" &&
+        String(payload.data?.url || "").startsWith("/api/messages")
+      ) {
+        fetchConversations();
+        if (selectedConversationRef.current?.id) {
+          fetchThread(selectedConversationRef.current.id).catch((error) => {
+            console.error("Failed to refresh realtime messages:", error);
+          });
         }
-      };
+        return;
+      }
 
-      ws.onclose = () => {
-        if (!closedByEffect) {
-          reconnectTimeoutRef.current = window.setTimeout(connect, 1500);
+      if (payload.event !== "chat:message") return;
+
+      const nextMessage = withSentStatus(payload.data);
+      notifyIncomingChat(nextMessage);
+      const conversationId = nextMessage.conversation
+        ? String(getEntityId(nextMessage.conversation))
+        : String(getEntityId(nextMessage.sender)) === String(currentUserId)
+          ? String(getEntityId(nextMessage.recipient))
+          : String(getEntityId(nextMessage.sender));
+
+      if (
+        String(conversationId) === String(selectedConversationRef.current?.id)
+      ) {
+        setMessages((current) => {
+          if (current.some((item) => item._id === nextMessage._id)) {
+            return current.map((item) =>
+              item._id === nextMessage._id
+                ? withSentStatus({ ...item, ...nextMessage })
+                : item,
+            );
+          }
+          return [...current, nextMessage];
+        });
+
+        if (String(getEntityId(nextMessage.sender)) !== String(currentUserId)) {
+          fetchThread(conversationId).catch((error) => {
+            console.error("Failed to refresh realtime thread:", error);
+          });
         }
-      };
+      }
 
-      ws.onerror = () => {
-        ws.close();
-      };
-    };
-
-    connect();
+      fetchConversations();
+    });
 
     return () => {
-      closedByEffect = true;
-      if (reconnectTimeoutRef.current) {
-        window.clearTimeout(reconnectTimeoutRef.current);
-      }
-      wsRef.current?.close();
+      unsubscribeRealtime();
     };
   }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
 
@@ -455,16 +417,18 @@ export default function Messaging() {
       ...groupFromConversations,
       ...directFromConversations,
       ...remainingUsers,
-    ].filter(Boolean);
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) return merged;
-
-    return merged.filter((item) =>
-      [item.title, item.subtitle, item.user?.username, item.user?.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    ]
+      .filter(Boolean)
+      .sort((first, second) => {
+        const firstTime = new Date(
+          first.lastMessage?.createdAt || first.group?.updatedAt || 0,
+        ).getTime();
+        const secondTime = new Date(
+          second.lastMessage?.createdAt || second.group?.updatedAt || 0,
+        ).getTime();
+        return secondTime - firstTime;
+      });
+    return merged.filter((item) => matchesSearch(searchText, item));
   }, [conversations, searchText, users]);
 
   const selectedConversationDetails = useMemo(() => {
@@ -526,6 +490,7 @@ export default function Messaging() {
   };
 
   const handleSelectConversation = (item) => {
+    shouldAutoScrollRef.current = true;
     setSelectedConversation({
       type: item.type === "group" ? "group" : "direct",
       id: String(item.id),
@@ -536,7 +501,6 @@ export default function Messaging() {
       setMobileView("chat");
     }
   };
-
 
   const handleSend = async () => {
     const body = draft.trim();
@@ -657,6 +621,9 @@ export default function Messaging() {
               alt={attachment.name || "Attachment"}
               className="message-attachment-image"
             />
+            <span className="message-attachment-image-name">
+              {attachment.name || "Attachment"}
+            </span>
           </a>
         );
       }
@@ -797,6 +764,7 @@ export default function Messaging() {
                         >
                           <Badge count={item.unreadCount || 0} size="small">
                             <Avatar
+                              alt={item.title || "Conversation avatar"}
                               src={
                                 item.type === "direct"
                                   ? getImageUrl(item.user?.image)
@@ -871,6 +839,10 @@ export default function Messaging() {
                       />
                     )}
                     <Avatar
+                      alt={
+                        selectedConversationDetails.title ||
+                        "Conversation avatar"
+                      }
                       src={
                         selectedConversationDetails.type === "direct"
                           ? getImageUrl(selectedConversationDetails.user?.image)
@@ -926,11 +898,19 @@ export default function Messaging() {
               ) : (
                 <>
                   <div
+                    ref={threadContainerRef}
                     style={{
                       flex: 1,
                       overflowY: "auto",
                       padding: 16,
                       background: "#f7f9f8",
+                    }}
+                    onScroll={(event) => {
+                      const element = event.currentTarget;
+                      const distanceFromBottom =
+                        element.scrollHeight -
+                        (element.scrollTop + element.clientHeight);
+                      shouldAutoScrollRef.current = distanceFromBottom < 80;
                     }}
                   >
                     {messages.map((item, index) => {
@@ -1072,6 +1052,8 @@ export default function Messaging() {
         okText="Create"
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
+        centered
+        zIndex={9999}
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
@@ -1105,6 +1087,8 @@ export default function Messaging() {
         open={membersModalOpen}
         onCancel={() => setMembersModalOpen(false)}
         footer={null}
+        centered
+        zIndex={9999}
         width={isMobile ? "96vw" : 520}
       >
         {selectedGroupMembers.length === 0 ? (
@@ -1122,6 +1106,7 @@ export default function Messaging() {
                 }}
               >
                 <Avatar
+                  alt={getDisplayFullName(member) || "Group member avatar"}
                   src={getImageUrl(member.image)}
                   icon={<UserOutlined />}
                 />

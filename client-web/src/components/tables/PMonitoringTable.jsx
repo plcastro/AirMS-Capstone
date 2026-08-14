@@ -1,14 +1,7 @@
-import { Table, Tag, Input } from "antd";
+import { Tag, Input } from "antd";
 import React, { useState } from "react";
-
-// Helper to format YYYY-MM-DD to DD/MM/YYYY for display
-const formatDateForDisplay = (dateStr) => {
-  if (!dateStr || dateStr === "N/A") return dateStr || "";
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return dateStr;
-  const [year, month, day] = parts;
-  return `${day}/${month}/${year}`;
-};
+import DateOnlyCell from "../common/DateOnlyCell";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function PMonitoringTable({
   headers = [],
@@ -20,7 +13,9 @@ export default function PMonitoringTable({
   rowKey = "_id",
 }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
   const processColumns = (headers) => {
     return headers.map((header) => {
@@ -131,7 +126,7 @@ export default function PMonitoringTable({
         if (!editable) {
           // Non-editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
+            return <DateOnlyCell value={value} fallback={value} format="MM/DD/YY" />;
           }
           return value || "";
         }
@@ -139,7 +134,7 @@ export default function PMonitoringTable({
         if (!isCellEditable(record, header.key)) {
           // Not editable: format date columns for display
           if (isDateColumn && value && value !== "N/A") {
-            return formatDateForDisplay(value);
+            return <DateOnlyCell value={value} fallback={value} format="MM/DD/YY" />;
           }
           return value || "";
         }
@@ -149,10 +144,10 @@ export default function PMonitoringTable({
           // Ensure value is in YYYY-MM-DD format; if not, try to parse
           let dateValue = value;
           if (value && value.includes("/")) {
-            // Convert from DD/MM/YYYY to YYYY-MM-DD if needed (fallback)
+            // Convert from MM/DD/YYYY to YYYY-MM-DD if needed (fallback)
             const parts = value.split("/");
             if (parts.length === 3) {
-              const [day, month, year] = parts;
+              const [month, day, year] = parts;
               dateValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
             }
           }
@@ -210,7 +205,7 @@ export default function PMonitoringTable({
         height: "calc(100vh - 180px)",
       }}
     >
-      <Table
+      <ResponsiveTable
         columns={columns}
         dataSource={data}
         rowKey={rowKey}
@@ -220,15 +215,15 @@ export default function PMonitoringTable({
         pagination={{
           pageSize: pageSize,
           showSizeChanger: true,
-          pageSizeOptions: ["10", "15", "30"],
-          current: currentPage,
+          pageSizeOptions: ["15", "30", "50"],
+          current: safeCurrentPage,
           onChange: (page, size) => {
             setCurrentPage(page);
             setPageSize(size);
           },
           placement: "bottomEnd",
         }}
-        size="small"
+        size={"small"}
         bordered
         rowClassName={(record, index) =>
           index % 2 === 0 ? "table-row-light" : "table-row-dark"

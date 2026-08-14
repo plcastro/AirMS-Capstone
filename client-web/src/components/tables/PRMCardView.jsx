@@ -11,6 +11,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import WRSModal from "../pagecomponents/WRSModal";
+import DateOnlyCell from "../common/DateOnlyCell";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -190,7 +191,10 @@ export default function PRMCardView({
                   </Text>
                   <Text>
                     <CalendarOutlined style={{ marginRight: 8 }} />
-                    <Text strong>{record.dateRequested}</Text>
+                    <DateOnlyCell
+                      value={record.dateRequested}
+                      fallback={record.dateRequested || "N/A"}
+                    />
                   </Text>
                 </div>
               </Card>

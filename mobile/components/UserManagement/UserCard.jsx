@@ -1,6 +1,13 @@
 import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import AppText from "../common/AppText";
+import {
+  Image,
+  StyleSheet,
+  View
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserImageUri } from "../../utilities/avatar";
 
@@ -22,6 +29,7 @@ export default function UserCard({
   onResendInvite,
   onExtendInvite,
   onRevokeInvite,
+  onUnlockUser,
   inviteActionLoading,
 }) {
   const status = String(item.status || "inactive").toLowerCase();
@@ -64,92 +72,110 @@ export default function UserCard({
           {getUserImageUri(item?.image) ? (
             <Image source={getUserAvatarSource(item?.image)} style={styles.avatarImage} />
           ) : (
-            <Text style={styles.avatarText}>{getInitials(item.firstName, item.lastName)}</Text>
+            <AppText style={styles.avatarText}>{getInitials(item.firstName, item.lastName)}</AppText>
           )}
         </View>
         <View style={styles.mainInfo}>
-          <Text style={styles.userName}>
+          <AppText style={styles.userName}>
             {`${item.firstName || ""} ${item.lastName || ""}`.trim() || "New User"}
-          </Text>
-          <Text style={styles.userMeta}>@{item.username} | {item.access}</Text>
+          </AppText>
+          <AppText style={styles.userMeta}>@{item.username} | {item.access}</AppText>
         </View>
         <View style={[styles.badge, { backgroundColor: isActive ? "#E8F5E9" : "#FFEBEE" }]}>
-          <Text style={[styles.badgeText, { color: isActive ? "#2E7D32" : "#C62828" }]}>{status}</Text>
+          <AppText style={[styles.badgeText, { color: isActive ? "#2E7D32" : "#C62828" }]}>{status}</AppText>
         </View>
       </View>
 
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <MaterialCommunityIcons name="email-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{maskEmail(item.email)}</Text>
+          <AppText style={styles.infoText}>{maskEmail(item.email)}</AppText>
         </View>
         <View style={styles.infoRow}>
           <MaterialCommunityIcons name="briefcase-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{item.jobTitle || "No Title Set"}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="map-marker-outline" size={14} color={COLORS.grayDark} />
-          <Text style={styles.infoText}>{item.base || "No Base Set"}</Text>
+          <AppText style={styles.infoText}>{item.jobTitle || "No Title Set"}</AppText>
         </View>
         {canShowInviteActions && (
           <View style={styles.inviteMetaWrap}>
             <View style={[styles.inviteBadge, { backgroundColor: inviteStatusTone.bg }]}>
-              <Text style={[styles.inviteBadgeText, { color: inviteStatusTone.text }]}>
+              <AppText style={[styles.inviteBadgeText, { color: inviteStatusTone.text }]}>
                 INVITE: {inviteStatusLabel.toUpperCase()}
-              </Text>
+              </AppText>
             </View>
-            <Text style={styles.inviteExpiryText}>
+            <AppText style={styles.inviteExpiryText}>
               Expires: {formatExpiry(item?.invitationExpiresAt)}
-            </Text>
+            </AppText>
           </View>
         )}
       </View>
 
-      <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => onEdit(item)} style={[styles.actionBtn, styles.btnEdit]}>
-          <MaterialCommunityIcons name="account-edit-outline" size={16} color="white" />
-          <Text style={styles.actionBtnText}> Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+      <CardActionRow style={styles.cardActions}>
+        <ActionIconButton
+          icon="account-edit-outline"
+          tooltip="Edit"
+          onPress={() => onEdit(item)}
+          color="white"
+          backgroundColor="#1565C0"
+          borderColor="#1565C0"
+        />
+        <ActionIconButton
+          icon={isActive ? "account-remove" : "account-check"}
+          tooltip={isActive ? "Deactivate" : "Reactivate"}
           onPress={() => onToggleStatus(item, isActive ? "deactivated" : "active")}
-          style={[styles.actionBtn, isActive ? styles.btnDanger : styles.btnSuccess, isCurrentUser && styles.btnDisabled]}
           disabled={isCurrentUser}
-        >
-          <MaterialCommunityIcons name={isActive ? "account-remove" : "account-check"} size={16} color="white" />
-          <Text style={styles.actionBtnText}>{isActive ? " Deactivate" : " Reactivate"}</Text>
-        </TouchableOpacity>
-      </View>
+          color="white"
+          backgroundColor={isActive ? "#FF5252" : "#4CAF50"}
+          borderColor={isActive ? "#FF5252" : "#4CAF50"}
+        />
+        {item.isLocked && (
+          <ActionIconButton
+            icon="lock-open-outline"
+            tooltip={inviteActionLoading ? "Working..." : "Unlock"}
+            onPress={() => onUnlockUser?.(item)}
+            disabled={inviteActionLoading}
+            color="white"
+            backgroundColor="#7C3AED"
+            borderColor="#7C3AED"
+          />
+        )}
+      </CardActionRow>
 
       {canShowInviteActions && (
-        <View style={styles.inviteActions}>
+        <CardActionRow style={styles.inviteActions}>
           {(invitationStatus === "pending" || invitationStatus === "expired") && (
             <>
-              <TouchableOpacity
+              <ActionIconButton
+                icon="email-send-outline"
+                tooltip={inviteActionLoading ? "Working..." : "Resend"}
                 onPress={() => onResendInvite?.(item)}
-                style={[styles.actionBtn, styles.btnInfo]}
                 disabled={inviteActionLoading}
-              >
-                <Text style={styles.actionBtnText}>{inviteActionLoading ? "Working..." : "Resend"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+                color="white"
+                backgroundColor="#1976D2"
+                borderColor="#1976D2"
+              />
+              <ActionIconButton
+                icon="clock-plus-outline"
+                tooltip="Extend 24h"
                 onPress={() => onExtendInvite?.(item)}
-                style={[styles.actionBtn, styles.btnWarn]}
                 disabled={inviteActionLoading}
-              >
-                <Text style={styles.actionBtnText}>Extend +24h</Text>
-              </TouchableOpacity>
+                color="white"
+                backgroundColor="#D97706"
+                borderColor="#D97706"
+              />
             </>
           )}
           {invitationStatus !== "revoked" && (
-            <TouchableOpacity
+            <ActionIconButton
+              icon="email-remove-outline"
+              tooltip="Revoke"
               onPress={() => onRevokeInvite?.(item)}
-              style={[styles.actionBtn, styles.btnDangerOutline]}
               disabled={inviteActionLoading}
-            >
-              <Text style={styles.actionBtnText}>Revoke</Text>
-            </TouchableOpacity>
+              color="white"
+              backgroundColor="#B91C1C"
+              borderColor="#B91C1C"
+            />
           )}
-        </View>
+        </CardActionRow>
       )}
     </View>
   );
@@ -199,30 +225,8 @@ const styles = StyleSheet.create({
   inviteExpiryText: { fontSize: 11, color: COLORS.grayDark },
   cardActions: {
     marginTop: 15,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
   },
   inviteActions: {
     marginTop: 8,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-    flexWrap: "wrap",
   },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  btnEdit: { backgroundColor: "#1565C0" },
-  btnDanger: { backgroundColor: "#FF5252" },
-  btnSuccess: { backgroundColor: "#4CAF50" },
-  btnInfo: { backgroundColor: "#1976D2" },
-  btnWarn: { backgroundColor: "#D97706" },
-  btnDangerOutline: { backgroundColor: "#B91C1C" },
-  btnDisabled: { opacity: 0.5 },
-  actionBtnText: { color: "white", fontWeight: "bold", fontSize: 12 },
 });

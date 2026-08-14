@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Button, message, Modal, Spin, Typography } from "antd";
+import { Alert, Button, message, Modal, Spin, Typography } from "antd";
 import {
   InfoCircleOutlined,
   EnvironmentOutlined,
@@ -19,15 +19,22 @@ import FlightLogDiscrepancyRemarks from "./FlightLogModalDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 
 const resolveRole = (role = "") => {
-  const r = role.toLowerCase();
+  const r = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
   if (r === "pilot") return "pilot";
   if (
+    r === "mechanic" ||
     r === "engineer" ||
     r === "maintenance manager" ||
-    r === "officer-in-charge"
+    r === "head of maintenance" ||
+    r === "superadmin" ||
+    r === "admin" ||
+    r === "officer in charge"
   )
     return "mechanic";
-  return "pilot";
+  return "viewer";
 };
 
 const isReleasedFlightLogStatus = (status = "") =>
@@ -126,6 +133,8 @@ const WORK_DONE_TAB = {
   icon: <CheckSquareOutlined />,
 };
 
+const REQUIRED_DESTINATION_FIELDS = [["date", "Date"]];
+
 export default function FlightLogEntry({
   visible,
   onClose,
@@ -178,6 +187,7 @@ export default function FlightLogEntry({
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [activeTab, setActiveTab] = useState("info");
   const [submitting, setSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   const mapAircraftReferenceToBroughtForward = (referenceData = {}) => ({
     airframe: referenceData.acftTT || "",
@@ -200,6 +210,7 @@ export default function FlightLogEntry({
       setComponentData(initComponent());
       setLoadedAircraftData(null);
       setActiveTab("info");
+      setValidationError("");
     }
   }, [visible]);
 
@@ -431,6 +442,7 @@ export default function FlightLogEntry({
     canSave || (activeTab === "component" && canEditNextInspectionDates);
 
   const handleSave = async () => {
+    setValidationError("");
     if (
       isCompletedLog &&
       !(activeTab === "component" && canEditNextInspectionDates)
@@ -447,17 +459,26 @@ export default function FlightLogEntry({
       message.error("Flight log date is required");
       return;
     }
-    const hasInvalidLeg = (formData.legs || []).some((leg) => {
-      const hasRoute = (leg.stations || []).some(
-        (station) =>
-          !String(station?.from || "").trim() ||
-          !String(station?.to || "").trim(),
-      );
-      return hasRoute || !String(leg.date || "").trim();
-    });
-    if (hasInvalidLeg) {
-      message.error("Each leg must include complete station route and date");
-      return;
+    if (canEditDestinations) {
+      const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
+        const hasInvalidRoute = (leg.stations || []).some(
+          (station) =>
+            !String(station?.from || "").trim() ||
+            !String(station?.to || "").trim(),
+        );
+        const hasMissingField = REQUIRED_DESTINATION_FIELDS.some(
+          ([key]) => !String(leg?.[key] || "").trim(),
+        );
+        return hasInvalidRoute || hasMissingField;
+      });
+      if (invalidLegIndex >= 0) {
+        const errorMessage =
+          "Each leg must include complete station route and date";
+        setValidationError(errorMessage);
+        setActiveTab("destinations");
+        message.error(errorMessage);
+        return;
+      }
     }
     const dateStr =
       formData.date instanceof Date
@@ -546,7 +567,13 @@ export default function FlightLogEntry({
     if (!timestamp) return "";
     const parsed = new Date(timestamp);
     if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleString();
+    return parsed.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   const getSignerLabel = (signatureData = {}) =>
@@ -587,6 +614,8 @@ export default function FlightLogEntry({
       footer={null}
       width={1160}
       centered
+      zIndex={9999}
+      rootClassName="fl-entry-modal-root"
       styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"
       destroyOnHidden
@@ -594,7 +623,11 @@ export default function FlightLogEntry({
       <Spin spinning={submitting}>
         <div className="fl-modal-header-block">
           <div className="fl-modal-title-main">
-            {editMode ? "Edit Entry - Flight Log" : "Add Entry - Flight Log"}
+            {readOnly
+              ? "View Entry - Flight Log"
+              : editMode
+                ? "Edit Entry - Flight Log"
+                : "Add Entry - Flight Log"}
           </div>
           <div className="fl-modal-title-sub">Select Section</div>
         </div>
@@ -615,6 +648,16 @@ export default function FlightLogEntry({
 
         {/* Scrollable body */}
         <div className="fl-modal-body">
+          {validationError && (
+            <Alert
+              type="error"
+              showIcon
+              closable
+              message={validationError}
+              onClose={() => setValidationError("")}
+              style={{ marginBottom: 12 }}
+            />
+          )}
           {renderContent()}
           {editMode &&
             (formData?.releasedBy?.name ||
@@ -718,9 +761,11 @@ export default function FlightLogEntry({
               Close
             </Button>
           )}
-          <Button className="fl-nav-btn" onClick={onClose}>
-            Cancel
-          </Button>
+          {canSaveCurrentTab && (
+            <Button className="fl-nav-btn" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
         </div>
       </Spin>
     </Modal>

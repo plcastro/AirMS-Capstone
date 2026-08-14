@@ -23,28 +23,70 @@ import {
   getAuditActionCategory,
   getAuditActionCategoryOptions,
 } from "../../../utils/auditActions";
-import { Input, DatePicker, Space, Grid, message, Select, Card } from "antd";
+import { matchesSearch } from "../../../utils/search";
+import { ExportOutlined } from "@ant-design/icons";
+import {
+  Input,
+  DatePicker,
+  Space,
+  Grid,
+  message,
+  Select,
+  Card,
+  Button,
+} from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
+import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  drawPdfReportHeader,
+  loadNgcpLogoDataUrl,
+} from "../../../components/common/ExportFile";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
 
+const buildModuleName = (value) =>
+  String(value || "Activity Logs")
+    .trim()
+    .replace(/\bReport\b/gi, "")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (moduleName, extension) =>
+  `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
+
 export default function UserLogs() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dateRange, setDateRange] = useState([
-    dayjs().subtract(30, "days"),
+    dayjs().subtract(7, "days"),
     dayjs(),
   ]);
   const [loading, setLoading] = useState(false);
   const [selectedActionType, setSelectedActionType] = useState("all");
   const [selectedScope, setSelectedScope] = useState("all");
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
+  const [exporting, setExporting] = useState(false);
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -88,12 +130,12 @@ export default function UserLogs() {
           index: index + 1,
           dateTime: log.dateTime,
           displayDateTime: log.dateTime
-            ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
+            ? dayjs(log.dateTime).format("MM/DD/YYYY hh:mm A")
             : "N/A",
           actionMade: log.actionMade || log.action || "N/A",
           username: log.username || "Unknown",
-          platform: log.platform || "UNKNOWN",
-          base: log.base || "UNKNOWN",
+          platform: log.platform || "",
+          base: log.base || "",
         }));
 
         setAllUserLogs(mappedLogs);
@@ -123,13 +165,7 @@ export default function UserLogs() {
     let filtered = [...allUserLogs];
 
     if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (log) =>
-          (log.actionMade && log.actionMade.toLowerCase().includes(query)) ||
-          (log.dateTime && log.dateTime.toLowerCase().includes(query)) ||
-          (log.username && log.username.toLowerCase().includes(query)),
-      );
+      filtered = filtered.filter((log) => matchesSearch(searchQuery, log));
     }
 
     if (selectedActionType !== "all") {
@@ -141,20 +177,31 @@ export default function UserLogs() {
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
       filtered = filtered.filter((log) =>
         selectedScope === "base"
-          ? String(log.base || "UNKNOWN").toUpperCase() === selectedScopeValue
-          : String(log.platform || "UNKNOWN").toUpperCase() ===
-            selectedScopeValue,
+          ? String(log.base || "").toUpperCase() === selectedScopeValue
+          : String(log.platform || "").toUpperCase() === selectedScopeValue,
       );
     }
 
     return filtered;
-  }, [allUserLogs, searchQuery, selectedActionType, selectedScope, selectedScopeValue]);
+  }, [
+    allUserLogs,
+    searchQuery,
+    selectedActionType,
+    selectedScope,
+    selectedScopeValue,
+  ]);
 
   const scopeValueOptions = useMemo(() => {
     if (selectedScope === "base") {
       const values = Array.from(
         new Set(
-          allUserLogs.map((log) => String(log.base || "UNKNOWN").toUpperCase()),
+          allUserLogs
+            .map((log) =>
+              String(log.base || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean),
         ),
       ).sort();
       return [
@@ -166,9 +213,13 @@ export default function UserLogs() {
     if (selectedScope === "platform") {
       const values = Array.from(
         new Set(
-          allUserLogs.map((log) =>
-            String(log.platform || "UNKNOWN").toUpperCase(),
-          ),
+          allUserLogs
+            .map((log) =>
+              String(log.platform || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean),
         ),
       ).sort();
       return [
@@ -202,6 +253,74 @@ export default function UserLogs() {
     };
   }, [dateRange, fetchUserLogs]);
   const actionTypeOptions = getAuditActionCategoryOptions();
+
+  const exportRows = useMemo(
+    () =>
+      filteredLogs.map((log) => ({
+        "Date / Time": log.dateTime
+          ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
+          : "N/A",
+        User: log.username || "Unknown",
+        Action: log.actionMade || "N/A",
+        Platform: log.platform || "Not captured",
+        Base: log.base || "Not captured",
+      })),
+    [filteredLogs],
+  );
+
+  const handleExportLogs = async () => {
+    if (!exportRows.length) {
+      message.info("No activity logs available to export.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const fileName = buildReportFileName("Activity Logs", "pdf");
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF("l", "pt", "a4");
+      const columns = Object.keys(exportRows[0]);
+      const generatedAt = `Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`;
+      const logoDataUrl = await loadNgcpLogoDataUrl().catch((error) => {
+        console.warn(error);
+        return null;
+      });
+      const startY = drawPdfReportHeader(doc, {
+        title: "Activity Logs Report",
+        subtitle: generatedAt,
+        logoDataUrl,
+      });
+
+      autoTable(doc, {
+        head: [columns],
+        body: exportRows.map((row) => columns.map((column) => row[column])),
+        startY,
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          overflow: "linebreak",
+          valign: "top",
+        },
+        headStyles: { fillColor: [38, 134, 111] },
+        columnStyles: {
+          2: { cellWidth: 300 },
+        },
+        margin: { left: 40, right: 40 },
+      });
+      doc.save(fileName);
+
+      message.success("Activity logs exported as PDF.");
+    } catch (error) {
+      console.error("Activity logs export failed:", error);
+      message.error(error.message || "Failed to export activity logs.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const actionTrendData = useMemo(() => {
     const dailyStats = {};
@@ -274,7 +393,7 @@ export default function UserLogs() {
     >
       <Space
         style={{ marginBottom: 16, width: "100%" }}
-        orientation={isMobile ? "vertical" : "horizontal"}
+        orientation={isMobile ? "vertical" : undefined}
         size={isMobile ? 10 : 8}
         wrap
       >
@@ -289,32 +408,45 @@ export default function UserLogs() {
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
-          format="YYYY-MM-DD"
+          format="MM/DD/YYYY"
           allowClear
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}
         />
-        <Select
-          value={selectedActionType}
-          onChange={setSelectedActionType}
-          options={actionTypeOptions}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
-        <Select
-          value={selectedScope}
-          onChange={(value) => {
-            setSelectedScope(value);
-            setSelectedScopeValue("all");
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            width: isMobile ? "100%" : "auto",
           }}
-          options={[
-            { label: "All Scope", value: "all" },
-            { label: "Base", value: "base" },
-            { label: "Platform", value: "platform" },
-          ]}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
+        >
+          <Select
+            value={selectedActionType}
+            onChange={setSelectedActionType}
+            options={actionTypeOptions}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+
+          <Select
+            value={selectedScope}
+            onChange={(value) => {
+              setSelectedScope(value);
+              setSelectedScopeValue("all");
+            }}
+            options={[
+              { label: "All Scope", value: "all" },
+              { label: "Base", value: "base" },
+              { label: "Platform", value: "platform" },
+            ]}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+        </div>
         {selectedScope !== "all" && (
           <Select
             value={selectedScopeValue}
@@ -323,6 +455,18 @@ export default function UserLogs() {
             size="large"
             style={{ width: isMobile ? "100%" : 180 }}
           />
+        )}
+        {canExportActivityLogs && (
+          <Button
+            type="primary"
+            size="large"
+            icon={<ExportOutlined />}
+            loading={exporting}
+            onClick={handleExportLogs}
+            style={{ width: isMobile ? "100%" : "auto" }}
+          >
+            Export PDF
+          </Button>
         )}
       </Space>
       <div style={{ marginBottom: 20 }}>
@@ -335,14 +479,14 @@ export default function UserLogs() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(date) => dayjs(date).format("MMM D")}
+                tickFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
                 tick={{ fontSize: 12 }}
               />
               <YAxis tick={{ fontSize: 12 }} width={32} />
               <Tooltip
-                labelFormatter={(date) => dayjs(date).format("MMM DD, YYYY")}
+                labelFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12, marginTop: 15 }} />
 
               {AUDIT_ACTION_CHART_CATEGORIES.filter(
                 (category) =>

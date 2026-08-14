@@ -1,5 +1,10 @@
 import React from "react";
-import { View, Text, TextInput, ScrollView } from "react-native";
+import AppText from "../common/AppText";
+import AppInput from "../common/AppInput";
+import {
+  View,
+  ScrollView
+} from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 export default function FlightLogModalBroughtForward({
@@ -15,10 +20,10 @@ export default function FlightLogModalBroughtForward({
 
     return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
-      </Text>
-      <TextInput
+      </AppText>
+      <AppInput
         style={{
           backgroundColor: editable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 4,
@@ -60,9 +65,9 @@ export default function FlightLogModalBroughtForward({
             paddingHorizontal: 16,
           }}
         >
-          <Text style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
             Brought Forward
-          </Text>
+          </AppText>
         </View>
 
         <View style={{ padding: 20 }}>

@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Input, Button, Form, DatePicker, Typography, message } from "antd";
+import {
+  Modal,
+  Input,
+  Button,
+  Form,
+  DatePicker,
+  Typography,
+  message,
+} from "antd";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
@@ -78,6 +86,8 @@ export default function MaintenanceEntryModal({
     <Modal
       open={visible}
       title={isEditMode ? "Edit Maintenance Entry" : "New Maintenance Entry"}
+      centered
+      zIndex={9999}
       onCancel={handleCancel}
       footer={[
         <Button key="cancel" onClick={handleCancel}>
@@ -134,7 +144,8 @@ export default function MaintenanceEntryModal({
         )}
 
         <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-          AI tip: specific symptoms, affected components, and inspection findings improve maintenance-tracking results.
+          AI tip: specific symptoms, affected components, and inspection
+          findings improve maintenance-tracking results.
         </Text>
       </Form>
     </Modal>

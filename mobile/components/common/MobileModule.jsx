@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
+import AppText from "./AppText";
+import AppInput from "./AppInput";
 import {
   ActivityIndicator,
   ScrollView,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
@@ -82,8 +82,13 @@ export function ModuleContainer({ children, contentStyle }) {
   return (
     <View style={moduleStyles.screen}>
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[{ paddingBottom: 28 }, contentStyle]}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        overScrollMode="never"
+        contentContainerStyle={[{ paddingBottom: 110 }, contentStyle]}
       >
         {children}
       </ScrollView>
@@ -91,29 +96,63 @@ export function ModuleContainer({ children, contentStyle }) {
   );
 }
 
-export function SearchBar({ value, onChangeText, placeholder = "Search" }) {
+export function SearchBar({
+  value,
+  onChangeText,
+  placeholder = "Search",
+  containerStyle,
+  inputStyle,
+}) {
+  const hasValue = String(value || "").length > 0;
+
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: COLORS.white,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: COLORS.grayMedium,
-        height: 46,
-        paddingHorizontal: 12,
-        marginBottom: 10,
-      }}
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: COLORS.white,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          height: 46,
+          paddingHorizontal: 12,
+          marginBottom: 10,
+        },
+        containerStyle,
+      ]}
     >
       <MaterialCommunityIcons name="magnify" size={21} color={COLORS.grayDark} />
-      <TextInput
+      <AppInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={COLORS.grayDark}
-        style={{ flex: 1, marginLeft: 9, fontSize: 12, color: COLORS.black }}
+        style={[
+          { flex: 1, marginLeft: 9, fontSize: 12, color: COLORS.black },
+          inputStyle,
+        ]}
       />
+      {hasValue && (
+        <TouchableOpacity
+          onPress={() => onChangeText?.("")}
+          accessibilityLabel="Clear search"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 15,
+            alignItems: "center",
+            justifyContent: "center",
+            marginLeft: 6,
+          }}
+        >
+          <MaterialCommunityIcons
+            name="close-circle"
+            size={19}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -129,8 +168,8 @@ export function InfoCard({ title, subtitle, right, children, onPress }) {
     >
       <View style={[moduleStyles.row, { justifyContent: "space-between" }]}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          {!!title && <Text style={moduleStyles.title}>{title}</Text>}
-          {!!subtitle && <Text style={moduleStyles.subtitle}>{subtitle}</Text>}
+          {!!title && <AppText style={moduleStyles.title}>{title}</AppText>}
+          {!!subtitle && <AppText style={moduleStyles.subtitle}>{subtitle}</AppText>}
         </View>
         {right}
       </View>
@@ -139,11 +178,103 @@ export function InfoCard({ title, subtitle, right, children, onPress }) {
   );
 }
 
+export function CardActionRow({ children, style }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const actionItems = React.Children.toArray(children).filter(Boolean);
+  const shouldCollapse = actionItems.length > 2;
+  const visibleActions = shouldCollapse ? actionItems.slice(0, 1) : actionItems;
+  const overflowActions = shouldCollapse ? actionItems.slice(1) : [];
+
+  const renderOverflowAction = (action, index) => {
+    if (!React.isValidElement(action)) return action;
+
+    const handlePress = (...args) => {
+      setMenuOpen(false);
+      action.props?.onPress?.(...args);
+    };
+
+    return React.cloneElement(action, {
+      key: action.key || `overflow-action-${index}`,
+      onPress: handlePress,
+      tooltip: "",
+    });
+  };
+
+  return (
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 10,
+          width: "100%",
+          flexWrap: "wrap",
+        },
+        style,
+      ]}
+    >
+      {visibleActions}
+      {shouldCollapse && (
+        <View style={{ position: "relative" }}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={menuOpen ? "Close actions" : "More actions"}
+            onPress={() => setMenuOpen((current) => !current)}
+            style={{
+              alignItems: "center",
+              backgroundColor: "#f0f2f5",
+              borderColor: "#d9d9d9",
+              borderRadius: 18,
+              borderWidth: 1,
+              height: 36,
+              justifyContent: "center",
+              width: 36,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="dots-horizontal"
+              size={21}
+              color="#344054"
+            />
+          </TouchableOpacity>
+          {menuOpen && (
+            <View
+              style={{
+                alignItems: "center",
+                backgroundColor: COLORS.white,
+                borderColor: COLORS.grayMedium,
+                borderRadius: 10,
+                borderWidth: 1,
+                bottom: 42,
+                elevation: 6,
+                flexDirection: "row",
+                gap: 8,
+                padding: 8,
+                position: "absolute",
+                right: 0,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                zIndex: 20,
+              }}
+            >
+              {overflowActions.map(renderOverflowAction)}
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function FieldRow({ label, value }) {
   return (
     <View style={{ flex: 1, minWidth: "45%", marginTop: 10, paddingRight: 8 }}>
-      <Text style={moduleStyles.label}>{label}</Text>
-      <Text style={moduleStyles.value}>{value ?? "N/A"}</Text>
+      <AppText style={moduleStyles.label}>{label}</AppText>
+      <AppText style={moduleStyles.value}>{value ?? "N/A"}</AppText>
     </View>
   );
 }
@@ -156,9 +287,9 @@ export function EmptyState({ text = "No records found." }) {
         size={30}
         color={COLORS.grayDark}
       />
-      <Text style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
+      <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
         {text}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -167,9 +298,9 @@ export function LoadingState({ text = "Loading records..." }) {
   return (
     <View style={[moduleStyles.card, { alignItems: "center", padding: 22 }]}>
       <ActivityIndicator color={COLORS.primaryLight} />
-      <Text style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
+      <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 8 }}>
         {text}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -188,10 +319,10 @@ export function StatCard({
         compact ? { padding: 9, marginBottom: 8 } : null,
       ]}
     >
-      <Text style={[moduleStyles.label, compact ? { fontSize: 10 } : null]}>
+      <AppText style={[moduleStyles.label, compact ? { fontSize: 10 } : null]}>
         {label}
-      </Text>
-      <Text
+      </AppText>
+      <AppText
         style={{
           color: tone,
           fontSize: compact ? 16 : 22,
@@ -200,7 +331,7 @@ export function StatCard({
         }}
       >
         {value ?? 0}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -208,7 +339,75 @@ export function StatCard({
 export function StatusChip({ label, color = COLORS.primaryLight }) {
   return (
     <View style={[moduleStyles.chip, { backgroundColor: `${color}18` }]}>
-      <Text style={[moduleStyles.chipText, { color }]}>{label || "N/A"}</Text>
+      <AppText style={[moduleStyles.chipText, { color }]}>{label || "N/A"}</AppText>
+    </View>
+  );
+}
+
+const STATUS_TAG_COLORS = {
+  active: "#52c41a",
+  approved: "#389e0d",
+  complete: "#237804",
+  completed: "#237804",
+  rectified: "#5b8c00",
+  released: "#0958d9",
+  verified: "#08979c",
+  accepted: "#13c2c2",
+  available: "#52c41a",
+  open: "#1677ff",
+  submitted: "#1677ff",
+  "turned in": "#1677ff",
+  pending: "#faad14",
+  "pending approval": "#d48806",
+  "pending acceptance": "#fa8c16",
+  "pending release": "#d48806",
+  assigned: "#13c2c2",
+  ongoing: "#1677ff",
+  "in progress": "#1677ff",
+  busy: "#1677ff",
+  review: "#722ed1",
+  "for review": "#722ed1",
+  returned: "#fa8c16",
+  deferred: "#fa8c16",
+  overdue: "#fa541c",
+  "past due": "#fa541c",
+  rejected: "#ff4d4f",
+  cancelled: "#ff4d4f",
+  canceled: "#ff4d4f",
+  failed: "#ff4d4f",
+  inactive: "#8c8c8c",
+  closed: "#8c8c8c",
+  offline: "#8c8c8c",
+  "n/a": "#8c8c8c",
+};
+
+export const getStatusTagColor = (status) => {
+  const normalized = String(status || "N/A")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .toLowerCase();
+
+  return STATUS_TAG_COLORS[normalized] || "#8c8c8c";
+};
+
+export function StatusTag({ label, fallback = "N/A", style }) {
+  const value = String(label || fallback).trim() || fallback;
+  const color = getStatusTagColor(value);
+
+  return (
+    <View style={[moduleStyles.chip, { backgroundColor: `${color}18` }, style]}>
+      <AppText style={[moduleStyles.chipText, { color }]}>
+        {value.toUpperCase()}
+      </AppText>
+    </View>
+  );
+}
+
+export function StatusField({ label, value }) {
+  return (
+    <View style={{ flex: 1, minWidth: "45%", marginTop: 10, paddingRight: 8 }}>
+      <AppText style={moduleStyles.label}>{label}</AppText>
+      <StatusTag label={value} style={{ marginTop: 4 }} />
     </View>
   );
 }
@@ -216,8 +415,8 @@ export function StatusChip({ label, color = COLORS.primaryLight }) {
 export function SectionTitle({ title, subtitle }) {
   return (
     <View style={{ marginBottom: 10 }}>
-      <Text style={moduleStyles.title}>{title}</Text>
-      {!!subtitle && <Text style={moduleStyles.subtitle}>{subtitle}</Text>}
+      <AppText style={moduleStyles.title}>{title}</AppText>
+      {!!subtitle && <AppText style={moduleStyles.subtitle}>{subtitle}</AppText>}
     </View>
   );
 }

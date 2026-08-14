@@ -1,6 +1,10 @@
-﻿const bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/sendEmail");
+const {
+  buildActivationEmail,
+  buildOtpEmail,
+} = require("../utils/emailTemplates");
 const validator = require("validator");
 const fs = require("fs");
 const path = require("path");
@@ -16,8 +20,22 @@ const {
   normalizePlatform,
   normalizeBase,
 } = require("../middleware/requestContext");
+const {
+  resetLoginRateLimitForIdentifiers,
+  resetOtpRateLimitForValues,
+} = require("../middleware/rateLimiter");
 const WEB_URL = process.env.WEB_URL;
-const MOBILE_URL = process.env.MOBILE_URL;
+
+const buildLoginPortalUrl = (baseUrl) => {
+  if (!baseUrl) return "";
+
+  const trimmedUrl = String(baseUrl).trim();
+  if (!trimmedUrl) return "";
+  if (/\.apk(?:[?#].*)?$/i.test(trimmedUrl)) return trimmedUrl;
+  if (/\/login\/?$/i.test(trimmedUrl)) return trimmedUrl;
+
+  return `${trimmedUrl.replace(/\/+$/, "")}/login`;
+};
 
 const getAuditActorId = (req, fallbackId = null) =>
   req.user?.id || req.userRecord?._id || fallbackId;
@@ -32,22 +50,74 @@ const withActorId = (req, action, fallbackId = null) => {
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
+const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years; logout/revocation still ends mobile sessions
+const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
+const ROLES_REQUIRING_LICENSE = new Set([
+  "maintenance manager",
+  "pilot",
+  "mechanic",
+  "officer-in-charge",
+]);
+
+const parseString = (value) => (typeof value === "string" ? value.trim() : "");
+const requiresLicenseNo = (jobTitle = "") =>
+  ROLES_REQUIRING_LICENSE.has(parseString(jobTitle).toLowerCase());
+const getDuplicateKeyMessage = (error) => {
+  if (error?.code !== 11000) {
+    return null;
+  }
+
+  if (error?.keyPattern?.email) {
+    return "Email already registered";
+  }
+  if (error?.keyPattern?.username) {
+    return "Username already taken";
+  }
+  if (error?.keyPattern?.licenseNo) {
+    return "License no. already in use";
+  }
+
+  return "Duplicate user information";
+};
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 const hashTrustedDeviceToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
 
-const issueRefreshToken = (userId) => {
+const getRefreshTokenTtlMs = (isPersistent, platform = "") =>
+  normalizePlatform(platform) === "MOBILE"
+    ? MOBILE_REFRESH_TOKEN_TTL_MS
+    : isPersistent
+      ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS
+      : REFRESH_TOKEN_TTL_MS;
+
+const getSessionIdleLimitMs = () => SESSION_IDLE_LIMIT_MS;
+const isMobilePlatform = (platform = "") =>
+  normalizePlatform(platform) === "MOBILE";
+
+const getRefreshTokenCleanupDate = (expiresAt) =>
+  new Date(new Date(expiresAt).getTime() + REFRESH_TOKEN_RECORD_RETENTION_MS);
+
+const getRevokedRefreshTokenCleanupDate = () =>
+  new Date(Date.now() + REFRESH_TOKEN_RECORD_RETENTION_MS);
+
+const issueRefreshToken = (userId, isPersistent = false, platform = "") => {
   const jti = crypto.randomUUID();
+  const expiresInSeconds = Math.floor(
+    getRefreshTokenTtlMs(isPersistent, platform) / 1000,
+  );
   const token = jwt.sign(
     { id: userId, type: "refresh" },
     process.env.REFRESH_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: expiresInSeconds,
       jwtid: jti,
     },
   );
@@ -55,16 +125,21 @@ const issueRefreshToken = (userId) => {
   return { token, jti };
 };
 
-const setRefreshTokenCookie = (res, refreshToken, isPersistent) => {
+const setRefreshTokenCookie = (
+  res,
+  refreshToken,
+  isPersistent,
+  platform = "",
+) => {
   const refreshCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "None",
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
     secure: true,
   };
 
   if (isPersistent) {
-    refreshCookieOptions.maxAge = REFRESH_TOKEN_TTL_MS;
+    refreshCookieOptions.maxAge = getRefreshTokenTtlMs(true, platform);
   }
 
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
@@ -75,14 +150,19 @@ const storeRefreshToken = async ({
   refreshToken,
   jti,
   isPersistent,
+  platform,
   req,
 }) => {
   const tokenHash = hashRefreshToken(refreshToken);
+  const expiresAt = new Date(
+    Date.now() + getRefreshTokenTtlMs(Boolean(isPersistent), platform),
+  );
   return RefreshToken.create({
     userId,
     tokenHash,
     jti,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+    expiresAt,
+    cleanupAt: getRefreshTokenCleanupDate(expiresAt),
     isPersistent: Boolean(isPersistent),
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
@@ -100,6 +180,7 @@ const revokeRefreshTokenByHash = async (
       revokedAt: new Date(),
       revokedReason: reason,
       replacedByTokenHash,
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
     },
     { returnDocument: "after" },
   );
@@ -108,14 +189,34 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
   if (!userId) return;
   await RefreshToken.updateMany(
     { userId, revokedAt: null },
-    { revokedAt: new Date(), revokedReason: reason },
+    {
+      revokedAt: new Date(),
+      revokedReason: reason,
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
+    },
+  );
+};
+
+const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
+  if (!userId || !keepTokenHash) return;
+  await RefreshToken.updateMany(
+    {
+      userId,
+      tokenHash: { $ne: keepTokenHash },
+      revokedAt: null,
+    },
+    {
+      revokedAt: new Date(),
+      revokedReason: "Superseded by newer refresh token",
+      cleanupAt: getRevokedRefreshTokenCleanupDate(),
+    },
   );
 };
 
 const createUserSession = async (req, userId, platform) => {
   const sessionId = req.headers["x-session-id"] || crypto.randomUUID();
   const normalizedPlatform =
-    normalizePlatform(platform || req.headers["x-platform"]) || null;
+    normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
   await UserSession.create({
@@ -143,47 +244,23 @@ const sendActivationCredentialsEmail = async ({
   jobTitle,
   isResend = false,
 }) => {
-  const portalUrlWeb = `${WEB_URL}/login`;
-  const portalUrlMobile = `${MOBILE_URL}/login`;
+  const portalUrlWeb = buildLoginPortalUrl(WEB_URL);
   const subject = isResend
     ? "AirMS Account Activation - Resend"
     : "Welcome to AirMS - Your Account Details";
+  const email = buildActivationEmail({
+    firstName,
+    username,
+    tempPassword,
+    jobTitle,
+    portalUrlWeb,
+    isResend,
+  });
 
   await sendEmail({
     to,
     subject,
-    html: `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #26866f; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AirMS</h1>
-      </div>
-
-      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Your AirMS account credentials are ready. Use the temporary credentials below to sign in and finish setup.</p>
-
-        <div style="background: #f8f9fa; border-left: 4px solid #26866f; padding: 15px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Username:</strong> <code style="font-size: 1.1em;">${username}</code></p>
-          <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <code style="font-size: 1.1em;">${tempPassword}</code></p>
-        </div>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrlWeb}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Web</a>
-        </div>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${portalUrlMobile}" style="background-color: #26866f; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Access AirMS Portal via Mobile</a>
-        </div>
-
-        <p style="font-size: 0.9em; color: #666; background: #fff3cd; padding: 10px; border-radius: 4px;">
-          <strong>Security Note:</strong> This temporary password expires in <strong>1 hour</strong>.
-        </p>
-      </div>
-
-      <p style="text-align: center; font-size: 12px; color: #999; margin-top: 20px;">
-        &copy; ${new Date().getFullYear()} AirMS Management System. All rights reserved.
-      </p>
-    </div>
-  `,
+    ...email,
   });
 };
 
@@ -224,11 +301,42 @@ const getAssignableUsers = async (req, res) => {
     const users = await UserModel.find({
       status: "active",
       jobTitle: { $regex: /^mechanic$/i },
-    }).select(
-      "firstName lastName jobTitle status image isOnline online platform",
-    );
+    })
+      .select("firstName lastName jobTitle status image")
+      .lean();
 
-    res.status(200).json({ status: "Ok", data: users });
+    const userIds = users.map((user) => user._id);
+    const activeSince = new Date(Date.now() - SESSION_IDLE_LIMIT_MS);
+    const activeSessions = await UserSession.find({
+      userId: { $in: userIds },
+      isActive: true,
+      lastActivityAt: { $gte: activeSince },
+    })
+      .sort({ lastActivityAt: -1, loginAt: -1 })
+      .lean();
+
+    const latestSessionByUserId = new Map();
+    activeSessions.forEach((session) => {
+      const userId = String(session.userId);
+      if (!latestSessionByUserId.has(userId)) {
+        latestSessionByUserId.set(userId, session);
+      }
+    });
+
+    const usersWithLiveStatus = users.map((user) => {
+      const activeSession = latestSessionByUserId.get(String(user._id));
+      const isOnline = Boolean(activeSession);
+
+      return {
+        ...user,
+        isOnline,
+        online: isOnline,
+        platform: isOnline ? activeSession.platform || "unknown" : "offline",
+        lastActivityAt: activeSession?.lastActivityAt || null,
+      };
+    });
+
+    res.status(200).json({ status: "Ok", data: usersWithLiveStatus });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -258,20 +366,19 @@ const findValidTrustedDevice = (user, rawToken) => {
 };
 
 const sendLoginOtpEmail = async (to, otp) => {
+  const email = buildOtpEmail({
+    title: "AirMS Login Verification",
+    intro: "Use this one-time code to complete your sign in.",
+    otp,
+    validityMinutes: 10,
+    warning:
+      "If you did not attempt to log in, please contact your administrator.",
+  });
+
   await sendEmail({
     to,
     subject: "Your AirMS Login Verification Code",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; color: #1f2937;">
-        <h2 style="color:#26866f;">AirMS 2FA Verification</h2>
-        <p>Use this one-time code to complete your sign in:</p>
-        <div style="background:#f3f4f6;padding:18px;border-radius:8px;text-align:center;letter-spacing:6px;font-size:30px;font-weight:700;color:#111827;">
-          ${otp}
-        </div>
-        <p style="margin-top:16px;">This code expires in 10 minutes.</p>
-        <p style="font-size:12px;color:#6b7280;">If you did not attempt to log in, please contact your administrator.</p>
-      </div>
-    `,
+    ...email,
   });
 };
 
@@ -298,7 +405,6 @@ const buildLoginSuccessPayload = async ({
   await user.save();
 
   const session = await createUserSession(req, user._id, loginPlatform);
-  const sessionMinutes = 0;
 
   const token = jwt.sign(
     {
@@ -307,24 +413,36 @@ const buildLoginSuccessPayload = async ({
       email: user.email,
       jobTitle: user.jobTitle,
       access: user.access,
+      licenseNo: user.licenseNo,
       sessionId: session.sessionId,
       platform: session.platform,
       base: session.base,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "30m" },
+    { expiresIn: "15m" },
   );
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
-  const { token: refreshToken, jti } = issueRefreshToken(user._id.toString());
+  const { token: refreshToken, jti } = issueRefreshToken(
+    user._id.toString(),
+    usePersistentRefreshCookie,
+    loginPlatform,
+  );
   await storeRefreshToken({
     userId: user._id,
     refreshToken,
     jti,
     isPersistent: usePersistentRefreshCookie,
+    platform: loginPlatform,
     req,
   });
-  setRefreshTokenCookie(res, refreshToken, usePersistentRefreshCookie);
+  await deletePreviousRefreshTokens(user._id, hashRefreshToken(refreshToken));
+  setRefreshTokenCookie(
+    res,
+    refreshToken,
+    usePersistentRefreshCookie,
+    loginPlatform,
+  );
 
   auditLog(
     `User log in: ${user.username} (actorId: ${user._id})`,
@@ -346,7 +464,6 @@ const buildLoginSuccessPayload = async ({
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
     sessionId: session.sessionId,
-    sessionMinutes,
     user: {
       id: user._id,
       username: user.username,
@@ -355,16 +472,16 @@ const buildLoginSuccessPayload = async ({
       lastName: user.lastName,
       jobTitle: user.jobTitle,
       access: user.access,
+      licenseNo: user.licenseNo,
       status: user.status,
       image: user.image,
-      signature: user.signature,
+      // signature: user.signature,
       securitySetupCompleted: user.securitySetupCompleted,
       lastLogin: user.lastLogin,
       isOnline: user.isOnline,
       platform: user.platform,
       base: session.base || loginBase,
       sessionId: session.sessionId,
-      sessionMinutes,
       lastSeenAt: user.lastSeenAt,
     },
   };
@@ -399,7 +516,7 @@ const loginUser = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : null;
+          : "UNKNOWN";
     const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
@@ -407,7 +524,7 @@ const loginUser = async (req, res) => {
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (!loginBase) {
+    if (loginBase === "UNKNOWN") {
       return res.status(400).json({
         message: "Please select where you are logging in from",
       });
@@ -427,7 +544,9 @@ const loginUser = async (req, res) => {
     if (user.status === "deactivated") {
       return res
         .status(403)
-        .json({ message: "Account deactivated. Contact support." });
+        .json({
+          message: "This account is deactivated. Please contact support",
+        });
     }
 
     // Check lock
@@ -498,6 +617,12 @@ const loginUser = async (req, res) => {
       if (user.failedLoginAttempts >= MAX_LOGIN_ATTEMPTS) {
         user.isLocked = true;
         user.lockUntil = Date.now() + LOCK_TIME;
+        await user.save();
+        return res.status(403).json({
+          message: `Account locked. Try again in ${Math.round(
+            LOCK_TIME / 60000,
+          )} minutes.`,
+        });
       }
       await user.save();
       return res
@@ -540,7 +665,15 @@ const loginUser = async (req, res) => {
     user.loginOtpLockUntil = undefined;
     await user.save();
 
-    await sendLoginOtpEmail(user.email, otp);
+    try {
+      await sendLoginOtpEmail(user.email, otp);
+    } catch (otpError) {
+      console.error("sendLoginOtpEmail error:", otpError);
+      return res.status(503).json({
+        message:
+          "Unable to send verification code email. Please contact support.",
+      });
+    }
 
     return res.status(200).json({
       requireLoginOtp: true,
@@ -559,7 +692,12 @@ const loginUser = async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    return res.status(500).json({ message: "Login failed" });
+    const isDev =
+      String(process.env.NODE_ENV || "").toLowerCase() === "development";
+    return res.status(500).json({
+      message:
+        isDev && err?.message ? `Login failed: ${err.message}` : "Login failed",
+    });
   }
 };
 
@@ -609,7 +747,7 @@ const verifyLoginOtp = async (req, res) => {
         ? "WEB"
         : normalizedClient === "mobile"
           ? "MOBILE"
-          : null;
+          : "UNKNOWN";
     const loginBase = normalizeBase(req.headers["x-base"] || base);
 
     const payload = await buildLoginSuccessPayload({
@@ -670,7 +808,6 @@ const resendLoginOtp = async (req, res) => {
     }
 
     const otp = generateOTP();
-    console.log("OTP:", otp);
     user.loginOtp = await bcrypt.hash(otp, 10);
     user.loginOtpExpires = Date.now() + LOGIN_OTP_EXPIRATION_MS;
     user.loginOtpAttempts = 0;
@@ -693,17 +830,37 @@ const resendLoginOtp = async (req, res) => {
 };
 
 const unlockUser = async (req, res) => {
-  const user = await UserModel.findById(req.body.id);
+  try {
+    const id = req.params.id || req.body.id;
+    const user = await UserModel.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  user.failedLoginAttempts = 0;
-  user.isLocked = false;
-  user.lockUntil = undefined;
+    const previousLoginOtpToken = user.loginOtpToken;
 
-  await user.save();
-  const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
-  await auditLog(audit.action, audit.actorId);
+    user.failedLoginAttempts = 0;
+    user.isLocked = false;
+    user.lockUntil = undefined;
+    user.loginOtp = undefined;
+    user.loginOtpExpires = undefined;
+    user.loginOtpToken = undefined;
+    user.loginOtpAttempts = 0;
+    user.loginOtpLockUntil = undefined;
 
-  res.json({ message: "Account unlocked successfully" });
+    await user.save();
+    resetLoginRateLimitForIdentifiers([user.username, user.email]);
+    resetOtpRateLimitForValues([previousLoginOtpToken, user.email]);
+    const audit = withActorId(req, `User unlocked: ${user.username}`, user._id);
+    await auditLog(audit.action, audit.actorId);
+
+    res.json({
+      message: "Account unlocked successfully",
+      user,
+      data: user,
+    });
+  } catch (err) {
+    console.error("unlockUser error:", err);
+    res.status(500).json({ message: err.message || "Failed to unlock user" });
+  }
 };
 
 const refreshToken = async (req, res) => {
@@ -731,6 +888,10 @@ const refreshToken = async (req, res) => {
       tokenRecord.revokedAt ||
       tokenRecord.expiresAt <= new Date()
     ) {
+      if (tokenRecord?.revokedAt && tokenRecord?.replacedByTokenHash) {
+        return res.status(403).json({ message: "Refresh token already rotated" });
+      }
+
       await revokeAllUserRefreshTokens(
         payload.id,
         "Refresh token replay/reuse detected during rotation",
@@ -749,6 +910,68 @@ const refreshToken = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const sessionId = req.headers["x-session-id"] || null;
+    if (!sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+
+    let activeSession = await UserSession.findOne({
+      userId: user._id,
+      sessionId,
+    });
+
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    if (!activeSession.isActive) {
+      if (!tokenRecord.isPersistent) {
+        return res.status(401).json({ message: "Session is no longer active" });
+      }
+
+      activeSession = await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId },
+        { isActive: true, lastActivityAt: new Date(), logoutAt: null },
+        { new: true },
+      );
+    }
+
+    const requestPlatform = normalizePlatform(
+      req.headers["x-platform"] || activeSession.platform || payload.platform,
+    );
+    const now = Date.now();
+    if (!isMobilePlatform(requestPlatform)) {
+      const sessionIdleLimitMs = getSessionIdleLimitMs(requestPlatform);
+      const clientActiveAt = Number(req.headers["x-client-active-at"]);
+      const hasRecentClientActivity =
+        Number.isFinite(clientActiveAt) &&
+        clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
+        now - clientActiveAt <= sessionIdleLimitMs;
+      const lastActivityAt = new Date(
+        activeSession.lastActivityAt || activeSession.loginAt || now,
+      ).getTime();
+      const effectiveLastActivityAt = hasRecentClientActivity
+        ? Math.max(lastActivityAt, clientActiveAt)
+        : lastActivityAt;
+      if (
+        !tokenRecord.isPersistent &&
+        now - effectiveLastActivityAt > sessionIdleLimitMs
+      ) {
+        await UserSession.findOneAndUpdate(
+          { userId: user._id, sessionId, isActive: true },
+          { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+        );
+        return res
+          .status(401)
+          .json({ message: "Session timed out due to inactivity" });
+      }
+    }
+
+    await UserSession.findOneAndUpdate(
+      { userId: user._id, sessionId, isActive: true },
+      { lastActivityAt: new Date() },
+    );
+
     if (user.status === "deactivated") {
       return res.status(403).json({ message: "Account deactivated" });
     }
@@ -760,11 +983,10 @@ const refreshToken = async (req, res) => {
         email: user.email,
         jobTitle: user.jobTitle,
         access: user.access,
+        licenseNo: user.licenseNo,
         sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform:
-          normalizePlatform(req.headers["x-platform"] || payload.platform) ||
-          null,
-        base: normalizeBase(req.headers["x-base"] || payload.base) || null,
+        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+        base: req.headers["x-base"] || payload.base || "UNKNOWN",
       },
       process.env.JWT_SECRET,
       { expiresIn: "15m" },
@@ -772,6 +994,8 @@ const refreshToken = async (req, res) => {
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
+      Boolean(tokenRecord.isPersistent),
+      requestPlatform,
     );
     const newTokenHash = hashRefreshToken(newRefreshToken);
 
@@ -786,10 +1010,17 @@ const refreshToken = async (req, res) => {
       refreshToken: newRefreshToken,
       jti,
       isPersistent: tokenRecord.isPersistent,
+      platform: requestPlatform,
       req,
     });
+    await deletePreviousRefreshTokens(user._id, newTokenHash);
 
-    setRefreshTokenCookie(res, newRefreshToken, tokenRecord.isPersistent);
+    setRefreshTokenCookie(
+      res,
+      newRefreshToken,
+      tokenRecord.isPersistent,
+      requestPlatform,
+    );
     const isMobileClient =
       String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
     res.json({
@@ -807,11 +1038,153 @@ const refreshToken = async (req, res) => {
   }
 };
 
+const updateSessionPreference = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const sessionId =
+      req.headers["x-session-id"] || req.user?.sessionId || null;
+    const {
+      rememberMe,
+      revokePersistentTokens = false,
+      refreshToken,
+    } = req.body || {};
+
+    if (!userId || !sessionId) {
+      return res.status(401).json({ message: "Session context missing" });
+    }
+    if (typeof rememberMe !== "boolean") {
+      return res.status(400).json({ message: "rememberMe must be boolean" });
+    }
+
+    const activeSession = await UserSession.findOne({
+      userId,
+      sessionId,
+      isActive: true,
+    });
+    if (!activeSession) {
+      return res.status(401).json({ message: "Session is no longer active" });
+    }
+
+    const incomingRefreshToken =
+      req.cookies?.refreshToken ||
+      refreshToken ||
+      req.body?.refreshToken ||
+      null;
+    const incomingTokenHash = incomingRefreshToken
+      ? hashRefreshToken(incomingRefreshToken)
+      : null;
+
+    let tokenRecord = null;
+    if (incomingTokenHash) {
+      tokenRecord = await RefreshToken.findOne({
+        tokenHash: incomingTokenHash,
+        userId,
+        revokedAt: null,
+      });
+    }
+
+    if (Boolean(revokePersistentTokens)) {
+      const persistentFilter = {
+        userId,
+        isPersistent: true,
+        revokedAt: null,
+      };
+      if (incomingTokenHash) {
+        persistentFilter.tokenHash = { $ne: incomingTokenHash };
+      }
+      await RefreshToken.updateMany(persistentFilter, {
+        revokedAt: new Date(),
+        revokedReason: "Remember me disabled",
+        cleanupAt: getRevokedRefreshTokenCleanupDate(),
+      });
+    }
+
+    let nextRefreshToken;
+    let rotated = false;
+    const desiredPersistent = Boolean(rememberMe);
+    const shouldRotate =
+      !tokenRecord || Boolean(tokenRecord.isPersistent) !== desiredPersistent;
+
+    if (shouldRotate) {
+      const requestPlatform = normalizePlatform(req.headers["x-platform"]);
+      const { token: issuedRefreshToken, jti } = issueRefreshToken(
+        userId.toString(),
+        desiredPersistent,
+        requestPlatform,
+      );
+      await storeRefreshToken({
+        userId,
+        refreshToken: issuedRefreshToken,
+        jti,
+        isPersistent: desiredPersistent,
+        platform: requestPlatform,
+        req,
+      });
+      await deletePreviousRefreshTokens(
+        userId,
+        hashRefreshToken(issuedRefreshToken),
+      );
+
+      if (incomingTokenHash) {
+        await revokeRefreshTokenByHash(
+          incomingTokenHash,
+          "Session preference updated",
+          hashRefreshToken(issuedRefreshToken),
+        );
+      }
+
+      setRefreshTokenCookie(
+        res,
+        issuedRefreshToken,
+        desiredPersistent,
+        requestPlatform,
+      );
+      nextRefreshToken = issuedRefreshToken;
+      rotated = true;
+    } else if (incomingRefreshToken) {
+      setRefreshTokenCookie(
+        res,
+        incomingRefreshToken,
+        desiredPersistent,
+        normalizePlatform(req.headers["x-platform"]),
+      );
+    }
+
+    const isMobileClient =
+      String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+
+    return res.status(200).json({
+      message: "Session preference updated",
+      rememberMe: desiredPersistent,
+      sessionId,
+      rotated,
+      refreshToken: isMobileClient
+        ? nextRefreshToken || incomingRefreshToken
+        : undefined,
+    });
+  } catch (error) {
+    console.error("updateSessionPreference error:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to update session preference" });
+  }
+};
+
+const deactivateSessionById = async (userId, sessionId) => {
+  if (!userId || !sessionId) return;
+  await UserSession.findOneAndUpdate(
+    { userId, sessionId, isActive: true },
+    { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
+  );
+};
+
 const logoutUser = async (req, res) => {
   try {
-    const incomingRefreshToken = req.cookies?.refreshToken;
+    const incomingRefreshToken =
+      req.cookies?.refreshToken || req.body?.refreshToken;
+    let revokedRefreshToken = null;
     if (incomingRefreshToken) {
-      await revokeRefreshTokenByHash(
+      revokedRefreshToken = await revokeRefreshTokenByHash(
         hashRefreshToken(incomingRefreshToken),
         "User logout",
       );
@@ -819,9 +1192,12 @@ const logoutUser = async (req, res) => {
 
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
+      await deactivateSessionById(
+        revokedRefreshToken?.userId,
+        req.headers["x-session-id"],
+      );
       res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
         sameSite: "None",
         secure: true,
       });
@@ -832,7 +1208,21 @@ const logoutUser = async (req, res) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      return res.status(401).json({ message: "Invalid or expired token" });
+      if (err?.name !== "TokenExpiredError") {
+        await deactivateSessionById(
+          revokedRefreshToken?.userId,
+          req.headers["x-session-id"],
+        );
+        res.clearCookie("refreshToken", {
+          httpOnly: true,
+          sameSite: "None",
+          secure: true,
+        });
+        return res.status(200).json({ message: "Logged out successfully" });
+      }
+      decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        ignoreExpiration: true,
+      });
     }
 
     await UserModel.findByIdAndUpdate(decoded.id, {
@@ -878,29 +1268,35 @@ const logoutUser = async (req, res) => {
 const registerMobilePushDevice = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { deviceId, expoPushToken, platform } = req.body;
+    const { deviceId, expoPushToken, fcmToken, platform } = req.body;
+    const pushToken = fcmToken || expoPushToken;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!deviceId || !expoPushToken) {
+    if (!deviceId || !pushToken) {
       return res
         .status(400)
-        .json({ message: "deviceId and expoPushToken are required" });
+        .json({ message: "deviceId and push token are required" });
     }
 
     await UserModel.updateMany(
       {
         $or: [
           { "mobilePushDevices.deviceId": deviceId },
-          { "mobilePushDevices.expoPushToken": expoPushToken },
+          { "mobilePushDevices.fcmToken": pushToken },
+          { "mobilePushDevices.expoPushToken": pushToken },
         ],
       },
       {
         $pull: {
           mobilePushDevices: {
-            $or: [{ deviceId }, { expoPushToken }],
+            $or: [
+              { deviceId },
+              { fcmToken: pushToken },
+              { expoPushToken: pushToken },
+            ],
           },
         },
       },
@@ -912,8 +1308,8 @@ const registerMobilePushDevice = async (req, res) => {
         $push: {
           mobilePushDevices: {
             deviceId,
-            expoPushToken,
-            platform: String(platform || "").toLowerCase() || null,
+            fcmToken: pushToken,
+            platform: platform || "unknown",
             lastSeenAt: new Date(),
           },
         },
@@ -930,36 +1326,39 @@ const registerMobilePushDevice = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, jobTitle, access, licenseNo } =
-      req.body;
+    let { firstName, lastName, email, jobTitle, access, licenseNo } = req.body;
 
-    const rolesRequiringLicense = [
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ];
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    jobTitle = parseString(jobTitle);
+    access = parseString(access);
+    licenseNo = parseString(licenseNo);
 
     if (!firstName || !lastName || !email || !jobTitle) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    if (!validator.isEmail(email.trim())) {
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const normalizedJobTitle = jobTitle.toLowerCase();
+    const requiresLicense = requiresLicenseNo(jobTitle);
 
-    if (
-      rolesRequiringLicense.includes(normalizedJobTitle) &&
-      (!licenseNo || licenseNo.trim() === "")
-    ) {
+    if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
 
-    const existingEmail = await UserModel.findOne({ email: email.trim() });
+    const existingEmail = await UserModel.findOne({ email });
     if (existingEmail) {
       return res.status(409).json({ message: "Email already registered" });
+    }
+
+    if (requiresLicense) {
+      const existingLicense = await UserModel.findOne({ licenseNo });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
     }
 
     const username = await generateUniqueUsername(firstName, lastName);
@@ -967,15 +1366,6 @@ const createUser = async (req, res) => {
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
     const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
-
-    await sendActivationCredentialsEmail({
-      to: email,
-      firstName,
-      username,
-      tempPassword,
-      jobTitle,
-      isResend: false,
-    });
 
     let imagePath = "";
     if (req.file) {
@@ -985,7 +1375,7 @@ const createUser = async (req, res) => {
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      email: email.trim(),
+      email,
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
@@ -996,9 +1386,16 @@ const createUser = async (req, res) => {
       image: imagePath,
       jobTitle,
       access,
-      licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
-        ? licenseNo
-        : null,
+      licenseNo: requiresLicense ? licenseNo : undefined,
+    });
+
+    await sendActivationCredentialsEmail({
+      to: email,
+      firstName,
+      username,
+      tempPassword,
+      jobTitle,
+      isResend: false,
     });
 
     const audit = withActorId(
@@ -1014,6 +1411,11 @@ const createUser = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in createUser:", err);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({
       message: "User creation failed (email not sent)",
     });
@@ -1120,9 +1522,6 @@ const updateUser = async (req, res) => {
     let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
       req.body;
 
-    const parseString = (value) =>
-      typeof value === "string" ? value.trim() : "";
-
     firstName = parseString(firstName);
     lastName = parseString(lastName);
     email = parseString(email);
@@ -1146,18 +1545,12 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const allowedAccess = new Set(["Admin", "Superuser", "User"]);
+    const allowedAccess = new Set(["Superadmin", "Superuser", "User"]);
     if (!allowedAccess.has(access)) {
       return res.status(400).json({ message: "Invalid access level" });
     }
 
-    const rolesRequiringLicense = new Set([
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ]);
-    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    const requiresLicense = requiresLicenseNo(jobTitle);
     if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
@@ -1191,51 +1584,50 @@ const updateUser = async (req, res) => {
       }
     }
 
-    const changes = {};
-    if (firstName && firstName !== user.firstName)
-      changes.firstName = { old: user.firstName, new: firstName };
-    if (lastName && lastName !== user.lastName)
-      changes.lastName = { old: user.lastName, new: lastName };
-    if (email && email !== user.email)
-      changes.email = { old: user.email, new: email };
-    if (username && username !== user.username)
-      changes.username = { old: user.username, new: username };
-    if (jobTitle && jobTitle !== user.jobTitle)
-      changes.jobTitle = { old: user.jobTitle, new: jobTitle };
-    if (access && access !== user.access)
-      changes.access = { old: user.access, new: access };
-    if (requiresLicense && licenseNo !== (user.licenseNo || ""))
-      changes.licenseNo = { old: user.licenseNo || "", new: licenseNo };
+    const changedFields = [];
+
+    if (firstName !== user.firstName) changedFields.push("First Name");
+    if (lastName !== user.lastName) changedFields.push("Last Name");
+    if (email !== user.email) changedFields.push("Email");
+    if (username !== user.username) changedFields.push("Username");
+    if (jobTitle !== user.jobTitle) changedFields.push("Job Title");
+    if (access !== user.access) changedFields.push("Access Level");
+
+    if (requiresLicense && licenseNo !== (user.licenseNo || "")) {
+      changedFields.push("License Number");
+    }
+
     if (!requiresLicense && user.licenseNo) {
-      changes.licenseNo = { old: user.licenseNo, new: "" };
+      changedFields.push("License Number");
     }
 
     const updateData = {
-      firstName,
-      lastName,
-      email,
-      username,
-      access,
-      jobTitle,
-      licenseNo: requiresLicense ? licenseNo : null,
+      $set: { firstName, lastName, email, username, access, jobTitle },
     };
+
+    if (requiresLicense) {
+      updateData.$set.licenseNo = licenseNo;
+    } else {
+      updateData.$unset = { licenseNo: "" };
+    }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
       returnDocument: "after",
       runValidators: true,
     });
+    // console.log(updatedUser.username);
 
-    if (Object.keys(changes).length > 0) {
+    if (changedFields.length > 0) {
       const audit = withActorId(
         req,
-        `User updated: ${username}. Changes: ${JSON.stringify(changes)}`,
+        `User account updated for username: ${updatedUser.username}. Fields updated: ${changedFields.join(", ")}`,
         updatedUser._id,
       );
       await auditLog(audit.action, audit.actorId);
     } else {
       const audit = withActorId(
         req,
-        `User update attempted but no changes detected: ${username}`,
+        `User update attempted but no changes were detected. Username: ${updatedUser.username}`,
         updatedUser._id,
       );
       await auditLog(audit.action, audit.actorId);
@@ -1249,6 +1641,11 @@ const updateUser = async (req, res) => {
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({ message: err.message || "Failed to update user" });
   }
 };
@@ -1380,7 +1777,6 @@ const updateUserImage = async (req, res) => {
       req.body?.removeImage === true ||
       req.body?.image === null ||
       req.body?.image === "null";
-
     if (req.file) {
       if (
         user.image &&
@@ -1391,8 +1787,6 @@ const updateUserImage = async (req, res) => {
       }
 
       newImagePath = req.file.savedPath || `/uploads/${req.file.filename}`;
-
-      console.log("New image path ready for DB:", newImagePath);
     } else if (shouldRemoveImage) {
       if (user.image && typeof user.image === "string") {
         await deleteFile(user.image);
@@ -1571,41 +1965,41 @@ const verifyPIN = async (req, res) => {
   }
 };
 
-const updateSignature = async (req, res) => {
-  try {
-    const user = await UserModel.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (user.signature) {
-      return res.status(400).json({
-        message: "Signature specimen has already been uploaded.",
-      });
-    }
-
-    const signature = req.file?.savedPath || req.body.signature;
-    if (!signature) {
-      return res.status(400).json({ message: "Signature is required" });
-    }
-
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      req.params.id,
-      { signature },
-      { returnDocument: "after" },
-    );
-
-    const audit = withActorId(
-      req,
-      `Signature updated for ${updatedUser.username}`,
-      updatedUser._id,
-    );
-    await auditLog(audit.action, audit.actorId);
-
-    res.status(200).json({ message: "Signature updated", user: updatedUser });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+// const updateSignature = async (req, res) => {
+//   try {
+//     const user = await UserModel.findById(req.params.id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+//
+//     if (user.signature) {
+//       return res.status(400).json({
+//         message: "Signature specimen has already been uploaded.",
+//       });
+//     }
+//
+//     const signature = req.file?.savedPath || req.body.signature;
+//     if (!signature) {
+//       return res.status(400).json({ message: "Signature is required" });
+//     }
+//
+//     const updatedUser = await UserModel.findByIdAndUpdate(
+//       req.params.id,
+//       { signature },
+//       { returnDocument: "after" },
+//     );
+//
+//     const audit = withActorId(
+//       req,
+//       `Signature updated for ${updatedUser.username}`,
+//       updatedUser._id,
+//     );
+//     await auditLog(audit.action, audit.actorId);
+//
+//     res.status(200).json({ message: "Signature updated", user: updatedUser });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 
 const activateUser = async (req, res) => {
   try {
@@ -1689,7 +2083,7 @@ const resendActivationByAdmin = async (req, res) => {
 
     const audit = withActorId(
       req,
-      `Activation email resent by admin for ${user.username}`,
+      `Activation email resent by superadmin for ${user.username}`,
       user._id,
     );
     await auditLog(audit.action, audit.actorId);
@@ -1831,6 +2225,7 @@ module.exports = {
   verifyLoginOtp,
   resendLoginOtp,
   refreshToken,
+  updateSessionPreference,
   unlockUser,
   logoutUser,
   registerMobilePushDevice,
@@ -1845,7 +2240,7 @@ module.exports = {
   updatePIN,
   verifyPIN,
   updateUserImage,
-  updateSignature,
+  // updateSignature,
   completeSecuritySetup,
   activateUser,
   resendActivation,

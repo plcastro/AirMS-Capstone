@@ -4,6 +4,9 @@ const {
   createPartsRequisitionNotifications,
 } = require("../utils/partsRequisitionNotificationService");
 const { publishTypedEvent } = require("../utils/realtimeEvents");
+const {
+  buildPartsRequisitionWorkbook,
+} = require("../services/partsRequisitionExcelService");
 
 const ALLOWED_STATUS_TRANSITIONS = {
   "Parts Requested": new Set(["Availability Checked", "Cancelled"]),
@@ -92,6 +95,12 @@ const hasLockedItemAvailableQtyChanges = (
     );
   });
 };
+
+const hasItemsBelowRequestedQuantity = (items = []) =>
+  items.some(
+    (item) => (Number(item.availableQty) || 0) < (Number(item.quantity) || 0),
+  );
+
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -142,6 +151,51 @@ const getRequisitionById = async (req, res) => {
     res.status(200).json(requisition);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const exportRequisitionExcel = async (req, res) => {
+  try {
+    const requesterRole = String(req.user?.jobTitle || req.user?.access || "")
+      .trim()
+      .toLowerCase();
+
+    if (requesterRole !== "warehouse staff") {
+      return res.status(403).json({
+        message: "Only warehouse staff can export parts requisitions.",
+      });
+    }
+
+    const requisition = await partsRequisitionModel
+      .findById(req.params.id)
+      .lean();
+
+    if (!requisition) {
+      return res.status(404).json({ message: "Requisition not found" });
+    }
+
+    const workbook = await buildPartsRequisitionWorkbook(requisition);
+    const safeWrsNo = String(requisition.wrsNo || "WRS")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-");
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeWrsNo}.xlsx"`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Parts requisition Excel export failed:", error);
+    res.status(500).json({
+      message: "Failed to export parts requisition Excel file",
+      error: error.message,
+    });
   }
 };
 
@@ -246,11 +300,17 @@ const updateRequisitionStatus = async (req, res) => {
     const staffMappings = {
       requisitioner: "staff.requisitioner",
       requisitionerId: "staff.requisitionerId",
+      requisitionerTitle: "staff.requisitionerTitle",
       approvedBy: "staff.approvedBy",
+      approvedByTitle: "staff.approvedByTitle",
       receiver: "staff.receiver",
+      receiverTitle: "staff.receiverTitle",
       notedBy: "staff.notedBy",
+      notedByTitle: "staff.notedByTitle",
       warehouseBy: "staff.warehouseBy",
+      warehouseByTitle: "staff.warehouseByTitle",
       deliveredBy: "staff.deliveredBy",
+      deliveredByTitle: "staff.deliveredByTitle",
     };
 
     Object.entries(staffMappings).forEach(([requestField, modelField]) => {
@@ -279,6 +339,18 @@ const updateRequisitionStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         message: `Invalid status transition from ${normalizedExistingStatus} to ${updatePayload.status}`,
+      });
+    }
+
+    if (
+      updatePayload.status === "Ordered" &&
+      hasItemsBelowRequestedQuantity(
+        updatePayload.items || existingRequisition.items,
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
       });
     }
 
@@ -315,6 +387,7 @@ module.exports = {
   getAllRequisitions,
   getRequisitionSummary,
   getRequisitionById,
+  exportRequisitionExcel,
   createRequisition,
   updateRequisitionStatus,
 };

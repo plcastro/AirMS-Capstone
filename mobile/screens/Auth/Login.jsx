@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useContext } from "react";
+import AppText from "../../components/common/AppText";
+import AppInput from "../../components/common/AppInput";
 import {
   View,
-  Text,
-  TextInput,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureGetItem } from "../../utilities/secureStorage";
-import { Picker } from "@react-native-picker/picker";
+import {
+  secureDeleteItem,
+  secureGetItem,
+  secureSetItem,
+} from "../../utilities/secureStorage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -19,10 +23,26 @@ import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { COLORS } from "../../stylesheets/colors";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+
+const BASE_OPTIONS = [
+  { label: "Manila", value: "MANILA" },
+  { label: "Cebu", value: "CEBU" },
+  { label: "CDO", value: "CDO" },
+];
+
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "").trim().toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
 
 export default function Login() {
   const nav = useNavigation();
@@ -30,27 +50,31 @@ export default function Login() {
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [selectedBase, setSelectedBase] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
       try {
         const savedRememberMe = await AsyncStorage.getItem("rememberMe");
+        setRememberMe(savedRememberMe === "true");
         if (savedRememberMe === "true") {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
+          const savedPassword = await secureGetItem(REMEMBERED_PASSWORD_KEY);
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: "",
+            password: savedPassword || "",
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
-          setRememberMe(true);
         }
       } catch (err) {
         console.error(err);
@@ -82,10 +106,9 @@ export default function Login() {
     setMessage("");
 
     try {
+      const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
       const trustedDeviceToken =
-        (await secureGetItem("trustedDeviceToken")) ||
-        (await AsyncStorage.getItem("trustedDeviceToken")) ||
-        "";
+        trustedDeviceKey ? await secureGetItem(trustedDeviceKey) : "";
 
       const parseResponse = async (res) => {
         const text = await res.text();
@@ -100,13 +123,14 @@ export default function Login() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-platform": "MOBILE",
           "x-base": selectedBase,
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
           client: "mobile",
-          rememberMe: true,
+          rememberMe,
           base: selectedBase,
           trustedDeviceToken,
         }),
@@ -128,13 +152,19 @@ export default function Login() {
       }
 
       if (data.requireLoginOtp && data.verification?.token) {
+        if (rememberMe) {
+          await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
+        } else {
+          await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
+        }
+
         nav.replace("otpScreen", {
           mode: "login-2fa",
           token: data.verification.token,
           email: data.verification.email,
           maskedEmail: data.verification.maskedEmail,
           identifier: formData.identifier.trim(),
-          rememberMe: true,
+          rememberMe,
           base: selectedBase,
           client: "mobile",
         });
@@ -155,14 +185,19 @@ export default function Login() {
       // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
       await AsyncStorage.setItem("currentUserToken", String(token));
 
-      // remember me
-      await AsyncStorage.setItem("rememberMe", "true");
-
-      await AsyncStorage.setItem(
-        "rememberedIdentifier",
-        formData.identifier.trim(),
-      );
-      await AsyncStorage.setItem("rememberedBase", selectedBase);
+      await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
+      if (rememberMe) {
+        await AsyncStorage.setItem(
+          "rememberedIdentifier",
+          formData.identifier.trim(),
+        );
+        await AsyncStorage.setItem("rememberedBase", selectedBase);
+        await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
+      } else {
+        await AsyncStorage.removeItem("rememberedIdentifier");
+        await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
+      }
 
       // security redirect
       if (user?.status === "inactive" || user?.setupToken) {
@@ -179,7 +214,7 @@ export default function Login() {
         user,
         accessToken: token,
         refreshToken,
-        rememberMe: true,
+        rememberMe,
       });
 
       const pendingRedirect = await readPendingRedirect();
@@ -212,6 +247,15 @@ export default function Login() {
     nav.navigate("forgotPassword", { email });
   };
 
+  const selectedBaseLabel =
+    BASE_OPTIONS.find((option) => option.value === selectedBase)?.label ||
+    "Select base";
+
+  const selectBase = (base) => {
+    setSelectedBase(base);
+    setShowBaseDropdown(false);
+  };
+
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
   }
@@ -229,25 +273,25 @@ export default function Login() {
           cardTitle="Login"
           cardsubTitle="Sign in to access your AirMS account"
         >
-          <Text style={[styles.label, { textAlign: "left" }]}>
+          <AppText style={[styles.label, { textAlign: "left" }]}>
             Username or Email
-          </Text>
-          <TextInput
+          </AppText>
+          <AppInput
             style={styles.formInput}
             maxLength={256}
-            placeholder="Username or Email"
+            placeholder="Enter your username or email"
             placeholderTextColor="gray"
             autoCapitalize="none"
             keyboardType="default"
             value={formData.identifier}
             onChangeText={(text) => changeHandler("identifier", text)}
           />
-          <Text style={styles.label}>Password</Text>
+          <AppText style={styles.label}>Password</AppText>
           <View style={{ position: "relative", justifyContent: "center" }}>
-            <TextInput
+            <AppInput
               style={[styles.formInput, { paddingRight: 50 }]}
               maxLength={256}
-              placeholder="Password"
+              placeholder="Enter your password"
               placeholderTextColor="gray"
               autoCapitalize="none"
               secureTextEntry={!showPassword} // Toggle based on state
@@ -272,28 +316,61 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.label}>Logging in from</Text>
-          <View style={styles.loginPickerContainer}>
-            <Picker
-              selectedValue={selectedBase}
-              onValueChange={setSelectedBase}
-              style={styles.loginPicker}
+          <AppText style={styles.label}>Logging in from</AppText>
+          <View style={loginDropdownStyles.wrap}>
+            <TouchableOpacity
+              style={loginDropdownStyles.button}
+              activeOpacity={0.82}
+              onPress={() => setShowBaseDropdown((open) => !open)}
             >
-              <Picker.Item label="Select base" value="" />
-              <Picker.Item label="Manila" value="MANILA" />
-              <Picker.Item label="Cebu" value="CEBU" />
-              <Picker.Item label="CDO" value="CDO" />
-            </Picker>
+              <AppText
+                style={[
+                  loginDropdownStyles.buttonText,
+                  { color: selectedBase ? "#111827" : "gray" },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedBaseLabel}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color="gray"
+              />
+            </TouchableOpacity>
+
+            {showBaseDropdown && (
+              <View style={loginDropdownStyles.menu}>
+                <ScrollView nestedScrollEnabled>
+                  {BASE_OPTIONS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        loginDropdownStyles.item,
+                        index < BASE_OPTIONS.length - 1
+                          ? loginDropdownStyles.itemBordered
+                          : null,
+                      ]}
+                      onPress={() => selectBase(option.value)}
+                    >
+                      <AppText style={loginDropdownStyles.itemText}>
+                        {option.label}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
           </View>
           {getMessage && !loginSuccess && (
-            <Text style={styles.error}>{getMessage}</Text>
+            <AppText style={styles.error}>{getMessage}</AppText>
           )}
           <View style={styles.loginHelper}>
             <CheckBox
               title="Stay signed in"
               checkboxStyle={styles.checkBox}
-              value
-              onValueChange={() => {}}
+              value={rememberMe}
+              onValueChange={setRememberMe}
             />
             <View style={styles.forgotPassLink}>
               <Button
@@ -310,8 +387,86 @@ export default function Login() {
             buttonStyle={[styles.primaryBtn]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
+          <View style={{ marginTop: 16, alignItems: "center" }}>
+            <AppText style={{ color: "gray", textAlign: "center" }}>
+              By signing in, you agree to the
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
+              <TouchableOpacity onPress={() => setTermsVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Terms and Conditions
+                </AppText>
+              </TouchableOpacity>
+              <AppText style={{ color: "gray" }}> and </AppText>
+              <TouchableOpacity onPress={() => setPrivacyVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Privacy Policy
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
         </LoginLayout>
       </ScrollView>
+      <PrivacyPolicyModal
+        visible={privacyVisible}
+        onClose={() => setPrivacyVisible(false)}
+      />
+      <TermsAndConditionsModal
+        visible={termsVisible}
+        onClose={() => setTermsVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
+
+const loginDropdownStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  buttonText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  menu: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  item: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  itemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  itemText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});

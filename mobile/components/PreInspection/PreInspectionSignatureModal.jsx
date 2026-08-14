@@ -1,11 +1,11 @@
 import React, { useContext, useRef, useState } from "react";
+import AppText from "../common/AppText";
 import {
   ActivityIndicator,
   Image,
   Modal,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -22,7 +22,9 @@ const getUserName = (user) =>
   "Unknown User";
 
 const getUserIdentifier = (user) =>
-  user?.licenseNo || user?.licenseNumber || user?.license || "No License No.";
+  user?.licenseNo || user?.licenseNumber || user?.license || "";
+
+const getUserTitle = (user) => user?.jobTitle || user?.access || "User";
 
 export default function PreInspectionSignatureModal({
   visible,
@@ -106,12 +108,20 @@ export default function PreInspectionSignatureModal({
       return;
     }
 
+    if (!getUserIdentifier(user)) {
+      showToast("Your profile has no license number. Contact an administrator before signing.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       await verifyPin();
       await onSave({
         name: getUserName(user),
         id: getUserIdentifier(user),
+        licenseNo: getUserIdentifier(user),
+        title: getUserTitle(user),
+        userId: user?.id || user?._id || "",
         signature,
       });
       reset();
@@ -154,11 +164,11 @@ export default function PreInspectionSignatureModal({
               marginBottom: 12,
             }}
           >
-            <Text
+            <AppText
               style={{ fontSize: 14, fontWeight: "600", color: COLORS.black }}
             >
               {title}
-            </Text>
+            </AppText>
             <TouchableOpacity onPress={handleClose}>
               <MaterialCommunityIcons
                 name="close"
@@ -168,19 +178,19 @@ export default function PreInspectionSignatureModal({
             </TouchableOpacity>
           </View>
 
-          <Text
+          <AppText
             style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 16 }}
           >
             {step === "signature"
               ? `Draw your signature below to ${actionLabel} the pre-flight inspection for RP-C ${aircraftRPC || "N/A"}.`
               : `Enter your 6-digit PIN to confirm that you want to ${actionLabel} this pre-flight inspection.`}
-          </Text>
+          </AppText>
 
           {step === "signature" ? (
             <>
               <View
                 style={{
-                  height: 190,
+                  height: 230,
                   borderWidth: 1,
                   borderColor: COLORS.grayMedium,
                   borderRadius: 8,
@@ -204,46 +214,6 @@ export default function PreInspectionSignatureModal({
                   backgroundColor="#ffffff"
                   imageType="image/png"
                 />
-              </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={handleClose}
-                  disabled={submitting}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    opacity: submitting ? 0.6 : 1,
-                  }}
-                >
-                  <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#D9534F",
-                  }}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Clear
-                  </Text>
-                </TouchableOpacity>
               </View>
             </>
           ) : (
@@ -293,9 +263,29 @@ export default function PreInspectionSignatureModal({
               marginTop: 20,
             }}
           >
+            {step === "signature" && (
+              <TouchableOpacity
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                }}
+                disabled={submitting}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 8,
+                  backgroundColor: "#D9534F",
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+                  Clear
+                </AppText>
+              </TouchableOpacity>
+            )}
             {step === "pin" && (
               <TouchableOpacity
-                onPress={handleClose}
+                onPress={() => setStep("signature")}
                 disabled={submitting}
                 style={{
                   paddingVertical: 10,
@@ -306,9 +296,9 @@ export default function PreInspectionSignatureModal({
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                <Text style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                  Cancel
-                </Text>
+                <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                  Redraw
+                </AppText>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -322,13 +312,13 @@ export default function PreInspectionSignatureModal({
                 opacity: submitting ? 0.6 : 1,
               }}
             >
-              <Text style={{ color: COLORS.white, fontWeight: "600" }}>
+              <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                 {submitting
                   ? "Please wait..."
                   : step === "signature"
                     ? "Continue"
                     : "Sign and Confirm"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
           </View>

@@ -1,14 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,66 +15,144 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 import AreaChart from "../../components/common/AreaChart";
+import { SearchBar } from "../../components/common/MobileModule";
+import { exportReportPdf } from "../../utilities/reportExport";
+import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../utilities/auditActions";
 
-const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
   { label: "Last 90 days", value: "90" },
   { label: "All time", value: "all" },
 ];
+const LOGS_PER_PAGE = 10;
+const ACTIVITY_TREND_SERIES = AUDIT_ACTION_CHART_CATEGORIES.map(
+  ({ value, label, color }) => ({
+    key: value,
+    name: label,
+    color,
+  }),
+);
+const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
+  (colors, category) => ({
+    ...colors,
+    [category.value]: { bg: "#F2F4F7", text: category.color },
+  }),
+  {},
+);
 
-const getActionCategory = (actionText = "") => {
-  const text = String(actionText).toLowerCase();
-  if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
-    return "create";
-  if (
-    ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
-  )
-    return "update";
-  if (
-    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
-  )
-    return "delete";
-  if (
-    ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
-  )
-    return "login";
-  if (
-    ["log out", "logged out", "logout", "signed out"].some((k) =>
-      text.includes(k),
-    )
-  )
-    return "logout";
-  return "other";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_TREND_BUCKETS = 8;
+
+const startOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
 };
 
-const ACTION_TAG_COLORS = {
-  create: { bg: "#E7F7ED", text: "#157A38" },
-  update: { bg: "#E7F0FF", text: "#1F5FBF" },
-  delete: { bg: "#FDEAEA", text: "#B42318" },
-  login: { bg: "#EAF7FE", text: "#0B6B9E" },
-  logout: { bg: "#FFF2E8", text: "#AD4E00" },
-  other: { bg: "#F2F4F7", text: "#344054" },
+const endOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
 };
 
-const buildEmptyDailyCategories = () => ({
-  create: 0,
-  update: 0,
-  delete: 0,
-  login: 0,
-  logout: 0,
-  other: 0,
-});
+const formatTrendLabel = (start, end) => {
+  const formatOptions = { month: "short", day: "numeric" };
+  const startLabel = start.toLocaleDateString("en-US", formatOptions);
+  const endLabel = end.toLocaleDateString("en-US", formatOptions);
+  return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
+};
+
+const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
+  const timestamps = items
+    .map((item) => new Date(item.dateTime).getTime())
+    .filter(Number.isFinite);
+  const todayEnd = endOfDay(new Date());
+  let rangeStart;
+  let rangeEnd = todayEnd;
+
+  if (dateRangeFilter === "all") {
+    if (!timestamps.length) return [];
+    rangeStart = startOfDay(new Date(Math.min(...timestamps)));
+    rangeEnd = endOfDay(new Date(Math.max(...timestamps)));
+  } else {
+    const days = Number(dateRangeFilter);
+    if (!Number.isFinite(days) || days <= 0) return [];
+    rangeStart = startOfDay(new Date(todayEnd.getTime() - (days - 1) * DAY_MS));
+  }
+
+  const spanDays = Math.max(
+    Math.ceil((rangeEnd.getTime() - rangeStart.getTime() + 1) / DAY_MS),
+    1,
+  );
+  const bucketCount = Math.min(spanDays, MAX_TREND_BUCKETS);
+  const bucketSizeDays = Math.max(Math.ceil(spanDays / bucketCount), 1);
+  const buckets = [];
+
+  for (let index = 0; index < bucketCount; index += 1) {
+    const bucketStart = startOfDay(
+      new Date(rangeStart.getTime() + index * bucketSizeDays * DAY_MS),
+    );
+    const bucketEnd = endOfDay(
+      new Date(
+        Math.min(
+          bucketStart.getTime() + bucketSizeDays * DAY_MS - 1,
+          rangeEnd.getTime(),
+        ),
+      ),
+    );
+
+    buckets.push({
+      date: bucketStart.toISOString().slice(0, 10),
+      label: formatTrendLabel(bucketStart, bucketEnd),
+      value: 0,
+      startMs: bucketStart.getTime(),
+      endMs: bucketEnd.getTime(),
+      ...buildEmptyAuditCategoryCounts(),
+    });
+  }
+
+  items.forEach((log) => {
+    const timestamp = new Date(log.dateTime).getTime();
+    if (!Number.isFinite(timestamp)) return;
+    const bucket = buckets.find(
+      (entry) => timestamp >= entry.startMs && timestamp <= entry.endMs,
+    );
+    if (!bucket) return;
+
+    const category = getAuditActionCategory(log.actionMade);
+    bucket[category] += 1;
+    bucket.value += 1;
+  });
+
+  return buckets.map(({ startMs, endMs, ...bucket }) => bucket);
+};
 
 export default function ActivityLogs() {
+  const { user } = useContext(AuthContext);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
   const [scopeFilter, setScopeFilter] = useState("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState("30");
+  const [dateRangeFilter, setDateRangeFilter] = useState("7");
+  const [openFilter, setOpenFilter] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
+  const canExportActivityLogs = canExportModule(
+    user?.jobTitle,
+    "activityLogs",
+  );
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -159,7 +236,7 @@ export default function ActivityLogs() {
     }
     if (actionType !== "all") {
       next = next.filter(
-        (item) => getActionCategory(item.actionMade) === actionType,
+        (item) => getAuditActionCategory(item.actionMade) === actionType,
       );
     }
 
@@ -176,71 +253,36 @@ export default function ActivityLogs() {
       }
     }
 
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return next;
-
-    return next.filter((item) =>
-      [item.actionMade, item.username, item.dateTime, item.base, item.platform]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
+    return next.filter((item) => matchesSearch(searchQuery, item));
   }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLogs.length / LOGS_PER_PAGE),
+  );
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * LOGS_PER_PAGE;
+    return filteredLogs.slice(start, start + LOGS_PER_PAGE);
+  }, [currentPage, filteredLogs]);
 
   const actionCounts = useMemo(() => {
     return filteredLogs.reduce(
       (counts, log) => {
-        const category = getActionCategory(log.actionMade);
+        const category = getAuditActionCategory(log.actionMade);
         counts[category] = (counts[category] || 0) + 1;
         return counts;
       },
-      { ...buildEmptyDailyCategories() },
+      { ...buildEmptyAuditCategoryCounts() },
     );
   }, [filteredLogs]);
 
   const trendSeries = useMemo(() => {
-    const dailyStats = {};
-
-    filteredLogs.forEach((log) => {
-      const parsedDate = new Date(log.dateTime);
-      if (Number.isNaN(parsedDate.getTime())) return;
-      const dateKey = parsedDate.toISOString().slice(0, 10);
-
-      if (!dailyStats[dateKey]) {
-        dailyStats[dateKey] = {
-          date: dateKey,
-          ...buildEmptyDailyCategories(),
-        };
-      }
-
-      const category = getActionCategory(log.actionMade);
-      dailyStats[dateKey][category] += 1;
-    });
-
-    const sortedKeys = Object.keys(dailyStats).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    const windowKeys = sortedKeys.slice(-8);
-
-    return windowKeys.map((dateKey) => {
-      const row = dailyStats[dateKey];
-      const labelDate = new Date(`${dateKey}T00:00:00`);
-      return {
-        date: dateKey,
-        label: Number.isNaN(labelDate.getTime())
-          ? dateKey
-          : labelDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-        value: Object.values(row)
-          .filter((value) => typeof value === "number")
-          .reduce((sum, value) => sum + value, 0),
-        ...row,
-      };
-    });
-  }, [filteredLogs]);
+    return buildTrendBuckets(filteredLogs, dateRangeFilter);
+  }, [dateRangeFilter, filteredLogs]);
   const groupedSummary = useMemo(() => {
     const byUser = {};
     const byModule = {};
@@ -248,18 +290,17 @@ export default function ActivityLogs() {
       const userKey = String(item.username || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
-      const module =
-        actionText.includes("task")
-          ? "tasks"
-          : actionText.includes("flight")
-            ? "flight logs"
-            : actionText.includes("inspection")
-              ? "inspections"
-              : actionText.includes("requisition")
-                ? "requisitions"
-                : actionText.includes("user")
-                  ? "users"
-                  : "other";
+      const module = actionText.includes("task")
+        ? "tasks"
+        : actionText.includes("flight")
+          ? "flight logs"
+          : actionText.includes("inspection")
+            ? "inspections"
+            : actionText.includes("requisition")
+              ? "requisitions"
+              : actionText.includes("user")
+                ? "users"
+                : "other";
       byModule[module] = (byModule[module] || 0) + 1;
     });
     const topUsers = Object.entries(byUser)
@@ -301,7 +342,97 @@ export default function ActivityLogs() {
     ];
   }, [logs]);
 
-  const formatDisplayDate = (dateValue) => {
+  const selectedActionLabel =
+    ACTION_TYPE_OPTIONS.find((option) => option.value === actionType)?.label ||
+    "Action Type";
+  const selectedDateRangeLabel =
+    DATE_RANGE_OPTIONS.find((option) => option.value === dateRangeFilter)
+      ?.label || "Date Range";
+  const selectedScopeLabel =
+    scopeOptions.find((option) => option.value === scopeFilter)?.label ||
+    "Scope";
+
+  const toggleFilter = (filterKey) => {
+    setOpenFilter((current) => (current === filterKey ? null : filterKey));
+  };
+
+  const selectFilterValue = (setter, value) => {
+    setter(value);
+    setOpenFilter(null);
+  };
+
+  const renderFilterDropdown = ({
+    filterKey,
+    label,
+    selectedLabel,
+    options,
+    onSelect,
+    widthStyle,
+  }) => {
+    const isOpen = openFilter === filterKey;
+
+    return (
+      <View
+        style={[
+          styles.filterDropdownWrap,
+          widthStyle,
+          isOpen ? styles.filterDropdownWrapOpen : null,
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.unifiedFilterButton}
+          activeOpacity={0.82}
+          onPress={() => toggleFilter(filterKey)}
+        >
+          <MaterialCommunityIcons
+            name="tune"
+            size={16}
+            color={COLORS.primaryLight}
+            style={{ marginRight: 6 }}
+          />
+          <AppText
+            style={styles.unifiedFilterButtonText}
+            numberOfLines={1}
+          >
+            {selectedLabel || label}
+          </AppText>
+          <MaterialCommunityIcons
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={styles.unifiedDropdownMenu}>
+            <ScrollView nestedScrollEnabled>
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    index < options.length - 1
+                      ? styles.unifiedDropdownItemBordered
+                      : null,
+                  ]}
+                  onPress={() => onSelect(option.value)}
+                >
+                  <AppText
+                    style={styles.unifiedDropdownItemText}
+                    numberOfLines={2}
+                  >
+                    {option.label}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
     if (Number.isNaN(parsedDate.getTime())) return "N/A";
 
@@ -312,7 +443,40 @@ export default function ActivityLogs() {
       hour: "numeric",
       minute: "2-digit",
     });
-  };
+  }, []);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!filteredLogs.length) {
+      showToast("No activity logs available to export.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      await exportReportPdf({
+        title: "Activity Logs Report",
+        sections: [
+          {
+            title: "Activity Logs",
+            columns: ["Date / Time", "User", "Action", "Platform", "Base"],
+            rows: filteredLogs.map((log) => ({
+              "Date / Time": formatDisplayDate(log.dateTime),
+              User: log.username || "Unknown",
+              Action: log.actionMade || "N/A",
+              Platform: log.platform || "Not captured",
+              Base: log.base || "Not captured",
+            })),
+          },
+        ],
+      });
+      showToast("Activity logs exported as PDF.");
+    } catch (error) {
+      console.error("Activity logs PDF export failed:", error);
+      showToast(error.message || "Failed to export activity logs.");
+    } finally {
+      setExporting(false);
+    }
+  }, [filteredLogs, formatDisplayDate]);
 
   if (loading) {
     return (
@@ -324,106 +488,11 @@ export default function ActivityLogs() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={COLORS.grayDark}
-        />
-        <TextInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search logs"
-          placeholderTextColor={COLORS.grayDark}
-          style={styles.searchInput}
-        />
-      </View>
-
-      <View style={styles.filtersRow}>
-        <View style={styles.filterCard}>
-          <Picker selectedValue={actionType} onValueChange={setActionType}>
-            {ACTION_TYPES.map((type) => (
-              <Picker.Item
-                key={type}
-                value={type}
-                label={
-                  type === "all"
-                    ? "All Actions"
-                    : type[0].toUpperCase() + type.slice(1)
-                }
-              />
-            ))}
-          </Picker>
-        </View>
-
-        <View style={styles.filterCard}>
-          <Picker selectedValue={dateRangeFilter} onValueChange={setDateRangeFilter}>
-            {DATE_RANGE_OPTIONS.map((value) => (
-              <Picker.Item key={value.value} value={value.value} label={value.label} />
-            ))}
-          </Picker>
-        </View>
-
-        <View style={styles.filterCard}>
-          <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
-            {scopeOptions.map((value) => (
-              <Picker.Item
-                key={value.value}
-                value={value.value}
-                label={value.label}
-              />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsTitle}>Activity Trends</Text>
-        <AreaChart data={trendSeries} height={130} />
-        <View style={styles.trendLabelsRow}>
-          {trendSeries.map((point) => (
-            <Text key={point.date} style={styles.trendLabel}>
-              {point.label}
-            </Text>
-          ))}
-        </View>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Create</Text>
-            <Text style={styles.kpiValue}>{actionCounts.create}</Text>
-          </View>
-          <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Update</Text>
-            <Text style={styles.kpiValue}>{actionCounts.update}</Text>
-          </View>
-          <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Delete</Text>
-            <Text style={styles.kpiValue}>{actionCounts.delete}</Text>
-          </View>
-          <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Login</Text>
-            <Text style={styles.kpiValue}>{actionCounts.login}</Text>
-          </View>
-          <View style={styles.kpiChip}>
-            <Text style={styles.kpiLabel}>Logout</Text>
-            <Text style={styles.kpiValue}>{actionCounts.logout}</Text>
-          </View>
-        </View>
-        <View style={styles.groupSummaryWrap}>
-          <Text style={styles.groupSummaryTitle}>Top Users</Text>
-          {groupedSummary.topUsers.map(([name, count]) => (
-            <Text key={name} style={styles.groupSummaryText}>
-              {name}: {count}
-            </Text>
-          ))}
-          <Text style={[styles.groupSummaryTitle, { marginTop: 6 }]}>Top Modules</Text>
-          {groupedSummary.topModules.map(([name, count]) => (
-            <Text key={name} style={styles.groupSummaryText}>
-              {name}: {count}
-            </Text>
-          ))}
-        </View>
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search logs"
+      />
 
       <ScrollView
         contentContainerStyle={styles.listContent}
@@ -438,6 +507,94 @@ export default function ActivityLogs() {
           />
         }
       >
+        <View style={styles.filtersRow}>
+          {renderFilterDropdown({
+            filterKey: "action",
+            label: "Action Type",
+            selectedLabel: selectedActionLabel,
+            options: ACTION_TYPE_OPTIONS,
+            onSelect: (value) => selectFilterValue(setActionType, value),
+          })}
+
+          {renderFilterDropdown({
+            filterKey: "dateRange",
+            label: "Date Range",
+            selectedLabel: selectedDateRangeLabel,
+            options: DATE_RANGE_OPTIONS,
+            onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
+          })}
+
+          {renderFilterDropdown({
+            filterKey: "scope",
+            label: "Scope",
+            selectedLabel: selectedScopeLabel,
+            options: scopeOptions,
+            onSelect: (value) => selectFilterValue(setScopeFilter, value),
+          })}
+        </View>
+
+        {canExportActivityLogs && (
+          <TouchableOpacity
+            activeOpacity={0.86}
+            disabled={exporting || filteredLogs.length === 0}
+            onPress={handleExportPdf}
+            style={[
+              styles.exportButton,
+              (exporting || filteredLogs.length === 0) &&
+                styles.exportButtonDisabled,
+            ]}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={18}
+                color={COLORS.white}
+              />
+            )}
+            <AppText style={styles.exportButtonText}>
+              {exporting ? "Exporting..." : "Export PDF"}
+            </AppText>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.analyticsCard}>
+          <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
+          <AreaChart
+            data={trendSeries}
+            height={160}
+            series={ACTIVITY_TREND_SERIES}
+            xKey="label"
+          />
+          <View style={styles.kpiRow}>
+            {AUDIT_ACTION_CHART_CATEGORIES.map((category) => (
+              <View key={category.value} style={styles.kpiChip}>
+                <AppText style={styles.kpiLabel}>{category.label}</AppText>
+                <AppText style={styles.kpiValue}>
+                  {actionCounts[category.value] || 0}
+                </AppText>
+              </View>
+            ))}
+          </View>
+          <View style={styles.groupSummaryWrap}>
+            <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
+            {groupedSummary.topUsers.map(([name, count]) => (
+              <AppText key={name} style={styles.groupSummaryText}>
+                {name}: {count}
+              </AppText>
+            ))}
+            <AppText style={[styles.groupSummaryTitle, { marginTop: 6 }]}>
+              Top Modules
+            </AppText>
+            {groupedSummary.topModules.map(([name, count]) => (
+              <AppText key={name} style={styles.groupSummaryText}>
+                {name}: {count}
+              </AppText>
+            ))}
+          </View>
+        </View>
+
         {filteredLogs.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
@@ -445,19 +602,19 @@ export default function ActivityLogs() {
               size={44}
               color={COLORS.grayMedium}
             />
-            <Text style={styles.emptyText}>No logs found</Text>
+            <AppText style={styles.emptyText}>No logs found</AppText>
           </View>
         ) : (
-          filteredLogs.map((item) => {
-            const actionCategory = getActionCategory(item.actionMade);
+          paginatedLogs.map((item) => {
+            const actionCategory = getAuditActionCategory(item.actionMade);
             const actionColors =
               ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
             return (
               <View key={String(item._id)} style={styles.logCard}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>
+                  <AppText style={styles.cardTitle}>
                     {item.actionMade || "N/A"}
-                  </Text>
+                  </AppText>
                   <View
                     style={[
                       styles.tag,
@@ -467,36 +624,65 @@ export default function ActivityLogs() {
                       },
                     ]}
                   >
-                    <Text
+                    <AppText
                       style={[styles.tagText, { color: actionColors.text }]}
                     >
                       {actionCategory.toUpperCase()}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 
-                <Text style={styles.userText}>
+                <AppText style={styles.userText}>
                   User: {item.username || "Unknown"}
-                </Text>
-                <Text style={styles.dateText}>
+                </AppText>
+                <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
-                </Text>
+                </AppText>
 
                 <View style={styles.metaTagsRow}>
                   <View style={[styles.tag, styles.baseTag]}>
-                    <Text style={[styles.tagText, styles.baseTagText]}>
+                    <AppText style={[styles.tagText, styles.baseTagText]}>
                       BASE: {item.base || "UNKNOWN"}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={[styles.tag, styles.platformTag]}>
-                    <Text style={[styles.tagText, styles.platformTagText]}>
+                    <AppText style={[styles.tagText, styles.platformTagText]}>
                       {String(item.platform || "unknown").toUpperCase()}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
               </View>
             );
           })
+        )}
+        {filteredLogs.length > 0 && (
+          <View style={styles.paginationRow}>
+            <AppText style={styles.paginationText}>
+              Page {currentPage} of {totalPages}
+            </AppText>
+            <View style={styles.paginationButtonsRow}>
+              <AppText
+                onPress={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                style={[
+                  styles.paginationButton,
+                  currentPage === 1 && styles.paginationButtonDisabled,
+                ]}
+              >
+                Prev
+              </AppText>
+              <AppText
+                onPress={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+                style={[
+                  styles.paginationButton,
+                  currentPage >= totalPages && styles.paginationButtonDisabled,
+                ]}
+              >
+                Next
+              </AppText>
+            </View>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -504,46 +690,100 @@ export default function ActivityLogs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.grayLight, padding: 10 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-    shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  searchInput: {
+  container: {
     flex: 1,
-    color: COLORS.black,
-    fontSize: 12,
-    marginLeft: 6,
-    height: 40,
+    backgroundColor: COLORS.grayLight,
+    padding: 10,
+    height: "100%",
   },
   filtersRow: {
-    flexDirection: "column",
-    rowGap: 8,
-    marginBottom: 10,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+    zIndex: 20,
   },
-  filterCard: {
+  filterDropdownWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  filterDropdownWrapOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
+  unifiedFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: COLORS.white,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayMedium,
+    height: 48,
+    paddingHorizontal: 12,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.black,
+    fontWeight: "600",
+  },
+  unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 260,
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
     overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  exportButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    columnGap: 8,
     shadowColor: "#0A0D12",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  exportButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+    opacity: 0.75,
+  },
+  exportButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: "700",
   },
   analyticsCard: {
     backgroundColor: COLORS.white,
@@ -558,16 +798,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.black,
     marginBottom: 8,
-  },
-  trendLabelsRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    columnGap: 4,
-  },
-  trendLabel: {
-    color: COLORS.grayDark,
-    fontSize: 10,
   },
   kpiRow: {
     marginTop: 8,
@@ -606,7 +836,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: "uppercase",
   },
-  listContent: { paddingBottom: 20 },
+  listContent: { paddingBottom: 110 },
   emptyState: { alignItems: "center", marginTop: 40 },
   emptyText: { marginTop: 8, color: COLORS.grayDark },
   logCard: {
@@ -654,4 +884,31 @@ const styles = StyleSheet.create({
   baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
+  paginationRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paginationText: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+  },
+  paginationButtonsRow: {
+    flexDirection: "row",
+    columnGap: 8,
+  },
+  paginationButton: {
+    backgroundColor: COLORS.primaryLight,
+    color: COLORS.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    overflow: "hidden",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  paginationButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+  },
 });

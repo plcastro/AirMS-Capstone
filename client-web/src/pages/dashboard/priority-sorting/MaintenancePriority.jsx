@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  App as AntdApp,
   Button,
   Card,
   Col,
@@ -10,13 +9,17 @@ import {
   Row,
   Space,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { AuthContext } from "../../../context/AuthContext";
+import ResultPopup from "../../../components/common/ResultPopup";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import { matchesSearch } from "../../../utils/search";
 
 const { Title, Text } = Typography;
 
@@ -63,21 +66,8 @@ const formatDueBasis = (basis) => {
   }
 };
 
-const formatDate = (value) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
 export default function MaintenancePriority() {
-  const { message } = AntdApp.useApp();
+  const { getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
@@ -86,6 +76,12 @@ export default function MaintenancePriority() {
   const [rules, setRules] = useState(DEFAULT_RULES);
   const [draftRules, setDraftRules] = useState(DEFAULT_RULES);
   const [showControls, setShowControls] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchPriorityData = async (activeRules = rules) => {
     try {
@@ -114,7 +110,12 @@ export default function MaintenancePriority() {
       setMeta(result.meta || null);
     } catch (error) {
       console.error("Failed to fetch maintenance priority:", error);
-      message.error(error.message || "Failed to load maintenance priority");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load maintenance priority",
+      });
     } finally {
       setLoading(false);
     }
@@ -145,9 +146,13 @@ export default function MaintenancePriority() {
         await fetchPriorityData(loadedRules);
       } catch (error) {
         console.error("Failed to fetch maintenance priority rules:", error);
-        message.error(
-          error.message || "Failed to load maintenance priority rules",
-        );
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle:
+            error.message || "Failed to load maintenance priority rules",
+        });
         await fetchPriorityData(DEFAULT_RULES);
       }
     };
@@ -189,9 +194,14 @@ export default function MaintenancePriority() {
         {
           method: "PUT",
           headers: {
+            ...(await getAuthHeader()),
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify(draftRules),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
@@ -209,13 +219,21 @@ export default function MaintenancePriority() {
 
       setRules(savedRules);
       setDraftRules(savedRules);
-      message.success("Maintenance priority rules saved");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Priority Rules Saved!",
+        subTitle: "Maintenance priority rules have been saved successfully.",
+      });
       await fetchPriorityData(savedRules);
     } catch (error) {
       console.error("Failed to save maintenance priority rules:", error);
-      message.error(
-        error.message || "Failed to save maintenance priority rules",
-      );
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to save maintenance priority rules",
+      });
     } finally {
       setSavingRules(false);
     }
@@ -236,24 +254,8 @@ export default function MaintenancePriority() {
   };
 
   const filteredData = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) {
-      return priorityData;
-    }
-
-    return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.sourceRow,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    if (!searchText.trim()) return priorityData;
+    return priorityData.filter((item) => matchesSearch(searchText, item));
   }, [priorityData, searchText]);
 
   const stats = useMemo(() => {
@@ -324,7 +326,7 @@ export default function MaintenancePriority() {
       width: 120,
       render: (value, record) => (
         <span>
-          {formatDate(value)}
+          <DateOnlyCell value={value} />
           {record.dueBasis === "hours" && (
             <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
               not calendar overdue
@@ -499,8 +501,8 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24}>
-              <Space wrap>
+            <Col xs={24} style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Space wrap style={{ justifyContent: "flex-end" }}>
                 <Button type="primary" onClick={applyRules} loading={loading}>
                   Apply Rules
                 </Button>
@@ -562,7 +564,7 @@ export default function MaintenancePriority() {
         />
       )}
 
-      <Table
+      <ResponsiveTable
         rowKey={(record) =>
           [
             record.inspectionKey,
@@ -580,6 +582,14 @@ export default function MaintenancePriority() {
         pagination={false}
         scroll={{ x: 1600 }}
         bordered
+        size={"small"}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

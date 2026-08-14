@@ -9,11 +9,13 @@ const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
-const uniqueStrings = (values = []) =>
-  [...new Set(values.map((value) => String(value)).filter(Boolean))];
+const uniqueStrings = (values = []) => [
+  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+];
 
-const uniqueRoles = (roles = []) =>
-  [...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean))];
+const uniqueRoles = (roles = []) => [
+  ...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean)),
+];
 
 const resolveUserIdByFullName = async (fullName) => {
   const trimmedName = fullName?.trim();
@@ -51,7 +53,7 @@ const getFlightLogCreatorUserId = async (flightLog) => {
 };
 
 const getFlightLogLabel = (flightLog = {}) =>
-  flightLog.rpc ? `RP-C ${flightLog.rpc}` : "the selected aircraft";
+  flightLog.rpc ? `${flightLog.rpc}` : "the selected aircraft";
 
 const getRecipientsForStatus = (status, creatorUserId, mechanicSideRoles) => {
   switch (status) {
@@ -95,7 +97,7 @@ const createNotification = async ({
     return;
   }
 
-  await NotificationModel.create({
+  const notification = await NotificationModel.create({
     title,
     description,
     module: "flight-logs",
@@ -117,6 +119,8 @@ const createNotification = async ({
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
     data: {
+      _id: String(notification._id),
+      notificationId: String(notification._id),
       module: "flight-logs",
       entityType: "flight-log",
       targetScreen: "Flight Logbook",
@@ -150,8 +154,7 @@ const createFlightLogNotifications = async ({
     if (flightLog.status === "pending_acceptance") {
       await createNotification({
         title: `Flight log for ${aircraftLabel} is ready for acceptance`,
-        description:
-          "A flight log is waiting for pilot acceptance.",
+        description: "A flight log is waiting for pilot acceptance.",
         flightLog,
         recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
@@ -162,8 +165,7 @@ const createFlightLogNotifications = async ({
 
     await createNotification({
       title: `Flight log for ${aircraftLabel} is ready for release`,
-      description:
-        "A new flight log needs mechanic-side review and release.",
+      description: "A new flight log needs mechanic-side review and release.",
       flightLog,
       recipientRoles: mechanicSideRoles,
       metadata: { notificationType: "created-pending-release" },
@@ -178,7 +180,7 @@ const createFlightLogNotifications = async ({
 
   if (notifyMechanicForCompletion) {
     await createNotification({
-      title: `Flight log for RP-C ${flightLog.rpc} is ready to complete`,
+      title: `Flight log for ${flightLog.rpc} is ready to complete`,
       description:
         "The pilot flagged this accepted flight log for mechanic completion.",
       flightLog,
@@ -211,9 +213,8 @@ const createFlightLogNotifications = async ({
   switch (currentStatus) {
     case "pending_release":
       await createNotification({
-        title: `Flight log for RP-C ${flightLog.rpc} is pending release`,
-        description:
-          "A flight log is waiting for mechanic-side release.",
+        title: `Flight log for ${flightLog.rpc} is pending release`,
+        description: "A flight log is waiting for mechanic-side release.",
         flightLog,
         recipientRoles: mechanicSideRoles,
         metadata: { notificationType: "pending-release" },
@@ -221,7 +222,7 @@ const createFlightLogNotifications = async ({
       break;
     case "pending_acceptance":
       await createNotification({
-        title: `Flight log for RP-C ${flightLog.rpc} was released`,
+        title: `Flight log for ${flightLog.rpc} was released`,
         description:
           "The flight log was released and is ready for pilot acceptance.",
         flightLog,
@@ -232,7 +233,7 @@ const createFlightLogNotifications = async ({
       break;
     case "accepted":
       await createNotification({
-        title: `Flight log for RP-C ${flightLog.rpc} was accepted`,
+        title: `Flight log for ${flightLog.rpc} was accepted`,
         description:
           "The pilot accepted this flight log. Mechanic completion may now proceed.",
         flightLog,
@@ -242,7 +243,7 @@ const createFlightLogNotifications = async ({
       break;
     case "completed":
       await createNotification({
-        title: `Flight log for RP-C ${flightLog.rpc} was completed`,
+        title: `Flight log for ${flightLog.rpc} was completed`,
         description:
           "The mechanic completed this flight log and updated the workflow.",
         flightLog,
