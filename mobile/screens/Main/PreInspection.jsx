@@ -17,12 +17,15 @@ import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
 
-const getDisplayStatus = (status) =>
-  status === "completed"
+const getDisplayStatus = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  return normalizedStatus === "completed"
     ? "completed"
-    : status === "released"
+    : normalizedStatus === "released"
       ? "released"
       : "pending";
+};
 
 const isCompletedInspection = (inspection) =>
   String(inspection?.status || "").toLowerCase() === "completed";

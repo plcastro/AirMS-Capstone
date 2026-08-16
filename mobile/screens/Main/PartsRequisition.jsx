@@ -75,14 +75,28 @@ const getRequisitionTimestamp = (record = {}) => {
 };
 
 const normalizeOverallStatus = (status) => {
-  switch (status) {
-    case "Pending":
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  switch (normalizedStatus) {
+    case "parts requested":
+    case "pending":
       return "Parts Requested";
-    case "Completed":
+    case "availability checked":
+      return "Availability Checked";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+    case "completed":
       return "Delivered";
-    case "Rejected":
+    case "cancelled":
+    case "canceled":
+    case "rejected":
       return "Cancelled";
-    case "In Progress":
+    case "in progress":
       return "Ordered";
     default:
       return status || "Parts Requested";
@@ -90,9 +104,27 @@ const normalizeOverallStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  switch (status) {
-    case "Ready for Pickup":
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  switch (normalizedStatus) {
+    case "parts requested":
+      return "Parts Requested";
+    case "out of stock":
+      return "Out of Stock";
+    case "in stock":
+      return "In Stock";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+    case "ready for pickup":
       return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
     default:
       return status || "Parts Requested";
   }
