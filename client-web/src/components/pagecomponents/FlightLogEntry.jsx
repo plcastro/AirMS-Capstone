@@ -214,6 +214,31 @@ export default function FlightLogEntry({
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible || !editMode || !initialData?._id) return;
+
+    setFormData((prev) => {
+      if (prev?._id !== initialData._id) {
+        return syncServicingToLegs({
+          ...initialData,
+          workItems: initialData.workItems || [],
+        });
+      }
+
+      return {
+        ...prev,
+        status: initialData.status,
+        notifiedForCompletion: initialData.notifiedForCompletion,
+      };
+    });
+  }, [
+    visible,
+    editMode,
+    initialData?._id,
+    initialData?.status,
+    initialData?.notifiedForCompletion,
+  ]);
+
   const legCount = formData.legs?.length;
   useEffect(() => {
     setFormData((prev) => syncServicingToLegs(prev));

@@ -373,6 +373,7 @@ export default function ActivityLogs() {
 
     return (
       <View
+        key={filterKey}
         style={[
           styles.filterDropdownWrap,
           widthStyle,
@@ -431,6 +432,31 @@ export default function ActivityLogs() {
       </View>
     );
   };
+
+  const filterControls = [
+    {
+      filterKey: "action",
+      label: "Action Type",
+      selectedLabel: selectedActionLabel,
+      options: ACTION_TYPE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setActionType, value),
+    },
+    {
+      filterKey: "dateRange",
+      label: "Date Range",
+      selectedLabel: selectedDateRangeLabel,
+      options: DATE_RANGE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
+    },
+    {
+      filterKey: "scope",
+      label: "Scope",
+      selectedLabel: selectedScopeLabel,
+      options: scopeOptions,
+      onSelect: (value) => selectFilterValue(setScopeFilter, value),
+    },
+  ];
+  const shouldScrollFilters = filterControls.length > 2;
 
   const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -507,31 +533,30 @@ export default function ActivityLogs() {
           />
         }
       >
-        <View style={styles.filtersRow}>
-          {renderFilterDropdown({
-            filterKey: "action",
-            label: "Action Type",
-            selectedLabel: selectedActionLabel,
-            options: ACTION_TYPE_OPTIONS,
-            onSelect: (value) => selectFilterValue(setActionType, value),
-          })}
-
-          {renderFilterDropdown({
-            filterKey: "dateRange",
-            label: "Date Range",
-            selectedLabel: selectedDateRangeLabel,
-            options: DATE_RANGE_OPTIONS,
-            onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
-          })}
-
-          {renderFilterDropdown({
-            filterKey: "scope",
-            label: "Scope",
-            selectedLabel: selectedScopeLabel,
-            options: scopeOptions,
-            onSelect: (value) => selectFilterValue(setScopeFilter, value),
-          })}
-        </View>
+        {shouldScrollFilters ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            contentContainerStyle={styles.filtersScrollContent}
+            style={[
+              styles.filtersScroll,
+              openFilter ? styles.filtersScrollOpen : null,
+            ]}
+          >
+            {filterControls.map((filter) =>
+              renderFilterDropdown({
+                ...filter,
+                widthStyle: styles.scrollableFilterDropdownWrap,
+              }),
+            )}
+          </ScrollView>
+        ) : (
+          <View style={styles.filtersRow}>
+            {filterControls.map((filter) => renderFilterDropdown(filter))}
+          </View>
+        )}
 
         {canExportActivityLogs && (
           <TouchableOpacity
@@ -702,9 +727,28 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     zIndex: 20,
   },
+  filtersScroll: {
+    height: 48,
+    marginBottom: 20,
+    overflow: "visible",
+    zIndex: 20,
+  },
+  filtersScrollOpen: {
+    height: 312,
+    zIndex: 1000,
+  },
+  filtersScrollContent: {
+    columnGap: 12,
+    paddingRight: 8,
+    overflow: "visible",
+  },
   filterDropdownWrap: {
     flex: 1,
     minWidth: 0,
+  },
+  scrollableFilterDropdownWrap: {
+    flex: 0,
+    width: 172,
   },
   filterDropdownWrapOpen: {
     zIndex: 1000,
@@ -723,6 +767,7 @@ const styles = StyleSheet.create({
   },
   unifiedFilterButtonText: {
     flex: 1,
+    minWidth: 0,
     fontSize: 12,
     color: COLORS.black,
     fontWeight: "600",

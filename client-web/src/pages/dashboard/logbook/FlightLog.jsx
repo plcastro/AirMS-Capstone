@@ -744,6 +744,18 @@ export default function FlightLog() {
             completeData.message || "Failed to complete flight log",
           );
         }
+        const completedFlightLog = completeData.data || {
+          ...log,
+          status: "completed",
+        };
+        setSelectedLog(completedFlightLog);
+        setFlightLogs((currentLogs) =>
+          currentLogs.map((currentLog) =>
+            currentLog._id === completedFlightLog._id
+              ? completedFlightLog
+              : currentLog,
+          ),
+        );
         queueWorkflowResult({
           open: true,
           status: "success",

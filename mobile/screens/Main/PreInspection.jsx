@@ -223,6 +223,7 @@ export default function PreInspection({ route }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? selectedAircraft
@@ -267,7 +268,7 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>

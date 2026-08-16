@@ -204,6 +204,7 @@ export default function PostInspection({ route }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? selectedAircraft
@@ -248,7 +249,7 @@ export default function PostInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>
