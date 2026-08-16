@@ -592,12 +592,17 @@ export default function ActivityLogs() {
             series={ACTIVITY_TREND_SERIES}
             xKey="label"
           />
-          <View style={styles.kpiRow}>
+          <View style={styles.legendRow}>
             {AUDIT_ACTION_CHART_CATEGORIES.map((category) => (
-              <View key={category.value} style={styles.kpiChip}>
-                <AppText style={styles.kpiLabel}>{category.label}</AppText>
-                <AppText style={styles.kpiValue}>
-                  {actionCounts[category.value] || 0}
+              <View key={category.value} style={styles.legendItem}>
+                <View
+                  style={[
+                    styles.legendDot,
+                    { backgroundColor: category.color },
+                  ]}
+                />
+                <AppText style={styles.legendText} numberOfLines={1}>
+                  {category.label} ({actionCounts[category.value] || 0})
                 </AppText>
               </View>
             ))}
@@ -844,26 +849,28 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     marginBottom: 8,
   },
-  kpiRow: {
-    marginTop: 8,
+  legendRow: {
+    marginTop: 6,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    columnGap: 10,
+    rowGap: 5,
   },
-  kpiChip: {
-    backgroundColor: "#F4F7F8",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+  legendItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    maxWidth: "48%",
   },
-  kpiLabel: {
+  legendDot: {
+    borderRadius: 4,
+    height: 7,
+    marginRight: 5,
+    width: 7,
+  },
+  legendText: {
     color: COLORS.grayDark,
     fontSize: 10,
-  },
-  kpiValue: {
-    color: COLORS.black,
-    fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   groupSummaryWrap: { marginTop: 8 },
   groupSummaryTitle: { fontSize: 11, fontWeight: "700", color: COLORS.black },
