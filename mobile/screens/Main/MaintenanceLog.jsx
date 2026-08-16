@@ -370,47 +370,47 @@ export default function MaintenanceLog() {
         onChangeText={setSearch}
         placeholder="Search maintenance logs"
       />
-      <View style={{ marginBottom: 12 }}>
-        <TouchableOpacity
-          style={styles.unifiedFilterButton}
-          activeOpacity={0.82}
-          onPress={() => {
-            if (!isMechanic) setShowBaseDropdown((open) => !open);
-          }}
-        >
-          <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-            {selectedBaseLabel}
-          </AppText>
-          <MaterialCommunityIcons
-            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
-            size={22}
-            color={COLORS.grayDark}
-          />
-        </TouchableOpacity>
+      {!isMechanic && (
+        <View style={{ marginBottom: 12 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowBaseDropdown((open) => !open)}
+          >
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {selectedBaseLabel}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
 
-        {showBaseDropdown && !isMechanic && (
-          <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
-            <ScrollView nestedScrollEnabled>
-              {baseOptions.map((base, index) => (
-                <TouchableOpacity
-                  key={base}
-                  style={[
-                    styles.unifiedDropdownItem,
-                    index < baseOptions.length - 1
-                      ? styles.unifiedDropdownItemBordered
-                      : null,
-                  ]}
-                  onPress={() => selectBase(base)}
-                >
-                  <AppText style={styles.unifiedDropdownItemText}>
-                    {base === "all" ? "All Bases" : base}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
+          {showBaseDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {baseOptions.map((base, index) => (
+                  <TouchableOpacity
+                    key={base}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < baseOptions.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectBase(base)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {base === "all" ? "All Bases" : base}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
       {loading && <LoadingState />}
       {!loading && aircraftGroups.length === 0 && (
         <EmptyState text="No maintenance logs found yet." />
