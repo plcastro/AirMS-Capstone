@@ -98,9 +98,16 @@ const resetPassword = async (req, res) => {
   const user = await UserModel.findOne({
     resetPasswordToken: token,
     resetPasswordExpires: { $gt: Date.now() },
-  });
+  }).select("+password");
 
   if (!user) return res.status(400).json({ message: "Invalid token" });
+
+  const isCurrentPassword = await bcrypt.compare(newPassword, user.password);
+  if (isCurrentPassword) {
+    return res
+      .status(400)
+      .json({ message: "Cannot reuse the same password." });
+  }
 
   user.password = await bcrypt.hash(newPassword, 12);
   user.resetPasswordToken = undefined;
