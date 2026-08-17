@@ -1,5 +1,5 @@
 // WEB
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
@@ -32,7 +32,6 @@ export default function OTP() {
   const location = useLocation();
   const params = location.state || {};
   const { loginUser } = useContext(AuthContext);
-  const pendingDashboardPathRef = useRef("");
   const mode = params.mode || "password-reset";
   const token = params.token;
   const email = params.email;
@@ -144,30 +143,30 @@ export default function OTP() {
             localStorage.removeItem("rememberMe");
           }
 
-          setPopup({
-            open: true,
-            status: "success",
-            title: "Login Verified",
-            subTitle: "You have been successfully logged in.",
-          });
-
           const role = String(data?.user?.jobTitle || "").toLowerCase();
+          let dashboardPath = "/dashboard/profile";
           if (role === "superadmin") {
-            pendingDashboardPathRef.current =
-              "/dashboard/user-management/view-users";
+            dashboardPath = "/dashboard/user-management/view-users";
           } else if (role === "mechanic") {
-            pendingDashboardPathRef.current = "/dashboard/maintenance-log";
+            dashboardPath = "/dashboard/maintenance-log";
           } else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
           ) {
-            pendingDashboardPathRef.current =
-              "/dashboard/maintenance-dashboard";
+            dashboardPath = "/dashboard/maintenance-dashboard";
           } else if (role === "warehouse staff") {
-            pendingDashboardPathRef.current = "/dashboard/parts-requisition";
-          } else {
-            pendingDashboardPathRef.current = "/dashboard/profile";
+            dashboardPath = "/dashboard/parts-requisition";
           }
+
+          navigate(dashboardPath, {
+            state: {
+              resultPopup: {
+                status: "success",
+                title: "Login Verified",
+                subTitle: "You have been successfully logged in.",
+              },
+            },
+          });
           return;
         }
 
@@ -200,15 +199,9 @@ export default function OTP() {
     }
   };
 
-  const handlePopupClose = useCallback(() => {
+  const handlePopupClose = () => {
     setPopup((prev) => ({ ...prev, open: false }));
-
-    if (pendingDashboardPathRef.current) {
-      const dashboardPath = pendingDashboardPathRef.current;
-      pendingDashboardPathRef.current = "";
-      navigate(dashboardPath);
-    }
-  }, [navigate]);
+  };
 
   const handleResend = async () => {
     if (resendTimer > 0) return;
