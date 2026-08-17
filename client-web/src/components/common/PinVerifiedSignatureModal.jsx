@@ -153,9 +153,8 @@ export default function PinVerifiedSignatureModal({
         <Alert
           type="error"
           showIcon
-          closable
-          message={errorMessage}
-          onClose={() => setErrorMessage("")}
+          closable={{ onClose: () => setErrorMessage("") }}
+          title={errorMessage}
           style={{ marginBottom: 16 }}
         />
       )}

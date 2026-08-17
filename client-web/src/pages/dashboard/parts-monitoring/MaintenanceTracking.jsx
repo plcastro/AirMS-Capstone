@@ -1066,7 +1066,7 @@ export default function MaintenanceTracking() {
         <Alert
           type={aiStatusNotice.type}
           showIcon
-          message={aiStatusNotice.message}
+          title={aiStatusNotice.message}
         />
       )}
 

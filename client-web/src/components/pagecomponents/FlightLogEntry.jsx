@@ -677,7 +677,7 @@ export default function FlightLogEntry({
             <Alert
               type="error"
               showIcon
-              closable={onClose(() => setValidationError(""))}
+              closable={{ onClose: () => setValidationError("") }}
               title={validationError}
               style={{ marginBottom: 12 }}
             />

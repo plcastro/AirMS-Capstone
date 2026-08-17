@@ -483,7 +483,7 @@ export default function PostInspection() {
               <Alert
                 type={isReleaseChecklistComplete ? "success" : "warning"}
                 showIcon
-                message={
+                title={
                   isReleaseChecklistComplete
                     ? "All checklist items are complete. You can release this post-flight inspection."
                     : "Complete all checklist items in Station 1, Station 2, Engine, Main Rotor, and Cabin Interior before release."
