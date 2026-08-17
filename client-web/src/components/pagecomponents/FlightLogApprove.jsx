@@ -96,7 +96,11 @@ export default function FlightLogApprove({
               <Input placeholder="Frequency" />
             </Form.Item>
             <Form.Item label="Date" name="date">
-              <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
+              <DatePicker
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                inputReadOnly
+              />
             </Form.Item>
             <Form.Item label="VOR 1" name="vor1">
               <Input placeholder="Bearing/Error" />
@@ -105,7 +109,11 @@ export default function FlightLogApprove({
               <Input placeholder="Bearing/Error" />
             </Form.Item>
             <Form.Item label="Due Next" name="dueNext">
-              <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
+              <DatePicker
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                inputReadOnly
+              />
             </Form.Item>
           </Col>
 
@@ -129,7 +137,11 @@ export default function FlightLogApprove({
               <Input placeholder="Signature" />
             </Form.Item>
             <Form.Item label="Pre-Flight Release Date" name="preFlightDate">
-              <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
+              <DatePicker
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                inputReadOnly
+              />
             </Form.Item>
             <Form.Item label="A&P" name="ap">
               <Input placeholder="A&P" />

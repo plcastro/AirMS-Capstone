@@ -248,6 +248,7 @@ export default function CreateTaskModal({
                 size="large"
                 style={{ width: "100%" }}
                 format="MM/DD/YYYY HH:mm"
+                inputReadOnly
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(false)}
               />
@@ -279,6 +280,7 @@ export default function CreateTaskModal({
                 size="large"
                 style={{ width: "100%" }}
                 format="MM/DD/YYYY HH:mm"
+                inputReadOnly
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(true)}
               />

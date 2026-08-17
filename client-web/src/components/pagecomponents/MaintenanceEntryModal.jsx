@@ -117,7 +117,11 @@ export default function MaintenanceEntryModal({
         </Form.Item>
 
         <Form.Item label="Date Defect Discovered" name="dateDefectDiscovered">
-          <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
+          <DatePicker
+            style={{ width: "100%" }}
+            format="MM/DD/YYYY"
+            inputReadOnly
+          />
         </Form.Item>
 
         <Form.Item
@@ -132,6 +136,7 @@ export default function MaintenanceEntryModal({
           <DatePicker
             style={{ width: "100%" }}
             format="MM/DD/YYYY"
+            inputReadOnly
             disabledDate={(current) => {
               const discoveredDate = form.getFieldValue("dateDefectDiscovered");
               return discoveredDate && current.isBefore(discoveredDate, "day");

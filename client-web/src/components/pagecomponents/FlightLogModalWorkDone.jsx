@@ -142,6 +142,7 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 className="fl-input"
                 style={{ width: "100%" }}
                 format="MM/DD/YYYY"
+                inputReadOnly
                 value={item.date ? dayjs(item.date) : null}
                 onChange={(date) =>
                   updateWorkItem(

@@ -532,6 +532,7 @@ export default function PostInspection() {
                             size="middle"
                             style={{ width: "100%" }}
                             format="MM/DD/YYYY"
+                            inputReadOnly
                             value={
                               editing.date
                                 ? dayjs(editing.date, "MM/DD/YYYY")

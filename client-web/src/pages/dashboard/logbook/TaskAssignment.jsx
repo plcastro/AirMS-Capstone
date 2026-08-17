@@ -1666,6 +1666,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1696,6 +1697,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>

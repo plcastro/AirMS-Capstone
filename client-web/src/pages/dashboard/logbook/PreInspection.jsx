@@ -1174,6 +1174,7 @@ export default function PreInspection() {
                           size="large"
                           style={{ width: "100%" }}
                           format="MM/DD/YYYY"
+                          inputReadOnly
                           value={
                             draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null
                           }
@@ -1332,6 +1333,7 @@ export default function PreInspection() {
                   size="large"
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
+                  inputReadOnly
                   value={
                     editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
                   }
