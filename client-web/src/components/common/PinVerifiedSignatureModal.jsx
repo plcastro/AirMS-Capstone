@@ -1,5 +1,5 @@
 import React, { useContext, useRef, useState } from "react";
-import { Alert, Button, Input, message, Modal, Typography } from "antd";
+import { Alert, Button, Input, Modal, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
@@ -76,7 +76,6 @@ export default function PinVerifiedSignatureModal({
       if (!signature || signatureRef.current?.isEmpty()) {
         const error = "Please draw your signature before continuing.";
         setErrorMessage(error);
-        message.error(error);
         return;
       }
 
@@ -88,7 +87,6 @@ export default function PinVerifiedSignatureModal({
     if (!/^\d{6}$/.test(pin)) {
       const error = "Enter your 6-digit PIN to confirm this signature.";
       setErrorMessage(error);
-      message.error(error);
       return;
     }
 
@@ -101,7 +99,6 @@ export default function PinVerifiedSignatureModal({
     } catch (error) {
       const errorText = error.message || "Could not verify your PIN.";
       setErrorMessage(errorText);
-      message.error(errorText);
     } finally {
       setSaving(false);
     }
