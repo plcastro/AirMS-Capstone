@@ -110,6 +110,10 @@ export default function PostInspection() {
       : value === "released"
         ? "released"
         : "pending";
+  const isCompletedRecord = (record) =>
+    getDisplayStatus(String(record?.status || "").toLowerCase()) ===
+    "completed";
+  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record);
 
   const load = useCallback(async () => {
     try {
@@ -247,6 +251,8 @@ export default function PostInspection() {
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
+    if (isRecordReadOnly(nextPayload)) return;
+
     try {
       const response = await fetch(
         `${API_BASE}/api/post-flight/updatePostInspectionById/${nextPayload._id}`,
@@ -394,26 +400,30 @@ export default function PostInspection() {
           },
           {
             title: "Action",
-            render: (_, record) => (
-              <Space size={12}>
-                <Tooltip title={readOnly ? "View" : "Edit"}>
-                  <Button
-                    aria-label={readOnly ? "View" : "Edit"}
-                    icon={readOnly ? <EyeOutlined /> : <EditOutlined />}
-                    onClick={() => setEditing(record)}
-                  />
-                </Tooltip>
-                {canExportPostInspections && (
-                  <Tooltip title="Export">
+            render: (_, record) => {
+              const recordReadOnly = isRecordReadOnly(record);
+
+              return (
+                <Space size={12}>
+                  <Tooltip title={recordReadOnly ? "View" : "Edit"}>
                     <Button
-                      aria-label="Export"
-                      icon={<ExportOutlined />}
-                      onClick={() => exportInspectionPdf(record)}
+                      aria-label={recordReadOnly ? "View" : "Edit"}
+                      icon={recordReadOnly ? <EyeOutlined /> : <EditOutlined />}
+                      onClick={() => setEditing(record)}
                     />
                   </Tooltip>
-                )}
-              </Space>
-            ),
+                  {canExportPostInspections && (
+                    <Tooltip title="Export">
+                      <Button
+                        aria-label="Export"
+                        icon={<ExportOutlined />}
+                        onClick={() => exportInspectionPdf(record)}
+                      />
+                    </Tooltip>
+                  )}
+                </Space>
+              );
+            },
           },
         ]}
       />
@@ -429,9 +439,9 @@ export default function PostInspection() {
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
-        okButtonProps={{ disabled: readOnly }}
+        okButtonProps={{ disabled: !editing || isRecordReadOnly(editing) }}
         title={
-          readOnly
+          editing && isRecordReadOnly(editing)
             ? "View Entry - Post-Flight Inspection"
             : "Edit Entry - Post-Flight Inspection"
         }
@@ -466,7 +476,7 @@ export default function PostInspection() {
                                 rpc: e.target.value,
                               }))
                             }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
                           />
                         </Col>
                         <Col xs={24} md={8}>
@@ -479,7 +489,7 @@ export default function PostInspection() {
                                 aircraftType: e.target.value,
                               }))
                             }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
                           />
                         </Col>
                         <Col xs={24} md={8}>
@@ -499,7 +509,7 @@ export default function PostInspection() {
                                 date: date ? formatDate(date) : "",
                               }))
                             }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
                           />
                         </Col>
                       </Row>
@@ -522,7 +532,7 @@ export default function PostInspection() {
                             notes: e.target.value,
                           }))
                         }
-                        disabled={readOnly}
+                        disabled={isRecordReadOnly(editing)}
                       />
                     ),
                   };
@@ -546,7 +556,7 @@ export default function PostInspection() {
                           <Col xs={24} md={12} lg={8} key={field}>
                             <Checkbox
                               checked={Boolean(editing[field])}
-                              disabled={readOnly}
+                              disabled={isRecordReadOnly(editing)}
                               onChange={(e) =>
                                 setEditing((prev) => ({
                                   ...prev,
@@ -585,6 +595,7 @@ export default function PostInspection() {
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
               {canRelease &&
+                !isRecordReadOnly(editing) &&
                 editing.status === "pending" &&
                 !editing.releasedBy?.name && (
                   <Button

@@ -91,6 +91,8 @@ export default function PostInspectionCards({
       {inspections.map((inspection) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const isCompleted = getDisplayStatus(inspection.status) === "completed";
+        const isViewOnly = isOfficerInCharge || isCompleted;
         const inspectionKey = String(inspection._id || inspection.id || "");
         const exportLoading = exportingInspectionId === inspectionKey;
 
@@ -187,10 +189,10 @@ export default function PostInspectionCards({
                   />
                 )}
                 <ActionIconButton
-                  icon={isOfficerInCharge ? "eye-outline" : "pencil"}
-                  tooltip={isOfficerInCharge ? "View" : "Edit"}
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
                   onPress={() => onEdit?.(inspection)}
-                  color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
                   size={32}
                   iconSize={21}
                 />
