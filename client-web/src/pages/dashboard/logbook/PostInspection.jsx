@@ -346,6 +346,7 @@ export default function PostInspection() {
               placeholder="Search"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
           <Col xs={12} md={7}>

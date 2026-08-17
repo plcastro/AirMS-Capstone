@@ -632,12 +632,7 @@ export default function TaskAssignment() {
     }
 
     return options;
-  }, [
-    editingTask,
-    getTaskAssigneeId,
-    getTaskAssigneeName,
-    mechanics,
-  ]);
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics]);
 
   const aircraftSelectOptions = useMemo(
     () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
@@ -1402,6 +1397,7 @@ export default function TaskAssignment() {
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
           {isManager && (

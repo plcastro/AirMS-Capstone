@@ -240,6 +240,7 @@ export default function MechanicList() {
               placeholder="Search mechanic"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
         </Row>
