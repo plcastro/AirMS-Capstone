@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -618,6 +619,68 @@ export default function PreInspection() {
     () => areAllReleaseChecksComplete(draft),
     [draft],
   );
+  const createGuide = {
+    type: allDraftReleaseChecksComplete && hasValidFob(draft) ? "success" : "warning",
+    title:
+      allDraftReleaseChecksComplete && hasValidFob(draft)
+        ? "All required pre-flight items are complete. You can release this inspection."
+        : "Complete all pre-flight checklist items and fill in Fuel On Board before release.",
+  };
+  const editGuide = useMemo(() => {
+    if (!editing) return null;
+    const displayStatus = getDisplayStatus(editing.status);
+
+    if (editingCanAccept) {
+      return {
+        type: hasValidFob(editing) ? "success" : "warning",
+        title: hasValidFob(editing)
+          ? "This released pre-flight inspection is ready for pilot acceptance."
+          : "Fuel On Board must be filled in before pilot acceptance.",
+      };
+    }
+
+    if (
+      canRelease &&
+      displayStatus === "pending" &&
+      !editing.releasedBy?.name &&
+      !editingReadOnly
+    ) {
+      const readyToRelease =
+        areAllReleaseChecksComplete(editing) && hasValidFob(editing);
+      return {
+        type: readyToRelease ? "success" : "warning",
+        title: readyToRelease
+          ? "All required pre-flight items are complete. You can release this inspection."
+          : "Complete all pre-flight checklist items and fill in Fuel On Board before release.",
+      };
+    }
+
+    if (displayStatus === "completed") {
+      return {
+        type: "info",
+        title: "This pre-flight inspection is completed and is view-only.",
+      };
+    }
+
+    if (displayStatus === "released") {
+      return {
+        type: "info",
+        title:
+          role === "pilot"
+            ? "This inspection is released. Use Accept / Complete when ready."
+            : "This inspection is waiting for pilot acceptance.",
+      };
+    }
+
+    if (readOnly) {
+      return {
+        type: "info",
+        title: "Your role can review this pre-flight inspection but cannot update it.",
+      };
+    }
+
+    return null;
+  }, [canRelease, editing, editingCanAccept, editingReadOnly, readOnly, role]);
 
   const saveCreate = async (releaseSignature = "") => {
     if (
@@ -1070,12 +1133,18 @@ export default function PreInspection() {
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
       >
-        <Tabs
-          items={CREATE_FORM_SECTIONS.map((section) => ({
-            key: section.key,
-            label: section.label,
-            children: (
-              <Space orientation="vertical" style={{ width: "100%" }} size={12}>
+        <Space orientation="vertical" style={{ width: "100%" }} size={14}>
+          <Alert type={createGuide.type} showIcon title={createGuide.title} />
+          <Tabs
+            items={CREATE_FORM_SECTIONS.map((section) => ({
+              key: section.key,
+              label: section.label,
+              children: (
+                <Space
+                  orientation="vertical"
+                  style={{ width: "100%" }}
+                  size={12}
+                >
                 {section.key === "basic" ? (
                   <Card
                     size="small"
@@ -1248,10 +1317,11 @@ export default function PreInspection() {
                     ) : null}
                   </Space>
                 )}
-              </Space>
-            ),
-          }))}
-        />
+                </Space>
+              ),
+            }))}
+          />
+        </Space>
       </Modal>
 
       <Modal
@@ -1281,6 +1351,9 @@ export default function PreInspection() {
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
+            {editGuide && (
+              <Alert type={editGuide.type} showIcon title={editGuide.title} />
+            )}
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
                 <Text

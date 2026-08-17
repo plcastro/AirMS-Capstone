@@ -204,6 +204,42 @@ export default function PostInspection() {
     editing.status === "pending" &&
     !editing.releasedBy?.name;
   const isReleaseChecklistComplete = areAllPostInspectionChecksComplete(editing);
+  const postInspectionGuide = useMemo(() => {
+    if (!editing) return null;
+    const displayStatus = getDisplayStatus(editing.status);
+
+    if (displayStatus === "completed") {
+      return {
+        type: "info",
+        title: "This post-flight inspection is completed and is view-only.",
+      };
+    }
+
+    if (canReleaseEditing) {
+      return {
+        type: isReleaseChecklistComplete ? "success" : "warning",
+        title: isReleaseChecklistComplete
+          ? "All checklist items are complete. You can release this post-flight inspection."
+          : "Complete all checklist items in Station 1, Station 2, Engine, Main Rotor, and Cabin Interior before release.",
+      };
+    }
+
+    if (readOnly) {
+      return {
+        type: "info",
+        title: "Your role can review this post-flight inspection but cannot update it.",
+      };
+    }
+
+    if (!canRelease) {
+      return {
+        type: "info",
+        title: "Post-flight release is available to mechanic and maintenance roles only.",
+      };
+    }
+
+    return null;
+  }, [canRelease, canReleaseEditing, editing, isReleaseChecklistComplete, readOnly]);
 
   const groupedBooleanFields = useMemo(() => {
     const byPrefix = (prefix) =>
@@ -479,15 +515,11 @@ export default function PostInspection() {
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            {canReleaseEditing && (
+            {postInspectionGuide && (
               <Alert
-                type={isReleaseChecklistComplete ? "success" : "warning"}
+                type={postInspectionGuide.type}
                 showIcon
-                title={
-                  isReleaseChecklistComplete
-                    ? "All checklist items are complete. You can release this post-flight inspection."
-                    : "Complete all checklist items in Station 1, Station 2, Engine, Main Rotor, and Cabin Interior before release."
-                }
+                title={postInspectionGuide.title}
               />
             )}
             <Tabs

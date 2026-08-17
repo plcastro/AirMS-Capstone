@@ -631,6 +631,80 @@ export default function FlightLogEntry({
     isMechanic &&
     normalizedStatus === "accepted" &&
     formData.notifiedForCompletion;
+  const workflowGuide = useMemo(() => {
+    if (readOnly || isCompletedLog) {
+      return {
+        type: "info",
+        title: "This flight log is completed or view-only for your role.",
+      };
+    }
+
+    if (!editMode) {
+      return {
+        type: "info",
+        title: isPilot
+          ? "Fill in basic information, destinations, and discrepancy remarks before adding the flight log."
+          : "Fill in component times, servicing details, and remarks before adding the flight log.",
+      };
+    }
+
+    if (showReleaseButton) {
+      return {
+        type: "warning",
+        title: "Review the mechanic sections, then release this flight log for pilot acceptance.",
+      };
+    }
+
+    if (showAcceptButton) {
+      return {
+        type: "success",
+        title: "This flight log is released and ready for pilot acceptance.",
+      };
+    }
+
+    if (showNotifyButton) {
+      return {
+        type: "warning",
+        title: "Notify the mechanic when this accepted flight log is ready for completion.",
+      };
+    }
+
+    if (showCompleteButton) {
+      return {
+        type: "success",
+        title: "This flight log is ready for mechanic completion.",
+      };
+    }
+
+    if (isPilot) {
+      return {
+        type: "info",
+        title: "Your role can update pilot sections while the flight log remains editable.",
+      };
+    }
+
+    if (isMechanic) {
+      return {
+        type: "info",
+        title: "Your role can update mechanic sections while the flight log remains editable.",
+      };
+    }
+
+    return {
+      type: "info",
+      title: "You can review this flight log based on your role access.",
+    };
+  }, [
+    editMode,
+    isCompletedLog,
+    isMechanic,
+    isPilot,
+    readOnly,
+    showAcceptButton,
+    showCompleteButton,
+    showNotifyButton,
+    showReleaseButton,
+  ]);
 
   return (
     <Modal
@@ -679,6 +753,14 @@ export default function FlightLogEntry({
               showIcon
               closable={{ onClose: () => setValidationError("") }}
               title={validationError}
+              style={{ marginBottom: 12 }}
+            />
+          )}
+          {workflowGuide && (
+            <Alert
+              type={workflowGuide.type}
+              showIcon
+              title={workflowGuide.title}
               style={{ marginBottom: 12 }}
             />
           )}
