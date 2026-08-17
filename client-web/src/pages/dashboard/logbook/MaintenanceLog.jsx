@@ -847,7 +847,7 @@ export default function MaintenanceLog() {
           <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
             <Col span={24} style={{ textAlign: "right" }}>
               <Text type="secondary">
-                Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
+                Showing <Text strong>{uniqueAircraft.length}</Text> Aircraft/s
               </Text>
             </Col>
           </Row>

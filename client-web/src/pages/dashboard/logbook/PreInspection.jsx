@@ -1045,8 +1045,7 @@ export default function PreInspection() {
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> pre-flight inspection
-            log(s)
+            Showing <Text strong>{filtered.length}</Text> Log(s)
           </Text>
         </Col>
       </Row>
@@ -1203,6 +1202,8 @@ export default function PreInspection() {
                             }))
                           }
                           placeholder="Fuel On Board"
+                          min={0}
+                          max={100}
                         />
                       </Col>
                     </Row>
