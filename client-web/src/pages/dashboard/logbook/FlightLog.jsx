@@ -40,6 +40,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
 import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
@@ -82,6 +83,7 @@ export default function FlightLog() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 350);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [aircraftFilterOptions, setAircraftFilterOptions] = useState([]);
@@ -839,7 +841,7 @@ export default function FlightLog() {
   }, [fetchFlightLogs]);
 
   useEffect(() => {
-    const trimmedSearch = searchQuery.trim();
+    const trimmedSearch = debouncedSearchQuery.trim();
 
     if (!trimmedSearch) {
       if (hasRunRemoteSearchRef.current) {
@@ -849,13 +851,10 @@ export default function FlightLog() {
       return undefined;
     }
 
-    const timeoutId = setTimeout(() => {
-      hasRunRemoteSearchRef.current = true;
-      searchFlightLogs(trimmedSearch);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [fetchFlightLogs, searchQuery]);
+    hasRunRemoteSearchRef.current = true;
+    searchFlightLogs(trimmedSearch);
+    return undefined;
+  }, [debouncedSearchQuery, fetchFlightLogs]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -891,7 +890,7 @@ export default function FlightLog() {
   ];
 
   const filteredLogs = useMemo(() => {
-    const trimmedSearch = searchQuery.trim();
+    const trimmedSearch = debouncedSearchQuery.trim();
     const shouldApplyLocalSearch =
       trimmedSearch && isDateLikeSearchQuery(trimmedSearch);
 
@@ -924,14 +923,14 @@ export default function FlightLog() {
     flightLogs,
     getComparableStatus,
     normalizeStatusFilterValue,
-    searchQuery,
+    debouncedSearchQuery,
     selectedAircraft,
     selectedStatus,
   ]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedAircraft, selectedStatus]);
+  }, [debouncedSearchQuery, selectedAircraft, selectedStatus]);
 
   useEffect(() => {
     const openTargetFlightLog = async () => {

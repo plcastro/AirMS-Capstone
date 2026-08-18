@@ -39,6 +39,7 @@ import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { useSearchParams } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
@@ -391,6 +392,7 @@ export default function PartsMonitoring() {
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [mobileActiveTab, setMobileActiveTab] = useState("overview");
   const [mobileStatusFilter, setMobileStatusFilter] = useState("all");
   const [mobileComponentPage, setMobileComponentPage] = useState(0);
@@ -729,9 +731,11 @@ export default function PartsMonitoring() {
   }, [rawData, refs, selectedAircraft]);
 
   const filteredData = useMemo(() => {
-    if (!searchText.trim()) return computedData;
-    return computedData.filter((row) => matchesSearch(searchText, row));
-  }, [computedData, searchText]);
+    if (!debouncedSearchText.trim()) return computedData;
+    return computedData.filter((row) =>
+      matchesSearch(debouncedSearchText, row),
+    );
+  }, [computedData, debouncedSearchText]);
 
   const componentsToUpdate = useMemo(
     () =>
@@ -839,7 +843,7 @@ export default function PartsMonitoring() {
   useEffect(() => {
     setMobileComponentPage(0);
     setMobileDetailId(null);
-  }, [mobileStatusFilter, searchText, selectedAircraft]);
+  }, [debouncedSearchText, mobileStatusFilter, selectedAircraft]);
 
   const isCellEditable = (record, dataIndex) => {
     if (record.rowType !== "part") return false;

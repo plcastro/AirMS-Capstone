@@ -24,6 +24,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Text, Title } = Typography;
 const isCompletedTask = (task) =>
@@ -33,6 +34,7 @@ const isCompletedTask = (task) =>
 export default function MechanicList() {
   const { getAuthHeader } = useContext(AuthContext);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -120,8 +122,8 @@ export default function MechanicList() {
               : "Offline",
           };
         })
-        .filter((item) => matchesSearch(query, item)),
-    [query, tasks, users],
+        .filter((item) => matchesSearch(debouncedQuery, item)),
+    [debouncedQuery, tasks, users],
   );
 
   const assignedTasksForSelectedMechanic = useMemo(() => {

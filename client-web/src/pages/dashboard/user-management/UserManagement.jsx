@@ -20,6 +20,7 @@ import { UserAddOutlined, FilterOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { confirmAction } from "../../../utils/confirmAction";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
@@ -68,6 +69,7 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -205,12 +207,12 @@ export default function UserManagement() {
       });
     }
 
-    if (searchQuery.trim()) {
-      filtered = filtered.filter((u) => matchesSearch(searchQuery, u));
+    if (debouncedSearchQuery.trim()) {
+      filtered = filtered.filter((u) => matchesSearch(debouncedSearchQuery, u));
     }
 
     setFilteredUsers(filtered);
-  }, [allUsers, treeValue, searchQuery]);
+  }, [allUsers, treeValue, debouncedSearchQuery]);
 
   const handleAddUser = () => {
     setEditingUser(null);

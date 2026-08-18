@@ -18,6 +18,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
+import { debounce } from "../../utils/debounce";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
 import { hasNavAccess } from "../../../../shared/navigationAccess";
@@ -442,13 +443,18 @@ const DashboardLayout = () => {
     };
 
     loadSeenAircraftFhWarnings();
+    const scheduleSyncNotifications = debounce(syncNotifications, 500);
+    const scheduleAircraftFhDueWarnings = debounce(
+      checkAircraftFhDueWarnings,
+      800,
+    );
 
-    setTimeout(syncNotifications, 500);
-    setTimeout(checkAircraftFhDueWarnings, 800);
+    scheduleSyncNotifications();
+    scheduleAircraftFhDueWarnings();
 
     const handleWebSettingsUpdated = () => {
       loadSeenAircraftFhWarnings();
-      checkAircraftFhDueWarnings();
+      scheduleAircraftFhDueWarnings();
     };
     const handleAircraftFhNotificationsUpdated = () => {
       syncUnreadBadge();
@@ -488,7 +494,7 @@ const DashboardLayout = () => {
           setUnreadCount((current) => current + 1);
         }
 
-        syncNotifications();
+        scheduleSyncNotifications();
         return;
       }
 
@@ -499,14 +505,14 @@ const DashboardLayout = () => {
         nextEvent === "chat:conversation" ||
         nextEvent === "logs:new"
       ) {
-        setTimeout(syncNotifications, 500);
+        scheduleSyncNotifications();
         if (
           nextEvent === "data-changed" &&
           (!payload?.data?.module ||
             payload.data.module === "parts-monitoring" ||
             payload.data.module === "parts-lifespan-monitoring")
         ) {
-          checkAircraftFhDueWarnings();
+          scheduleAircraftFhDueWarnings();
         }
       }
     });
@@ -522,6 +528,8 @@ const DashboardLayout = () => {
         handleAircraftFhNotificationsUpdated,
       );
       unsubscribeRealtime();
+      scheduleSyncNotifications.cancel();
+      scheduleAircraftFhDueWarnings.cancel();
     };
   }, [user?.id, canReceiveAircraftFhDueAlerts, getAuthHeader, api, nav]);
 

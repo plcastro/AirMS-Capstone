@@ -32,6 +32,7 @@ import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { useNavigate } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Title, Text } = Typography;
 
@@ -257,6 +258,10 @@ export default function MaintenanceTracking() {
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
   const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
+  const debouncedInspectionLimitSearch = useDebouncedValue(
+    inspectionLimitSearch,
+    300,
+  );
   const [visibleOptionalFindingColumns, setVisibleOptionalFindingColumns] =
     useState(["recommendedAction"]);
   const [popup, setPopup] = useState({
@@ -492,9 +497,13 @@ export default function MaintenanceTracking() {
           );
 
     return aircraftFiltered.filter((row) =>
-      matchesInspectionLimitSearch(row, inspectionLimitSearch),
+      matchesInspectionLimitSearch(row, debouncedInspectionLimitSearch),
     );
-  }, [inspectionLimitSearch, inspectionRemainingRows, selectedAircraftFilter]);
+  }, [
+    debouncedInspectionLimitSearch,
+    inspectionRemainingRows,
+    selectedAircraftFilter,
+  ]);
 
   const summary = useMemo(
     () =>

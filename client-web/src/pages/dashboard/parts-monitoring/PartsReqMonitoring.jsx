@@ -35,6 +35,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -128,6 +129,7 @@ export default function PartsReqMonitoring() {
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
@@ -255,8 +257,10 @@ export default function PartsReqMonitoring() {
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
 
-    if (searchText.trim()) {
-      data = data.filter((record) => matchesSearch(searchText, record));
+    if (debouncedSearchText.trim()) {
+      data = data.filter((record) =>
+        matchesSearch(debouncedSearchText, record),
+      );
     }
 
     if (selectedStatus !== "all") {
@@ -291,7 +295,7 @@ export default function PartsReqMonitoring() {
   }, [
     dateSortOrder,
     isWarehouseStaff,
-    searchText,
+    debouncedSearchText,
     selectedStatus,
     warehouseRequisitions,
   ]);

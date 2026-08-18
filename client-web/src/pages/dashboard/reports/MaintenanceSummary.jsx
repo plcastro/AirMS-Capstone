@@ -8,6 +8,7 @@ import MSummaryTable from "../../../components/tables/MSummaryTable";
 
 import RepairFrequencyChart from "../../../components/common/RepairFrequencyChart";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 dayjs.extend(isBetween);
 
@@ -15,6 +16,7 @@ const { RangePicker } = DatePicker;
 
 export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [dateRange, setDateRange] = useState(null);
 
   const isCompletedTask = (task = {}) => {
@@ -45,7 +47,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   }));
 
   const filteredData = mappedTasks.filter((item) => {
-    const matchesSearchText = matchesSearch(searchText, item);
+    const matchesSearchText = matchesSearch(debouncedSearchText, item);
 
     let matchesDate = true;
     if (dateRange && dateRange[0] && dateRange[1] && item.date) {

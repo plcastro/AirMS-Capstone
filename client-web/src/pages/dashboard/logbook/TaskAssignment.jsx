@@ -44,6 +44,7 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
@@ -384,6 +385,7 @@ export default function TaskAssignment() {
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [activeTab, setActiveTab] = useState("assigned");
   const [taskCalendarEnabled] = useState(getTaskCalendarFeatureFlag);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -697,8 +699,8 @@ export default function TaskAssignment() {
   }, [activeTab, isManager, myTasks, selectedAircraft]);
 
   const displayedTasks = useMemo(() => {
-    return filteredByTab.filter((task) => matchesSearch(query, task));
-  }, [filteredByTab, query]);
+    return filteredByTab.filter((task) => matchesSearch(debouncedQuery, task));
+  }, [debouncedQuery, filteredByTab]);
 
   const calendarTasks = useMemo(() => {
     return myTasks.filter((task) => {
@@ -710,9 +712,9 @@ export default function TaskAssignment() {
         return false;
       }
 
-      return matchesSearch(query, task);
+      return matchesSearch(debouncedQuery, task);
     });
-  }, [isManager, myTasks, query, selectedAircraft]);
+  }, [debouncedQuery, isManager, myTasks, selectedAircraft]);
 
   const counts = useMemo(
     () => ({

@@ -36,6 +36,7 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { subscribeRealtime } from "../../../utils/realtimeSocket";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import "./Messaging.css";
 
 const { Text } = Typography;
@@ -140,6 +141,7 @@ export default function Messaging() {
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -428,8 +430,8 @@ export default function Messaging() {
         ).getTime();
         return secondTime - firstTime;
       });
-    return merged.filter((item) => matchesSearch(searchText, item));
-  }, [conversations, searchText, users]);
+    return merged.filter((item) => matchesSearch(debouncedSearchText, item));
+  }, [conversations, debouncedSearchText, users]);
 
   const selectedConversationDetails = useMemo(() => {
     if (!selectedConversation) return null;

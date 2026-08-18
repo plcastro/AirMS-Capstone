@@ -42,6 +42,7 @@ import {
   drawPdfReportHeader,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
@@ -77,6 +78,7 @@ export default function UserLogs() {
   const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(7, "days"),
@@ -164,8 +166,10 @@ export default function UserLogs() {
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
 
-    if (searchQuery.trim() !== "") {
-      filtered = filtered.filter((log) => matchesSearch(searchQuery, log));
+    if (debouncedSearchQuery.trim() !== "") {
+      filtered = filtered.filter((log) =>
+        matchesSearch(debouncedSearchQuery, log),
+      );
     }
 
     if (selectedActionType !== "all") {
@@ -185,7 +189,7 @@ export default function UserLogs() {
     return filtered;
   }, [
     allUserLogs,
-    searchQuery,
+    debouncedSearchQuery,
     selectedActionType,
     selectedScope,
     selectedScopeValue,

@@ -20,6 +20,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Title, Text } = Typography;
 
@@ -69,6 +70,7 @@ const formatDueBasis = (basis) => {
 export default function MaintenancePriority() {
   const { getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
   const [priorityData, setPriorityData] = useState([]);
@@ -260,9 +262,11 @@ export default function MaintenancePriority() {
   };
 
   const filteredData = useMemo(() => {
-    if (!searchText.trim()) return priorityData;
-    return priorityData.filter((item) => matchesSearch(searchText, item));
-  }, [priorityData, searchText]);
+    if (!debouncedSearchText.trim()) return priorityData;
+    return priorityData.filter((item) =>
+      matchesSearch(debouncedSearchText, item),
+    );
+  }, [debouncedSearchText, priorityData]);
 
   const stats = useMemo(() => {
     const criticalCount = priorityData.filter(

@@ -38,6 +38,7 @@ import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
 const STATUS_OPTIONS = ["all", "pending", "completed"];
@@ -88,6 +89,7 @@ export default function PostInspection() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [aircraft, setAircraft] = useState("all");
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
@@ -176,14 +178,14 @@ export default function PostInspection() {
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const matchesQuery = matchesSearch(query, item);
+        const matchesQuery = matchesSearch(debouncedQuery, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, query, aircraft, status],
+    [records, debouncedQuery, aircraft, status],
   );
 
   const booleanFields = useMemo(

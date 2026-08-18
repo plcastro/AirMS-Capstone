@@ -24,6 +24,7 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import {
   drawPdfReportHeader,
@@ -207,6 +208,7 @@ export default function MaintenanceDashboard() {
   const { user, getAuthHeader } = useContext(AuthContext);
   const canExportReports = canExportModule(user?.jobTitle, "reports");
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [selectedFileType, setSelectedFileType] = useState("PDF");
   const [fileTypeOptions] = useState(["PDF", "Excel"]);
   const [tasks, setTasks] = useState([]);
@@ -539,7 +541,7 @@ export default function MaintenanceDashboard() {
 
   const filteredCards = cards
     .map((card) => {
-      const query = searchText.trim().toLowerCase();
+      const query = debouncedSearchText.trim().toLowerCase();
       if (!query) return { ...card, relevance: 1 };
 
       const tokens = query
@@ -590,10 +592,10 @@ export default function MaintenanceDashboard() {
     return [...knownGroups, ...otherGroups];
   }, [groupedFilteredCards]);
   const topMatchedCard = useMemo(
-    () => (searchText.trim() ? filteredCards[0] || null : null),
-    [searchText, filteredCards],
+    () => (debouncedSearchText.trim() ? filteredCards[0] || null : null),
+    [debouncedSearchText, filteredCards],
   );
-  const hasActiveSearch = searchText.trim().length > 0;
+  const hasActiveSearch = debouncedSearchText.trim().length > 0;
   const remainingCardsByGroup = useMemo(() => {
     if (!topMatchedCard) return orderedReportGroups;
     return orderedReportGroups
