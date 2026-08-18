@@ -7,6 +7,7 @@ const Docxtemplater = require("docxtemplater");
 const sharp = require("sharp");
 const PDFDocument = require("pdfkit");
 const UserModel = require("../models/userModel");
+const POST_INSPECTION_PDF_GROUPS = require("./postInspectionPdfCatalog");
 
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
 const EXPORT_TMP_DIR = path.join(__dirname, "../tmp/inspection-exports");
@@ -1518,15 +1519,6 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
 const getPreInspectionPdf = (inspection) =>
   getPreInspectionPdfDirect(inspection);
 
-const POST_INSPECTION_PDF_SECTIONS = [
-  ["station1_", "STATION 1"],
-  ["station2_", "STATION 2"],
-  ["engine_", "ENGINE AND ENGINE BAY"],
-  ["station3_", "STATION 3"],
-  ["mainRotor_", "MAIN ROTOR HEAD"],
-  ["cabin_", "CABIN INTERIOR"],
-];
-
 const getPostInspectionPdfDirect = async (inspection = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
@@ -1538,38 +1530,51 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 36 });
     const chunks = [];
-    const left = 42;
-    const right = doc.page.width - 42;
-    const statusX = right - 126;
-    const initialX = right - 58;
-    const itemWidth = statusX - left - 12;
+    const itemX = 42;
+    const contentRight = doc.page.width - 42;
+    const statusX = contentRight - 126;
+    const initialX = contentRight - 58;
+    const descriptionX = 245;
+    const itemWidth = descriptionX - itemX - 28;
+    const descriptionWidth = statusX - descriptionX - 4;
+    let currentGroupTitle = "";
+
+    const openImage = (buffer) => {
+      if (!buffer) return null;
+      try {
+        return doc.openImage(buffer);
+      } catch {
+        return null;
+      }
+    };
+    const releasedSignatureImage = openImage(releasedSignature);
+    const checkImageAsset = openImage(checkImage);
+    const ngcpLogoImage = openImage(ngcpLogo);
 
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
     const drawHeader = () => {
-      drawNgcpLogo(doc, ngcpLogo, left, 32, 96, 42);
+      drawNgcpLogo(doc, ngcpLogoImage, 42, 34, 96, 42);
       doc
         .font("Helvetica-Bold")
-        .fontSize(17)
-        .text("AS 350 B3e POST-FLIGHT INSPECTION", 182, 51, {
-          width: 388,
-          align: "center",
+        .fontSize(18)
+        .text("AS 350 B3e 360\u00B0 POST-FLIGHT INSPECTION", 182, 54, {
           lineBreak: false,
         });
-      drawPdfLine(doc, 182, 74, right, 74);
+      drawPdfLine(doc, 182, 76, 525, 76);
 
-      doc.fontSize(11).text("RP-C", left, 100);
+      doc.fontSize(12).text("RP-C", itemX, 118);
       doc
         .font("Helvetica")
         .fontSize(9)
-        .text(inspection.rpc || "", 82, 101, {
+        .text(inspection.rpc || "", 82, 119, {
           width: 104,
           lineBreak: false,
         });
-      drawPdfLine(doc, 82, 114, 186, 114);
-      doc.font("Helvetica-Bold").fontSize(11).text("Date", 470, 100);
+      drawPdfLine(doc, 82, 132, 186, 132);
+      doc.font("Helvetica-Bold").fontSize(12).text("Date", 470, 118);
       doc
         .font("Helvetica")
         .fontSize(9)
@@ -1580,85 +1585,128 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
               inspection.createdAt,
           ),
           505,
-          101,
+          119,
           { width: 66, align: "center", lineBreak: false },
         );
-      drawPdfLine(doc, 505, 114, 571, 114);
+      drawPdfLine(doc, 505, 132, 571, 132);
 
-      doc.font("Helvetica-Bold").fontSize(8).text("INSPECTION ITEM", left, 130);
-      doc.text("STATUS", statusX, 130, { width: 48, align: "center" });
-      doc.text("INITIAL", initialX, 130, { width: 52, align: "center" });
-      drawPdfLine(doc, left, 143, right, 143);
-      doc.y = 149;
+      doc.font("Helvetica").fontSize(9).text("Status", statusX, 150);
+      drawPdfLine(doc, statusX, 164, statusX + 40, 164);
+      doc.text("Initial", initialX, 150);
+      drawPdfLine(doc, initialX, 164, initialX + 38, 164);
+      doc.y = 150;
     };
 
-    const ensureSpace = (height) => {
-      if (doc.y + height <= doc.page.height - 52) return;
+    const drawGroupHeading = (title) => {
+      doc.font("Helvetica").fontSize(9).moveDown(1.15);
+      const y = doc.y;
+      const heading = title.toUpperCase();
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(12)
+        .text(heading, itemX, y, { lineBreak: false });
+      drawPdfLine(
+        doc,
+        itemX,
+        y + 14,
+        itemX + doc.widthOfString(heading),
+        y + 14,
+      );
+      doc.y = y + 19;
+    };
+
+    const ensureSpace = (height, repeatGroup = false) => {
+      if (doc.y + height <= doc.page.height - 52) return false;
       doc.addPage();
       drawHeader();
+      if (repeatGroup && currentGroupTitle) {
+        drawGroupHeading(currentGroupTitle);
+      }
+      return true;
+    };
+
+    const getRowHeight = (title, description, number) => {
+      doc.font("Helvetica").fontSize(8.7);
+      const titleHeight = doc.heightOfString(`${number}. ${title}`, {
+        width: itemWidth,
+        lineGap: 0,
+      });
+      const descriptionHeight = doc.heightOfString(description, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      return (
+        Math.max(11, Math.ceil(titleHeight), Math.ceil(descriptionHeight)) + 1
+      );
+    };
+
+    const drawChecklistItem = (key, title, description, number) => {
+      const rowHeight = getRowHeight(title, description, number);
+      ensureSpace(rowHeight, true);
+      const y = doc.y;
+      const lineY = y + rowHeight - 1;
+
+      doc.font("Helvetica").fontSize(8.7).fillColor("#000");
+      doc.text(`${number}. ${title}`, itemX, y, {
+        width: itemWidth,
+        height: rowHeight,
+        lineGap: 0,
+      });
+      doc.text("-", descriptionX - 22, y, { lineBreak: false });
+      doc.text(description, descriptionX, y, {
+        width: descriptionWidth,
+        height: rowHeight,
+        lineGap: 0,
+      });
+      drawPdfLine(doc, statusX, lineY, statusX + 48, lineY);
+      drawPdfLine(doc, initialX, lineY, initialX + 52, lineY);
+
+      if (inspection[key] === true) {
+        if (checkImageAsset) {
+          doc.image(checkImageAsset, statusX + 18, lineY - 12, {
+            fit: [12, 12],
+          });
+        }
+        drawSignature(
+          doc,
+          releasedSignatureImage,
+          initialX + 2,
+          lineY - 18,
+          48,
+          18,
+        );
+      }
+
+      doc.y = y + rowHeight;
+    };
+
+    const drawGroup = (group) => {
+      currentGroupTitle = group.title;
+      const firstItem = group.items[0];
+      const firstRowHeight = firstItem
+        ? getRowHeight(firstItem[1], firstItem[2], 1)
+        : 0;
+      ensureSpace(32 + firstRowHeight);
+      drawGroupHeading(group.title);
+      group.items.forEach(([key, title, description], index) =>
+        drawChecklistItem(key, title, description, index + 1),
+      );
     };
 
     drawHeader();
+    POST_INSPECTION_PDF_GROUPS.forEach(drawGroup);
 
-    POST_INSPECTION_PDF_SECTIONS.forEach(([prefix, title]) => {
-      const items = Object.entries(inspection).filter(
-        ([key, value]) => key.startsWith(prefix) && typeof value === "boolean",
-      );
-      if (!items.length) return;
-
-      ensureSpace(30);
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(10)
-        .text(title, left, doc.y + 4);
-      doc.y += 19;
-
-      items.forEach(([key, checked], index) => {
-        const label = formatFieldLabel(key.slice(prefix.length));
-        doc.font("Helvetica").fontSize(8);
-        const textHeight = Math.max(
-          11,
-          doc.heightOfString(`${index + 1}. ${label}`, {
-            width: itemWidth,
-          }),
-        );
-        const rowHeight = textHeight + 5;
-        ensureSpace(rowHeight);
-        const y = doc.y;
-
-        doc.text(`${index + 1}. ${label}`, left, y, { width: itemWidth });
-        drawPdfLine(
-          doc,
-          statusX,
-          y + rowHeight - 3,
-          statusX + 48,
-          y + rowHeight - 3,
-        );
-        drawPdfLine(
-          doc,
-          initialX,
-          y + rowHeight - 3,
-          initialX + 52,
-          y + rowHeight - 3,
-        );
-        if (checked && checkImage) {
-          doc.image(checkImage, statusX + 18, y - 1, { fit: [12, 12] });
-          drawSignature(doc, releasedSignature, initialX + 2, y - 5, 48, 16);
-        }
-        doc.y = y + rowHeight;
-      });
-    });
-
-    ensureSpace(145);
+    currentGroupTitle = "";
+    ensureSpace(158);
     const signY = doc.y + 24;
-    doc.font("Helvetica").fontSize(10).text("Released by:", left, signY);
-    drawSignature(doc, releasedSignature, 72, signY + 12, 105, 38);
+    doc.font("Helvetica").fontSize(10).text("Released by:", itemX, signY);
+    drawSignature(doc, releasedSignatureImage, 72, signY + 12, 105, 38);
     doc.fontSize(9).text(inspection.releasedBy?.name || "", 62, signY + 52, {
       width: 170,
       align: "center",
       lineBreak: false,
     });
-    drawPdfLine(doc, left, signY + 68, 250, signY + 68);
+    drawPdfLine(doc, itemX, signY + 68, 250, signY + 68);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
@@ -1677,7 +1725,7 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
         signY + 101,
         { width: 170, align: "center", lineBreak: false },
       );
-    drawPdfLine(doc, left, signY + 115, 250, signY + 115);
+    drawPdfLine(doc, itemX, signY + 115, 250, signY + 115);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
