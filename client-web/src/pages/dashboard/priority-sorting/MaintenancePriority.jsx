@@ -250,6 +250,12 @@ export default function MaintenancePriority() {
 
     setDraftRules(DEFAULT_RULES);
     setRules(DEFAULT_RULES);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Reset!",
+      subTitle: "Maintenance priority rules have been reset to default values.",
+    });
     await fetchPriorityData(DEFAULT_RULES);
   };
 
