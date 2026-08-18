@@ -433,9 +433,12 @@ export default function MaintenanceTracking() {
         result.meta?.llmLastResult || refreshedHealth?.lastResult || {};
 
       if (llmCount > 0) {
-        message.success(
-          `Updated ${llmCount} OpenAI maintenance summar${llmCount === 1 ? "y" : "ies"}.`,
-        );
+        setPopup({
+          open: true,
+          status: "success",
+          title: "AI Insights Regenerated",
+          subTitle: `Successfully updated ${llmCount} OpenAI maintenance summar${llmCount === 1 ? "y" : "ies"}.`,
+        });
       } else if (refreshedHealth?.cooldown?.active) {
         message.warning(
           `OpenAI did not return summaries because quota is cooling down. Rule recommendations and references were refreshed. Try again in ${
