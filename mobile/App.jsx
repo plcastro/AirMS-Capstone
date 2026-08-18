@@ -1,5 +1,6 @@
 import React, { useContext, useEffect } from "react";
 import AppText from "./components/common/AppText";
+import ToastHost from "./components/common/ToastHost";
 import {
   Platform,
   Image,
@@ -519,6 +520,7 @@ function AppProviders() {
     <NotificationProvider>
       <PaperProvider theme={theme}>
         <AppShell linking={linking} />
+        <ToastHost />
       </PaperProvider>
     </NotificationProvider>
   );
