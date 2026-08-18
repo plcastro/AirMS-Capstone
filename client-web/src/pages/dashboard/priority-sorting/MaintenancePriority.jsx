@@ -178,6 +178,12 @@ export default function MaintenancePriority() {
     if (!confirmed) return;
 
     setRules(draftRules);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Applied!",
+      subTitle: "Maintenance priority rules have been applied successfully.",
+    });
     await fetchPriorityData(draftRules);
   };
 
