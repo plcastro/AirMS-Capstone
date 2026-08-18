@@ -20,6 +20,7 @@ export default function MaintenanceEntryModal({
 }) {
   const [form] = Form.useForm();
   const [dateError, setDateError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const isEditMode = !!entry;
 
@@ -48,7 +49,7 @@ export default function MaintenanceEntryModal({
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   };
 
-  const handleFinish = (values) => {
+  const handleFinish = async (values) => {
     // Validate rectified date
     if (
       values.dateDefectRectified &&
@@ -73,11 +74,17 @@ export default function MaintenanceEntryModal({
         : "N/A",
     };
 
-    onSave?.(formattedEntry);
-    form.resetFields();
+    setSaving(true);
+    try {
+      await onSave?.(formattedEntry);
+      form.resetFields();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
+    if (saving) return;
     form.resetFields();
     onClose();
   };
@@ -90,10 +97,16 @@ export default function MaintenanceEntryModal({
       zIndex={3000}
       onCancel={handleCancel}
       footer={[
-        <Button key="cancel" onClick={handleCancel}>
+        <Button key="cancel" onClick={handleCancel} disabled={saving}>
           Cancel
         </Button>,
-        <Button key="save" type="primary" onClick={() => form.submit()}>
+        <Button
+          key="save"
+          type="primary"
+          loading={saving}
+          disabled={saving}
+          onClick={() => form.submit()}
+        >
           {isEditMode ? "Update" : "Save"}
         </Button>,
       ]}
