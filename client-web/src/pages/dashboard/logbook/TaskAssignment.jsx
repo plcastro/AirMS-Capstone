@@ -632,12 +632,7 @@ export default function TaskAssignment() {
     }
 
     return options;
-  }, [
-    editingTask,
-    getTaskAssigneeId,
-    getTaskAssigneeName,
-    mechanics,
-  ]);
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics]);
 
   const aircraftSelectOptions = useMemo(
     () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
@@ -1402,6 +1397,7 @@ export default function TaskAssignment() {
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
           {isManager && (
@@ -1670,6 +1666,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1700,6 +1697,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>

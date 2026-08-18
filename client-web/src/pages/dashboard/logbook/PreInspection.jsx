@@ -953,6 +953,7 @@ export default function PreInspection() {
               placeholder="Search"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
           <Col xs={12} md={4}>
@@ -1045,8 +1046,7 @@ export default function PreInspection() {
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> pre-flight inspection
-            log(s)
+            Showing <Text strong>{filtered.length}</Text> Log(s)
           </Text>
         </Col>
       </Row>
@@ -1174,6 +1174,7 @@ export default function PreInspection() {
                           size="large"
                           style={{ width: "100%" }}
                           format="MM/DD/YYYY"
+                          inputReadOnly
                           value={
                             draft.date ? dayjs(draft.date, "MM/DD/YYYY") : null
                           }
@@ -1203,6 +1204,8 @@ export default function PreInspection() {
                             }))
                           }
                           placeholder="Fuel On Board"
+                          min={0}
+                          max={100}
                         />
                       </Col>
                     </Row>
@@ -1330,6 +1333,7 @@ export default function PreInspection() {
                   size="large"
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
+                  inputReadOnly
                   value={
                     editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
                   }

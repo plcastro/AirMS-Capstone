@@ -6,10 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Image
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogModalInfo from "./FlightLogModalInfo";
@@ -24,6 +23,7 @@ import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
 
 const parseDate = (dateValue) => {
@@ -125,6 +125,7 @@ export default function FlightLogEditEntry({
   logData,
   onClose,
   onSave,
+  onCompleted,
   userRole,
   currentUser,
   readOnly = false,
@@ -417,19 +418,14 @@ export default function FlightLogEditEntry({
       };
 
       const url = `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`;
-      const token = await AsyncStorage.getItem("currentUserToken");
-
-      console.log("🔗 Complete PUT URL:", url);
-      console.log("📦 Payload:", payload);
+      const authHeaders = await getAuthHeaders({
+        Accept: "application/json",
+        "x-action-confirmed": "true",
+      });
 
       const response = await fetch(url, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "x-action-confirmed": "true",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           ...payload,
           confirmAction: true,
@@ -437,8 +433,6 @@ export default function FlightLogEditEntry({
       });
 
       const text = await response.text();
-      console.log("📨 Response status:", response.status);
-      console.log("📝 Raw response (first 500 chars):", text.substring(0, 500));
 
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
@@ -463,9 +457,28 @@ export default function FlightLogEditEntry({
         );
       }
 
-      const updated = { ...formData, status: "completed" };
+      const completeResponse = await fetch(
+        `${API_BASE}/api/flightlogs/${formData._id}/complete`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders({
+            "x-action-confirmed": "true",
+          }),
+        },
+      );
+      const completeResult = await completeResponse.json();
+      if (!completeResponse.ok || !completeResult.success) {
+        throw new Error(
+          completeResult.message || "Failed to complete flight log.",
+        );
+      }
+
+      const updated = completeResult.data || {
+        ...formData,
+        status: "completed",
+      };
       setFormData(updated);
-      await persistLog(updated, false);
+      await onCompleted?.(updated);
       showFeedbackAlert("Flight log completed and totals updated.");
     } catch (error) {
       console.error("❌ Complete error:", error);

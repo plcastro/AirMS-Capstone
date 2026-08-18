@@ -409,6 +409,7 @@ export default function UserLogs() {
           value={dateRange}
           onChange={handleDateRangeChange}
           format="MM/DD/YYYY"
+          inputReadOnly
           allowClear
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}

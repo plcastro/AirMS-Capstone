@@ -93,7 +93,7 @@ export default function UserForm({
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getValidToken } = useContext(AuthContext);
+  const { user: currentUser, getValidToken } = useContext(AuthContext);
   const [form] = Form.useForm();
   const formValues = Form.useWatch([], form);
 
@@ -107,6 +107,10 @@ export default function UserForm({
   const firstNameValue = Form.useWatch("firstName", form) || "";
   const lastNameValue = Form.useWatch("lastName", form) || "";
   const jobTitleValue = Form.useWatch("jobTitle", form) || "";
+  const isEditingSelf =
+    Boolean(user) &&
+    String(user?._id || user?.id || "") ===
+      String(currentUser?._id || currentUser?.id || "");
 
   const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
     const initials =
@@ -171,7 +175,9 @@ export default function UserForm({
   }, [firstNameValue, lastNameValue, user, allUsers, form]);
 
   useEffect(() => {
-    form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
+    if (!isEditingSelf) {
+      form.setFieldValue("access", ROLE_MAP[jobTitleValue] || "");
+    }
 
     const requiresLicense = [
       "maintenance manager",
@@ -185,7 +191,7 @@ export default function UserForm({
     } else if (user) {
       form.setFieldValue("licenseNo", user.licenseNo);
     }
-  }, [jobTitleValue, user, form]);
+  }, [jobTitleValue, user, form, isEditingSelf]);
 
   const handleSave = async (values) => {
     setLoading(true);
@@ -295,7 +301,7 @@ export default function UserForm({
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle: "Something went wrong. Please try again.",
+        subTitle: err.message || "Something went wrong. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -566,6 +572,7 @@ export default function UserForm({
                   >
                     <Select
                       size="large"
+                      disabled={isEditingSelf}
                       options={[
                         { label: "Superadmin", value: "Superadmin" },
                         {
@@ -585,6 +592,12 @@ export default function UserForm({
                       ]}
                     />
                   </Form.Item>
+                  {isEditingSelf ? (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Your own job title and access level are managed by another
+                      Superadmin.
+                    </Text>
+                  ) : null}
                 </Col>
 
                 <Col xs={24} md={12}>

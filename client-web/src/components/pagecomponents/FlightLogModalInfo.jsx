@@ -202,6 +202,7 @@ export default function FlightLogModalInfo({
               className="fl-input"
               style={{ width: "100%" }}
               format="MM/DD/YYYY"
+              inputReadOnly
               value={parseDatePickerValue(formData.date)}
               onChange={(date) =>
                 updateForm(

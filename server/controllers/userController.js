@@ -197,6 +197,19 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
   );
 };
 
+const invalidateUserSessions = async (userId, reason) => {
+  if (!userId) return;
+
+  const now = new Date();
+  await Promise.all([
+    UserSession.updateMany(
+      { userId, isActive: true },
+      { isActive: false, logoutAt: now, lastActivityAt: now },
+    ),
+    revokeAllUserRefreshTokens(userId, reason),
+  ]);
+};
+
 const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
   if (!userId || !keepTokenHash) return;
   await RefreshToken.updateMany(
@@ -1558,6 +1571,16 @@ const updateUser = async (req, res) => {
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    const isSelfUpdate = String(req.user?.id || "") === String(user._id);
+    const roleOrAccessChanged =
+      jobTitle !== user.jobTitle || access !== user.access;
+
+    if (isSelfUpdate && roleOrAccessChanged) {
+      return res.status(403).json({
+        message: "You cannot change your own role or access level.",
+      });
+    }
+
     const existingEmail = await UserModel.findOne({
       email,
       _id: { $ne: id },
@@ -1616,6 +1639,13 @@ const updateUser = async (req, res) => {
       runValidators: true,
     });
     // console.log(updatedUser.username);
+
+    if (roleOrAccessChanged) {
+      await invalidateUserSessions(
+        updatedUser._id,
+        "User role/access changed by administrator",
+      );
+    }
 
     if (changedFields.length > 0) {
       const audit = withActorId(

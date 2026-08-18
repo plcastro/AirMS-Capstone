@@ -19,6 +19,12 @@ import { resolveUserRole } from "../../../shared/navigationAccess";
 const TASK_CALENDAR_STORAGE_KEY = "airms.taskCalendar.enabled";
 const TASK_CALENDAR_ENV_ENABLED =
   process.env.EXPO_PUBLIC_TASK_CALENDAR_ENABLED === "true";
+const OPEN_TASK_STATUSES = new Set(["pending", "returned", "ongoing"]);
+const COMPLETED_TASK_STATUSES = new Set([
+  "completed",
+  "turned in",
+  "approved",
+]);
 const CALENDAR_COLORS = [
   { bg: "#E6F4FF", border: "#91CAFF", text: "#0958D9" },
   { bg: "#F6FFED", border: "#B7EB8F", text: "#237804" },
@@ -68,6 +74,11 @@ const isTaskOnCalendarDate = (task, date) => {
 
   return start <= endOfDay(date) && end >= startOfDay(date);
 };
+
+const normalizeTaskStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
 
 const getCalendarDays = (monthDate) => {
   const year = monthDate.getFullYear();
@@ -181,14 +192,17 @@ export default function TaskTabs({
         case "Tasks":
           return tasks;
         case "Submitted":
-          return tasks.filter(
-            (t) => t.status === "Completed" || t.status === "Turned in",
+          return tasks.filter((task) =>
+            ["completed", "turned in"].includes(
+              normalizeTaskStatus(task.status),
+            ),
           );
         default:
           return [];
       }
     } else {
       return tasks.filter((task) => {
+        const taskStatus = normalizeTaskStatus(task.status);
         const deadline = task.endDateTime || task.dueDate;
         if (!deadline) return false;
         const dueDate = new Date(deadline);
@@ -201,25 +215,11 @@ export default function TaskTabs({
 
         switch (activeTab) {
           case "Upcoming":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              !isPastDue
-            );
+            return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
           case "Past Due":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              isPastDue
-            );
+            return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
           case "Completed":
-            return (
-              task.status === "Completed" ||
-              task.status === "Turned in" ||
-              task.status === "Approved"
-            );
+            return COMPLETED_TASK_STATUSES.has(taskStatus);
           default:
             return false;
         }
@@ -229,6 +229,7 @@ export default function TaskTabs({
 
   const getMechanicTabCount = (tab) =>
     tasks.filter((task) => {
+      const taskStatus = normalizeTaskStatus(task.status);
       const deadline = task.endDateTime || task.dueDate;
       if (!deadline) return false;
 
@@ -238,25 +239,11 @@ export default function TaskTabs({
 
       switch (tab) {
         case "Upcoming":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            !isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
         case "Past Due":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
         case "Completed":
-          return (
-            task.status === "Completed" ||
-            task.status === "Turned in" ||
-            task.status === "Approved"
-          );
+          return COMPLETED_TASK_STATUSES.has(taskStatus);
         default:
           return false;
       }

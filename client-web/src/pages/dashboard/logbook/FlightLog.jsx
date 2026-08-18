@@ -84,6 +84,7 @@ export default function FlightLog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [aircraftFilterOptions, setAircraftFilterOptions] = useState([]);
   const [flightLogs, setFlightLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -194,6 +195,36 @@ export default function FlightLog() {
       );
     });
 
+  const addAircraftFilterOptions = useCallback((aircraftValues = []) => {
+    setAircraftFilterOptions((currentOptions) =>
+      Array.from(
+        new Set([
+          ...currentOptions,
+          ...aircraftValues.map((value) => String(value || "").trim()),
+        ]),
+      )
+        .filter(Boolean)
+        .sort((left, right) => left.localeCompare(right)),
+    );
+  }, []);
+
+  const fetchAircraftFilterOptions = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/aircraft-list`,
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to fetch aircraft options");
+      }
+
+      addAircraftFilterOptions(Array.isArray(data.data) ? data.data : []);
+    } catch (error) {
+      console.error("Fetch aircraft filter options error:", error);
+    }
+  }, [addAircraftFilterOptions]);
+
   const hasDestinationInfo = (log = {}) =>
     Array.isArray(log.legs) &&
     log.legs.some(
@@ -273,11 +304,11 @@ export default function FlightLog() {
             ? await fetchAllPages({ status: "pending_release" })
             : [];
 
-        setFlightLogs(
-          sortFlightLogsByDate(
-            mergeFlightLogPages([...allPages, ...pendingReleasePages]),
-          ),
+        const nextFlightLogs = sortFlightLogsByDate(
+          mergeFlightLogPages([...allPages, ...pendingReleasePages]),
         );
+        setFlightLogs(nextFlightLogs);
+        addAircraftFilterOptions(nextFlightLogs.map((log) => log.rpc));
       } catch (error) {
         console.error("Fetch flight logs error:", error);
         setPopup({
@@ -292,7 +323,12 @@ export default function FlightLog() {
         }
       }
     },
-    [normalizeStatusFilterValue, selectedAircraft, selectedStatus],
+    [
+      addAircraftFilterOptions,
+      normalizeStatusFilterValue,
+      selectedAircraft,
+      selectedStatus,
+    ],
   );
 
   const fetchFlightLogById = useCallback(async (flightLogId) => {
@@ -350,7 +386,9 @@ export default function FlightLog() {
         throw new Error(data.message || "Failed to search flight logs");
       }
 
-      setFlightLogs(sortFlightLogsByDate(data.data || []));
+      const nextFlightLogs = sortFlightLogsByDate(data.data || []);
+      setFlightLogs(nextFlightLogs);
+      addAircraftFilterOptions(nextFlightLogs.map((log) => log.rpc));
     } catch (error) {
       console.error("Search flight logs error:", error);
       setPopup({
@@ -744,6 +782,18 @@ export default function FlightLog() {
             completeData.message || "Failed to complete flight log",
           );
         }
+        const completedFlightLog = completeData.data || {
+          ...log,
+          status: "completed",
+        };
+        setSelectedLog(completedFlightLog);
+        setFlightLogs((currentLogs) =>
+          currentLogs.map((currentLog) =>
+            currentLog._id === completedFlightLog._id
+              ? completedFlightLog
+              : currentLog,
+          ),
+        );
         queueWorkflowResult({
           open: true,
           status: "success",
@@ -769,6 +819,10 @@ export default function FlightLog() {
   useEffect(() => {
     fetchFlightLogs();
   }, [fetchFlightLogs]);
+
+  useEffect(() => {
+    fetchAircraftFilterOptions();
+  }, [fetchAircraftFilterOptions]);
 
   useEffect(() => {
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
@@ -823,8 +877,8 @@ export default function FlightLog() {
   }, [fetchFlightLogs, location.search, normalizeStatusFilterValue]);
 
   const aircraftOptions = useMemo(
-    () => ["all", ...new Set(flightLogs.map((log) => log.rpc).filter(Boolean))],
-    [flightLogs],
+    () => ["all", ...aircraftFilterOptions],
+    [aircraftFilterOptions],
   );
 
   const statusOptions = [
@@ -1289,7 +1343,7 @@ export default function FlightLog() {
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filteredLogs.length}</Text> flight log(s)
+            Showing <Text strong>{filteredLogs.length}</Text> Log(s)
           </Text>
         </Col>
       </Row>

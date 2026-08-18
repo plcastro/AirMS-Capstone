@@ -175,6 +175,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
             <RangePicker
               onChange={(values) => setDateRange(values)}
               format="MM/DD/YYYY"
+              inputReadOnly
             />
             {(searchText || dateRange) && (
               <Button

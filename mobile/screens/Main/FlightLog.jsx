@@ -754,6 +754,7 @@ export default function FlightLog({ route, navigation }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? `RP-C: ${selectedAircraft}`
@@ -804,7 +805,7 @@ export default function FlightLog({ route, navigation }) {
                 color={COLORS.primaryLight}
                 style={{ marginRight: 6 }}
               />
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((opt) => opt.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>
@@ -944,6 +945,11 @@ export default function FlightLog({ route, navigation }) {
           setSelectedLog(null);
         }}
         onSave={handleSaveEdit}
+        onCompleted={async (updatedLog) => {
+          setSelectedLog(updatedLog);
+          await fetchFlightLogs({ silent: true });
+          await fetchNotifications();
+        }}
         userRole={userRole}
         currentUser={user}
         readOnly={

@@ -24,6 +24,10 @@ const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
+const normalizeTaskStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
 
 export default function HeadTaskScreen({
   targetTaskId,
@@ -178,7 +182,9 @@ export default function HeadTaskScreen({
         if (response.ok) {
           const data = await response.json();
           const mechanics = (data.data || []).filter(
-            (user) => isAssignableUser(user) && user.status === "active",
+            (user) =>
+              isAssignableUser(user) &&
+              normalizeTaskStatus(user.status) === "active",
           );
           const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
@@ -202,21 +208,18 @@ export default function HeadTaskScreen({
 
   const filteredTasks = tasks.filter((task) => {
     if (!matchesSearch(searchQuery, task)) return false;
+    const taskStatus = normalizeTaskStatus(task.status);
 
     switch (activeTab) {
       case "Assigned":
-        return (
-          task.status === "Pending" ||
-          task.status === "Ongoing" ||
-          task.status === "Returned"
-        );
+        return OPEN_TASK_STATUSES.has(taskStatus);
       case "For Review":
         return (
-          task.status === "Turned in" ||
-          (task.status === "Completed" && !task.isApproved)
+          taskStatus === "turned in" ||
+          (taskStatus === "completed" && !task.isApproved)
         );
       case "Reviewed":
-        return task.isApproved === true || task.status === "Approved";
+        return task.isApproved === true || taskStatus === "approved";
       default:
         return false;
     }
@@ -224,20 +227,18 @@ export default function HeadTaskScreen({
 
   const getTabCount = (tab) =>
     tasks.filter((task) => {
+      const taskStatus = normalizeTaskStatus(task.status);
+
       switch (tab) {
         case "Assigned":
-          return (
-            task.status === "Pending" ||
-            task.status === "Ongoing" ||
-            task.status === "Returned"
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus);
         case "For Review":
           return (
-            task.status === "Turned in" ||
-            (task.status === "Completed" && !task.isApproved)
+            taskStatus === "turned in" ||
+            (taskStatus === "completed" && !task.isApproved)
           );
         case "Reviewed":
-          return task.isApproved === true || task.status === "Approved";
+          return task.isApproved === true || taskStatus === "approved";
         default:
           return false;
       }
@@ -505,7 +506,8 @@ export default function HeadTaskScreen({
 
   const renderTask = ({ item }) => {
     const showEditDelete =
-      activeTab === "Assigned" && item.status === "Pending";
+      activeTab === "Assigned" &&
+      normalizeTaskStatus(item.status) === "pending";
 
     return (
       <View>

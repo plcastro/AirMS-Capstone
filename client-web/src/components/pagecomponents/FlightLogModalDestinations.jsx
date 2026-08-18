@@ -107,6 +107,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                       className="fl-input"
                       style={{ width: "100%" }}
                       format="MM/DD/YYYY"
+                      inputReadOnly
                       value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
                       onChange={(date) =>
                         updateLeg(

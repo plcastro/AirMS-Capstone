@@ -18,8 +18,8 @@ export default function LoginLayout({ children, cardTitle, cardsubTitle }) {
   const isSmall = width < 390;
   const isShort = height < 680;
   const sheetHeight = Math.min(
-    Math.max(390, Math.round(height * 0.72)),
-    height - 144,
+    Math.max(420, Math.round(height * 0.78)),
+    height - 104,
   );
   const heroImageHeight = Math.round(
     width * (HERO_IMAGE_SIZE.height / HERO_IMAGE_SIZE.width),

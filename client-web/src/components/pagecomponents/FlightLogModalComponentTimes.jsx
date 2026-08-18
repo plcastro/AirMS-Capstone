@@ -71,6 +71,7 @@ export default function FlightLogModalComponentTimes({
                         className="fl-input"
                         style={{ width: "100%" }}
                         format="MM/DD/YYYY"
+                        inputReadOnly
                         value={parseDatePickerValue(value)}
                         onChange={(date) =>
                           updateComponent(

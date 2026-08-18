@@ -17,12 +17,15 @@ import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
 
-const getDisplayStatus = (status) =>
-  status === "completed"
+const getDisplayStatus = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  return normalizedStatus === "completed"
     ? "completed"
-    : status === "released"
+    : normalizedStatus === "released"
       ? "released"
       : "pending";
+};
 
 const isCompletedInspection = (inspection) =>
   String(inspection?.status || "").toLowerCase() === "completed";
@@ -223,6 +226,7 @@ export default function PreInspection({ route }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
                   ? selectedAircraft
@@ -267,7 +271,7 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>

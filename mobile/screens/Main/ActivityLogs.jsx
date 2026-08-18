@@ -373,6 +373,7 @@ export default function ActivityLogs() {
 
     return (
       <View
+        key={filterKey}
         style={[
           styles.filterDropdownWrap,
           widthStyle,
@@ -431,6 +432,31 @@ export default function ActivityLogs() {
       </View>
     );
   };
+
+  const filterControls = [
+    {
+      filterKey: "action",
+      label: "Action Type",
+      selectedLabel: selectedActionLabel,
+      options: ACTION_TYPE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setActionType, value),
+    },
+    {
+      filterKey: "dateRange",
+      label: "Date Range",
+      selectedLabel: selectedDateRangeLabel,
+      options: DATE_RANGE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
+    },
+    {
+      filterKey: "scope",
+      label: "Scope",
+      selectedLabel: selectedScopeLabel,
+      options: scopeOptions,
+      onSelect: (value) => selectFilterValue(setScopeFilter, value),
+    },
+  ];
+  const shouldScrollFilters = filterControls.length > 2;
 
   const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -507,31 +533,30 @@ export default function ActivityLogs() {
           />
         }
       >
-        <View style={styles.filtersRow}>
-          {renderFilterDropdown({
-            filterKey: "action",
-            label: "Action Type",
-            selectedLabel: selectedActionLabel,
-            options: ACTION_TYPE_OPTIONS,
-            onSelect: (value) => selectFilterValue(setActionType, value),
-          })}
-
-          {renderFilterDropdown({
-            filterKey: "dateRange",
-            label: "Date Range",
-            selectedLabel: selectedDateRangeLabel,
-            options: DATE_RANGE_OPTIONS,
-            onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
-          })}
-
-          {renderFilterDropdown({
-            filterKey: "scope",
-            label: "Scope",
-            selectedLabel: selectedScopeLabel,
-            options: scopeOptions,
-            onSelect: (value) => selectFilterValue(setScopeFilter, value),
-          })}
-        </View>
+        {shouldScrollFilters ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            contentContainerStyle={styles.filtersScrollContent}
+            style={[
+              styles.filtersScroll,
+              openFilter ? styles.filtersScrollOpen : null,
+            ]}
+          >
+            {filterControls.map((filter) =>
+              renderFilterDropdown({
+                ...filter,
+                widthStyle: styles.scrollableFilterDropdownWrap,
+              }),
+            )}
+          </ScrollView>
+        ) : (
+          <View style={styles.filtersRow}>
+            {filterControls.map((filter) => renderFilterDropdown(filter))}
+          </View>
+        )}
 
         {canExportActivityLogs && (
           <TouchableOpacity
@@ -567,12 +592,17 @@ export default function ActivityLogs() {
             series={ACTIVITY_TREND_SERIES}
             xKey="label"
           />
-          <View style={styles.kpiRow}>
+          <View style={styles.legendRow}>
             {AUDIT_ACTION_CHART_CATEGORIES.map((category) => (
-              <View key={category.value} style={styles.kpiChip}>
-                <AppText style={styles.kpiLabel}>{category.label}</AppText>
-                <AppText style={styles.kpiValue}>
-                  {actionCounts[category.value] || 0}
+              <View key={category.value} style={styles.legendItem}>
+                <View
+                  style={[
+                    styles.legendDot,
+                    { backgroundColor: category.color },
+                  ]}
+                />
+                <AppText style={styles.legendText} numberOfLines={1}>
+                  {category.label} ({actionCounts[category.value] || 0})
                 </AppText>
               </View>
             ))}
@@ -702,9 +732,28 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     zIndex: 20,
   },
+  filtersScroll: {
+    height: 48,
+    marginBottom: 20,
+    overflow: "visible",
+    zIndex: 20,
+  },
+  filtersScrollOpen: {
+    height: 312,
+    zIndex: 1000,
+  },
+  filtersScrollContent: {
+    columnGap: 12,
+    paddingRight: 8,
+    overflow: "visible",
+  },
   filterDropdownWrap: {
     flex: 1,
     minWidth: 0,
+  },
+  scrollableFilterDropdownWrap: {
+    flex: 0,
+    width: 172,
   },
   filterDropdownWrapOpen: {
     zIndex: 1000,
@@ -723,6 +772,7 @@ const styles = StyleSheet.create({
   },
   unifiedFilterButtonText: {
     flex: 1,
+    minWidth: 0,
     fontSize: 12,
     color: COLORS.black,
     fontWeight: "600",
@@ -799,26 +849,28 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     marginBottom: 8,
   },
-  kpiRow: {
-    marginTop: 8,
+  legendRow: {
+    marginTop: 6,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    columnGap: 10,
+    rowGap: 5,
   },
-  kpiChip: {
-    backgroundColor: "#F4F7F8",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+  legendItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    maxWidth: "48%",
   },
-  kpiLabel: {
+  legendDot: {
+    borderRadius: 4,
+    height: 7,
+    marginRight: 5,
+    width: 7,
+  },
+  legendText: {
     color: COLORS.grayDark,
     fontSize: 10,
-  },
-  kpiValue: {
-    color: COLORS.black,
-    fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   groupSummaryWrap: { marginTop: 8 },
   groupSummaryTitle: { fontSize: 11, fontWeight: "700", color: COLORS.black },

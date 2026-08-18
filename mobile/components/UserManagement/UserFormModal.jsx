@@ -69,9 +69,12 @@ export default function UserFormModal({
   onSubmit,
   users,
   userToEdit,
+  currentUserId,
   saving,
 }) {
   const isEdit = Boolean(userToEdit?._id);
+  const isEditingSelf =
+    isEdit && String(userToEdit?._id || "") === String(currentUserId || "");
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [imageUri, setImageUri] = useState("");
@@ -341,10 +344,17 @@ export default function UserFormModal({
               />
 
               <AppText style={styles.label}>Job Title</AppText>
-              <View style={styles.pickerWrap}>
+              <View
+                style={[
+                  styles.pickerWrap,
+                  isEditingSelf && styles.disabledInput,
+                ]}
+              >
                 <Picker
                   selectedValue={form.jobTitle}
+                  enabled={!isEditingSelf}
                   onValueChange={(value) => {
+                    if (isEditingSelf) return;
                     updateField("jobTitle", value);
                     updateField("access", ROLE_MAP[value] || "");
                     if (
@@ -360,6 +370,12 @@ export default function UserFormModal({
                   ))}
                 </Picker>
               </View>
+              {isEditingSelf ? (
+                <AppText style={styles.helperText}>
+                  Your own job title and access level are managed by another
+                  Superadmin.
+                </AppText>
+              ) : null}
 
               <AppText style={styles.label}>Access</AppText>
               <AppInput
@@ -489,6 +505,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#C62828",
     fontSize: 12,
+  },
+  helperText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    marginTop: 4,
   },
   actions: {
     flexDirection: "row",

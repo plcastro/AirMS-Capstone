@@ -5,7 +5,16 @@ export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 2 * 60 * 1000;
-const ACTIVITY_EVENTS = ["scroll", "touchstart"];
+const ACTIVITY_EVENTS = [
+  "click",
+  "mousedown",
+  "keydown",
+  "scroll",
+  "wheel",
+  "touchstart",
+  "touchmove",
+  "pointerdown",
+];
 const ACTIVITY_THROTTLE_MS = 1000;
 const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
@@ -39,10 +48,10 @@ export const AuthProvider = ({ children }) => {
   const hasStoredSessionHint = () =>
     Boolean(
       sessionStorage.getItem("currentUser") ||
-        localStorage.getItem("currentUser") ||
-        sessionStorage.getItem("token") ||
-        localStorage.getItem("token") ||
-        localStorage.getItem(SESSION_META_KEY),
+      localStorage.getItem("currentUser") ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem(SESSION_META_KEY),
     );
 
   const normalizeUser = (userData) => ({
@@ -232,7 +241,9 @@ export const AuthProvider = ({ children }) => {
     clearTokenExpiryTimer();
     setUser(null);
     clearAuthStorage();
-    setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
+    setRememberMePreferenceState(
+      localStorage.getItem(REMEMBER_ME_KEY) === "true",
+    );
     if (broadcast) {
       publishAuthSync({ type: "LOGOUT" });
     }
@@ -336,7 +347,9 @@ export const AuthProvider = ({ children }) => {
       clearTokenExpiryTimer();
       setUser(null);
       clearAuthStorage();
-      setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
+      setRememberMePreferenceState(
+        localStorage.getItem(REMEMBER_ME_KEY) === "true",
+      );
       if (broadcast) {
         publishAuthSync({ type: "LOGOUT" });
       }
@@ -489,7 +502,9 @@ export const AuthProvider = ({ children }) => {
           sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
+          setRememberMePreferenceState(
+            localStorage.getItem(REMEMBER_ME_KEY) === "true",
+          );
         }
         if (payload.type === "TOKEN_REFRESH" && payload.token) {
           if (sessionEndedRef.current) return;
@@ -510,7 +525,9 @@ export const AuthProvider = ({ children }) => {
           sessionEndedRef.current = true;
           setUser(null);
           clearAuthStorage();
-          setRememberMePreferenceState(localStorage.getItem(REMEMBER_ME_KEY) === "true");
+          setRememberMePreferenceState(
+            localStorage.getItem(REMEMBER_ME_KEY) === "true",
+          );
           return;
         }
         if (payload.type === "LOGIN" && payload.user && payload.token) {

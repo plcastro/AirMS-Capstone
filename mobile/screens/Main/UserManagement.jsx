@@ -609,6 +609,7 @@ export default function UserManagement() {
         onSubmit={handleSubmitUser}
         users={users}
         userToEdit={userToEdit}
+        currentUserId={currentUserId}
         saving={savingUser}
       />
     </View>
