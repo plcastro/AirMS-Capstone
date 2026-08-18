@@ -536,25 +536,30 @@ export default function Profile() {
                       }}
                     />
                   </Space>
-                  <Space wrap align="center">
-                    <Text type="secondary">Notify within</Text>
-                    <InputNumber
-                      min={1}
-                      max={500}
-                      step={1}
-                      precision={0}
-                      value={aircraftFhDueThreshold}
-                      disabled={!aircraftFhDueNotificationsEnabled}
-                      addonAfter="FH"
-                      onChange={(value) => {
-                        const nextValue = Number(value) || 1;
-                        setAircraftFhDueThreshold(nextValue);
-                        persistWebSettings({
-                          aircraftFhDueThreshold: nextValue,
-                        });
-                      }}
-                      style={{ width: 140 }}
-                    />
+                  <Space orientation="vertical" size={2}>
+                    <Space wrap align="center">
+                      <Text type="secondary">Notify within</Text>
+                      <InputNumber
+                        min={1}
+                        max={500}
+                        step={1}
+                        precision={0}
+                        value={aircraftFhDueThreshold}
+                        disabled={!aircraftFhDueNotificationsEnabled}
+                        addonAfter="FH"
+                        onChange={(value) => {
+                          const nextValue = Number(value) || 1;
+                          setAircraftFhDueThreshold(nextValue);
+                          persistWebSettings({
+                            aircraftFhDueThreshold: nextValue,
+                          });
+                        }}
+                        style={{ width: 140 }}
+                      />
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Minimum is 1 FH. Maximum is 500 FH.
+                    </Text>
                   </Space>
                 </>
               )}

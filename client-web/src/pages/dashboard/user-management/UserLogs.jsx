@@ -46,6 +46,7 @@ import { useDebouncedValue } from "../../../utils/debounce";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const MAX_ACTIVITY_TREND_RANGE_DAYS = 30;
 
 const buildModuleName = (value) =>
   String(value || "Activity Logs")
@@ -89,6 +90,7 @@ export default function UserLogs() {
   const [selectedScope, setSelectedScope] = useState("all");
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
   const [exporting, setExporting] = useState(false);
+  const [pendingDateRange, setPendingDateRange] = useState(null);
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -158,10 +160,45 @@ export default function UserLogs() {
   };
 
   const handleDateRangeChange = (dates) => {
+    if (dates?.[0] && dates?.[1]) {
+      const selectedDays =
+        Math.abs(
+          dayjs(dates[1])
+            .startOf("day")
+            .diff(dayjs(dates[0]).startOf("day"), "day"),
+        ) + 1;
+
+      if (selectedDays > MAX_ACTIVITY_TREND_RANGE_DAYS) {
+        message.warning(
+          `Activity Trends can show up to ${MAX_ACTIVITY_TREND_RANGE_DAYS} days at a time.`,
+        );
+        setPendingDateRange(null);
+        return;
+      }
+    }
+
     setDateRange(dates);
+    setPendingDateRange(null);
     if (!dates || !dates[0] || !dates[1]) {
       message.info("Date range cleared. Showing all available logs.");
     }
+  };
+
+  const handleCalendarChange = (dates) => {
+    setPendingDateRange(dates);
+  };
+
+  const disableDateOutsideTrendRange = (current) => {
+    if (!current) return false;
+
+    const anchorDate = pendingDateRange?.[0] || pendingDateRange?.[1];
+    if (!anchorDate) return false;
+
+    const dayDiff = Math.abs(
+      dayjs(current).startOf("day").diff(dayjs(anchorDate).startOf("day"), "day"),
+    );
+
+    return dayDiff >= MAX_ACTIVITY_TREND_RANGE_DAYS;
   };
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
@@ -412,6 +449,8 @@ export default function UserLogs() {
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
+          onCalendarChange={handleCalendarChange}
+          disabledDate={disableDateOutsideTrendRange}
           format="MM/DD/YYYY"
           inputReadOnly
           allowClear
