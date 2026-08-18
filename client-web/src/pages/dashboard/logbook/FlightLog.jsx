@@ -1379,7 +1379,7 @@ export default function FlightLog() {
 
       <PinVerifiedSignatureModal
         open={signatureWorkflow.open}
-        zIndex={6000}
+        zIndex={3100}
         title={
           signatureWorkflow.action === "release"
             ? "Flight Log - Release"
@@ -1420,7 +1420,7 @@ export default function FlightLog() {
         rootClassName="fl-workflow-confirm-modal"
         wrapClassName="fl-workflow-confirm-wrap"
         centered
-        zIndex={9999}
+        zIndex={3000}
         okText="OK"
         cancelText="Cancel"
         title={
@@ -1444,7 +1444,7 @@ export default function FlightLog() {
       </Modal>
       <ResultPopup
         open={popup.open}
-        zIndex={7000}
+        zIndex={3100}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}

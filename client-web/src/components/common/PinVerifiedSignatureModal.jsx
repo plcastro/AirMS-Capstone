@@ -11,7 +11,7 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
-  zIndex = 6000,
+  zIndex = 3100,
   onCancel,
   onSave,
   afterOpenChange,

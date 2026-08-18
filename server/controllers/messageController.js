@@ -188,10 +188,6 @@ const createChatNotifications = async ({
     },
   });
 
-  sendToUsers(recipients, "notification:new", {
-    notificationId: String(notification._id),
-  });
-
   await sendPushNotificationToUsers({
     title,
     body: description,
@@ -556,7 +552,9 @@ const sendMessage = async (req, res) => {
           messageBody: bodyState.value,
           messageId: message._id,
           senderUserId: senderId,
-          recipientUserIds: [recipientId],
+          recipientUserIds: recipientMemberIds,
+          conversationId,
+          conversationName: conversation.name,
           isGroup: true,
         });
       } catch (error) {

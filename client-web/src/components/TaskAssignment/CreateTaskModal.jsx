@@ -98,7 +98,7 @@ export default function CreateTaskModal({
       okText="Create"
       width={TASK_MODAL_WIDTH}
       centered
-      zIndex={9999}
+      zIndex={3000}
       styles={{
         body: TASK_MODAL_BODY_STYLE,
       }}

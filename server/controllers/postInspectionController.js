@@ -25,6 +25,7 @@ const createPostInspection = async (req, res) => {
     await createPostInspectionNotifications({
       previousInspection: null,
       inspection,
+      actorUserId: req.user?.id,
     });
 
     const audit = withActorId(
@@ -89,6 +90,7 @@ const updatePostInspection = async (req, res) => {
     await createPostInspectionNotifications({
       previousInspection,
       inspection,
+      actorUserId: req.user?.id,
     });
 
     const audit = withActorId(

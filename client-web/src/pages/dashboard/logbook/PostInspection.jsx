@@ -508,7 +508,7 @@ export default function PostInspection() {
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
         centered
-        zIndex={9999}
+        zIndex={3000}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
@@ -726,7 +726,7 @@ export default function PostInspection() {
       />
       <ResultPopup
         open={popup.open}
-        zIndex={12000}
+        zIndex={3100}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}

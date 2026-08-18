@@ -1560,7 +1560,7 @@ export default function TaskAssignment() {
           setCreateOpen(false);
           setEditingTask(null);
         }}
-        zIndex={9999}
+        zIndex={3000}
         onOk={handleCreate}
         title={editingTask ? "Edit Task" : "Task"}
         okText={editingTask ? "Save" : "Add Task"}
@@ -1916,7 +1916,7 @@ export default function TaskAssignment() {
         title={selectedTask?.title || "Task Checklist"}
         width={TASK_DETAIL_MODAL_WIDTH}
         centered
-        zIndex={9999}
+        zIndex={3000}
         footer={null}
       >
         {selectedTask && (
@@ -2279,7 +2279,7 @@ export default function TaskAssignment() {
         title="Return Task"
         okText="Return"
         centered
-        zIndex={9999}
+        zIndex={3000}
         onOk={submitReturn}
         onCancel={() => setReviewOpen(false)}
         width={720}

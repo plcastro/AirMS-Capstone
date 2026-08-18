@@ -7,7 +7,7 @@ const {
   syncMaintenanceLogFromTask,
   removeMaintenanceLogForTask,
 } = require("./maintenanceLogController");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const BUSY_TASK_STATUSES = ["Pending", "Ongoing", "Returned"];
 const withActorId = (req, action, fallbackId = null) => {
@@ -17,6 +17,24 @@ const withActorId = (req, action, fallbackId = null) => {
     action: actorId ? `${action} (actorId: ${actorId})` : action,
   };
 };
+
+const publishTaskUpdated = (task, actorUserId, extraData = {}) =>
+  publishTypedForRecipients(
+    {
+      recipientRoles: ["superadmin", "maintenance manager"],
+      recipientUsers: task?.assignedTo ? [task.assignedTo] : [],
+      excludedUsers: actorUserId ? [actorUserId] : [],
+    },
+    "task:updated",
+    {
+      taskId: String(task._id),
+      updatedAt: task.updatedAt || task.createdAt || new Date().toISOString(),
+      status: task.status,
+      ...extraData,
+    },
+  ).catch((error) => {
+    console.error("Failed to publish task update:", error);
+  });
 
 const buildTaskIdentifierQuery = (value) => {
   const identifier = String(value || "").trim();
@@ -421,15 +439,11 @@ const createTask = async (req, res) => {
     await task.save();
     await syncMaintenanceLogFromTask(task);
     try {
-      await createTaskNotifications({ task });
+      await createTaskNotifications({ task, actorUserId: req.user?.id });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
-    publishTypedEvent("task:updated", {
-      taskId: String(task._id),
-      updatedAt: task.updatedAt || task.createdAt,
-      status: task.status,
-    });
+    publishTaskUpdated(task, req.user?.id);
     const audit = withActorId(req, `Task created: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(201).json({ status: "Ok", data: serializeTask(task) });
@@ -492,15 +506,12 @@ const updateTask = async (req, res) => {
       await createTaskNotifications({
         previousTask: previousTaskSnapshot,
         task: refreshedTask,
+        actorUserId: req.user?.id,
       });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
-    publishTypedEvent("task:updated", {
-      taskId: String(refreshedTask._id),
-      updatedAt: refreshedTask.updatedAt || refreshedTask.createdAt,
-      status: refreshedTask.status,
-    });
+    publishTaskUpdated(refreshedTask, req.user?.id);
 
     res.status(200).json({
       status: "Ok",
@@ -545,8 +556,7 @@ const deleteTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
     await removeMaintenanceLogForTask(task);
-    publishTypedEvent("task:updated", {
-      taskId: String(task._id),
+    publishTaskUpdated(task, req.user?.id, {
       updatedAt: new Date().toISOString(),
       deleted: true,
     });

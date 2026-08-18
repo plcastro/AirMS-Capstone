@@ -81,6 +81,7 @@ const createPreInspection = async (req, res) => {
     await createPreInspectionNotifications({
       previousInspection: null,
       inspection,
+      actorUserId: req.user?.id,
     });
 
     const audit = withActorId(req, `Pre-inspection created: ${inspection._id}`);
@@ -172,6 +173,7 @@ const updatePreInspection = async (req, res) => {
     await createPreInspectionNotifications({
       previousInspection,
       inspection,
+      actorUserId: req.user?.id,
     });
 
     const audit = withActorId(req, `Pre-inspection updated: ${inspection._id}`);

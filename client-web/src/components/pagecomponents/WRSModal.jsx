@@ -767,7 +767,7 @@ export default function WRSModal({
         width={"95%"}
         height={"90vh"}
         centered
-        zIndex={9999}
+        zIndex={3000}
         footer={null}
         title={
           <div>
@@ -930,7 +930,7 @@ export default function WRSModal({
         title={successPopup.title}
         subTitle={successPopup.subTitle}
         duration={2000}
-        zIndex={1300}
+        zIndex={3100}
         onClose={handleSuccessPopupClose}
       />
     </>

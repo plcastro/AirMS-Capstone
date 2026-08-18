@@ -5,7 +5,7 @@ const {
   getRequestContext,
   markAuditLogged,
 } = require("../middleware/requestContext");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 
 const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
 const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
@@ -120,10 +120,16 @@ const auditLog = async (
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
     });
-    publishTypedEvent("logs:new", {
-      logId: String(newLog._id),
-      at: newLog.dateTime || new Date().toISOString(),
-      action: sanitizedAction,
+    publishTypedForRecipients(
+      { recipientRoles: ["superadmin"], excludedUsers: userId ? [userId] : [] },
+      "logs:new",
+      {
+        logId: String(newLog._id),
+        at: newLog.dateTime || new Date().toISOString(),
+        action: sanitizedAction,
+      },
+    ).catch((error) => {
+      console.error("Failed to publish audit log event:", error);
     });
 
     return newLog;

@@ -208,6 +208,7 @@ const createFlightLog = async (req, res) => {
     await createFlightLogNotifications({
       previousFlightLog: null,
       flightLog,
+      actorUserId: req.user?.id,
     });
     const audit = withActorId(req, `Flight log created: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
@@ -501,6 +502,7 @@ const updateFlightLog = async (req, res) => {
     await createFlightLogNotifications({
       previousFlightLog: toComparableFlightLog(existingFlightLog),
       flightLog,
+      actorUserId: req.user?.id,
     });
 
     res.status(200).json({
@@ -551,6 +553,7 @@ const releaseFlightLog = async (req, res) => {
     await createFlightLogNotifications({
       previousFlightLog,
       flightLog,
+      actorUserId: req.user?.id,
     });
     const audit = withActorId(req, `Flight log released: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
@@ -617,6 +620,7 @@ const acceptFlightLog = async (req, res) => {
     await createFlightLogNotifications({
       previousFlightLog,
       flightLog,
+      actorUserId: req.user?.id,
     });
     const audit = withActorId(req, `Flight log accepted: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);
@@ -667,6 +671,7 @@ const completeFlightLog = async (req, res) => {
     await createFlightLogNotifications({
       previousFlightLog,
       flightLog,
+      actorUserId: req.user?.id,
     });
     const audit = withActorId(req, `Flight log completed: ${flightLog._id}`);
     await auditLog(audit.action, audit.actorId);

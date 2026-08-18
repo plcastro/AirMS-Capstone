@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForUsers } = require("../utils/realtimeEvents");
+const {
+  resolveNotificationRecipientUserIds,
+} = require("../utils/notificationRecipients");
 
 const NotificationSchema = new mongoose.Schema(
   {
@@ -38,6 +41,10 @@ const NotificationSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
       default: [],
     },
+    excludedUsers: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+    },
     readBy: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
       default: [],
@@ -54,15 +61,26 @@ const NotificationSchema = new mongoose.Schema(
 NotificationSchema.index({ module: 1, createdAt: -1 });
 NotificationSchema.index({ recipientRoles: 1, createdAt: -1 });
 NotificationSchema.index({ recipientUsers: 1, createdAt: -1 });
+NotificationSchema.index({ excludedUsers: 1, createdAt: -1 });
 
 NotificationSchema.post("save", function onNotificationSaved(doc) {
-  publishTypedEvent("notification:new", {
-    notificationId: String(doc._id),
-    module: doc.module,
-    entityType: doc.entityType,
-    entityId: doc.entityId ? String(doc.entityId) : null,
-    createdAt: doc.createdAt,
-  });
+  resolveNotificationRecipientUserIds({
+    recipientUsers: doc.recipientUsers,
+    recipientRoles: doc.recipientRoles,
+    excludedUsers: doc.excludedUsers,
+  })
+    .then((recipientUserIds) => {
+      publishTypedForUsers(recipientUserIds, "notification:new", {
+        notificationId: String(doc._id),
+        module: doc.module,
+        entityType: doc.entityType,
+        entityId: doc.entityId ? String(doc.entityId) : null,
+        createdAt: doc.createdAt,
+      });
+    })
+    .catch((error) => {
+      console.error("Failed to publish notification event:", error);
+    });
 });
 
 module.exports = mongoose.model("Notification", NotificationSchema);

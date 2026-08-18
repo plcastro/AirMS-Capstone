@@ -87,7 +87,7 @@ export default function MaintenanceEntryModal({
       open={visible}
       title={isEditMode ? "Edit Maintenance Entry" : "New Maintenance Entry"}
       centered
-      zIndex={9999}
+      zIndex={3000}
       onCancel={handleCancel}
       footer={[
         <Button key="cancel" onClick={handleCancel}>

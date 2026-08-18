@@ -5,12 +5,15 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_MECHANIC = "mechanic";
-const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
 const uniqueStrings = (values = []) => [
-  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => String(value)),
+  ),
 ];
 
 const uniqueRoles = (roles = []) => [
@@ -60,12 +63,12 @@ const getRecipientsForStatus = (status, creatorUserId, mechanicSideRoles) => {
     case "pending_acceptance":
     case "released":
       return {
-        recipientRoles: [ROLE_PILOT],
+        recipientRoles: [],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
       };
     case "accepted":
       return {
-        recipientRoles: [...mechanicSideRoles, ROLE_PILOT],
+        recipientRoles: mechanicSideRoles,
         recipientUsers: creatorUserId ? [creatorUserId] : [],
       };
     case "completed":
@@ -88,6 +91,7 @@ const createNotification = async ({
   flightLog,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   metadata = {},
 }) => {
   const normalizedRoles = uniqueRoles(recipientRoles);
@@ -105,6 +109,7 @@ const createNotification = async ({
     entityId: flightLog._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers: uniqueStrings(excludedUsers),
     metadata: {
       rpc: flightLog.rpc,
       status: flightLog.status,
@@ -118,6 +123,7 @@ const createNotification = async ({
     body: description,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers,
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
@@ -135,6 +141,7 @@ const createNotification = async ({
 const createFlightLogNotifications = async ({
   previousFlightLog,
   flightLog,
+  actorUserId = null,
 }) => {
   if (!flightLog?._id) {
     return;
@@ -156,8 +163,8 @@ const createFlightLogNotifications = async ({
         title: `Flight log for ${aircraftLabel} is ready for acceptance`,
         description: "A flight log is waiting for pilot acceptance.",
         flightLog,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-pending-acceptance" },
       });
       return;
@@ -168,6 +175,7 @@ const createFlightLogNotifications = async ({
       description: "A new flight log needs mechanic-side review and release.",
       flightLog,
       recipientRoles: mechanicSideRoles,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "created-pending-release" },
     });
     return;
@@ -185,6 +193,7 @@ const createFlightLogNotifications = async ({
         "The pilot flagged this accepted flight log for mechanic completion.",
       flightLog,
       recipientRoles: mechanicSideRoles,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "ready-for-completion" },
     });
 
@@ -205,6 +214,7 @@ const createFlightLogNotifications = async ({
       description: `Flight log for ${aircraftLabel} has been updated.`,
       flightLog,
       ...recipients,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "updated" },
     });
     return;
@@ -217,6 +227,7 @@ const createFlightLogNotifications = async ({
         description: "A flight log is waiting for mechanic-side release.",
         flightLog,
         recipientRoles: mechanicSideRoles,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "pending-release" },
       });
       break;
@@ -226,8 +237,8 @@ const createFlightLogNotifications = async ({
         description:
           "The flight log was released and is ready for pilot acceptance.",
         flightLog,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "released" },
       });
       break;
@@ -238,6 +249,7 @@ const createFlightLogNotifications = async ({
           "The pilot accepted this flight log. Mechanic completion may now proceed.",
         flightLog,
         recipientRoles: mechanicSideRoles,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "accepted" },
       });
       break;
@@ -249,6 +261,7 @@ const createFlightLogNotifications = async ({
         flightLog,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "completed" },
       });
       break;

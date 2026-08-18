@@ -1053,7 +1053,7 @@ export default function Messaging() {
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
         centered
-        zIndex={9999}
+        zIndex={3000}
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
@@ -1088,7 +1088,7 @@ export default function Messaging() {
         onCancel={() => setMembersModalOpen(false)}
         footer={null}
         centered
-        zIndex={9999}
+        zIndex={3000}
         width={isMobile ? "96vw" : 520}
       >
         {selectedGroupMembers.length === 0 ? (

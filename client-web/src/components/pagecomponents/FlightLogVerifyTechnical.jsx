@@ -361,7 +361,7 @@ export default function FlightLogVerifyTechnical({
         title="Verify Technical Log"
         open={visible}
         centered
-        zIndex={9999}
+        zIndex={3000}
         onCancel={onClose}
         footer={null}
         width={600}

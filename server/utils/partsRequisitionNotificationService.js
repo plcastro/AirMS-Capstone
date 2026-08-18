@@ -9,7 +9,11 @@ const ROLE_WAREHOUSE = "warehouse staff";
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
 const uniqueStrings = (values = []) => [
-  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => String(value)),
+  ),
 ];
 
 const uniqueRoles = (roles = []) => [
@@ -59,6 +63,7 @@ const createNotification = async ({
   requisition,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   metadata = {},
 }) => {
   const normalizedRoles = uniqueRoles(recipientRoles);
@@ -76,6 +81,7 @@ const createNotification = async ({
     entityId: requisition._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers: uniqueStrings(excludedUsers),
     metadata: {
       wrsNo: requisition.wrsNo,
       status: requisition.status,
@@ -89,6 +95,7 @@ const createNotification = async ({
     body: description,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers,
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
@@ -105,6 +112,7 @@ const createNotification = async ({
 const createPartsRequisitionNotifications = async ({
   previousRequisition,
   requisition,
+  actorUserId = null,
 }) => {
   if (!requisition?._id) {
     return;
@@ -119,6 +127,19 @@ const createPartsRequisitionNotifications = async ({
     !!requisition.dateWarehouseReviewed &&
     currentStatus === "Parts Requested";
 
+  if (!previousRequisition && currentStatus === "Parts Requested") {
+    await createNotification({
+      title: `New parts requisition ${requisition.wrsNo}`,
+      description: "A new parts requisition is ready for warehouse action.",
+      requisition,
+      recipientRoles: [ROLE_WAREHOUSE],
+      recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+      excludedUsers: actorUserId ? [actorUserId] : [],
+      metadata: { notificationType: "created-parts-requested" },
+    });
+    return;
+  }
+
   if (warehouseReviewBecameAvailable) {
     await createNotification({
       title: `Parts requisition ${requisition.wrsNo} is ready for review`,
@@ -126,6 +147,7 @@ const createPartsRequisitionNotifications = async ({
         "Warehouse completed the stock review. Maintenance can now review the requisition.",
       requisition,
       recipientRoles: managerRoles,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "warehouse-review-ready" },
     });
   }
@@ -141,6 +163,7 @@ const createPartsRequisitionNotifications = async ({
             ? managerRoles
             : [ROLE_WAREHOUSE],
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "updated" },
       });
     }
@@ -155,6 +178,7 @@ const createPartsRequisitionNotifications = async ({
           "Warehouse completed the stock review. Maintenance can now review the requisition.",
         requisition,
         recipientRoles: managerRoles,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "availability-checked" },
       });
       break;
@@ -166,6 +190,7 @@ const createPartsRequisitionNotifications = async ({
         requisition,
         recipientRoles: [ROLE_WAREHOUSE],
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "to-be-ordered" },
       });
       break;
@@ -177,6 +202,7 @@ const createPartsRequisitionNotifications = async ({
         requisition,
         recipientRoles: managerRoles,
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "ordered-ready" },
       });
       break;
@@ -188,6 +214,7 @@ const createPartsRequisitionNotifications = async ({
         requisition,
         recipientRoles: [ROLE_WAREHOUSE],
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "approved" },
       });
       break;
@@ -197,6 +224,7 @@ const createPartsRequisitionNotifications = async ({
         description: "Warehouse marked this requisition as delivered.",
         requisition,
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "delivered" },
       });
       break;
@@ -207,6 +235,7 @@ const createPartsRequisitionNotifications = async ({
         requisition,
         recipientRoles: managerRoles,
         recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "cancelled" },
       });
       break;

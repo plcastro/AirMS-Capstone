@@ -713,7 +713,7 @@ export default function FlightLogEntry({
       footer={null}
       width={1160}
       centered
-      zIndex={9999}
+      zIndex={3000}
       rootClassName="fl-entry-modal-root"
       styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"

@@ -1470,7 +1470,7 @@ export default function PartsMonitoring() {
           onCancel={() => setMobileDetailId(null)}
           footer={null}
           centered
-          zIndex={9999}
+          zIndex={3000}
           className="mobile-component-detail-modal"
           wrapClassName="mobile-component-detail-modal-wrap"
           destroyOnHidden
@@ -1562,7 +1562,7 @@ export default function PartsMonitoring() {
           open={Boolean(importPreview)}
           title="Preview Aircraft Import"
           centered
-          zIndex={9999}
+          zIndex={3000}
           onCancel={resetImportPreview}
           onOk={() => setSignatureImportOpen(true)}
           okText="Confirm and Sign"
@@ -1942,7 +1942,7 @@ export default function PartsMonitoring() {
         confirmLoading={importingAircraft}
         width="92vw"
         centered
-        zIndex={9999}
+        zIndex={3000}
         destroyOnHidden
       >
         {importErrors.map((error) => (

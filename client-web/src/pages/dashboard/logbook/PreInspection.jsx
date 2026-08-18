@@ -1128,7 +1128,7 @@ export default function PreInspection() {
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         centered
-        zIndex={9999}
+        zIndex={3000}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
@@ -1326,7 +1326,7 @@ export default function PreInspection() {
 
       <Modal
         centered
-        zIndex={9999}
+        zIndex={3000}
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={() => saveEdit()}
@@ -1512,7 +1512,7 @@ export default function PreInspection() {
       />
       <ResultPopup
         open={popup.open}
-        zIndex={7000}
+        zIndex={3100}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}

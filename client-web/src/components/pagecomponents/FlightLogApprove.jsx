@@ -58,7 +58,7 @@ export default function FlightLogApprove({
       onCancel={onCancel}
       width={720}
       centered
-      zIndex={9999}
+      zIndex={3000}
       okText="Confirm"
       cancelText="Cancel"
       onOk={handleConfirm}
