@@ -11,6 +11,7 @@ const EXPORT_ACCESS = {
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "pilot",
   ],
   maintenanceLogs: [
     "superadmin",
@@ -23,12 +24,14 @@ const EXPORT_ACCESS = {
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "pilot",
   ],
   postInspection: [
     "superadmin",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
+    "pilot",
   ],
   partsLifespan: ["superadmin", "maintenance manager", "officer-in-charge"],
 };
