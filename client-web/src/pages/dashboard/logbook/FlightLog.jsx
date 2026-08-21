@@ -197,6 +197,19 @@ export default function FlightLog() {
       );
     });
 
+  const syncUpdatedFlightLog = useCallback((updatedLog) => {
+    if (!updatedLog?._id) return;
+
+    setSelectedLog((currentLog) =>
+      currentLog?._id === updatedLog._id ? updatedLog : currentLog,
+    );
+    setFlightLogs((currentLogs) =>
+      currentLogs.map((currentLog) =>
+        currentLog._id === updatedLog._id ? updatedLog : currentLog,
+      ),
+    );
+  }, []);
+
   const addAircraftFilterOptions = useCallback((aircraftValues = []) => {
     setAircraftFilterOptions((currentOptions) =>
       Array.from(
@@ -622,6 +635,7 @@ export default function FlightLog() {
       setSaving(true);
       const authHeader = getAuthHeader ? await getAuthHeader() : {};
       let successResult = null;
+      let updatedFlightLog = null;
 
       if (action === "release") {
         const response = await fetch(
@@ -643,6 +657,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
         }
+        updatedFlightLog = data.data;
         successResult = {
           open: true,
           status: "success",
@@ -672,6 +687,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
         }
+        updatedFlightLog = data.data;
         successResult = {
           open: true,
           status: "success",
@@ -680,6 +696,7 @@ export default function FlightLog() {
         };
       }
 
+      syncUpdatedFlightLog(updatedFlightLog);
       if (successResult) queueSignatureResult(successResult);
       await fetchFlightLogs();
     } catch (error) {
@@ -721,6 +738,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to notify mechanic");
         }
+        syncUpdatedFlightLog(data.data);
         queueWorkflowResult({
           open: true,
           status: "success",
@@ -788,14 +806,7 @@ export default function FlightLog() {
           ...log,
           status: "completed",
         };
-        setSelectedLog(completedFlightLog);
-        setFlightLogs((currentLogs) =>
-          currentLogs.map((currentLog) =>
-            currentLog._id === completedFlightLog._id
-              ? completedFlightLog
-              : currentLog,
-          ),
-        );
+        syncUpdatedFlightLog(completedFlightLog);
         queueWorkflowResult({
           open: true,
           status: "success",

@@ -123,6 +123,19 @@ export default function FlightLog({ route, navigation }) {
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportFlightLogs = canExportModule(userRole, "flightLogs");
 
+  const syncUpdatedFlightLog = useCallback((updatedLog) => {
+    if (!updatedLog?._id) return;
+
+    setSelectedLog((currentLog) =>
+      currentLog?._id === updatedLog._id ? updatedLog : currentLog,
+    );
+    setFlightLogs((currentLogs) =>
+      currentLogs.map((currentLog) =>
+        currentLog._id === updatedLog._id ? updatedLog : currentLog,
+      ),
+    );
+  }, []);
+
   const getAuthHeaders = useCallback(
     () => getMobileAuthHeaders({ "x-action-confirmed": "true" }),
     [],
@@ -357,13 +370,15 @@ export default function FlightLog({ route, navigation }) {
       const data = await response.json();
 
       if (response.ok) {
+        const savedLog = data.data || updatedLog;
+        syncUpdatedFlightLog(savedLog);
         fetchFlightLogs();
         fetchNotifications();
         if (options.closeOnSave) {
           setShowEditModal(false);
           setSelectedLog(null);
         } else {
-          setSelectedLog(updatedLog);
+          setSelectedLog(savedLog);
         }
         if (options.showToast !== false) {
           showToast("Flight log updated successfully");
@@ -553,6 +568,7 @@ export default function FlightLog({ route, navigation }) {
         );
       }
 
+      syncUpdatedFlightLog(data.data);
       closeSignedWorkflow();
       await fetchFlightLogs({ silent: true });
       await fetchNotifications();
