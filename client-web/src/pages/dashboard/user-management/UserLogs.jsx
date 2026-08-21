@@ -42,6 +42,7 @@ import {
   drawPdfReportHeader,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
+import ResultPopup from "../../../components/common/ResultPopup";
 import { useDebouncedValue } from "../../../utils/debounce";
 
 const { RangePicker } = DatePicker;
@@ -91,6 +92,12 @@ export default function UserLogs() {
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
   const [exporting, setExporting] = useState(false);
   const [pendingDateRange, setPendingDateRange] = useState(null);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -354,10 +361,20 @@ export default function UserLogs() {
       });
       doc.save(fileName);
 
-      message.success("Activity logs exported as PDF.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Activity Logs Exported!",
+        subTitle: "The activity logs PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Activity logs export failed:", error);
-      message.error(error.message || "Failed to export activity logs.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Export Failed!",
+        subTitle: error.message || "Failed to export activity logs.",
+      });
     } finally {
       setExporting(false);
     }
@@ -554,6 +571,13 @@ export default function UserLogs() {
       <div style={{ width: "100%", overflowX: "auto" }}>
         <ActivityLogTable data={filteredUsers} loading={loading} />
       </div>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
