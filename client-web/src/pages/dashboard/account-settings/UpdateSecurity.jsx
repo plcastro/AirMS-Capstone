@@ -102,7 +102,12 @@ export default function UpdateSecurity() {
   }, [newPin, confirmPin]);
 
   const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinUpdate = /^\d{6}$/.test(currentPin) && isValidPinReset;
   const isValidOtp = /^\d{6}$/.test(otp);
+  const normalizeOtpInput = (value) =>
+    (Array.isArray(value) ? value.join("") : String(value || ""))
+      .replace(/\D/g, "")
+      .slice(0, 6);
 
   const resetAll = () => {
     setCurrentPassword("");
@@ -185,12 +190,13 @@ export default function UpdateSecurity() {
   };
 
   const savePin = async () => {
-    if (!isValidPinReset) {
+    if (!isValidPinUpdate) {
       setPopup({
         open: true,
         status: "error",
         title: "Invalid PIN",
-        subTitle: "New PIN and Confirm PIN must match and be exactly 6 digits.",
+        subTitle:
+          "Current PIN must be 6 digits, and New PIN and Confirm PIN must match.",
       });
       return;
     }
@@ -503,7 +509,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={currentPin}
-                onChange={(val) => setCurrentPin(val)}
+                onInput={(val) => setCurrentPin(normalizeOtpInput(val))}
+                onChange={(val) => setCurrentPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -530,7 +537,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
-                onChange={(val) => setNewPin(val)}
+                onInput={(val) => setNewPin(normalizeOtpInput(val))}
+                onChange={(val) => setNewPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -542,7 +550,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
-                onChange={(val) => setConfirmPin(val)}
+                onInput={(val) => setConfirmPin(normalizeOtpInput(val))}
+                onChange={(val) => setConfirmPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -579,7 +588,7 @@ export default function UpdateSecurity() {
                 <Button
                   type="primary"
                   onClick={savePin}
-                  disabled={!isValidPinReset}
+                  disabled={!isValidPinUpdate}
                 >
                   Save PIN
                 </Button>
@@ -635,7 +644,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={otp}
-                onChange={(val) => setOtp(val)}
+                onInput={(val) => setOtp(normalizeOtpInput(val))}
+                onChange={(val) => setOtp(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 style={{ width: "100%" }}
               />
@@ -672,7 +682,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
-                onChange={(val) => setNewPin(val)}
+                onInput={(val) => setNewPin(normalizeOtpInput(val))}
+                onChange={(val) => setNewPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -684,7 +695,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
-                onChange={(val) => setConfirmPin(val)}
+                onInput={(val) => setConfirmPin(normalizeOtpInput(val))}
+                onChange={(val) => setConfirmPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />

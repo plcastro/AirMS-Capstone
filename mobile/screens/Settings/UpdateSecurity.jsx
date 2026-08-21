@@ -128,6 +128,7 @@ export default function UpdateSecurity() {
   }, [newPin, confirmPin]);
 
   const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinUpdate = /^\d{6}$/.test(currentPin) && isValidPinReset;
   const isValidOtp = /^\d{6}$/.test(otp);
 
   // --- Reset All Fields ---
@@ -148,8 +149,10 @@ export default function UpdateSecurity() {
 
   // --- Save Password or PIN ---
   const handleSave = async (type) => {
-    if (type === "PIN" && !isValidPinReset) {
-      showToast("New PIN and Confirm PIN must match and be exactly 6 digits.");
+    if (type === "PIN" && !isValidPinUpdate) {
+      showToast(
+        "Current PIN must be 6 digits, and New PIN and Confirm PIN must match.",
+      );
       return;
     }
 
@@ -387,7 +390,7 @@ export default function UpdateSecurity() {
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "save-pin"}
-                disabled={!isValidPinReset}
+                disabled={!isValidPinUpdate}
                 onPress={() =>
                   runWithLoading("save-pin", () => handleSave("PIN"))
                 }

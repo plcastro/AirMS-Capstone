@@ -50,6 +50,10 @@ export default function OTP() {
   });
   const MAX_CODE_LENGTH = 6;
   const pinReady = code.length === MAX_CODE_LENGTH;
+  const normalizeOtpInput = (value) =>
+    (Array.isArray(value) ? value.join("") : String(value || ""))
+      .replace(/\D/g, "")
+      .slice(0, MAX_CODE_LENGTH);
 
   const maskEmail = (email) => {
     const [localPart, domain] = email.split("@");
@@ -270,9 +274,15 @@ export default function OTP() {
           <Col span={24} style={{ textAlign: "center" }}>
             <Input.OTP
               value={code}
+              onInput={(value) => {
+                const nextCode = normalizeOtpInput(value);
+                setCode(nextCode);
+                if (nextCode.length) setFieldError("");
+              }}
               onChange={(value) => {
-                setCode(value);
-                if (value.length) setFieldError("");
+                const nextCode = normalizeOtpInput(value);
+                setCode(nextCode);
+                if (nextCode.length) setFieldError("");
               }}
               autoFocus
               style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}

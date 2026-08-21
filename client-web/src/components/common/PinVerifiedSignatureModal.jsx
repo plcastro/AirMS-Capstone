@@ -33,6 +33,11 @@ export default function PinVerifiedSignatureModal({
     signatureRef.current?.clear();
   };
 
+  const normalizePinInput = (value) =>
+    (Array.isArray(value) ? value.join("") : String(value || ""))
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
   const handleCancel = () => {
     reset();
     onCancel?.();
@@ -178,8 +183,12 @@ export default function PinVerifiedSignatureModal({
             type="password"
             formatter={(value) => value.replace(/\D/g, "")}
             value={pin}
+            onInput={(value) => {
+              setPin(normalizePinInput(value));
+              setErrorMessage("");
+            }}
             onChange={(value) => {
-              setPin(value);
+              setPin(normalizePinInput(value));
               setErrorMessage("");
             }}
           />

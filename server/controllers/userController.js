@@ -732,6 +732,12 @@ const verifyLoginOtp = async (req, res) => {
     if (!token || !otp) {
       return res.status(400).json({ message: "Token and OTP are required" });
     }
+    const normalizedOtp = String(otp || "").trim();
+    if (!/^\d{6}$/.test(normalizedOtp)) {
+      return res
+        .status(400)
+        .json({ message: "Enter the complete 6-digit OTP" });
+    }
 
     const user = await UserModel.findOne({ loginOtpToken: token }).select(
       "+loginOtp +loginOtpExpires +loginOtpToken",
@@ -746,7 +752,7 @@ const verifyLoginOtp = async (req, res) => {
         .json({ message: "OTP expired. Please log in again." });
     }
 
-    const valid = await bcrypt.compare(String(otp).trim(), user.loginOtp);
+    const valid = await bcrypt.compare(normalizedOtp, user.loginOtp);
     if (!valid) {
       user.loginOtpAttempts = Number(user.loginOtpAttempts || 0) + 1;
       await user.save();
@@ -1973,10 +1979,13 @@ const updatePIN = async (req, res) => {
 
 const verifyPIN = async (req, res) => {
   try {
-    const { pin } = req.body;
+    const pin = String(req.body?.pin || "").trim();
 
     if (!pin) {
       return res.status(400).json({ message: "PIN is required" });
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
     }
 
     const user = await UserModel.findById(req.params.id).select("+pin");
@@ -2040,12 +2049,16 @@ const verifyPIN = async (req, res) => {
 
 const activateUser = async (req, res) => {
   try {
-    const { token, newPassword, pin } = req.body;
+    const { token, newPassword } = req.body;
+    const pin = String(req.body?.pin || "").trim();
 
     if (!token || !newPassword || !pin) {
       return res
         .status(400)
         .json({ message: "Token, new password, and PIN is required" });
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
     }
 
     let decoded;
