@@ -95,6 +95,11 @@ export default function HeadTaskScreen({
     .map((employee) => ({
       ...employee,
       isBusy: isEmployeeBusy(employee.id),
+      activeTaskCount: tasks.filter(
+        (task) =>
+          String(task?.assignedTo || "") === String(employee.id) &&
+          OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
+      ).length,
     }));
 
   useEffect(() => {
@@ -267,10 +272,21 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
+    const selectedMechanic = mechanicOptions.find(
+      (employee) => String(employee.id) === String(newTask.assignedTo),
+    );
+    const activeTaskCount = selectedMechanic?.activeTaskCount || 0;
+    const mechanicName = selectedMechanic?.name || "Selected mechanic";
+
     const confirmed = await confirmWithAlert({
-      title: "Create Task",
-      message: "Submit this new task assignment?",
-      confirmText: "Create",
+      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Create Task",
+      message:
+        activeTaskCount > 0
+          ? `${mechanicName} already has ${activeTaskCount} active task${
+              activeTaskCount === 1 ? "" : "s"
+            }. Continue assigning this task?`
+          : `${mechanicName} has no active tasks. Submit this new task assignment?`,
+      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Create",
     });
     if (!confirmed) return;
 
@@ -286,6 +302,7 @@ export default function HeadTaskScreen({
         body: JSON.stringify({
           ...newTask,
           confirmAction: true,
+          confirmBusyMechanic: activeTaskCount > 0,
         }),
       });
       if (response.ok) {
@@ -307,10 +324,27 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
+    const selectedMechanic = mechanicOptions.find(
+      (employee) => String(employee.id) === String(updatedTask.assignedTo),
+    );
+    const activeTaskCount = tasks.filter(
+      (task) =>
+        String(task?.assignedTo || "") === String(updatedTask.assignedTo) &&
+        String(task?.id || task?._id || "") !==
+          String(updatedTask.id || updatedTask._id || "") &&
+        OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
+    ).length;
+    const mechanicName = selectedMechanic?.name || "Selected mechanic";
+
     const confirmed = await confirmWithAlert({
-      title: "Update Task",
-      message: "Save changes to this task?",
-      confirmText: "Save",
+      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Update Task",
+      message:
+        activeTaskCount > 0
+          ? `${mechanicName} already has ${activeTaskCount} active task${
+              activeTaskCount === 1 ? "" : "s"
+            }. Continue assigning this task?`
+          : `${mechanicName} has no active tasks. Save changes to this task?`,
+      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Save",
     });
     if (!confirmed) return;
 
@@ -326,6 +360,7 @@ export default function HeadTaskScreen({
         body: JSON.stringify({
           ...updatedTask,
           confirmAction: true,
+          confirmBusyMechanic: activeTaskCount > 0,
         }),
       });
       if (response.ok) {
@@ -644,7 +679,7 @@ export default function HeadTaskScreen({
         onClose={() => setEditModalVisible(false)}
         task={selectedTask}
         onSave={handleEditTask}
-        employees={employees}
+        employees={mechanicOptions}
       />
 
       <AlertComp

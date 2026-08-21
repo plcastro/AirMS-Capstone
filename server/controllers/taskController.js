@@ -47,14 +47,55 @@ const buildTaskIdentifierQuery = (value) => {
   return { $or: conditions };
 };
 
-const findBusyTaskForMechanic = (mechanicId) => {
+const findActiveTasksForMechanic = (mechanicId) => {
   const assignedTo = String(mechanicId || "").trim();
-  if (!assignedTo) return null;
+  if (!assignedTo) return [];
 
-  return TaskModel.findOne({
+  return TaskModel.find({
     assignedTo,
     status: { $in: BUSY_TASK_STATUSES },
-  }).lean();
+  })
+    .select("id title status startDateTime endDateTime dueDate")
+    .lean();
+};
+
+const excludeTaskFromWorkload = (activeTasks = [], taskIdentifier = "") => {
+  const normalizedIdentifier = String(taskIdentifier || "");
+  if (!normalizedIdentifier) return activeTasks;
+
+  return activeTasks.filter(
+    (task) =>
+      String(task.id || "") !== normalizedIdentifier &&
+      String(task._id || "") !== normalizedIdentifier,
+  );
+};
+
+const validateMechanicWorkload = async ({
+  assignedTo,
+  excludeTaskIdentifier = "",
+  confirmBusyMechanic = false,
+}) => {
+  const activeTasks = excludeTaskFromWorkload(
+    await findActiveTasksForMechanic(assignedTo),
+    excludeTaskIdentifier,
+  );
+
+  if (!activeTasks.length) return null;
+
+  if (confirmBusyMechanic !== true) {
+    return {
+      status: 409,
+      body: {
+        message:
+          "Selected mechanic already has active tasks. Confirm workload assignment to continue.",
+        code: "MECHANIC_ACTIVE_WORKLOAD_CONFIRMATION_REQUIRED",
+        activeTaskCount: activeTasks.length,
+        activeTasks,
+      },
+    };
+  }
+
+  return null;
 };
 
 const sanitizeTaskPayload = (payload = {}) => {
@@ -427,12 +468,12 @@ const createTask = async (req, res) => {
       return res.status(400).json({ message: scheduleError });
     }
 
-    const busyTask = await findBusyTaskForMechanic(taskData.assignedTo);
-    if (busyTask) {
-      return res.status(409).json({
-        message:
-          "Selected mechanic is busy with a Pending, Ongoing, or Returned task.",
-      });
+    const workloadError = await validateMechanicWorkload({
+      assignedTo: taskData.assignedTo,
+      confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
+    });
+    if (workloadError) {
+      return res.status(workloadError.status).json(workloadError.body);
     }
 
     const task = new TaskModel(taskData);
@@ -490,6 +531,15 @@ const updateTask = async (req, res) => {
     const scheduleError = validateTaskSchedule(nextTask);
     if (scheduleError) {
       return res.status(400).json({ message: scheduleError });
+    }
+
+    const workloadError = await validateMechanicWorkload({
+      assignedTo: nextTask.assignedTo,
+      excludeTaskIdentifier: existingTask.id || existingTask._id,
+      confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
+    });
+    if (workloadError) {
+      return res.status(workloadError.status).json(workloadError.body);
     }
 
     existingTask.set(buildWritableTaskUpdate(nextTask));

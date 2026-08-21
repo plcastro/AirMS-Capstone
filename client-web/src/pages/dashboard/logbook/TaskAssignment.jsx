@@ -549,17 +549,19 @@ export default function TaskAssignment() {
         )
         .map((item) => {
           const id = item._id || item.id;
+          const activeTaskCount = tasks.filter(
+            (task) =>
+              String(task.assignedTo || "") === String(id) &&
+              ACTIVE_OPEN.has(normalizeStatus(task.status)),
+          ).length;
           return {
             ...item,
             id,
             name:
               item.name ||
               `${item.firstName || ""} ${item.lastName || ""}`.trim(),
-            isBusy: tasks.some(
-              (task) =>
-                String(task.assignedTo || "") === String(id) &&
-                ACTIVE_OPEN.has(normalizeStatus(task.status)),
-            ),
+            activeTaskCount,
+            isBusy: activeTaskCount > 0,
           };
         }),
     [tasks, users],
@@ -594,6 +596,19 @@ export default function TaskAssignment() {
     [getTaskAssigneeId, mechanics],
   );
 
+  const getMechanicActiveTaskCount = useCallback(
+    (mechanicId, excludedTask = null) => {
+      const excludedTaskId = excludedTask?.id || excludedTask?._id || "";
+      return tasks.filter(
+        (task) =>
+          String(task.assignedTo || "") === String(mechanicId) &&
+          String(task.id || task._id || "") !== String(excludedTaskId) &&
+          ACTIVE_OPEN.has(normalizeStatus(task.status)),
+      ).length;
+    },
+    [tasks],
+  );
+
   const getTaskMechanicColor = useCallback(
     (task = {}) => {
       const colorKey =
@@ -612,8 +627,14 @@ export default function TaskAssignment() {
       seen.add(key);
       list.push({
         value: item.id,
-        label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-        disabled: !editingTask && item.isBusy,
+        label: `${item.name}${
+          item.activeTaskCount
+            ? ` (${item.activeTaskCount} active task${
+                item.activeTaskCount === 1 ? "" : "s"
+              })`
+            : ""
+        }`,
+        disabled: false,
       });
       return list;
     }, []);
@@ -1095,19 +1116,41 @@ export default function TaskAssignment() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
+      const selectedMechanic = mechanics.find(
+        (item) => String(item.id) === String(values.assignedTo),
+      );
+      const selectedMechanicActiveTaskCount = getMechanicActiveTaskCount(
+        values.assignedTo,
+        editingTask,
+      );
+      const mechanicName = selectedMechanic?.name || "Selected mechanic";
       const confirmed = await confirmAction({
-        title: editingTask ? "Save Task" : "Create Task",
-        content: editingTask
-          ? "Save changes to this task assignment?"
-          : "Create this task assignment?",
-        okText: editingTask ? "Save" : "Create",
+        title:
+          selectedMechanicActiveTaskCount > 0
+            ? "Mechanic Has Active Tasks"
+            : editingTask
+              ? "Save Task"
+              : "Create Task",
+        content:
+          selectedMechanicActiveTaskCount > 0
+            ? `${mechanicName} already has ${selectedMechanicActiveTaskCount} active task${
+                selectedMechanicActiveTaskCount === 1 ? "" : "s"
+              }. Continue assigning this task?`
+            : `${mechanicName} has no active tasks. ${
+                editingTask
+                  ? "Save changes to this task assignment?"
+                  : "Create this task assignment?"
+              }`,
+        okText:
+          selectedMechanicActiveTaskCount > 0
+            ? "Assign Anyway"
+            : editingTask
+              ? "Save"
+              : "Create",
         modal,
       });
       if (!confirmed) return;
 
-      const selectedMechanic = mechanics.find(
-        (item) => String(item.id) === String(values.assignedTo),
-      );
       const selectedInspection = inspectionOptions.find(
         (item) => String(item.id) === String(values.inspectionType),
       );
@@ -1149,6 +1192,7 @@ export default function TaskAssignment() {
           editingTask?.checklistState,
         ),
         confirmAction: true,
+        confirmBusyMechanic: selectedMechanicActiveTaskCount > 0,
       };
 
       const url = editingTask

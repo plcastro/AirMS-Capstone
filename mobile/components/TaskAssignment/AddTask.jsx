@@ -159,7 +159,7 @@ export default function AddTask({
   const [showDiscardAlert, setShowDiscardAlert] = useState(false);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
-  const availableEmployees = employees.filter((emp) => !emp.isBusy);
+  const availableEmployees = employees;
   const selectedEmployeeRecord = employees.find(
     (emp) => emp.id === selectedEmployee,
   );
@@ -878,7 +878,7 @@ export default function AddTask({
       !inspectionType ||
       !selectedEmployee
     ) {
-      return "Select an aircraft, base, inspection, and available mechanic first.";
+      return "Select an aircraft, base, inspection, and mechanic first.";
     }
 
     if (!selectedAvailableEmployee) {
@@ -1041,7 +1041,13 @@ export default function AddTask({
       : inspectionOptions.find((inspection) => inspection.id === inspectionType)
           ?.name || "";
   const selectedEmployeeLabel = selectedEmployeeRecord
-    ? `${selectedEmployeeRecord.name}${selectedEmployeeRecord.isBusy ? " (busy)" : ""}`
+    ? `${selectedEmployeeRecord.name}${
+        selectedEmployeeRecord.activeTaskCount
+          ? ` (${selectedEmployeeRecord.activeTaskCount} active task${
+              selectedEmployeeRecord.activeTaskCount === 1 ? "" : "s"
+            })`
+          : ""
+      }`
     : "";
   const selectedPriorityLabel = selectedPriority || "";
   const addTaskWarning = getAddTaskWarning();
@@ -1207,12 +1213,18 @@ export default function AddTask({
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
                 options: employees.map((emp) => ({
-                  label: `${emp.name}${emp.isBusy ? " (busy)" : ""}`,
+                  label: `${emp.name}${
+                    emp.activeTaskCount
+                      ? ` (${emp.activeTaskCount} active task${
+                          emp.activeTaskCount === 1 ? "" : "s"
+                        })`
+                      : ""
+                  }`,
                   value: emp.id,
                   statusColor: emp.isOnline
                     ? COLORS.successBg || "#22c55e"
                     : COLORS.grayDark,
-                  disabled: emp.isBusy,
+                  disabled: false,
                 })),
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,
@@ -1447,6 +1459,20 @@ export default function AddTask({
                   }}
                 >
                   {addTaskWarning}
+                </AppText>
+              ) : null}
+              {selectedEmployeeRecord?.activeTaskCount > 0 ? (
+                <AppText
+                  style={{
+                    color: COLORS.warning || "#ad6800",
+                    marginBottom: 8,
+                    fontSize: 12,
+                  }}
+                >
+                  {selectedEmployeeRecord.name} has{" "}
+                  {selectedEmployeeRecord.activeTaskCount} active task
+                  {selectedEmployeeRecord.activeTaskCount === 1 ? "" : "s"}.
+                  You will be asked to confirm before assigning.
                 </AppText>
               ) : null}
             </ScrollView>

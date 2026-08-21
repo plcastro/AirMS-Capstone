@@ -447,7 +447,17 @@ export default function EditTask({
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
   const selectedEmployeeLabel =
-    employees.find((emp) => emp.id === selectedEmployee)?.name || "";
+    (() => {
+      const employee = employees.find((emp) => emp.id === selectedEmployee);
+      if (!employee) return "";
+      return `${employee.name}${
+        employee.activeTaskCount
+          ? ` (${employee.activeTaskCount} active task${
+              employee.activeTaskCount === 1 ? "" : "s"
+            })`
+          : ""
+      }`;
+    })();
   const selectedPriorityLabel = selectedPriority || "";
 
   return (
@@ -526,8 +536,15 @@ export default function EditTask({
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
                 options: employees.map((emp) => ({
-                  label: emp.name,
+                  label: `${emp.name}${
+                    emp.activeTaskCount
+                      ? ` (${emp.activeTaskCount} active task${
+                          emp.activeTaskCount === 1 ? "" : "s"
+                        })`
+                      : ""
+                  }`,
                   value: emp.id,
+                  disabled: false,
                 })),
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,
