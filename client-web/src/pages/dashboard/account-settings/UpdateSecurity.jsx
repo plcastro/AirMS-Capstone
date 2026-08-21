@@ -101,8 +101,8 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
-  const isValidPinReset =
-    /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidOtp = /^\d{6}$/.test(otp);
 
   const resetAll = () => {
     setCurrentPassword("");
@@ -185,6 +185,16 @@ export default function UpdateSecurity() {
   };
 
   const savePin = async () => {
+    if (!isValidPinReset) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Invalid PIN",
+        subTitle: "New PIN and Confirm PIN must match and be exactly 6 digits.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/update-pin/${userId}`, {
         method: "PUT",
@@ -262,6 +272,16 @@ export default function UpdateSecurity() {
     }
   };
   const verifyOtp = async () => {
+    if (!isValidOtp) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Incomplete OTP",
+        subTitle: "Please enter the complete 6-digit OTP.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
         method: "POST",
@@ -307,6 +327,16 @@ export default function UpdateSecurity() {
     }
   };
   const resetForgottenPin = async () => {
+    if (!isValidPinReset) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Invalid PIN",
+        subTitle: "New PIN and Confirm PIN must match and be exactly 6 digits.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
         method: "POST",
@@ -595,7 +625,11 @@ export default function UpdateSecurity() {
 
         {forgotPinMode && otpSent && !otpVerified && (
           <>
-            <Form.Item label="OTP" required>
+            <Form.Item
+              label="OTP"
+              required
+              extra="Please enter the One-Time Password sent to your email."
+            >
               <Input.OTP
                 key={`otp-${otpInputResetKey}`}
                 length={6}
@@ -603,6 +637,7 @@ export default function UpdateSecurity() {
                 value={otp}
                 onChange={(val) => setOtp(val)}
                 type={showPinValues ? "text" : "password"}
+                style={{ width: "100%" }}
               />
             </Form.Item>
 
@@ -617,7 +652,11 @@ export default function UpdateSecurity() {
                 </Button>
               </Col>
               <Col>
-                <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+                <Button
+                  type="primary"
+                  onClick={verifyOtp}
+                  disabled={!isValidOtp}
+                >
                   Verify OTP
                 </Button>
               </Col>

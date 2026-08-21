@@ -1932,6 +1932,13 @@ const updatePIN = async (req, res) => {
     if (!currentPin || !newPin)
       return res.status(400).json({ message: "PIN is required" });
 
+    currentPin = String(currentPin).trim();
+    newPin = String(newPin).trim();
+
+    if (!/^\d{6}$/.test(currentPin) || !/^\d{6}$/.test(newPin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
+    }
+
     const user = await UserModel.findById(req.params.id).select("+pin");
 
     if (!user.pin) {

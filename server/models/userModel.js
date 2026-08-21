@@ -104,6 +104,7 @@ const userSchema = new mongoose.Schema({
   resetPinExpires: Date,
   pinOtp: String,
   pinOtpExpires: Date,
+  pinOtpVerified: { type: Boolean, default: false },
   pinOtpAttempts: { type: Number, default: 0 },
   pinOtpLockUntil: Date,
 

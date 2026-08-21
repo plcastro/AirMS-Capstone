@@ -150,6 +150,7 @@ const requestPinReset = async (req, res) => {
     user.resetPinExpires = Date.now() + TOKEN_EXPIRATION;
     user.pinOtp = await bcrypt.hash(otp, 10);
     user.pinOtpExpires = Date.now() + OTP_EXPIRATION;
+    user.pinOtpVerified = false;
     user.pinOtpAttempts = 0;
     user.pinOtpLockUntil = undefined;
     await user.save();
@@ -186,12 +187,17 @@ const requestPinReset = async (req, res) => {
 // VERIFY PIN OTP
 const verifyPinOtp = async (req, res) => {
   const { token, otp } = req.body;
+  const normalizedOtp = String(otp || "").trim();
 
   const user = await UserModel.findOne({ resetPinToken: token });
   if (!user) return res.status(400).json({ message: "Invalid token" });
 
   if (!user.resetPinExpires || user.resetPinExpires < Date.now())
     return res.status(400).json({ message: "Invalid token" });
+
+  if (!/^\d{6}$/.test(normalizedOtp)) {
+    return res.status(400).json({ message: "Enter the complete 6-digit OTP" });
+  }
 
   if (user.pinOtpLockUntil && user.pinOtpLockUntil > Date.now()) {
     const remainingTime = Math.ceil((user.pinOtpLockUntil - Date.now()) / 60000);
@@ -203,7 +209,7 @@ const verifyPinOtp = async (req, res) => {
   if (user.pinOtpExpires < Date.now())
     return res.status(400).json({ message: "OTP expired" });
 
-  const valid = await bcrypt.compare(otp, user.pinOtp);
+  const valid = await bcrypt.compare(normalizedOtp, user.pinOtp);
   if (!valid) {
     user.pinOtpAttempts += 1;
 
@@ -223,6 +229,7 @@ const verifyPinOtp = async (req, res) => {
 
   user.pinOtpAttempts = 0;
   user.pinOtpLockUntil = undefined;
+  user.pinOtpVerified = true;
   await user.save();
 
   res.json({ message: "OTP verified", token: user.resetPinToken });
@@ -242,12 +249,21 @@ const resetPin = async (req, res) => {
 
   if (!user) return res.status(400).json({ message: "Invalid token" });
 
+  if (!user.pinOtpVerified) {
+    return res.status(400).json({ message: "OTP verification required" });
+  }
+
+  if (!/^\d{6}$/.test(String(newPin || ""))) {
+    return res.status(400).json({ message: "PIN must be exactly 6 digits" });
+  }
+
   user.pin = await bcrypt.hash(newPin, 12);
 
   user.resetPinToken = undefined;
   user.resetPinExpires = undefined;
   user.pinOtp = undefined;
   user.pinOtpExpires = undefined;
+  user.pinOtpVerified = false;
 
   await user.save();
   const pinResetAudit = withActorId(

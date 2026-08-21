@@ -127,8 +127,8 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
-  const isValidPinReset =
-    /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidOtp = /^\d{6}$/.test(otp);
 
   // --- Reset All Fields ---
   const resetAll = () => {
@@ -148,6 +148,11 @@ export default function UpdateSecurity() {
 
   // --- Save Password or PIN ---
   const handleSave = async (type) => {
+    if (type === "PIN" && !isValidPinReset) {
+      showToast("New PIN and Confirm PIN must match and be exactly 6 digits.");
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const endpoint = type === "Password" ? "change-password" : "update-pin";
@@ -209,6 +214,11 @@ export default function UpdateSecurity() {
   };
 
   const verifyOtp = async () => {
+    if (!isValidOtp) {
+      showToast("Please enter the complete 6-digit OTP.");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
         method: "POST",
@@ -241,6 +251,11 @@ export default function UpdateSecurity() {
 
   const handleReset = async (type) => {
     if (type === "PIN") {
+      if (!isValidPinReset) {
+        showToast("New PIN and Confirm PIN must match and be exactly 6 digits.");
+        return;
+      }
+
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
@@ -427,7 +442,7 @@ export default function UpdateSecurity() {
                 mode="contained"
                 loading={actionLoadingKey === "verify-otp"}
                 onPress={() => runWithLoading("verify-otp", () => verifyOtp())}
-                disabled={!otp}
+                disabled={!isValidOtp}
                 style={styles.mainBtn}
                 contentStyle={styles.buttonContent}
                 labelStyle={styles.buttonLabel}
