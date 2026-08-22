@@ -93,8 +93,8 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                 ["Block Time (OFF):", "blockTimeOff"],
                 ["Flight Time (ON):", "flightTimeOn"],
                 ["Flight Time (OFF):", "flightTimeOff"],
-                ["Total Time (ON):", "totalTimeOn"],
-                ["Total Time (OFF):", "totalTimeOff"],
+                ["Total Time (BLOCK):", "totalTimeOn"],
+                ["Total Time (FLIGHT):", "totalTimeOff"],
                 ["Date:", "date"],
                 ["Passengers:", "passengers"],
               ].map(([label, key]) => (
