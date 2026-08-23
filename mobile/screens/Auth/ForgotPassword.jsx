@@ -27,16 +27,16 @@ export default function ForgotPassword() {
     return emailRegex.test(value.trim());
   };
 
-  const isFormValid = isEmailValid(email);
-
   const sendResetLink = async () => {
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       setError("Email is required.");
       setMessage("");
       return;
     }
 
-    if (!isEmailValid(email)) {
+    if (!isEmailValid(normalizedEmail)) {
       setError("Please enter a valid email address.");
       setMessage("");
       return;
@@ -45,18 +45,18 @@ export default function ForgotPassword() {
     try {
       setLoading(true);
       setError("");
+      setMessage("");
 
       const response = await fetch(
         `${API_BASE}/api/user/request-password-reset`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: normalizedEmail }),
         },
       );
 
       const data = await response.json();
-      setLoading(false);
 
       if (response.ok) {
         showToast("Password reset email sent. Redirecting to OTP screen...");
@@ -66,19 +66,24 @@ export default function ForgotPassword() {
           () =>
             nav.replace("otpScreen", {
               token: data.token,
-              email,
+              email: normalizedEmail,
             }),
           2500,
         );
       } else {
-        setError(data.message || "Failed to send reset link. Try again later.");
+        setError(
+          response.status === 404
+            ? "Email entered does not correspond to any account. Please contact AirMS support."
+            : data.message || "Failed to send reset link. Try again later.",
+        );
         setMessage("");
       }
     } catch (err) {
       console.error(err);
-      setLoading(false);
       setError("Failed to send reset link. Try again later.");
       setMessage("");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,7 +132,7 @@ export default function ForgotPassword() {
           <Button
             label={loading ? "SENDING..." : "CONTINUE"}
             onPress={sendResetLink}
-            disabled={!isFormValid || loading}
+            disabled={loading}
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
             buttonTextStyle={styles.primaryBtnTxt}
           />

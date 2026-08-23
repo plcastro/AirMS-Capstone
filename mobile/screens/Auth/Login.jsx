@@ -38,7 +38,9 @@ const BASE_OPTIONS = [
 ];
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
@@ -107,8 +109,9 @@ export default function Login() {
 
     try {
       const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
-      const trustedDeviceToken =
-        trustedDeviceKey ? await secureGetItem(trustedDeviceKey) : "";
+      const trustedDeviceToken = trustedDeviceKey
+        ? await secureGetItem(trustedDeviceKey)
+        : "";
 
       const parseResponse = async (res) => {
         const text = await res.text();
@@ -153,7 +156,10 @@ export default function Login() {
 
       if (data.requireLoginOtp && data.verification?.token) {
         if (rememberMe) {
-          await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
+          await secureSetItem(
+            REMEMBERED_PASSWORD_KEY,
+            formData.password.trim(),
+          );
         } else {
           await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
         }
@@ -178,7 +184,7 @@ export default function Login() {
       }
 
       if (user?.status === "deactivated") {
-        setMessage("This account is deactivated. Please contact support");
+        setMessage("This account is deactivated. Please contact AirMS support");
         return;
       }
 

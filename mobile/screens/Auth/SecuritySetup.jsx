@@ -4,14 +4,17 @@ import AppInput from "../../components/common/AppInput";
 import {
   KeyboardAvoidingView,
   ScrollView,
-  View
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Button from "../../components/Button";
 import CodeInputField from "../../components/CodeInputField";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import LoginLayout from "../../Layout/LoginLayout";
+import { COLORS } from "../../stylesheets/colors";
 
 export default function SecuritySetup() {
   const nav = useNavigation();
@@ -19,6 +22,8 @@ export default function SecuritySetup() {
 
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   const token = route.params?.setupToken || "";
   const [message, setMessage] = useState("");
@@ -131,6 +136,39 @@ export default function SecuritySetup() {
     fontSize: 12,
   });
 
+  const renderPasswordInput = (field, placeholder) => (
+    <View style={{ position: "relative", justifyContent: "center" }}>
+      <AppInput
+        style={[styles.formInput, { paddingRight: 50 }]}
+        secureTextEntry={!showPassword}
+        placeholder={placeholder}
+        placeholderTextColor="gray"
+        autoCapitalize="none"
+        keyboardType="default"
+        value={formData[field]}
+        onChangeText={(e) => changeHandler(field, e)}
+      />
+      <TouchableOpacity
+        onPress={() => setShowPassword((current) => !current)}
+        accessibilityRole="button"
+        accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+        style={{
+          position: "absolute",
+          right: 10,
+          height: "100%",
+          justifyContent: "center",
+          paddingHorizontal: 10,
+        }}
+      >
+        <MaterialCommunityIcons
+          name={showPassword ? "eye-off" : "eye"}
+          size={21}
+          color={COLORS.primaryLight}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
@@ -145,26 +183,10 @@ export default function SecuritySetup() {
           cardsubTitle="Set your new password and PIN to proceed"
         >
           <AppText style={styles.label}>New Password *</AppText>
-          <AppInput
-            style={styles.formInput}
-            secureTextEntry
-            placeholder="Enter new password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            value={formData.newPassword}
-            onChangeText={(e) => changeHandler("newPassword", e)}
-          />
+          {renderPasswordInput("newPassword", "Enter new password")}
 
           <AppText style={styles.label}>Confirm Password *</AppText>
-          <AppInput
-            style={styles.formInput}
-            secureTextEntry
-            placeholder="Confirm new password"
-            placeholderTextColor="gray"
-            autoCapitalize="none"
-            value={formData.confirmPassword}
-            onChangeText={(e) => changeHandler("confirmPassword", e)}
-          />
+          {renderPasswordInput("confirmPassword", "Confirm new password")}
 
           <AppText style={{ fontSize: 12, color: "#666", marginBottom: 5 }}>
             Password Requirements:
@@ -179,12 +201,48 @@ export default function SecuritySetup() {
             {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
           </AppText>
 
-          <AppText style={[styles.label, { marginTop: 14 }]}>Set 6-digit PIN *</AppText>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 14,
+            }}
+          >
+            <AppText style={styles.label}>Set 6-digit PIN *</AppText>
+            <TouchableOpacity
+              onPress={() => setShowPin((current) => !current)}
+              accessibilityRole="button"
+              accessibilityLabel={showPin ? "Hide PIN" : "Show PIN"}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingLeft: 12,
+                paddingVertical: 4,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={showPin ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color={COLORS.primaryLight}
+              />
+              <AppText
+                style={{
+                  color: COLORS.primaryLight,
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginLeft: 4,
+                }}
+              >
+                {showPin ? "Hide PIN" : "Show PIN"}
+              </AppText>
+            </TouchableOpacity>
+          </View>
           <CodeInputField
             code={formData.pin}
             setCode={(value) => changeHandler("pin", value)}
             maxLength={6}
-            secure
+            secure={!showPin}
             containerStyle={{
               flex: 0,
               alignItems: "stretch",
@@ -200,7 +258,7 @@ export default function SecuritySetup() {
             code={formData.confirmPin}
             setCode={(value) => changeHandler("confirmPin", value)}
             maxLength={6}
-            secure
+            secure={!showPin}
             containerStyle={{
               flex: 0,
               alignItems: "stretch",
