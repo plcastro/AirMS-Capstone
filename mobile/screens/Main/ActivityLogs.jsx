@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
@@ -51,7 +57,6 @@ const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
 );
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_TREND_BUCKETS = 8;
 
 const startOfDay = (date) => {
   const next = new Date(date);
@@ -65,76 +70,64 @@ const endOfDay = (date) => {
   return next;
 };
 
-const formatTrendLabel = (start, end) => {
-  const formatOptions = { month: "short", day: "numeric" };
-  const startLabel = start.toLocaleDateString("en-US", formatOptions);
-  const endLabel = end.toLocaleDateString("en-US", formatOptions);
-  return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
-};
-
-const buildTrendBuckets = (items = [], dateRangeFilter = "30") => {
-  const timestamps = items
-    .map((item) => new Date(item.dateTime).getTime())
-    .filter(Number.isFinite);
-  const todayEnd = endOfDay(new Date());
-  let rangeStart;
-  let rangeEnd = todayEnd;
-
-  if (dateRangeFilter === "all") {
-    if (!timestamps.length) return [];
-    rangeStart = startOfDay(new Date(Math.min(...timestamps)));
-    rangeEnd = endOfDay(new Date(Math.max(...timestamps)));
-  } else {
-    const days = Number(dateRangeFilter);
-    if (!Number.isFinite(days) || days <= 0) return [];
-    rangeStart = startOfDay(new Date(todayEnd.getTime() - (days - 1) * DAY_MS));
-  }
-
-  const spanDays = Math.max(
-    Math.ceil((rangeEnd.getTime() - rangeStart.getTime() + 1) / DAY_MS),
-    1,
-  );
-  const bucketCount = Math.min(spanDays, MAX_TREND_BUCKETS);
-  const bucketSizeDays = Math.max(Math.ceil(spanDays / bucketCount), 1);
-  const buckets = [];
-
-  for (let index = 0; index < bucketCount; index += 1) {
-    const bucketStart = startOfDay(
-      new Date(rangeStart.getTime() + index * bucketSizeDays * DAY_MS),
-    );
-    const bucketEnd = endOfDay(
-      new Date(
-        Math.min(
-          bucketStart.getTime() + bucketSizeDays * DAY_MS - 1,
-          rangeEnd.getTime(),
-        ),
-      ),
-    );
-
-    buckets.push({
-      date: bucketStart.toISOString().slice(0, 10),
-      label: formatTrendLabel(bucketStart, bucketEnd),
-      value: 0,
-      startMs: bucketStart.getTime(),
-      endMs: bucketEnd.getTime(),
-      ...buildEmptyAuditCategoryCounts(),
-    });
-  }
+const buildTrendData = (items = [], dateRangeFilter = "7") => {
+  const dailyStats = {};
 
   items.forEach((log) => {
-    const timestamp = new Date(log.dateTime).getTime();
-    if (!Number.isFinite(timestamp)) return;
-    const bucket = buckets.find(
-      (entry) => timestamp >= entry.startMs && timestamp <= entry.endMs,
-    );
-    if (!bucket) return;
+    if (!log.dateTime) return;
+
+    const parsedDate = new Date(log.dateTime);
+
+    if (Number.isNaN(parsedDate.getTime())) return;
+
+    const dateKey = parsedDate.toISOString().slice(0, 10);
+
+    if (!dailyStats[dateKey]) {
+      dailyStats[dateKey] = {
+        date: dateKey,
+        ...buildEmptyAuditCategoryCounts(),
+      };
+    }
 
     const category = getAuditActionCategory(log.actionMade);
-    bucket[category] += 1;
-    bucket.value += 1;
+
+    dailyStats[dateKey][category]++;
   });
 
-  return buckets.map(({ startMs, endMs, ...bucket }) => bucket);
+  const endDate = endOfDay(new Date());
+
+  let startDate;
+
+  if (dateRangeFilter === "all") {
+    const dates = Object.keys(dailyStats).sort();
+
+    startDate = dates.length
+      ? startOfDay(new Date(`${dates[0]}T00:00:00`))
+      : startOfDay(new Date());
+  } else {
+    const days = Number(dateRangeFilter);
+
+    startDate = startOfDay(new Date(endDate.getTime() - (days - 1) * DAY_MS));
+  }
+
+  const filledData = [];
+
+  let cursor = startDate;
+
+  while (cursor <= endDate) {
+    const dateKey = cursor.toISOString().slice(0, 10);
+
+    filledData.push(
+      dailyStats[dateKey] || {
+        date: dateKey,
+        ...buildEmptyAuditCategoryCounts(),
+      },
+    );
+
+    cursor = new Date(cursor.getTime() + DAY_MS);
+  }
+
+  return filledData;
 };
 
 export default function ActivityLogs() {
@@ -149,10 +142,7 @@ export default function ActivityLogs() {
   const [openFilter, setOpenFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [exporting, setExporting] = useState(false);
-  const canExportActivityLogs = canExportModule(
-    user?.jobTitle,
-    "activityLogs",
-  );
+  const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
 
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -281,8 +271,9 @@ export default function ActivityLogs() {
   }, [filteredLogs]);
 
   const trendSeries = useMemo(() => {
-    return buildTrendBuckets(filteredLogs, dateRangeFilter);
+    return buildTrendData(filteredLogs, dateRangeFilter);
   }, [dateRangeFilter, filteredLogs]);
+
   const groupedSummary = useMemo(() => {
     const byUser = {};
     const byModule = {};
@@ -391,10 +382,7 @@ export default function ActivityLogs() {
             color={COLORS.primaryLight}
             style={{ marginRight: 6 }}
           />
-          <AppText
-            style={styles.unifiedFilterButtonText}
-            numberOfLines={1}
-          >
+          <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
             {selectedLabel || label}
           </AppText>
           <MaterialCommunityIcons
