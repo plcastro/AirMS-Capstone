@@ -253,7 +253,7 @@ export default function ResetPassword() {
               onPress={handleSubmit}
               buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
               buttonTextStyle={styles.primaryBtnTxt}
-              disabled={loading || redirecting || !isFormValid}
+              disabled={loading || redirecting}
             />
           </View>
 
