@@ -21,7 +21,12 @@ export default function UpdateSecurity() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
-  const [showPassword, setShowPassword] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+    pinReset: false,
+  });
   // --- PIN States ---
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -39,12 +44,21 @@ export default function UpdateSecurity() {
 
   const [actionLoadingKey, setActionLoadingKey] = useState("");
 
-  const renderPasswordVisibilityIcon = () => (
+  const togglePasswordVisibility = (field) => {
+    setVisiblePasswords((current) => ({
+      ...current,
+      [field]: !current[field],
+    }));
+  };
+
+  const renderPasswordVisibilityIcon = (field) => (
     <TextInput.Icon
-      icon={showPassword ? "eye-off" : "eye"}
-      onPress={() => setShowPassword((current) => !current)}
+      icon={visiblePasswords[field] ? "eye-off" : "eye"}
+      onPress={() => togglePasswordVisibility(field)}
       forceTextInputFocus={false}
-      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+      accessibilityLabel={
+        visiblePasswords[field] ? "Hide password" : "Show password"
+      }
     />
   );
 
@@ -156,7 +170,12 @@ export default function UpdateSecurity() {
     setOtpVerified(false);
     setPinResetToken("");
     setForgotPinMode(false);
-    setShowPassword(false);
+    setVisiblePasswords({
+      current: false,
+      new: false,
+      confirm: false,
+      pinReset: false,
+    });
     setShowPin(false);
   };
 
@@ -327,21 +346,21 @@ export default function UpdateSecurity() {
           <AppPaperInput
             label="Current Password *"
             mode="outlined"
-            secureTextEntry={!showPassword} // Toggle based on state
+            secureTextEntry={!visiblePasswords.current}
             keyboardType="default"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            right={renderPasswordVisibilityIcon()}
+            right={renderPasswordVisibilityIcon("current")}
             style={styles.input}
           />
           <AppPaperInput
             label="New Password *"
             mode="outlined"
-            secureTextEntry={!showPassword} // Toggle based on state
+            secureTextEntry={!visiblePasswords.new}
             keyboardType="default"
             value={newPassword}
             onChangeText={setNewPassword}
-            right={renderPasswordVisibilityIcon()}
+            right={renderPasswordVisibilityIcon("new")}
             style={styles.input}
           />
           {newPassword ? (
@@ -352,11 +371,11 @@ export default function UpdateSecurity() {
           <AppPaperInput
             label="Confirm Password *"
             mode="outlined"
-            secureTextEntry={!showPassword} // Toggle based on state
+            secureTextEntry={!visiblePasswords.confirm}
             keyboardType="default"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            right={renderPasswordVisibilityIcon()}
+            right={renderPasswordVisibilityIcon("confirm")}
             style={styles.input}
           />
           <Button
@@ -437,11 +456,11 @@ export default function UpdateSecurity() {
               <AppPaperInput
                 label="Current Password *"
                 mode="outlined"
-                secureTextEntry={!showPassword} // Toggle based on state
+                secureTextEntry={!visiblePasswords.pinReset}
                 keyboardType="default"
                 value={passwordForPin}
                 onChangeText={setPasswordForPin}
-                right={renderPasswordVisibilityIcon()}
+                right={renderPasswordVisibilityIcon("pinReset")}
                 style={styles.input}
               />
               <Button
