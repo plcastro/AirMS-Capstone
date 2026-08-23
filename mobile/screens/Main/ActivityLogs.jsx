@@ -590,6 +590,7 @@ export default function ActivityLogs() {
             data={trendSeries}
             height={160}
             series={ACTIVITY_TREND_SERIES}
+            showLegend={false}
             xKey="label"
           />
           <View style={styles.legendRow}>

@@ -44,6 +44,7 @@ export default function AreaChart({
   data = [],
   height = 180,
   series = DEFAULT_SERIES,
+  showLegend = true,
   xKey,
 }) {
   const { width: windowWidth } = useWindowDimensions();
@@ -105,14 +106,16 @@ export default function AreaChart({
         />
       </ScrollView>
 
-      <View style={styles.legendRow}>
-        {safeSeries.map((entry) => (
-          <View key={entry.key} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: entry.color }]} />
-            <AppText style={styles.legendText}>{entry.name || entry.key}</AppText>
-          </View>
-        ))}
-      </View>
+      {showLegend && (
+        <View style={styles.legendRow}>
+          {safeSeries.map((entry) => (
+            <View key={entry.key} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: entry.color }]} />
+              <AppText style={styles.legendText}>{entry.name || entry.key}</AppText>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
