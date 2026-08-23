@@ -4,6 +4,8 @@ node_modules
 .cache
 
 # Native build outputs
+/android
+/ios
 android/.gradle
 android/build
 android/app/build
@@ -17,7 +19,17 @@ android/**/*.aab
 ios/build
 ios/Pods
 
-# Local env/editor/system files
+# Local credentials, env, editor, and system files
+.env
+.env*.local
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
 .DS_Store
 Thumbs.db
 .vscode

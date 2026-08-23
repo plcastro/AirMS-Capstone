@@ -20,7 +20,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arckexe.airms"
+      "bundleIdentifier": "com.arckexe.airms",
+      "icon": "./assets/AirMS_ios_icon.png"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
@@ -42,6 +43,7 @@
     },
     "plugins": [
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-community/datetimepicker",
       "expo-font",
       [
@@ -51,7 +53,19 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBMessaging"
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
