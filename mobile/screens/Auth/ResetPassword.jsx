@@ -98,7 +98,7 @@ export default function ResetPassword() {
       setTimeout(() => navigation.replace("login"), 1600);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err.message || "Network error. Please try again.");
+      setError(err.message || "Network error. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,9 @@ export default function ResetPassword() {
               Password Requirements:
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.minLength)}
+            >
               {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
               characters
             </AppText>
@@ -208,7 +210,9 @@ export default function ResetPassword() {
               letter
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.hasNumber)}
+            >
               {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
             </AppText>
           </View>

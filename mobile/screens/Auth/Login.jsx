@@ -239,7 +239,7 @@ export default function Login() {
       nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Login error. Try again later.");
+      setMessage("Login error. Please try again later.");
     } finally {
       setLoading(false);
     }

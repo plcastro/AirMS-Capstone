@@ -72,7 +72,8 @@ export default function SecuritySetup() {
       return setMessage("Password must contain a number.");
     if (newPassword !== confirmPassword)
       return setMessage("Passwords do not match.");
-    if (!/^\d{6}$/.test(pin)) return setMessage("PIN must be exactly 6 digits.");
+    if (!/^\d{6}$/.test(pin))
+      return setMessage("PIN must be exactly 6 digits.");
     if (pin !== confirmPin) return setMessage("PINs do not match.");
 
     handleSetup();
@@ -93,14 +94,16 @@ export default function SecuritySetup() {
 
       if (res.ok) {
         setSetupSuccess(true);
-        setMessage("Password and PIN set successfully! Redirecting to login...");
+        setMessage(
+          "Password and PIN set successfully! Redirecting to login...",
+        );
         setTimeout(() => nav.replace("login"), 2500);
       } else {
         setMessage(data.message || "Failed to activate account.");
       }
     } catch (err) {
       console.error(err);
-      setMessage("Failed to activate account. Try again later.");
+      setMessage("Failed to activate account. Please try again later.");
     }
   };
 
@@ -125,7 +128,9 @@ export default function SecuritySetup() {
       }
     } catch (err) {
       console.error(err);
-      setResendMessage("Failed to resend activation link. Try again later.");
+      setResendMessage(
+        "Failed to resend activation link. Please try again later.",
+      );
     } finally {
       setResendLoading(false);
     }
@@ -192,10 +197,14 @@ export default function SecuritySetup() {
             Password Requirements:
           </AppText>
           <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
-            {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8 characters
+            {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
+            characters
           </AppText>
-          <AppText style={getRequirementStyle(passwordRequirements.hasUppercase)}>
-            {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase letter
+          <AppText
+            style={getRequirementStyle(passwordRequirements.hasUppercase)}
+          >
+            {passwordRequirements.hasUppercase ? "[OK]" : "[ ]"} One uppercase
+            letter
           </AppText>
           <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
             {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
@@ -269,7 +278,9 @@ export default function SecuritySetup() {
             inputContainerStyle={{ width: "100%" }}
           />
 
-          {message && !setupSuccess && <AppText style={styles.error}>{message}</AppText>}
+          {message && !setupSuccess && (
+            <AppText style={styles.error}>{message}</AppText>
+          )}
 
           <Button
             onPress={validate}

@@ -4,14 +4,11 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   View,
-  Pressable
+  Pressable,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  secureDeleteItem,
-  secureSetItem,
-} from "../../utilities/secureStorage";
+import { secureDeleteItem, secureSetItem } from "../../utilities/secureStorage";
 
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
@@ -26,7 +23,9 @@ import {
 } from "../../utilities/pendingRedirect";
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
@@ -101,7 +100,7 @@ export default function OTP() {
       }
     } catch (err) {
       console.error("OTP verification error:", err);
-      setMessage("Failed to verify OTP. Try again.");
+      setMessage("Failed to verify OTP. Please try again later.");
     }
   };
 
@@ -186,7 +185,7 @@ export default function OTP() {
       navigation.replace("dashboard");
     } catch (err) {
       console.error("Login OTP verification error:", err);
-      setMessage("Failed to verify OTP. Try again.");
+      setMessage("Failed to verify OTP. Please try again later.");
     }
   };
 
@@ -232,7 +231,7 @@ export default function OTP() {
       }
     } catch (err) {
       console.error("Resend OTP error:", err);
-      setMessage("Failed to send OTP. Try again later.");
+      setMessage("Failed to send OTP. Please try again later.");
       showToast("Failed to resend OTP.");
     }
   };
@@ -289,9 +288,7 @@ export default function OTP() {
                 Remember this device for 30 days
               </AppText>
               <Pressable
-                onPress={() =>
-                  rememberMe && setTrustDevice((prev) => !prev)
-                }
+                onPress={() => rememberMe && setTrustDevice((prev) => !prev)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: trustDevice }}
                 disabled={!rememberMe}

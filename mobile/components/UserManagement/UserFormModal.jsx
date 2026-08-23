@@ -247,7 +247,7 @@ export default function UserFormModal({
       setPickedImageAsset(asset);
       setError("");
     } catch (pickerError) {
-      setError("Failed to select image. Please try again.");
+      setError("Failed to select image. Please try again later.");
     } finally {
       setImageLoading(false);
     }
