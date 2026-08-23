@@ -259,6 +259,7 @@ export default function OTP() {
             setCode={setCode}
             setPinReady={setPinReady}
             maxLength={MAX_CODE_LENGTH}
+            secure={false}
           />
 
           <Button

@@ -470,7 +470,7 @@ export default function UpdateSecurity() {
           {forgotPinMode && otpSent && !otpVerified && (
             <View style={styles.section}>
               <Text style={styles.flowTitle}>Verify OTP</Text>
-              {renderCodeField("OTP", otp, setOtp)}
+              {renderCodeField("OTP", otp, setOtp, { secure: false })}
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "verify-otp"}
