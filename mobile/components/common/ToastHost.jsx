@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Portal, Snackbar } from "react-native-paper";
 import { subscribeToToast } from "../../utilities/toast";
 
-const TOAST_DURATION_MS = 3000;
+const TOAST_DURATION_MS = 2000;
 
 export default function ToastHost() {
   const [messages, setMessages] = useState([]);

@@ -27,8 +27,6 @@ export default function ForgotPassword() {
     return emailRegex.test(value.trim());
   };
 
-  const isFormValid = isEmailValid(email);
-
   const sendResetLink = async () => {
     if (!email.trim()) {
       setError("Email is required.");
@@ -71,7 +69,11 @@ export default function ForgotPassword() {
           2500,
         );
       } else {
-        setError(data.message || "Failed to send reset link. Try again later.");
+        setError(
+          response.status === 404 || data.message === "User not found."
+            ? "The email you entered does not correspond to any account."
+            : data.message || "Failed to send reset link. Try again later.",
+        );
         setMessage("");
       }
     } catch (err) {
@@ -127,7 +129,7 @@ export default function ForgotPassword() {
           <Button
             label={loading ? "SENDING..." : "CONTINUE"}
             onPress={sendResetLink}
-            disabled={!isFormValid || loading}
+            disabled={loading}
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
