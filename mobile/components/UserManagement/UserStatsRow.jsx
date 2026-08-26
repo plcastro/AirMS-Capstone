@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 9, color: COLORS.grayDark, marginBottom: 4 },
   statLabelActive: { color: COLORS.primary },
-  statValue: { fontSize: 12, fontWeight: "bold" },
+  statValue: { fontSize: 9, fontWeight: "bold" },
   statValueActive: { color: COLORS.primaryLight },
 });
