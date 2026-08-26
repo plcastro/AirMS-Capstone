@@ -119,7 +119,7 @@ const buildTrendData = (items = [], dateRangeFilter = "7") => {
 
     filledData.push(
       dailyStats[dateKey] || {
-        date: dateKey,
+        label: dateKey,
         ...buildEmptyAuditCategoryCounts(),
       },
     );

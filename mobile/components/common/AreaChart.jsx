@@ -1,5 +1,10 @@
 import React from "react";
-import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
@@ -25,9 +30,10 @@ const buildChartConfig = (series) => ({
   backgroundGradientFrom: COLORS.white,
   backgroundGradientTo: COLORS.white,
   decimalPlaces: 0,
-  color: (opacity = 1) => `${series[0]?.color || COLORS.primaryLight}${Math.round(opacity * 255)
-    .toString(16)
-    .padStart(2, "0")}`,
+  color: (opacity = 1) =>
+    `${series[0]?.color || COLORS.primaryLight}${Math.round(opacity * 255)
+      .toString(16)
+      .padStart(2, "0")}`,
   labelColor: () => COLORS.grayDark,
   propsForBackgroundLines: {
     stroke: "#f0f0f0",
@@ -48,8 +54,9 @@ export default function AreaChart({
   xKey,
 }) {
   const { width: windowWidth } = useWindowDimensions();
-  const safeData = Array.isArray(data) ? data.slice(0, 8) : [];
-  const safeSeries = Array.isArray(series) && series.length ? series : DEFAULT_SERIES;
+  const safeData = Array.isArray(data) ? data : [];
+  const safeSeries =
+    Array.isArray(series) && series.length ? series : DEFAULT_SERIES;
   const viewportWidth = Math.min(Math.max(windowWidth - 68, 260), 560);
   const chartWidth = Math.max(
     MIN_CHART_WIDTH,
@@ -64,13 +71,14 @@ export default function AreaChart({
   }
 
   const labels = safeData.map((item) =>
-    formatAxisLabel(item?.[xKey] || item?.label || item?.month || item?.date),
+    formatAxisLabel(item?.[xKey] || item?.label || item?.date),
   );
   const datasets = safeSeries.map((entry) => ({
     data: safeData.map((item) => getPointValue(item, entry.key)),
-    color: (opacity = 1) => `${entry.color}${Math.round(opacity * 255)
-      .toString(16)
-      .padStart(2, "0")}`,
+    color: (opacity = 1) =>
+      `${entry.color}${Math.round(opacity * 255)
+        .toString(16)
+        .padStart(2, "0")}`,
     strokeWidth: 2.5,
   }));
 
@@ -110,8 +118,12 @@ export default function AreaChart({
         <View style={styles.legendRow}>
           {safeSeries.map((entry) => (
             <View key={entry.key} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: entry.color }]} />
-              <AppText style={styles.legendText}>{entry.name || entry.key}</AppText>
+              <View
+                style={[styles.legendDot, { backgroundColor: entry.color }]}
+              />
+              <AppText style={styles.legendText}>
+                {entry.name || entry.key}
+              </AppText>
             </View>
           ))}
         </View>
