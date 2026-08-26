@@ -84,7 +84,7 @@ const buildTrendData = (items = [], dateRangeFilter = "7") => {
 
     if (!dailyStats[dateKey]) {
       dailyStats[dateKey] = {
-        date: dateKey,
+        label: dateKey,
         ...buildEmptyAuditCategoryCounts(),
       };
     }

@@ -50,30 +50,53 @@ export default function UserStatsRow({
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   statsScroller: {
     marginBottom: 12,
   },
+
   statsRow: {
     flexDirection: "row",
     columnGap: 8,
     paddingRight: 4,
   },
+
   statCard: {
     width: 104,
+    height: 65,
     backgroundColor: COLORS.white,
-    padding: 9,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
+
   statCardActive: {
     backgroundColor: "#E6F4F1",
     borderWidth: 1,
     borderColor: COLORS.primaryLight,
   },
-  statLabel: { fontSize: 9, color: COLORS.grayDark, marginBottom: 4 },
-  statLabelActive: { color: COLORS.primary },
-  statValue: { fontSize: 9, fontWeight: "bold" },
-  statValueActive: { color: COLORS.primaryLight },
+
+  statLabel: {
+    fontSize: 10,
+    color: COLORS.grayDark,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+
+  statLabelActive: {
+    color: COLORS.primary,
+  },
+
+  statValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: COLORS.grayDark,
+    textAlign: "center",
+  },
+
+  statValueActive: {
+    color: COLORS.primaryLight,
+  },
 });
