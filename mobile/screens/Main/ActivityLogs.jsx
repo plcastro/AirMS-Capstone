@@ -528,10 +528,7 @@ export default function ActivityLogs() {
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             contentContainerStyle={styles.filtersScrollContent}
-            style={[
-              styles.filtersScroll,
-              openFilter ? styles.filtersScrollOpen : null,
-            ]}
+            style={styles.filtersScroll}
           >
             {filterControls.map((filter) =>
               renderFilterDropdown({
@@ -726,10 +723,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     overflow: "visible",
     zIndex: 20,
-  },
-  filtersScrollOpen: {
-    height: 312,
-    zIndex: 1000,
   },
   filtersScrollContent: {
     columnGap: 12,
