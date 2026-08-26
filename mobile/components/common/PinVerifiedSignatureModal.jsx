@@ -178,6 +178,7 @@ export default function PinVerifiedSignatureModal({
               >
                 <SignatureCanvas
                   ref={signatureRef}
+                  webviewProps={{ androidLayerType: "software" }}
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
                     setAdvanceAfterSignature(false);
