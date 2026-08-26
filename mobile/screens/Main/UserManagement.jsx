@@ -561,6 +561,7 @@ export default function UserManagement() {
       </View>
 
       <ScrollView
+        style={ui.userList}
         contentContainerStyle={ui.listContent}
         refreshControl={
           <RefreshControl
@@ -620,10 +621,13 @@ const ui = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7F8", padding: 12 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
-  listContent: { paddingBottom: 92 },
+  listContent: { flexGrow: 1, paddingBottom: 92 },
   searchFilterRow: {
     marginBottom: 10,
     zIndex: 20,
+  },
+  userList: {
+    flex: 1,
   },
   searchControl: {
     height: 48,
@@ -693,5 +697,9 @@ const ui = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  emptyState: { alignItems: "center", marginTop: 50, gap: 10 },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 50,
+  },
 });

@@ -57,16 +57,18 @@ const styles = StyleSheet.create({
 
   statsRow: {
     flexDirection: "row",
+    alignItems: "stretch",
     columnGap: 8,
+    paddingVertical: 2,
     paddingRight: 4,
   },
 
   statCard: {
     width: 104,
-    height: 65,
+    minHeight: 70,
     backgroundColor: COLORS.white,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -80,6 +82,7 @@ const styles = StyleSheet.create({
 
   statLabel: {
     fontSize: 10,
+    lineHeight: 14,
     color: COLORS.grayDark,
     marginBottom: 4,
     textAlign: "center",
@@ -91,8 +94,9 @@ const styles = StyleSheet.create({
 
   statValue: {
     fontSize: 16,
+    lineHeight: 20,
     fontWeight: "bold",
-    color: COLORS.grayDark,
+    color: COLORS.black,
     textAlign: "center",
   },
 
