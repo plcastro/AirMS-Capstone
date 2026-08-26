@@ -309,7 +309,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Activity Logs"
           component={Screens.ActivityLogs}
-          options={navLabel}
+          options={{ ...navLabel, swipeEnabled: false }}
         />
       )}
 
@@ -470,10 +470,7 @@ function StackNavWrapper() {
 function AppShell({ linking }) {
   return (
     <View style={{ flex: 1 }}>
-      <NavigationContainer
-        linking={linking}
-        ref={navigationRef}
-      >
+      <NavigationContainer linking={linking} ref={navigationRef}>
         <StackNavWrapper />
       </NavigationContainer>
     </View>
