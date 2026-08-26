@@ -52,20 +52,22 @@ export default function UserStatsRow({
 }
 const styles = StyleSheet.create({
   statsScroller: {
-    marginBottom: 12,
+    height: 70,
+    marginBottom: 6,
+    flexGrow: 0,
   },
 
   statsRow: {
     flexDirection: "row",
-    alignItems: "stretch",
+    alignItems: "center",
     columnGap: 8,
-    paddingVertical: 2,
+    paddingVertical: 0,
     paddingRight: 4,
   },
 
   statCard: {
     width: 104,
-    minHeight: 70,
+    height: 70,
     backgroundColor: COLORS.white,
     paddingVertical: 10,
     paddingHorizontal: 8,
