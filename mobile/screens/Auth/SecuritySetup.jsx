@@ -284,7 +284,7 @@ export default function SecuritySetup() {
 
           <Button
             onPress={validate}
-            label="SET PASSWORD"
+            label="SET PASSWORD & PIN"
             buttonStyle={[styles.primaryBtn, { marginTop: 20 }]}
             buttonTextStyle={styles.primaryBtnTxt}
             disabled={!isFormValid}
