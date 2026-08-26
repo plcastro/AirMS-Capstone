@@ -43,6 +43,10 @@ export default function ResetPassword() {
     passwordRequirements.hasNumber &&
     formData.confirmPassword &&
     formData.newPassword === formData.confirmPassword;
+  const passwordsMatch =
+    formData.newPassword.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.newPassword === formData.confirmPassword;
 
   const getRequirementStyle = (met) => ({
     color: met ? "#26866F" : "#999",
@@ -188,6 +192,13 @@ export default function ResetPassword() {
               value={formData.confirmPassword}
               onChangeText={(text) => handleChange("confirmPassword", text)}
             />
+            {passwordsMatch && (
+              <AppText
+                style={{ color: "#26866F", fontSize: 12, marginTop: 6 }}
+              >
+                Passwords match.
+              </AppText>
+            )}
           </View>
 
           {/* REQUIREMENTS BOX */}

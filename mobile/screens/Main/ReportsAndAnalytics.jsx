@@ -257,6 +257,7 @@ const isRepairedTask = (task = {}) => {
 export default function ReportsAndAnalytics() {
   const { user } = useContext(AuthContext);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [taskView, setTaskView] = useState("dueSoon");
   const [tasks, setTasks] = useState([]);
@@ -267,9 +268,19 @@ export default function ReportsAndAnalytics() {
   const [partsRequisitions, setPartsRequisitions] = useState([]);
   const [baseAnalytics, setBaseAnalytics] = useState(null);
   const [aircraftBaseByTail, setAircraftBaseByTail] = useState({});
-  const searchNeedle = search.trim().toLowerCase();
+  const searchNeedle = debouncedSearch.trim().toLowerCase();
   const hasActiveSearch = searchNeedle.length > 0;
   const canExportReports = canExportModule(user?.jobTitle, "reports");
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setDebouncedSearch("");
+      return undefined;
+    }
+
+    const timer = setTimeout(() => setDebouncedSearch(search), 225);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -558,25 +569,25 @@ export default function ReportsAndAnalytics() {
         component: (
           <GeneralReports
             tasks={
-              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+              hasActiveSearch ? filteredTasks : tasks
             }
             flightLogs={
-              hasActiveSearch && filteredFlightLogs.length
+              hasActiveSearch
                 ? filteredFlightLogs
                 : flightLogs
             }
             preInspections={
-              hasActiveSearch && filteredPreInspections.length
+              hasActiveSearch
                 ? filteredPreInspections
                 : preInspections
             }
             postInspections={
-              hasActiveSearch && filteredPostInspections.length
+              hasActiveSearch
                 ? filteredPostInspections
                 : postInspections
             }
             partsRequisitions={
-              hasActiveSearch && filteredPartsRequisitions.length
+              hasActiveSearch
                 ? filteredPartsRequisitions
                 : partsRequisitions
             }
@@ -605,7 +616,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <MaintenancePerformance
             tasks={
-              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+              hasActiveSearch ? filteredTasks : tasks
             }
           />
         ),
@@ -620,7 +631,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <MaintenanceHistory
             tasks={
-              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+              hasActiveSearch ? filteredTasks : tasks
             }
             loading={loading}
           />
@@ -636,7 +647,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <MaintenanceSummary
             tasks={
-              hasActiveSearch && filteredTasks.length ? filteredTasks : tasks
+              hasActiveSearch ? filteredTasks : tasks
             }
             loading={loading}
           />
@@ -652,7 +663,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <ComponentUsage
             records={
-              hasActiveSearch && filteredPartsRecords.length
+              hasActiveSearch
                 ? filteredPartsRecords
                 : partsRecords
             }
@@ -670,7 +681,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <FlightLogReport
             records={
-              hasActiveSearch && filteredFlightLogs.length
+              hasActiveSearch
                 ? filteredFlightLogs
                 : flightLogs
             }
@@ -689,7 +700,7 @@ export default function ReportsAndAnalytics() {
           <InspectionReport
             title="Pre-Inspection Report"
             records={
-              hasActiveSearch && filteredPreInspections.length
+              hasActiveSearch
                 ? filteredPreInspections
                 : preInspections
             }
@@ -708,7 +719,7 @@ export default function ReportsAndAnalytics() {
           <InspectionReport
             title="Post-Inspection Report"
             records={
-              hasActiveSearch && filteredPostInspections.length
+              hasActiveSearch
                 ? filteredPostInspections
                 : postInspections
             }
@@ -726,7 +737,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <PartsRequisitionReport
             records={
-              hasActiveSearch && filteredPartsRequisitions.length
+              hasActiveSearch
                 ? filteredPartsRequisitions
                 : partsRequisitions
             }
@@ -757,8 +768,8 @@ export default function ReportsAndAnalytics() {
   );
 
   const filteredReportCards = useMemo(
-    () => rankReportCards(reportCards, search),
-    [reportCards, search],
+    () => rankReportCards(reportCards, debouncedSearch),
+    [reportCards, debouncedSearch],
   );
   const groupedFilteredReportCards = useMemo(
     () => groupReportCards(filteredReportCards),

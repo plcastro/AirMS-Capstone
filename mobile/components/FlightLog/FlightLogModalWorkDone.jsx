@@ -229,7 +229,7 @@ export default function FlightLogModalWorkDone({
 
             {/* Fields */}
             {renderInput(item.id, "Date", "date", "MM/DD/YYYY")}
-            {renderInput(item.id, "Aircraft/T/", "aircraft", "Aircraft type")}
+            {renderInput(item.id, "Aircraft Type", "aircraft", "Aircraft type")}
             {renderInput(item.id, "Work Done", "workDone", "Describe work done", true)}
             {renderInput(item.id, "Name", "name", "Technician name")}
             {renderInput(item.id, "Certificate Number", "certificateNumber", "Certificate number")}

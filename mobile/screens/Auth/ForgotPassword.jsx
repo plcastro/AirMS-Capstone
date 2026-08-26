@@ -72,10 +72,9 @@ export default function ForgotPassword() {
         );
       } else {
         setError(
-          response.status === 404
-            ? "Email entered does not correspond to any account. Please contact AirMS support."
-            : data.message ||
-                "Failed to send reset link. Please try again later.",
+          response.status === 404 || data.message === "User not found."
+            ? "The email you entered does not correspond to any account."
+            : data.message || "Failed to send reset link. Try again later.",
         );
         setMessage("");
       }

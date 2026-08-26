@@ -134,6 +134,21 @@ export default function PreInspectionEntry({
     return true;
   };
 
+  const fobValue = String(formData.fob ?? "").trim();
+  const numericFob = Number(fobValue);
+  const hasValidDate =
+    Boolean(formData.date) &&
+    !Number.isNaN(new Date(formData.date).getTime());
+  const isDraftValid =
+    Boolean(String(formData.rpc || "").trim()) &&
+    Boolean(String(formData.aircraftType || "").trim()) &&
+    Boolean(String(formData.base || "").trim()) &&
+    hasValidDate &&
+    Boolean(fobValue) &&
+    Number.isFinite(numericFob) &&
+    numericFob >= 0 &&
+    areAllInspectionChecksComplete(formData);
+
   const persistInspection = async (nextFormData) => {
     setIsSubmitting(true);
     try {
@@ -323,13 +338,13 @@ export default function PreInspectionEntry({
                     setShowReleaseModal(true);
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isDraftValid}
                 style={{
                   backgroundColor: COLORS.primaryLight,
                   paddingVertical: 12,
                   borderRadius: 8,
                   alignItems: "center",
-                  opacity: isSubmitting ? 0.6 : 1,
+                  opacity: isSubmitting || !isDraftValid ? 0.6 : 1,
                 }}
               >
                 <AppText
