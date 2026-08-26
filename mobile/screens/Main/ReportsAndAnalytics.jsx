@@ -47,6 +47,19 @@ const normalizeStatus = (value) =>
     .replace(/_/g, " ")
     .trim();
 
+const monthLabel = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No date";
+  return date.toLocaleString("en-US", { month: "short", year: "numeric" });
+};
+
+const getRecordDate = (record = {}) =>
+  record.date ||
+  record.dateRequested ||
+  record.dateAdded ||
+  record.createdAt ||
+  record.updatedAt;
+
 const countBy = (records, getKey) =>
   records.reduce((totals, record) => {
     const key = getKey(record) || "Unknown";
@@ -519,6 +532,22 @@ export default function ReportsAndAnalytics() {
           countBy(
             filteredFlightLogs,
             (record) => record.rpc || record.aircraft,
+          ),
+        ),
+      },
+      {
+        title: "Flight Logs by Status",
+        rows: topKnownReportRows(
+          countBy(filteredFlightLogs, (record) =>
+            normalizeStatus(record.status),
+          ),
+        ),
+      },
+      {
+        title: "Flight Logs by Month",
+        rows: topKnownReportRows(
+          countBy(filteredFlightLogs, (record) =>
+            monthLabel(getRecordDate(record)),
           ),
         ),
       },
