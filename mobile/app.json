@@ -1,14 +1,10 @@
 {
   "expo": {
     "name": "AirMS",
-    "slug": "airMS",
+    "slug": "airms",
     "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -59,10 +55,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "forceStaticLinking": [
-              "RNFBApp",
-              "RNFBMessaging"
-            ]
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
           }
         }
       ]
