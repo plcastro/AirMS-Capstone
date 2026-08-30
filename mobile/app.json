@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "AirMS",
-    "slug": "airms",
+    "slug": "AirMS",
     "owner": "pcastro17",
     "scheme": "airms",
     "platforms": ["ios", "android", "web"],
