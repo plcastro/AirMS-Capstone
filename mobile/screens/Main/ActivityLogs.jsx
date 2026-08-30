@@ -37,8 +37,6 @@ const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
-  { label: "Last 90 days", value: "90" },
-  { label: "All time", value: "all" },
 ];
 const LOGS_PER_PAGE = 10;
 const ACTIVITY_TREND_SERIES = AUDIT_ACTION_CHART_CATEGORIES.map(

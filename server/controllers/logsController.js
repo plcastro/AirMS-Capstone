@@ -260,9 +260,7 @@ const getAllUserLogs = async (req, res) => {
       const platform = isKnownPlatform(log.platform)
         ? log.platform
         : session?.platform || null;
-      const base = isKnownBase(log.base)
-        ? log.base
-        : session?.base || null;
+      const base = isKnownBase(log.base) ? log.base : session?.base || null;
 
       return {
         _id: log._id,
