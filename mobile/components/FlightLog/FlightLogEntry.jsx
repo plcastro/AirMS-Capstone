@@ -20,9 +20,20 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import FlightLogB412Legs from "./FlightLogB412Legs";
+import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import {
+  B412_FLIGHT_LOG_TABS,
+  calculateB412ToDate,
+  createEmptyB412Data,
+  createEmptyB412Leg,
+  ensureSixB412Legs,
+  hasCompleteB412BroughtForward,
+  isB412Aircraft,
+} from "./b412FlightLogData";
 
 const toTitleCase = (value = "") =>
   String(value || "")
@@ -92,6 +103,46 @@ export default function FlightLogEntry({
 
   const handleAircraftDataLoaded = (data) => {
     setLoadedAircraftData(data);
+
+    if (!data) {
+      setFormData((prev) => ({
+        ...prev,
+        legs: [createEmptyB412Leg()],
+        remarks: "",
+        sling: "",
+        fuelServicing: [],
+        oilServicing: [],
+        workItems: [],
+        b412Data: createEmptyB412Data(),
+      }));
+      setComponentData({
+        broughtForwardData: getEmptyComponentValues(),
+        thisFlightData: getEmptyComponentValues(),
+        toDateData: getEmptyComponentValues(),
+      });
+      return;
+    }
+
+    if (isB412Aircraft(data.aircraftType)) {
+      const serialNumber =
+        data.serialNumber ||
+        data.serialNo ||
+        data.serial ||
+        data.aircraftSerialNumber ||
+        data.referenceData?.serialNumber ||
+        "";
+
+      setFormData((prev) => {
+        const currentB412Data = createEmptyB412Data(prev.b412Data);
+        return {
+          ...prev,
+          b412Data: {
+            ...currentB412Data,
+            serialNumber: serialNumber || currentB412Data.serialNumber,
+          },
+        };
+      });
+    }
   };
 
   // Start with 1 leg only
@@ -117,6 +168,7 @@ export default function FlightLogEntry({
     sling: "",
     fuelServicing: [],
     oilServicing: [],
+    b412Data: createEmptyB412Data(),
     workItems: [],
     createdBy: userRole,
     status: "pending_release",
@@ -125,6 +177,12 @@ export default function FlightLogEntry({
     releasedBy: { name: "", signature: "", timestamp: "" },
     acceptedBy: { name: "", signature: "", timestamp: "" },
   });
+
+  const isAircraftSelected = Boolean(
+    String(formData.rpc || "").trim() &&
+      String(formData.aircraftType || "").trim(),
+  );
+  const isB412 = isB412Aircraft(formData.aircraftType);
 
   const [componentData, setComponentData] = useState({
     broughtForwardData: {
@@ -191,6 +249,14 @@ export default function FlightLogEntry({
   const hasComponentValues = (values = {}) =>
     Object.values(values).some((value) => String(value ?? "").trim() !== "");
 
+  const hasNestedValues = (value) => {
+    if (Array.isArray(value)) return value.some(hasNestedValues);
+    if (value && typeof value === "object") {
+      return Object.values(value).some(hasNestedValues);
+    }
+    return String(value ?? "").trim() !== "";
+  };
+
   const getReferenceBroughtForwardData = (aircraftData) => {
     const referenceData = aircraftData?.referenceData || {};
 
@@ -242,6 +308,86 @@ export default function FlightLogEntry({
     }
   };
 
+  const fetchPreviousB412ToDateData = async (rpc) => {
+    if (!rpc) return null;
+
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "10",
+        aircraftRPC: rpc,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs?${params.toString()}`,
+      );
+      const data = await response.json();
+
+      if (!response.ok) return null;
+
+      const previousLog = (data.data || []).find((log) =>
+        hasNestedValues(log?.b412Data?.componentData?.toDateData),
+      );
+
+      if (!previousLog) return null;
+
+      return {
+        toDateData: previousLog.b412Data.componentData.toDateData,
+        airframeNextInspectionDueAt:
+          previousLog.b412Data.componentData.airframeNextInspectionDueAt || "",
+        engineNextInspectionDueAt:
+          previousLog.b412Data.componentData.engineNextInspectionDueAt || "",
+      };
+    } catch (error) {
+      console.error("Error fetching previous B412 flight log To Date:", error);
+      return null;
+    }
+  };
+
+  const getReferenceB412BroughtForwardData = (aircraftData) => {
+    const referenceData = aircraftData?.referenceData || {};
+    const emptyValues = createEmptyB412Data().componentData.broughtForwardData;
+
+    return {
+      ...emptyValues,
+      airframe: referenceData.acftTT || "",
+      mrGearbox: {
+        tsn: referenceData.gbmTT || referenceData.acftTT || "",
+        tso: referenceData.gbmTSO || "",
+      },
+      tr90Gearbox: {
+        tsn: referenceData.gbtTT || referenceData.acftTT || "",
+        tso: referenceData.gbtTSO || "",
+      },
+      tr42Gearbox: {
+        tsn: referenceData.gbt42TT || referenceData.gbtTT || "",
+        tso: referenceData.gbt42TSO || referenceData.gbtTSO || "",
+      },
+      landingCycle: referenceData.landings || "",
+      engine1: {
+        tsn:
+          referenceData.eng1TT ||
+          referenceData.engTT ||
+          referenceData.acftTT ||
+          "",
+        tso: referenceData.eng1TSO || "",
+        cycle: referenceData.n1Cycles || "",
+      },
+      engine2: {
+        tsn:
+          referenceData.eng2TT ||
+          referenceData.engTT ||
+          referenceData.acftTT ||
+          "",
+        tso: referenceData.eng2TSO || "",
+        cycle: referenceData.n2Cycles || "",
+      },
+      sling: referenceData.usage || "",
+      others: "",
+    };
+  };
+
   // Auto-calculate toDateData whenever broughtForwardData or thisFlightData changes
   useEffect(() => {
     const bf = componentData.broughtForwardData || {};
@@ -279,6 +425,51 @@ export default function FlightLogEntry({
     let isActive = true;
 
     const populateBroughtForward = async () => {
+      if (
+        isB412Aircraft(
+          loadedAircraftData?.aircraftType || formData.aircraftType,
+        )
+      ) {
+        const previousB412ToDate = await fetchPreviousB412ToDateData(
+          formData.rpc,
+        );
+        const nextBroughtForward = hasNestedValues(
+          previousB412ToDate?.toDateData,
+        )
+          ? previousB412ToDate.toDateData
+          : getReferenceB412BroughtForwardData(loadedAircraftData);
+
+        if (!isActive) return;
+
+        setFormData((prev) => {
+          const currentB412Data = createEmptyB412Data(prev.b412Data);
+          const normalizedBroughtForward = createEmptyB412Data({
+            componentData: { broughtForwardData: nextBroughtForward },
+          }).componentData.broughtForwardData;
+
+          return {
+            ...prev,
+            b412Data: {
+              ...currentB412Data,
+              componentData: {
+                ...currentB412Data.componentData,
+                broughtForwardData: normalizedBroughtForward,
+                airframeNextInspectionDueAt:
+                  previousB412ToDate?.airframeNextInspectionDueAt ||
+                  loadedAircraftData?.referenceData?.acrfNextInsp ||
+                  currentB412Data.componentData
+                    .airframeNextInspectionDueAt,
+                engineNextInspectionDueAt:
+                  previousB412ToDate?.engineNextInspectionDueAt ||
+                  loadedAircraftData?.referenceData?.engNextInsp ||
+                  currentB412Data.componentData.engineNextInspectionDueAt,
+              },
+            },
+          };
+        });
+        return;
+      }
+
       const previousToDate = await fetchPreviousToDateData(formData.rpc);
       const nextBroughtForward = hasComponentValues(previousToDate)
         ? { ...getEmptyComponentValues(), ...previousToDate }
@@ -311,6 +502,14 @@ export default function FlightLogEntry({
   };
 
   const getFlightLogTabs = () => {
+    if (!isAircraftSelected) {
+      return ["Basic Information"];
+    }
+
+    if (isB412) {
+      return B412_FLIGHT_LOG_TABS;
+    }
+
     const nextTabs = [
       "Basic Information",
       "Destination/s",
@@ -344,8 +543,43 @@ export default function FlightLogEntry({
     }
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    if (!isB412 || formData.legs.length === 6) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      legs: ensureSixB412Legs(prev.legs),
+      b412Data: createEmptyB412Data(prev.b412Data),
+    }));
+  }, [formData.legs.length, isB412]);
+
+  useEffect(() => {
+    if (!isB412) return;
+
+    const broughtForward =
+      formData.b412Data?.componentData?.broughtForwardData || {};
+    const thisFlight = formData.b412Data?.componentData?.thisFlightData || {};
+
+    setFormData((prev) => ({
+      ...prev,
+      b412Data: {
+        ...prev.b412Data,
+        componentData: {
+          ...prev.b412Data.componentData,
+          toDateData: calculateB412ToDate(broughtForward, thisFlight),
+        },
+      },
+    }));
+  }, [
+    formData.b412Data?.componentData?.broughtForwardData,
+    formData.b412Data?.componentData?.thisFlightData,
+    isB412,
+  ]);
+
   // Synchronise fuel/oil servicing arrays with legs count
   useEffect(() => {
+    if (isB412) return;
+
     const legCount = formData.legs.length;
     if (formData.fuelServicing.length !== legCount) {
       const newFuelServicing = [];
@@ -388,7 +622,7 @@ export default function FlightLogEntry({
       }
       setFormData((prev) => ({ ...prev, oilServicing: newOilServicing }));
     }
-  }, [formData.legs.length]);
+  }, [formData.legs.length, isB412]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -417,6 +651,7 @@ export default function FlightLogEntry({
         sling: "",
         fuelServicing: [],
         oilServicing: [],
+        b412Data: createEmptyB412Data(),
         workItems: [],
         createdBy: userRole,
         status: "pending_release",
@@ -484,6 +719,14 @@ export default function FlightLogEntry({
 
   const updateLeg = (updatedLegData) => {
     setFormData(updatedLegData);
+  };
+
+  const updateB412Legs = (legs) => {
+    setFormData((prev) => ({ ...prev, legs: ensureSixB412Legs(legs) }));
+  };
+
+  const updateB412Data = (b412Data) => {
+    setFormData((prev) => ({ ...prev, b412Data }));
   };
 
   const updateFuelServicing = (legIndex, data) => {
@@ -558,9 +801,39 @@ export default function FlightLogEntry({
       toDateData: finalToDateData,
     };
 
-    const { _id, id, ...cleanFormData } = nextFormData;
+    const {
+      _id,
+      id,
+      b412Data: sourceB412Data,
+      ...cleanFormData
+    } = nextFormData;
+    const shouldIncludeB412Data = isB412Aircraft(nextFormData.aircraftType);
+    const normalizedB412Data = shouldIncludeB412Data
+      ? createEmptyB412Data(sourceB412Data)
+      : null;
+
+    if (normalizedB412Data) {
+      normalizedB412Data.componentData.toDateData = calculateB412ToDate(
+        normalizedB412Data.componentData.broughtForwardData,
+        normalizedB412Data.componentData.thisFlightData,
+      );
+    }
+
+    const shouldLockB412BroughtForward =
+      normalizedB412Data &&
+      isMechanic &&
+      (nextFormData.broughtForwardLocked === true ||
+        nextFormData.status !== "pending_release" ||
+        hasCompleteB412BroughtForward(
+          normalizedB412Data.componentData.broughtForwardData,
+        ));
+
     return {
       ...cleanFormData,
+      ...(normalizedB412Data ? { b412Data: normalizedB412Data } : {}),
+      ...(normalizedB412Data
+        ? { broughtForwardLocked: Boolean(shouldLockB412BroughtForward) }
+        : {}),
       componentData: finalComponentData,
       date: formatDateForSave(nextFormData.date),
       dateAdded: formatDateForSave(new Date()),
@@ -570,8 +843,8 @@ export default function FlightLogEntry({
   };
 
   const handleRelease = async (signature) => {
-    if (!formData.rpc || formData.rpc.trim() === "") {
-      showToast("Aircraft RPC is required");
+    if (!isAircraftSelected) {
+      showToast("Select an aircraft and wait for its type to load");
       return;
     }
 
@@ -579,14 +852,24 @@ export default function FlightLogEntry({
       ...formData,
       releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
+      broughtForwardLocked: isB412
+        ? true
+        : formData.broughtForwardLocked,
     };
 
-    setFormData(updatedFormData);
     setShowReleaseModal(false);
-    await onSave(buildFlightLogPayload(updatedFormData), {
-      closeOnSave: false,
-      showToast: false,
-    });
+    const saved = onSave
+      ? await onSave(buildFlightLogPayload(updatedFormData), {
+          closeOnSave: false,
+          showToast: false,
+        })
+      : false;
+
+    if (!saved) {
+      return;
+    }
+
+    setFormData(updatedFormData);
     setFeedbackAlert({
       visible: true,
       title: "Success",
@@ -596,8 +879,8 @@ export default function FlightLogEntry({
   };
 
   const handleSave = () => {
-    if (!formData.rpc || formData.rpc.trim() === "") {
-      showToast("Aircraft RPC is required");
+    if (!isAircraftSelected) {
+      showToast("Select an aircraft and wait for its type to load");
       return;
     }
 
@@ -631,6 +914,43 @@ export default function FlightLogEntry({
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
+    if (isB412 && currentTab !== "Basic Information") {
+      if (currentTab === "Flight Legs") {
+        return (
+          <FlightLogB412Legs
+            legs={ensureSixB412Legs(formData.legs)}
+            onUpdateLegs={updateB412Legs}
+            isEditable={isDestinationsEditable}
+          />
+        );
+      }
+
+      return (
+        <FlightLogB412Section
+          section={currentTab}
+          data={createEmptyB412Data(formData.b412Data)}
+          onChange={updateB412Data}
+          isEditable={
+            currentTab === "Passengers"
+              ? isDestinationsEditable
+              : [
+                    "BRT FORWARD",
+                    "This Flight",
+                    "To Date",
+                    "Fuel Servicing",
+                    "Oil Servicing",
+                  ].includes(currentTab)
+                ? isMechanicSectionEditable
+                : isDiscrepancyEditable
+          }
+          totalsEditable={
+            currentTab !== "To Date" && isMechanicSectionEditable
+          }
+          correctionEditable={isWorkDoneEditable}
+        />
+      );
+    }
+
     switch (currentTab) {
       case "Basic Information":
         return (
@@ -638,7 +958,16 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
+            isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
+            isB412={isB412}
+            serialNumber={formData.b412Data?.serialNumber || ""}
+            onUpdateSerialNumber={(serialNumber) =>
+              updateB412Data({
+                ...formData.b412Data,
+                serialNumber,
+              })
+            }
           />
         );
 
@@ -719,7 +1048,10 @@ export default function FlightLogEntry({
     }
   };
 
-  const showReleaseButton = isMechanic && formData.status === "pending_release";
+  const showReleaseButton =
+    isAircraftSelected &&
+    isMechanic &&
+    formData.status === "pending_release";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -885,19 +1217,30 @@ export default function FlightLogEntry({
           </View>
 
           <TouchableOpacity
-            onPress={currentPage === totalPages - 1 ? handleSave : handleNext}
+            onPress={
+              !isAircraftSelected
+                ? undefined
+                : currentPage === totalPages - 1
+                  ? handleSave
+                  : handleNext
+            }
+            disabled={!isAircraftSelected}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1,
+              opacity: isAircraftSelected ? 1 : 0.5,
             }}
           >
             <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
-              {currentPage === totalPages - 1 ? "Add" : "Next"}
+              {!isAircraftSelected
+                ? "Select Aircraft"
+                : currentPage === totalPages - 1
+                  ? "Add"
+                  : "Next"}
             </AppText>
           </TouchableOpacity>
         </View>

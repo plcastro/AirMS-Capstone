@@ -88,6 +88,169 @@ const componentTimesSchema = new mongoose.Schema({
   toDateData: componentDataSchema,
 });
 
+// Bell 412 EP flight logs use a different component/servicing layout from the
+// legacy AS350 form. Keep those fields in their own optional subdocument so
+// existing records and clients retain their current shape.
+const b412GearboxTimeSchema = new mongoose.Schema(
+  {
+    tsn: { type: String, default: "" },
+    tso: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412EngineTimeSchema = new mongoose.Schema(
+  {
+    tsn: { type: String, default: "" },
+    tso: { type: String, default: "" },
+    cycle: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412ComponentTimeRowSchema = new mongoose.Schema(
+  {
+    airframe: { type: String, default: "" },
+    mrGearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    tr90Gearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    tr42Gearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    landingCycle: { type: String, default: "" },
+    engine1: { type: b412EngineTimeSchema, default: () => ({}) },
+    engine2: { type: b412EngineTimeSchema, default: () => ({}) },
+    sling: { type: String, default: "" },
+    others: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412ComponentDataSchema = new mongoose.Schema(
+  {
+    broughtForwardData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    thisFlightData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    toDateData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    airframeNextInspectionDueAt: { type: String, default: "" },
+    engineNextInspectionDueAt: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412PassengerRowSchema = new mongoose.Schema(
+  {
+    legs: {
+      type: [String],
+      default: () => Array(6).fill(""),
+      validate: {
+        validator: (legs) => legs.length <= 6,
+        message: "A B412 passenger row cannot contain more than 6 legs",
+      },
+    },
+  },
+  { _id: false },
+);
+
+const b412FuelServicingSchema = new mongoose.Schema(
+  {
+    contCheck: { type: String, default: "" },
+    mainTankRemaining: { type: String, default: "" },
+    mainTankAdded: { type: String, default: "" },
+    mainTankTotal: { type: String, default: "" },
+    supplySystem1: { type: String, default: "" },
+    supplySystem2: { type: String, default: "" },
+    remarks: { type: String, default: "" },
+    refuellerName: { type: String, default: "" },
+    signature: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412OilQuantitySchema = new mongoose.Schema(
+  {
+    remaining: { type: String, default: "" },
+    added: { type: String, default: "" },
+    total: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412OilServicingSchema = new mongoose.Schema(
+  {
+    mechanicSignature: { type: String, default: "" },
+    engine1: { type: b412OilQuantitySchema, default: () => ({}) },
+    engine2: { type: b412OilQuantitySchema, default: () => ({}) },
+    mrGearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+    reductionGearbox: {
+      type: b412OilQuantitySchema,
+      default: () => ({}),
+    },
+    tr42Gearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+    tr90Gearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+  },
+  { _id: false },
+);
+
+const b412CorrectionItemSchema = new mongoose.Schema(
+  {
+    category: { type: String, default: "" },
+    date: { type: String, default: "" },
+    aircraftTotalTime: { type: String, default: "" },
+    workDone: { type: String, default: "" },
+    nameSign: { type: String, default: "" },
+    certificateNo: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412FlightLogDataSchema = new mongoose.Schema(
+  {
+    serialNumber: { type: String, default: "" },
+    passengerRows: {
+      type: [b412PassengerRowSchema],
+      default: () =>
+        Array.from({ length: 4 }, () => ({ legs: Array(6).fill("") })),
+      validate: {
+        validator: (rows) => rows.length <= 4,
+        message: "A B412 flight log cannot contain more than 4 passenger rows",
+      },
+    },
+    componentData: { type: b412ComponentDataSchema, default: () => ({}) },
+    fuelServicing: {
+      type: [b412FuelServicingSchema],
+      default: () => Array.from({ length: 6 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 6,
+        message: "A B412 flight log cannot contain more than 6 fuel rows",
+      },
+    },
+    oilServicing: {
+      type: [b412OilServicingSchema],
+      default: () => Array.from({ length: 2 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 2,
+        message: "A B412 flight log cannot contain more than 2 oil rows",
+      },
+    },
+    discrepancyRemarks: { type: String, default: "" },
+    correctionItems: {
+      type: [b412CorrectionItemSchema],
+      default: () => Array.from({ length: 3 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 3,
+        message: "A B412 flight log cannot contain more than 3 correction rows",
+      },
+    },
+  },
+  { _id: false },
+);
+
 // Person Signature Schema
 const personSignatureSchema = new mongoose.Schema({
   name: { type: String, default: "" },
@@ -122,6 +285,9 @@ const flightLogSchema = new mongoose.Schema(
 
     // Component Times
     componentData: componentTimesSchema,
+
+    // Bell 412 EP-specific form data. Undefined for legacy/AS350 records.
+    b412Data: { type: b412FlightLogDataSchema, default: undefined },
 
     // Status and Tracking
     createdBy: { type: String, default: "" },

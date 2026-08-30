@@ -40,7 +40,10 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import FLogTable from "../../../components/tables/FLogTable";
 import "./flightlog.css";
 import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
-import { useDebouncedValue } from "../../../utils/debounce";
+import {
+  calculateB412ToDate,
+  isB412Aircraft,
+} from "../../../utils/b412FlightLog";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Text } = Typography;
@@ -452,14 +455,16 @@ export default function FlightLog() {
         title: "Flight log added",
         subTitle: "The flight log has been added successfully.",
       });
+      return true;
     } catch (error) {
       console.error("Create flight log error:", error);
       setPopup({
         open: true,
         status: "error",
         title: "Flight log added failed",
-        subTitle: "Failed to add flight log.",
+        subTitle: error.message || "Failed to add flight log.",
       });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -471,11 +476,22 @@ export default function FlightLog() {
   };
 
   const handleSaveEdit = async (data) => {
-    if (!selectedLog?._id) return;
+    if (!selectedLog?._id) return false;
 
     try {
       setSaving(true);
       const authHeader = getAuthHeader ? await getAuthHeader() : {};
+      const nextAircraftType = data?.aircraftType || selectedLog.aircraftType;
+      const shouldClearB412Data =
+        !isB412Aircraft(nextAircraftType) &&
+        (isB412Aircraft(selectedLog.aircraftType) ||
+          Object.prototype.hasOwnProperty.call(data || {}, "b412Data"));
+      const updatePayload = {
+        ...selectedLog,
+        ...data,
+        ...(shouldClearB412Data ? { b412Data: null } : {}),
+        _id: selectedLog._id,
+      };
 
       const response = await fetch(
         `${API_BASE}/api/flightlogs/${selectedLog._id}`,
@@ -486,11 +502,7 @@ export default function FlightLog() {
             "x-action-confirmed": "true",
             ...authHeader,
           },
-          body: JSON.stringify({
-            ...selectedLog,
-            ...data,
-            _id: selectedLog._id,
-          }),
+          body: JSON.stringify(updatePayload),
         },
       );
 
@@ -509,14 +521,16 @@ export default function FlightLog() {
         title: "Flight log updated",
         subTitle: "The flight log has been successfully updated.",
       });
+      return true;
     } catch (error) {
       console.error("Update flight log error:", error);
       setPopup({
         open: true,
         status: "error",
         title: "Updated failed",
-        subTitle: "Failed to update flight log.",
+        subTitle: error.message || "Failed to update flight log.",
       });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -638,6 +652,28 @@ export default function FlightLog() {
       let updatedFlightLog = null;
 
       if (action === "release") {
+        if (isB412Aircraft(log.aircraftType)) {
+          const persistResponse = await fetch(
+            `${API_BASE}/api/flightlogs/${log._id}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "x-action-confirmed": "true",
+                ...authHeader,
+              },
+              body: JSON.stringify(log),
+            },
+          );
+          const persistData = await persistResponse.json();
+          if (!persistResponse.ok) {
+            throw new Error(
+              persistData.message ||
+                "Failed to save the B412 flight log before release",
+            );
+          }
+        }
+
         const response = await fetch(
           `${API_BASE}/api/flightlogs/${log._id}/release`,
           {
@@ -657,7 +693,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to release flight log");
         }
-        updatedFlightLog = data.data;
+        updatedFlightLog = data.data || null;
         successResult = {
           open: true,
           status: "success",
@@ -687,7 +723,7 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to accept flight log");
         }
-        updatedFlightLog = data.data;
+        updatedFlightLog = data.data || null;
         successResult = {
           open: true,
           status: "success",
@@ -696,7 +732,20 @@ export default function FlightLog() {
         };
       }
 
-      syncUpdatedFlightLog(updatedFlightLog);
+      if (updatedFlightLog?._id) {
+        setSelectedLog((currentLog) =>
+          currentLog?._id === updatedFlightLog._id
+            ? updatedFlightLog
+            : currentLog,
+        );
+        setFlightLogs((currentLogs) =>
+          currentLogs.map((currentLog) =>
+            currentLog._id === updatedFlightLog._id
+              ? updatedFlightLog
+              : currentLog,
+          ),
+        );
+      }
       if (successResult) queueSignatureResult(successResult);
       await fetchFlightLogs();
     } catch (error) {
@@ -738,7 +787,22 @@ export default function FlightLog() {
         if (!response.ok) {
           throw new Error(data.message || "Failed to notify mechanic");
         }
-        syncUpdatedFlightLog(data.data);
+        const notifiedFlightLog = data.data || {
+          ...log,
+          notifiedForCompletion: true,
+        };
+        setSelectedLog((currentLog) =>
+          currentLog?._id === notifiedFlightLog._id
+            ? notifiedFlightLog
+            : currentLog,
+        );
+        setFlightLogs((currentLogs) =>
+          currentLogs.map((currentLog) =>
+            currentLog._id === notifiedFlightLog._id
+              ? notifiedFlightLog
+              : currentLog,
+          ),
+        );
         queueWorkflowResult({
           open: true,
           status: "success",
@@ -749,11 +813,116 @@ export default function FlightLog() {
       }
 
       if (action === "complete") {
+        const isB412 = isB412Aircraft(log.aircraftType);
         const toDateData =
           log?.componentData?.toDateData &&
           Object.keys(log.componentData.toDateData).length > 0
             ? log.componentData.toDateData
             : buildToDateData(log);
+        let completionLog = log;
+        let totalsPayload;
+
+        if (isB412) {
+          const b412ComponentData = log?.b412Data?.componentData || {};
+          const calculatedToDate = calculateB412ToDate(
+            b412ComponentData.broughtForwardData,
+            b412ComponentData.thisFlightData,
+          );
+          const storedToDate = b412ComponentData.toDateData || {};
+          const preferCalculatedValue = (calculatedValue, storedValue) =>
+            String(calculatedValue ?? "").trim() !== ""
+              ? calculatedValue
+              : storedValue;
+          const b412ToDateData = {
+            airframe: preferCalculatedValue(
+              calculatedToDate.airframe,
+              storedToDate.airframe,
+            ),
+            landingCycle: preferCalculatedValue(
+              calculatedToDate.landingCycle,
+              storedToDate.landingCycle,
+            ),
+            engine1: {
+              tsn: preferCalculatedValue(
+                calculatedToDate.engine1?.tsn,
+                storedToDate.engine1?.tsn,
+              ),
+              cycle: preferCalculatedValue(
+                calculatedToDate.engine1?.cycle,
+                storedToDate.engine1?.cycle,
+              ),
+            },
+            engine2: {
+              cycle: preferCalculatedValue(
+                calculatedToDate.engine2?.cycle,
+                storedToDate.engine2?.cycle,
+              ),
+            },
+          };
+          const requiredNumber = (value, label) => {
+            const rawValue = String(value ?? "").trim();
+            const parsedValue = Number(rawValue);
+            if (!rawValue || !Number.isFinite(parsedValue)) {
+              throw new Error(
+                `Enter a valid Bell 412 To Date value for ${label} before completing the flight log.`,
+              );
+            }
+            return parsedValue;
+          };
+
+          const acftTT = requiredNumber(b412ToDateData.airframe, "Airframe");
+          const engineTimeValue = String(
+            b412ToDateData.engine1?.tsn ?? "",
+          ).trim();
+          const engTT = engineTimeValue
+            ? requiredNumber(engineTimeValue, "Engine No. 1 TSN")
+            : acftTT;
+
+          totalsPayload = {
+            acftTT,
+            engTT,
+            n1Cycles: requiredNumber(
+              b412ToDateData.engine1?.cycle,
+              "Engine No. 1 Cycle",
+            ),
+            n2Cycles: requiredNumber(
+              b412ToDateData.engine2?.cycle,
+              "Engine No. 2 Cycle",
+            ),
+            landings: requiredNumber(
+              b412ToDateData.landingCycle,
+              "Landing Cycle",
+            ),
+          };
+
+          const persistResponse = await fetch(
+            `${API_BASE}/api/flightlogs/${log._id}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "x-action-confirmed": "true",
+                ...(getAuthHeader ? await getAuthHeader() : {}),
+              },
+              body: JSON.stringify(log),
+            },
+          );
+          const persistData = await persistResponse.json();
+          if (!persistResponse.ok) {
+            throw new Error(
+              persistData.message ||
+                "Failed to save the B412 flight log before completion",
+            );
+          }
+          completionLog = persistData.data || log;
+        } else {
+          totalsPayload = {
+            acftTT: Number(toDateData.airframe) || 0,
+            n1Cycles: Number(toDateData.cycleN1) || 0,
+            n2Cycles: Number(toDateData.cycleN2) || 0,
+            landings: Number(toDateData.landingCycle) || 0,
+          };
+        }
 
         const aircraft = log.aircraft || log.rpc;
         if (!aircraft) {
@@ -770,10 +939,7 @@ export default function FlightLog() {
               ...(getAuthHeader ? await getAuthHeader() : {}),
             },
             body: JSON.stringify({
-              acftTT: Number(toDateData.airframe) || 0,
-              n1Cycles: Number(toDateData.cycleN1) || 0,
-              n2Cycles: Number(toDateData.cycleN2) || 0,
-              landings: Number(toDateData.landingCycle) || 0,
+              ...totalsPayload,
               updatedBy: getUserDisplayName(),
             }),
           },
@@ -803,7 +969,7 @@ export default function FlightLog() {
           );
         }
         const completedFlightLog = completeData.data || {
-          ...log,
+          ...completionLog,
           status: "completed",
         };
         syncUpdatedFlightLog(completedFlightLog);

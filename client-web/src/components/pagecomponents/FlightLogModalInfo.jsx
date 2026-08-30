@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
+import { isB412Aircraft } from "../../utils/b412FlightLog";
 
 export default function FlightLogModalInfo({
   formData,
@@ -9,9 +10,18 @@ export default function FlightLogModalInfo({
   isEditable = true,
   isRPCEditable = true,
   onAircraftDataLoaded,
+  serialNumber = "",
+  onUpdateSerialNumber,
 }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+  const rpcRequestId = useRef(0);
+  const autoResolveRpc = useRef("");
+  const callbacksRef = useRef({ updateForm, onAircraftDataLoaded });
+
+  useEffect(() => {
+    callbacksRef.current = { updateForm, onAircraftDataLoaded };
+  }, [updateForm, onAircraftDataLoaded]);
 
   const normalizeRpc = (value = "") =>
     String(value || "")
@@ -124,6 +134,12 @@ export default function FlightLogModalInfo({
     () => formData.aircraftType || "Aircraft type will load automatically",
     [formData.aircraftType],
   );
+  const isB412 = isB412Aircraft(formData.aircraftType);
+  const aircraftClassLabel = !formData.aircraftType
+    ? "Rotary Winged Aircraft"
+    : isB412
+      ? "Rotary Winged Aircraft - Twin Engine"
+      : "Rotary Winged Aircraft - Single Engine";
 
   const aircraftSelectOptions = useMemo(() => {
     const ongoingSet = new Set(ongoingAircraftRpcs);
@@ -143,11 +159,20 @@ export default function FlightLogModalInfo({
   }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
   const handleRPCSelect = async (rpc) => {
+    const requestId = rpcRequestId.current + 1;
+    rpcRequestId.current = requestId;
+    autoResolveRpc.current = normalizeRpc(rpc);
     updateForm("rpc", rpc);
+    updateForm("aircraftType", "");
+    onAircraftDataLoaded?.(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/${rpc}`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+      );
       const data = await response.json();
+
+      if (requestId !== rpcRequestId.current) return;
 
       if (response.ok && data?.data) {
         updateForm("aircraftType", data.data.aircraftType || "");
@@ -157,20 +182,71 @@ export default function FlightLogModalInfo({
         onAircraftDataLoaded?.(null);
       }
     } catch (error) {
+      if (requestId !== rpcRequestId.current) return;
       console.error("Error fetching aircraft type:", error);
       updateForm("aircraftType", "");
       onAircraftDataLoaded?.(null);
     }
   };
 
+  // Older records can predate the aircraftType field. Resolve their existing
+  // RP-C when the edit modal opens so the correct aircraft-specific tabs can
+  // still be generated.
+  useEffect(() => {
+    const rpc = String(formData.rpc || "")
+      .trim()
+      .toUpperCase();
+    if (!rpc || formData.aircraftType || autoResolveRpc.current === rpc) {
+      return;
+    }
+
+    autoResolveRpc.current = rpc;
+    const requestId = rpcRequestId.current + 1;
+    rpcRequestId.current = requestId;
+    let isActive = true;
+
+    const resolveExistingAircraft = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+        );
+        const payload = await response.json();
+
+        if (!isActive || requestId !== rpcRequestId.current) return;
+
+        const callbacks = callbacksRef.current;
+        if (response.ok && payload?.data) {
+          callbacks.updateForm("aircraftType", payload.data.aircraftType || "");
+          callbacks.onAircraftDataLoaded?.(payload.data);
+        } else {
+          callbacks.updateForm("aircraftType", "");
+          callbacks.onAircraftDataLoaded?.(null);
+        }
+      } catch (error) {
+        if (!isActive || requestId !== rpcRequestId.current) return;
+        console.error("Error resolving existing aircraft type:", error);
+        const callbacks = callbacksRef.current;
+        callbacks.updateForm("aircraftType", "");
+        callbacks.onAircraftDataLoaded?.(null);
+      }
+    };
+
+    resolveExistingAircraft();
+
+    return () => {
+      isActive = false;
+      if (autoResolveRpc.current === rpc) {
+        autoResolveRpc.current = "";
+      }
+    };
+  }, [formData.rpc, formData.aircraftType]);
+
   return (
     <div className="fl-section">
       <div className="fl-section-title">BASIC INFORMATION</div>
 
       <div className="fl-card">
-        <div className="fl-card-header">
-          Rotary Winged Aircraft - Single Engine
-        </div>
+        <div className="fl-card-header">{aircraftClassLabel}</div>
         <div className="fl-card-body">
           <div className="fl-field-row">
             <span className="fl-label">RP-C: *</span>
@@ -195,6 +271,21 @@ export default function FlightLogModalInfo({
             <span className="fl-label">Aircraft Type:</span>
             <Input className="fl-input" value={aircraftTypeLabel} disabled />
           </div>
+
+          {isB412 && (
+            <div className="fl-field-row">
+              <span className="fl-label">Serial Number:</span>
+              <Input
+                className="fl-input"
+                value={serialNumber}
+                onChange={(event) =>
+                  onUpdateSerialNumber?.(event.target.value)
+                }
+                placeholder="Enter aircraft serial number"
+                disabled={!isEditable}
+              />
+            </div>
+          )}
 
           <div className="fl-field-row">
             <span className="fl-label">Date: *</span>

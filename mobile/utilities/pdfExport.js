@@ -609,6 +609,527 @@ const COMPONENT_TIME_FIELDS = [
   ["L'DING CYCLE", "landingCycle"],
 ];
 
+const normalizeAircraftType = (value = "") =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const getB412FlightLogData = (log = {}) =>
+  log.b412Data || log.b412 || log.bell412Data || {};
+
+const isB412FlightLog = (log = {}) => {
+  const aircraftType = normalizeAircraftType(
+    log.aircraftType ||
+      log.aircraft?.aircraftType ||
+      log.aircraft?.type ||
+      getB412FlightLogData(log).aircraftType,
+  );
+
+  if (aircraftType) {
+    return (
+      aircraftType.includes("B412EP") ||
+      aircraftType.includes("BELL412EP")
+    );
+  }
+
+  const b412Data = getB412FlightLogData(log);
+  return Boolean(
+    b412Data &&
+      typeof b412Data === "object" &&
+      Object.keys(b412Data).length > 0,
+  );
+};
+
+const firstFlightValue = (...values) =>
+  values.find(
+    (value) => value !== null && value !== undefined && value !== "",
+  );
+
+const getB412PassengerValue = (b412Data, log, rowIndex, legIndex) => {
+  const passengerRow = b412Data.passengerRows?.[rowIndex];
+  const rowLegs = Array.isArray(passengerRow)
+    ? passengerRow
+    : passengerRow?.legs;
+  const legPassengers = log.legs?.[legIndex]?.passengers;
+
+  return flightValue(
+    firstFlightValue(
+      rowLegs?.[legIndex],
+      Array.isArray(legPassengers) ? legPassengers[rowIndex] : undefined,
+      rowIndex === 0 && !Array.isArray(legPassengers)
+        ? legPassengers
+        : undefined,
+    ),
+  );
+};
+
+const getB412ComponentSection = (b412Data, sectionKey) =>
+  b412Data.componentData?.[sectionKey] ||
+  b412Data.componentTimes?.[sectionKey] ||
+  {};
+
+const getB412GroupValue = (section, groupKey, valueKey, ...aliases) =>
+  firstFlightValue(
+    section?.[groupKey]?.[valueKey],
+    ...aliases.map((alias) => section?.[alias]),
+  );
+
+const renderB412Signature = (value) =>
+  signatureImage(value) || escapeHtml(flightValue(value));
+
+const normalizeB412Category = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
+  const b412Data = getB412FlightLogData(log);
+  const legs = fitRows(log.legs || [], 6, () => ({}));
+  const passengerRows = Array.from({ length: 4 }, (_, rowIndex) =>
+    Array.from({ length: 6 }, (_, legIndex) =>
+      getB412PassengerValue(b412Data, log, rowIndex, legIndex),
+    ),
+  );
+  const componentSections = [
+    ["BRT FORWARD", getB412ComponentSection(b412Data, "broughtForwardData")],
+    ["THIS FLIGHT", getB412ComponentSection(b412Data, "thisFlightData")],
+    ["TO DATE", getB412ComponentSection(b412Data, "toDateData")],
+  ];
+  const componentData = b412Data.componentData || {};
+  const fuelRows = fitRows(
+    b412Data.fuelServicing || log.b412FuelServicing || [],
+    6,
+    () => ({}),
+  );
+  const oilRows = fitRows(
+    b412Data.oilServicing || log.b412OilServicing || [],
+    2,
+    () => ({}),
+  );
+  const correctionItems = fitRows(
+    b412Data.correctionItems || log.b412CorrectionItems || log.workItems || [],
+    3,
+    () => ({}),
+  );
+  const populatedCategories = new Set(
+    correctionItems
+      .map((item) => normalizeB412Category(item.category))
+      .filter(Boolean),
+  );
+  const serialNumber = flightValue(
+    firstFlightValue(
+      b412Data.serialNumber,
+      b412Data.serialNo,
+      log.serialNumber,
+      log.serialNo,
+    ),
+  );
+  const tailAndSerial = [flightValue(log.rpc || log.aircraft), serialNumber]
+    .filter(Boolean)
+    .join(" / ");
+  const dueAirframe = firstFlightValue(
+    componentData.airframeNextInspectionDueAt,
+    b412Data.airframeNextInspectionDueAt,
+    componentData.airframeNextInsp,
+  );
+  const dueEngine = firstFlightValue(
+    componentData.engineNextInspectionDueAt,
+    b412Data.engineNextInspectionDueAt,
+    componentData.engineNextInsp,
+  );
+  const discrepancyRemarks = firstFlightValue(
+    b412Data.discrepancyRemarks,
+    b412Data.remarks,
+    log.remarks,
+  );
+  const releasedName = flightValue(log.releasedBy?.name);
+  const releasedLicense = flightValue(
+    log.releasedBy?.licenseNo || log.releasedBy?.id,
+  );
+  const acceptedName = flightValue(log.acceptedBy?.name);
+  const acceptedLicense = flightValue(
+    log.acceptedBy?.licenseNo || log.acceptedBy?.id,
+  );
+  const categoryChecked = (...aliases) =>
+    aliases.some((alias) => populatedCategories.has(alias));
+
+  const componentCells = (section) => `
+    <td class="center">${escapeHtml(flightValue(section.airframe))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "mrGearbox", "tsn", "mrGearboxTsn", "mrGearboxTSN")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "mrGearbox", "tso", "mrGearboxTso", "mrGearboxTSO")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "tr90Gearbox", "tsn", "tr90GearboxTsn", "tr90GearboxTSN")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "tr90Gearbox", "tso", "tr90GearboxTso", "tr90GearboxTSO")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "tr42Gearbox", "tsn", "tr42GearboxTsn", "tr42GearboxTSN")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "tr42Gearbox", "tso", "tr42GearboxTso", "tr42GearboxTSO")))}</td>
+    <td class="center">${escapeHtml(flightValue(section.landingCycle))}</td>
+  `;
+
+  const engineCells = (section) => `
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine1", "tsn", "engine1Tsn", "engine1TSN")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine1", "tso", "engine1Tso", "engine1TSO")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine1", "cycle", "engine1Cycle")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine2", "tsn", "engine2Tsn", "engine2TSN")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine2", "tso", "engine2Tso", "engine2TSO")))}</td>
+    <td class="center">${escapeHtml(flightValue(getB412GroupValue(section, "engine2", "cycle", "engine2Cycle")))}</td>
+    <td class="center">${escapeHtml(flightValue(section.sling))}</td>
+    <td class="center">${escapeHtml(flightValue(section.others))}</td>
+  `;
+
+  const oilValue = (row, groupKey, valueKey, ...aliases) =>
+    flightValue(
+      firstFlightValue(
+        row?.[groupKey]?.[valueKey],
+        ...aliases.map((alias) => row?.[alias]),
+      ),
+    );
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4 portrait; margin: 12pt 18pt; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111;
+            margin: 0;
+            font-size: 5.2pt;
+            line-height: 1.04;
+          }
+          .sheet { width: 559pt; max-width: 100%; margin: 0 auto; }
+          .header { position: relative; height: 100pt; }
+          .logo {
+            position: absolute; left: 4pt; top: 22pt; font-size: 18pt;
+            line-height: 1; font-weight: 900; letter-spacing: -1.5pt;
+          }
+          .logo-image {
+            position: absolute; left: 4pt; top: 21pt; width: 78pt;
+            height: auto; object-fit: contain;
+          }
+          .logo span:first-child, .logo span:last-child { color: #068345; }
+          .title {
+            padding-top: 11pt; text-align: center; font-weight: 800;
+            font-size: 10.5pt; line-height: 1.3; letter-spacing: .2pt;
+          }
+          .field {
+            position: absolute; display: flex; align-items: flex-end;
+            gap: 4pt; font-size: 7.4pt; font-weight: 800;
+          }
+          .field .line {
+            display: inline-block; min-width: 106pt; border-bottom: .6pt solid #111;
+            padding: 0 3pt 1pt; font-weight: 400;
+          }
+          .aircraft-type { left: 25pt; top: 67pt; }
+          .tail-serial { left: 25pt; top: 83pt; }
+          .control { right: 25pt; top: 67pt; }
+          .date { right: 25pt; top: 83pt; }
+          table {
+            width: 559pt; border-collapse: collapse; table-layout: fixed;
+            margin: 0; page-break-inside: avoid;
+          }
+          table + table, .due-row + table, .signature + table,
+          .checks + table { margin-top: 2.2pt; }
+          th, td {
+            border: .45pt solid #111; padding: 1.05pt; height: 8pt;
+            vertical-align: middle; overflow-wrap: anywhere;
+          }
+          th { background: #e5e5e5; text-align: center; font-weight: 800; }
+          .center { text-align: center; }
+          .bold { font-weight: 800; }
+          .empty { color: transparent; }
+          .section th { font-size: 5.4pt; letter-spacing: 0; }
+          .flight-table col:nth-child(1) { width: 30pt; }
+          .flight-table col:nth-child(2) { width: 191pt; }
+          .flight-table col:nth-child(n+3) { width: 56.3pt; }
+          .passenger-table col { width: 93.16pt; }
+          .component-table col:nth-child(1) { width: 61pt; }
+          .component-table col:nth-child(2) { width: 76pt; }
+          .component-table col:nth-child(n+3):nth-child(-n+8) { width: 60pt; }
+          .component-table col:nth-child(9) { width: 62pt; }
+          .engine-table col:nth-child(1) { width: 61pt; }
+          .engine-table col:nth-child(n+2):nth-child(-n+7) { width: 62pt; }
+          .engine-table col:nth-child(8), .engine-table col:nth-child(9) { width: 63pt; }
+          .fuel-table col:nth-child(1) { width: 29pt; }
+          .fuel-table col:nth-child(2) { width: 50pt; }
+          .fuel-table col:nth-child(n+3):nth-child(-n+7) { width: 48pt; }
+          .fuel-table col:nth-child(8) { width: 82pt; }
+          .fuel-table col:nth-child(9) { width: 158pt; }
+          .oil-table { font-size: 4.5pt; }
+          .oil-table col:first-child { width: 73pt; }
+          .oil-table col:nth-child(n+2) { width: 27pt; }
+          .remarks-table col:first-child { width: 559pt; }
+          .work-table col:nth-child(1) { width: 65pt; }
+          .work-table col:nth-child(2) { width: 75pt; }
+          .work-table col:nth-child(3) { width: 260pt; }
+          .work-table col:nth-child(4) { width: 100pt; }
+          .work-table col:nth-child(5) { width: 59pt; }
+          .due-row {
+            display: grid; grid-template-columns: 1fr 1fr;
+            border-left: .45pt solid #111; border-right: .45pt solid #111;
+            margin-top: 2.2pt; font-weight: 800;
+          }
+          .due-row div { min-height: 12pt; padding: 2pt 4pt; }
+          .signature {
+            display: grid; grid-template-columns: 1fr 1fr;
+            border: .45pt solid #111; margin-top: 2.2pt;
+          }
+          .signature > div {
+            min-height: 26pt; padding: 2pt; text-align: center; font-weight: 800;
+          }
+          .signature .name {
+            margin: 4pt 34pt 1pt; border-bottom: .45pt solid #111;
+            min-height: 9pt; font-weight: 400;
+          }
+          .signature-image {
+            display: block; max-width: 68pt; max-height: 12pt;
+            margin: 0 auto 1pt; object-fit: contain;
+          }
+          .signature .signature-image { max-width: 138pt; max-height: 14pt; margin-top: 1pt; }
+          .name-sign { text-align: center; }
+          .checks {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border: .45pt solid #111; padding: 2pt; margin-top: 2.2pt;
+            font-weight: 800;
+          }
+          .box {
+            display: inline-flex; width: 8pt; height: 8pt;
+            border: .45pt solid #111; margin-right: 3pt;
+            vertical-align: -1pt; align-items: center; justify-content: center;
+            font-size: 5.5pt;
+          }
+          .remarks-body td { height: 26pt; vertical-align: top; padding: 3pt; }
+        </style>
+      </head>
+      <body>
+        <div class="sheet">
+          <div class="header">
+            ${
+              logoDataUri
+                ? `<img class="logo-image" src="${logoDataUri}" alt="NGCP" />`
+                : `<div class="logo"><span>N</span>GC<span>P</span></div>`
+            }
+            <div class="title">
+              AIRCRAFT FLIGHT LOG<br />
+              ROTARY WINGED AIRCRAFT<br />
+              TWIN ENGINE
+            </div>
+            <div class="field aircraft-type">AIRCRAFT TYPE:<span class="line">BELL 412 EP</span></div>
+            <div class="field tail-serial">TAIL &amp; SERIAL NO.:<span class="line">${escapeHtml(tailAndSerial)}</span></div>
+            <div class="field control">CONTROL NO.:<span class="line">${escapeHtml(flightValue(log.controlNo || log.control))}</span></div>
+            <div class="field date">DATE:<span class="line">${escapeHtml(formatFlightLogDate(log.date))}</span></div>
+          </div>
+
+          <table class="flight-table">
+            <colgroup>${Array.from({ length: 8 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr>
+                <th rowspan="2">LEG</th><th rowspan="2">STATIONS</th>
+                <th colspan="2">BLOCK TIME</th><th colspan="2">FLIGHT TIME</th>
+                <th colspan="2">TOTAL TIME</th>
+              </tr>
+              <tr><th>ON</th><th>OFF</th><th>ON</th><th>OFF</th><th>BLOCK</th><th>FLIGHT</th></tr>
+            </thead>
+            <tbody>
+              ${legs
+                .map(
+                  (leg, index) => `
+                    <tr>
+                      <td class="center bold">${FLIGHT_LEG_LABELS[index]}</td>
+                      <td>${escapeHtml(getStationText(leg))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.blockTimeOn))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.blockTimeOff))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.flightTimeOn))}</td>
+                      <td class="center">${escapeHtml(flightValue(leg.flightTimeOff))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(leg.totalBlockTime, leg.totalTimeOn)))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(leg.totalFlightTime, leg.totalTimeOff)))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <table class="section passenger-table">
+            <colgroup>${Array.from({ length: 6 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr><th colspan="6">PASSENGERS</th></tr>
+              <tr>${FLIGHT_LEG_LABELS.map((label) => `<th>${label} LEG</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${passengerRows
+                .map(
+                  (row) => `<tr>${row.map((cell) => `<td class="center">${escapeHtml(cell)}</td>`).join("")}</tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <table class="component-table">
+            <colgroup>${Array.from({ length: 9 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr>
+                <th rowspan="2"></th><th rowspan="2">AIRFRAME</th>
+                <th colspan="2">M/R GEARBOX</th><th colspan="2">90 T/R GEARBOX</th>
+                <th colspan="2">42 T/R GEARBOX</th><th rowspan="2">LANDING<br />CYCLE</th>
+              </tr>
+              <tr><th>TSN</th><th>TSO</th><th>TSN</th><th>TSO</th><th>TSN</th><th>TSO</th></tr>
+            </thead>
+            <tbody>
+              ${componentSections
+                .map(
+                  ([label, section]) => `<tr><td class="bold">${label}</td>${componentCells(section)}</tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="due-row">
+            <div>AIRFRAME NEXT INSPECTION DUE AT: ${escapeHtml(flightValue(dueAirframe))}</div>
+            <div>ENGINE NEXT INSPECTION DUE AT: ${escapeHtml(flightValue(dueEngine))}</div>
+          </div>
+
+          <table class="engine-table">
+            <colgroup>${Array.from({ length: 9 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr><th rowspan="2"></th><th colspan="3">ENGINE NO. 1</th><th colspan="3">ENGINE NO. 2</th><th rowspan="2">SLING</th><th rowspan="2">OTHERS</th></tr>
+              <tr><th>TSN</th><th>TSO</th><th>CYCLE</th><th>TSN</th><th>TSO</th><th>CYCLE</th></tr>
+            </thead>
+            <tbody>
+              ${componentSections
+                .map(
+                  ([label, section]) => `<tr><td class="bold">${label}</td>${engineCells(section)}</tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <table class="section fuel-table">
+            <colgroup>${Array.from({ length: 9 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr><th colspan="9">FUEL SERVICING</th></tr>
+              <tr><th rowspan="2">LEG</th><th rowspan="2">CONT.<br />CHECK</th><th colspan="3">MAIN TANK</th><th colspan="2">SUPPLY</th><th rowspan="2">REMARKS</th><th rowspan="2">REFUELLER NAME &amp;<br />SIGNATURE</th></tr>
+              <tr><th>REM'G</th><th>ADDED</th><th>TOTAL</th><th>SYS 1</th><th>SYS 2</th></tr>
+            </thead>
+            <tbody>
+              ${fuelRows
+                .map(
+                  (fuel, index) => `
+                    <tr>
+                      <td class="center bold">${FLIGHT_LEG_LABELS[index]}</td>
+                      <td class="center">${escapeHtml(flightValue(fuel.contCheck))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(fuel.mainTankRemaining, fuel.mainRemG)))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(fuel.mainTankAdded, fuel.mainAdd)))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(fuel.mainTankTotal, fuel.mainTotal)))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(fuel.supplySystem1, fuel.sys1)))}</td>
+                      <td class="center">${escapeHtml(flightValue(firstFlightValue(fuel.supplySystem2, fuel.sys2)))}</td>
+                      <td>${escapeHtml(flightValue(fuel.remarks))}</td>
+                      <td class="name-sign">${renderB412Signature(fuel.signature)}${fuel.signature && (fuel.refuellerName || fuel.refuelerName) ? " / " : ""}${escapeHtml(flightValue(fuel.refuellerName || fuel.refuelerName))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <table class="section oil-table">
+            <colgroup>${Array.from({ length: 19 }, () => "<col />").join("")}</colgroup>
+            <thead>
+              <tr><th colspan="19">OIL SERVICING</th></tr>
+              <tr>
+                <th rowspan="2">MECHANIC<br />SIGNATURE</th>
+                <th colspan="3">ENGINE NO. 1</th><th colspan="3">ENGINE NO. 2</th>
+                <th colspan="3">M/R GEARBOX</th><th colspan="3">REDUCTION G/B</th>
+                <th colspan="3">42 T/R GEARBOX</th><th colspan="3">90 T/R GEARBOX</th>
+              </tr>
+              <tr>${Array.from({ length: 6 }, () => "<th>REM</th><th>ADD</th><th>TOT</th>").join("")}</tr>
+            </thead>
+            <tbody>
+              ${oilRows
+                .map(
+                  (oil) => `
+                    <tr>
+                      <td class="name-sign">${renderB412Signature(oil.mechanicSignature)}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine1", "remaining", "engine1Rem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine1", "added", "engine1Add"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine1", "total", "engine1Tot"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine2", "remaining", "engine2Rem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine2", "added", "engine2Add"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "engine2", "total", "engine2Tot"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "mrGearbox", "remaining", "mrGearboxRem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "mrGearbox", "added", "mrGearboxAdd"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "mrGearbox", "total", "mrGearboxTot"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "reductionGearbox", "remaining", "reductionGearboxRem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "reductionGearbox", "added", "reductionGearboxAdd"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "reductionGearbox", "total", "reductionGearboxTot"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr42Gearbox", "remaining", "gearbox42Rem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr42Gearbox", "added", "gearbox42Add"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr42Gearbox", "total", "gearbox42Tot"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr90Gearbox", "remaining", "gearbox90Rem"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr90Gearbox", "added", "gearbox90Add"))}</td>
+                      <td class="center">${escapeHtml(oilValue(oil, "tr90Gearbox", "total", "gearbox90Tot"))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="signature">
+            <div>
+              RELEASED BY:
+              ${signatureImage(log.releasedBy?.signature)}
+              <div class="name">${escapeHtml([releasedName, releasedLicense].filter(Boolean).join(" / "))}</div>
+              ENGINEER / CERTIFICATE
+            </div>
+            <div>
+              ACCEPTED BY:
+              ${signatureImage(log.acceptedBy?.signature)}
+              <div class="name">${escapeHtml([acceptedName, acceptedLicense].filter(Boolean).join(" / "))}</div>
+              PILOT-IN-COMMAND / CERTIFICATE
+            </div>
+          </div>
+
+          <table class="section remarks-table">
+            <colgroup><col /></colgroup>
+            <thead><tr><th>DISCREPANCY / REMARKS</th></tr></thead>
+            <tbody class="remarks-body"><tr><td>${escapeHtml(flightValue(discrepancyRemarks))}</td></tr></tbody>
+          </table>
+
+          <div class="checks">
+            <div><span class="box">${categoryChecked("discrepancycorrection", "discrepancy") ? "X" : ""}</span>DISCREPANCY CORRECTION</div>
+            <div><span class="box">${categoryChecked("sbadcompliance", "sbad") ? "X" : ""}</span>SB/AD COMPLIANCE</div>
+            <div><span class="box">${categoryChecked("inspection") ? "X" : ""}</span>INSPECTION</div>
+            <div><span class="box">${categoryChecked("others", "other") ? "X" : ""}</span>OTHERS</div>
+          </div>
+
+          <table class="work-table">
+            <colgroup>${Array.from({ length: 5 }, () => "<col />").join("")}</colgroup>
+            <thead><tr><th>DATE</th><th>ACFT T/T</th><th>WORK DONE</th><th>NAME/SIGN</th><th>CERT. NO.</th></tr></thead>
+            <tbody>
+              ${correctionItems
+                .map(
+                  (item) => `
+                    <tr>
+                      <td class="center">${escapeHtml(formatFlightLogDate(item.date))}</td>
+                      <td class="center">${escapeHtml(flightValue(item.aircraftTotalTime || item.aircraftTT))}</td>
+                      <td>${escapeHtml(flightValue(item.workDone || item.description))}</td>
+                      <td class="name-sign">${renderB412Signature(item.nameSign || item.signature || item.name)}</td>
+                      <td class="center">${escapeHtml(flightValue(item.certificateNo || item.certificateNumber))}</td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
 const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
   const legs = fitRows(log.legs || [], 6, () => ({}));
   const passengerRows = Array.from({ length: 4 }, (_, rowIndex) => [
@@ -2182,10 +2703,14 @@ export const exportPostInspectionPdf = (inspection) =>
 
 export const exportFlightLogPdf = async (log) => {
   const logoDataUri = await getNgcpLogoDataUri();
+  const html = isB412FlightLog(log)
+    ? buildB412FlightLogHtml(log, logoDataUri)
+    : buildFlightLogHtml(log, logoDataUri);
+
   return exportRecordToPdf({
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
-    html: buildFlightLogHtml(log, logoDataUri),
+    html,
     successMessage: "Flight log exported successfully.",
   });
 };

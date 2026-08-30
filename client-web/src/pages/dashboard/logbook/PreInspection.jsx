@@ -3,10 +3,10 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
-  Alert,
   Button,
   Card,
   Checkbox,
@@ -42,8 +42,14 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
-import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import PreInspectionB412Checklist from "../../../components/pagecomponents/PreInspectionB412Checklist";
+import {
+  B412_PRE_INSPECTION_SECTIONS,
+  areAllB412ChecksComplete,
+  createEmptyB412PreInspectionData,
+  isB412Aircraft,
+} from "../../../utils/b412PreInspection";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -412,8 +418,35 @@ const CHECKLIST_GROUPS = {
 const RELEASE_CHECK_FIELDS = Object.values(CHECKLIST_GROUPS).flatMap((groups) =>
   groups.flatMap((group) => group.fields),
 );
-const areAllReleaseChecksComplete = (record = {}) =>
-  RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
+const normalizeAircraftType = (value = "") =>
+  String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+const isAS350Aircraft = (aircraftType = "") =>
+  normalizeAircraftType(aircraftType).includes("AS350B3");
+const areAllReleaseChecksComplete = (record = {}) => {
+  if (isB412Aircraft(record.aircraftType)) {
+    return areAllB412ChecksComplete(record.b412Data);
+  }
+
+  if (!isAS350Aircraft(record.aircraftType)) return false;
+  return RELEASE_CHECK_FIELDS.every((field) => Boolean(record[field]));
+};
+const resetAircraftInspectionValues = (
+  record = {},
+  { b412Data = undefined } = {},
+) => {
+  const next = {
+    ...record,
+    aircraftType: "",
+    fob: "",
+    b412Data,
+  };
+  RELEASE_CHECK_FIELDS.forEach((field) => {
+    next[field] = false;
+  });
+  return next;
+};
 const hasValidFob = (record = {}) => {
   const value = String(record.fob ?? "").trim();
   if (!value) return false;
@@ -456,15 +489,17 @@ export default function PreInspection() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, 300);
   const [aircraft, setAircraft] = useState("all");
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(() => getDefaultPreInspectionDraft(user));
+  const [createActiveTab, setCreateActiveTab] = useState("basic");
   const [rpcOptions, setRpcOptions] = useState([]);
   const [signatureMode, setSignatureMode] = useState(null);
   const [createSelectAllState, setCreateSelectAllState] = useState({});
+  const draftRpcRequestRef = useRef(0);
+  const editingRpcRequestRef = useRef(0);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -584,7 +619,9 @@ export default function PreInspection() {
   const resolveAircraftTypeByRpc = async (rpc) => {
     if (!rpc) return "";
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/${rpc}`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+      );
       const data = await response.json();
       if (response.ok && data?.data) {
         return data.data.aircraftType || "";
@@ -595,17 +632,67 @@ export default function PreInspection() {
     }
   };
 
+  const handleDraftRpcChange = async (rpc) => {
+    const requestId = ++draftRpcRequestRef.current;
+    setCreateActiveTab("basic");
+    setCreateSelectAllState({});
+    setDraft((prev) => ({
+      ...resetAircraftInspectionValues(prev),
+      rpc,
+    }));
+
+    const aircraftType = await resolveAircraftTypeByRpc(rpc);
+    if (requestId !== draftRpcRequestRef.current) return;
+
+    setDraft((prev) => {
+      if (String(prev.rpc || "") !== String(rpc || "")) return prev;
+      return {
+        ...prev,
+        aircraftType,
+        b412Data: isB412Aircraft(aircraftType)
+          ? createEmptyB412PreInspectionData()
+          : undefined,
+      };
+    });
+  };
+
+  const handleEditingRpcChange = async (rpc) => {
+    const requestId = ++editingRpcRequestRef.current;
+    setEditing((prev) =>
+      prev
+        ? {
+            ...resetAircraftInspectionValues(prev, { b412Data: null }),
+            rpc,
+          }
+        : prev,
+    );
+
+    const aircraftType = await resolveAircraftTypeByRpc(rpc);
+    if (requestId !== editingRpcRequestRef.current) return;
+
+    setEditing((prev) => {
+      if (!prev || String(prev.rpc || "") !== String(rpc || "")) return prev;
+      return {
+        ...prev,
+        aircraftType,
+        b412Data: isB412Aircraft(aircraftType)
+          ? createEmptyB412PreInspectionData()
+          : null,
+      };
+    });
+  };
+
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const matchesQuery = matchesSearch(debouncedQuery, item);
+        const matchesQuery = matchesSearch(query, item);
         const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, debouncedQuery, aircraft, status],
+    [records, query, aircraft, status],
   );
 
   const booleanFields = useMemo(
@@ -617,72 +704,30 @@ export default function PreInspection() {
   );
   const editingReadOnly = editing ? isRecordReadOnly(editing) : readOnly;
   const editingCanAccept = editing ? isAcceptableByPilot(editing) : false;
+  const draftHasAircraft = Boolean(
+    String(draft.rpc || "").trim() && String(draft.aircraftType || "").trim(),
+  );
+  const draftIsB412 = draftHasAircraft && isB412Aircraft(draft.aircraftType);
+  const draftIsAS350 = draftHasAircraft && isAS350Aircraft(draft.aircraftType);
+  const createFormSections = useMemo(() => {
+    if (!draftHasAircraft) return [CREATE_FORM_SECTIONS[0]];
+    if (draftIsB412) {
+      return [
+        CREATE_FORM_SECTIONS[0],
+        ...B412_PRE_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412:${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+      ];
+    }
+    if (draftIsAS350) return CREATE_FORM_SECTIONS;
+    return [CREATE_FORM_SECTIONS[0]];
+  }, [draftHasAircraft, draftIsAS350, draftIsB412]);
   const allDraftReleaseChecksComplete = useMemo(
     () => areAllReleaseChecksComplete(draft),
     [draft],
   );
-  const createGuide = {
-    type: allDraftReleaseChecksComplete && hasValidFob(draft) ? "success" : "warning",
-    title:
-      allDraftReleaseChecksComplete && hasValidFob(draft)
-        ? "All required pre-flight items are complete. You can release this inspection."
-        : "Complete all pre-flight checklist items and fill in Fuel On Board before release.",
-  };
-  const editGuide = useMemo(() => {
-    if (!editing) return null;
-    const displayStatus = getDisplayStatus(editing.status);
-
-    if (editingCanAccept) {
-      return {
-        type: hasValidFob(editing) ? "success" : "warning",
-        title: hasValidFob(editing)
-          ? "This released pre-flight inspection is ready for pilot acceptance."
-          : "Fuel On Board must be filled in before pilot acceptance.",
-      };
-    }
-
-    if (
-      canRelease &&
-      displayStatus === "pending" &&
-      !editing.releasedBy?.name &&
-      !editingReadOnly
-    ) {
-      const readyToRelease =
-        areAllReleaseChecksComplete(editing) && hasValidFob(editing);
-      return {
-        type: readyToRelease ? "success" : "warning",
-        title: readyToRelease
-          ? "All required pre-flight items are complete. You can release this inspection."
-          : "Complete all pre-flight checklist items and fill in Fuel On Board before release.",
-      };
-    }
-
-    if (displayStatus === "completed") {
-      return {
-        type: "info",
-        title: "This pre-flight inspection is completed and is view-only.",
-      };
-    }
-
-    if (displayStatus === "released") {
-      return {
-        type: "info",
-        title:
-          role === "pilot"
-            ? "This inspection is released. Use Accept / Complete when ready."
-            : "This inspection is waiting for pilot acceptance.",
-      };
-    }
-
-    if (readOnly) {
-      return {
-        type: "info",
-        title: "Your role can review this pre-flight inspection but cannot update it.",
-      };
-    }
-
-    return null;
-  }, [canRelease, editing, editingCanAccept, editingReadOnly, readOnly, role]);
 
   const saveCreate = async (releaseSignature = "") => {
     if (
@@ -702,6 +747,12 @@ export default function PreInspection() {
     try {
       setCreating(true);
       const releasedBy = signaturePayload(user, releaseSignature);
+      const createPayload = isB412Aircraft(draft.aircraftType)
+        ? {
+            ...draft,
+            b412Data: createEmptyB412PreInspectionData(draft.b412Data),
+          }
+        : { ...draft, b412Data: undefined };
       const response = await fetch(
         `${API_BASE}/api/pre-flight/createPreInspection`,
         {
@@ -711,7 +762,7 @@ export default function PreInspection() {
             ...(await getAuthHeader()),
           },
           body: JSON.stringify({
-            ...draft,
+            ...createPayload,
             status: "released",
             releasedBy,
             createdBy:
@@ -733,6 +784,7 @@ export default function PreInspection() {
       });
       setCreating(false);
       setDraft(getDefaultPreInspectionDraft(user));
+      setCreateActiveTab("basic");
       setCreateSelectAllState({});
       await load();
     } catch (error) {
@@ -767,6 +819,12 @@ export default function PreInspection() {
       return false;
     }
     try {
+      const updatePayload = isB412Aircraft(nextPayload.aircraftType)
+        ? {
+            ...nextPayload,
+            b412Data: createEmptyB412PreInspectionData(nextPayload.b412Data),
+          }
+        : { ...nextPayload, b412Data: null };
       const response = await fetch(
         `${API_BASE}/api/pre-flight/updatePreInspectionById/${nextPayload._id}`,
         {
@@ -775,7 +833,7 @@ export default function PreInspection() {
             "Content-Type": "application/json",
             ...(await getAuthHeader()),
           },
-          body: JSON.stringify({ ...nextPayload, confirmAction: true }),
+          body: JSON.stringify({ ...updatePayload, confirmAction: true }),
         },
       );
       const data = await response.json();
@@ -1050,7 +1108,10 @@ export default function PreInspection() {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => setCreating(true)}
+                onClick={() => {
+                  setCreateActiveTab("basic");
+                  setCreating(true);
+                }}
                 size="large"
                 block
               >
@@ -1091,7 +1152,10 @@ export default function PreInspection() {
                         <EyeOutlined />
                       )
                     }
-                    onClick={() => setEditing(record)}
+                    onClick={() => {
+                      editingRpcRequestRef.current += 1;
+                      setEditing(record);
+                    }}
                   />
                 </Tooltip>
                 {canExportPreInspections && (
@@ -1119,8 +1183,10 @@ export default function PreInspection() {
       <Modal
         open={creating}
         onCancel={() => {
+          draftRpcRequestRef.current += 1;
           setCreating(false);
           setDraft(getDefaultPreInspectionDraft(user));
+          setCreateActiveTab("basic");
           setCreateSelectAllState({});
         }}
         onOk={requestCreateRelease}
@@ -1130,27 +1196,29 @@ export default function PreInspection() {
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         centered
-        zIndex={3000}
+        zIndex={9999}
         styles={{
           body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
         }}
       >
-        <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-          <Alert type={createGuide.type} showIcon title={createGuide.title} />
-          <Tabs
-            items={CREATE_FORM_SECTIONS.map((section) => ({
-              key: section.key,
-              label: section.label,
-              children: (
-                <Space
-                  orientation="vertical"
-                  style={{ width: "100%" }}
-                  size={12}
-                >
+        <Tabs
+          activeKey={createActiveTab}
+          onChange={setCreateActiveTab}
+          items={createFormSections.map((section) => ({
+            key: section.key,
+            label: section.label,
+            children: (
+              <Space orientation="vertical" style={{ width: "100%" }} size={12}>
                 {section.key === "basic" ? (
                   <Card
                     size="small"
-                    title="Rotary Winged Aircraft - Single Engine"
+                    title={
+                      draftIsB412
+                        ? "Rotary Winged Aircraft - Twin Engine"
+                        : draftIsAS350
+                          ? "Rotary Winged Aircraft - Single Engine"
+                          : "Aircraft Information"
+                    }
                     styles={{
                       header: { backgroundColor: "#0A7D37", color: "#fff" },
                     }}
@@ -1191,15 +1259,7 @@ export default function PreInspection() {
                           size="large"
                           style={{ width: "100%" }}
                           value={draft.rpc}
-                          onChange={async (value) => {
-                            const aircraftType =
-                              await resolveAircraftTypeByRpc(value);
-                            setDraft((prev) => ({
-                              ...prev,
-                              rpc: value,
-                              aircraftType: aircraftType || prev.aircraftType,
-                            }));
-                          }}
+                          onChange={handleDraftRpcChange}
                           placeholder="Select RP/C"
                           showSearch={{
                             optionFilterProp: "label",
@@ -1281,6 +1341,14 @@ export default function PreInspection() {
                       </Col>
                     </Row>
                   </Card>
+                ) : section.b412SectionKey ? (
+                  <PreInspectionB412Checklist
+                    sectionKey={section.b412SectionKey}
+                    value={draft.b412Data}
+                    onChange={(b412Data) =>
+                      setDraft((prev) => ({ ...prev, b412Data }))
+                    }
+                  />
                 ) : (
                   <Space
                     orientation="vertical"
@@ -1319,18 +1387,20 @@ export default function PreInspection() {
                     ) : null}
                   </Space>
                 )}
-                </Space>
-              ),
-            }))}
-          />
-        </Space>
+              </Space>
+            ),
+          }))}
+        />
       </Modal>
 
       <Modal
         centered
-        zIndex={3000}
+        zIndex={9999}
         open={Boolean(editing)}
-        onCancel={() => setEditing(null)}
+        onCancel={() => {
+          editingRpcRequestRef.current += 1;
+          setEditing(null);
+        }}
         onOk={() => saveEdit()}
         okButtonProps={{
           disabled: editingReadOnly,
@@ -1353,9 +1423,6 @@ export default function PreInspection() {
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            {editGuide && (
-              <Alert type={editGuide.type} showIcon title={editGuide.title} />
-            )}
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
                 <Text
@@ -1368,14 +1435,7 @@ export default function PreInspection() {
                   size="large"
                   style={{ width: "100%" }}
                   value={editing.rpc}
-                  onChange={async (value) => {
-                    const aircraftType = await resolveAircraftTypeByRpc(value);
-                    setEditing((prev) => ({
-                      ...prev,
-                      rpc: value,
-                      aircraftType: aircraftType || prev.aircraftType,
-                    }));
-                  }}
+                  onChange={handleEditingRpcChange}
                   showSearch={{ optionFilterProp: "label" }}
                   options={rpcDropdownOptions.map((rpc) => ({
                     value: rpc,
@@ -1391,13 +1451,8 @@ export default function PreInspection() {
                 <Input
                   size="large"
                   value={editing.aircraftType}
-                  onChange={(e) =>
-                    setEditing((prev) => ({
-                      ...prev,
-                      aircraftType: e.target.value,
-                    }))
-                  }
                   disabled={editingReadOnly}
+                  readOnly
                 />
               </Col>
               <Col xs={24} md={8}>
@@ -1458,24 +1513,34 @@ export default function PreInspection() {
             </Row>
 
             <Divider style={{ margin: "6px 0" }}>Checklist Points</Divider>
-            <Row gutter={[8, 8]}>
-              {booleanFields.map((field) => (
-                <Col xs={24} md={12} lg={8} key={field}>
-                  <Checkbox
-                    checked={Boolean(editing[field])}
-                    disabled={editingReadOnly}
-                    onChange={(e) =>
-                      setEditing((prev) => ({
-                        ...prev,
-                        [field]: e.target.checked,
-                      }))
-                    }
-                  >
-                    {field}
-                  </Checkbox>
-                </Col>
-              ))}
-            </Row>
+            {isB412Aircraft(editing.aircraftType) ? (
+              <PreInspectionB412Checklist
+                value={editing.b412Data}
+                disabled={editingReadOnly}
+                onChange={(b412Data) =>
+                  setEditing((prev) => ({ ...prev, b412Data }))
+                }
+              />
+            ) : (
+              <Row gutter={[8, 8]}>
+                {booleanFields.map((field) => (
+                  <Col xs={24} md={12} lg={8} key={field}>
+                    <Checkbox
+                      checked={Boolean(editing[field])}
+                      disabled={editingReadOnly}
+                      onChange={(e) =>
+                        setEditing((prev) => ({
+                          ...prev,
+                          [field]: e.target.checked,
+                        }))
+                      }
+                    >
+                      {field}
+                    </Checkbox>
+                  </Col>
+                ))}
+              </Row>
+            )}
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
               {canRelease &&
@@ -1514,7 +1579,7 @@ export default function PreInspection() {
       />
       <ResultPopup
         open={popup.open}
-        zIndex={3100}
+        zIndex={7000}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}

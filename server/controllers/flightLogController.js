@@ -29,6 +29,14 @@ const isReleasedFlightLogStatus = (status = "") =>
       .toLowerCase(),
   );
 
+const isB412AircraftType = (aircraftType = "") => {
+  const normalized = String(aircraftType || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+  return normalized.includes("B412EP") || normalized.includes("BELL412EP");
+};
+
 const ONGOING_FLIGHT_LOG_STATUSES = [
   "pending_release",
   "pending_acceptance",
@@ -96,6 +104,88 @@ const hasDestinationInfo = (flightLog = {}) =>
       ),
   );
 
+// Only model-backed flight-log fields may enter create/update operations.
+// Mongoose remains strict for nested objects, including the B412-specific
+// subdocument, while this top-level allowlist also prevents update operators
+// or unrelated request properties from being forwarded to MongoDB.
+const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
+  "aircraftType",
+  "rpc",
+  "date",
+  "controlNo",
+  "sling",
+  "remarks",
+  "legs",
+  "fuelServicing",
+  "oilServicing",
+  "workItems",
+  "componentData",
+  "componentTimes",
+  "b412Data",
+  "createdBy",
+  "createdByName",
+  "createdByUserId",
+  "status",
+  "notifiedForCompletion",
+  "broughtForwardLocked",
+  "releasedBy",
+  "acceptedBy",
+  "dateAdded",
+]);
+
+const pickFlightLogPayload = (body = {}) => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(body).filter(([field]) =>
+      ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS.has(field),
+    ),
+  );
+};
+
+const getB412PayloadShapeError = (b412Data) => {
+  if (b412Data === undefined || b412Data === null) {
+    return null;
+  }
+
+  if (typeof b412Data !== "object" || Array.isArray(b412Data)) {
+    return "b412Data must be an object";
+  }
+
+  const arrayLimits = [
+    ["passengerRows", 4],
+    ["fuelServicing", 6],
+    ["oilServicing", 2],
+    ["correctionItems", 3],
+  ];
+
+  for (const [field, maximum] of arrayLimits) {
+    const value = b412Data[field];
+    if (value !== undefined && !Array.isArray(value)) {
+      return `b412Data.${field} must be an array`;
+    }
+    if (Array.isArray(value) && value.length > maximum) {
+      return `b412Data.${field} cannot contain more than ${maximum} rows`;
+    }
+  }
+
+  for (const [rowIndex, row] of (b412Data.passengerRows || []).entries()) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      return `b412Data.passengerRows[${rowIndex}] must be an object`;
+    }
+    if (row.legs !== undefined && !Array.isArray(row.legs)) {
+      return `b412Data.passengerRows[${rowIndex}].legs must be an array`;
+    }
+    if (Array.isArray(row.legs) && row.legs.length > 6) {
+      return `b412Data.passengerRows[${rowIndex}].legs cannot contain more than 6 entries`;
+    }
+  }
+
+  return null;
+};
+
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
 // @access  Private (pilot or mechanic)
@@ -105,11 +195,15 @@ const createFlightLog = async (req, res) => {
     console.log("=== CREATE FLIGHT LOG CALLED ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
 
-    const flightLogData = req.body;
+    const flightLogData = pickFlightLogPayload(req.body);
 
-    // Remove ID fields to prevent duplicate key errors on creation
-    delete flightLogData._id;
-    delete flightLogData.id;
+    const b412PayloadError = getB412PayloadShapeError(flightLogData.b412Data);
+    if (b412PayloadError) {
+      return res.status(400).json({
+        success: false,
+        message: b412PayloadError,
+      });
+    }
 
     // Validate required fields
     flightLogData.rpc = normalizeAircraftRpc(flightLogData.rpc);
@@ -450,7 +544,15 @@ const getFlightLogsByAircraft = async (req, res) => {
 const updateFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = pickFlightLogPayload(req.body);
+
+    const b412PayloadError = getB412PayloadShapeError(updates.b412Data);
+    if (b412PayloadError) {
+      return res.status(400).json({
+        success: false,
+        message: b412PayloadError,
+      });
+    }
     const existingFlightLog = await FlightLog.findById(id);
 
     if (!existingFlightLog) {
@@ -466,12 +568,6 @@ const updateFlightLog = async (req, res) => {
         message: "Completed flight logs cannot be edited",
       });
     }
-
-    // Remove fields that shouldn't be updated directly
-    delete updates._id;
-    delete updates.id;
-    delete updates.createdAt;
-    delete updates.__v;
 
     if (isReleasedFlightLogStatus(existingFlightLog.status)) {
       delete updates.rpc;
@@ -535,6 +631,18 @@ const updateFlightLog = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating flight log:", error);
+
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      const errors = error.errors
+        ? Object.values(error.errors).map((entry) => entry.message)
+        : [error.message];
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors,
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Error updating flight log",
@@ -571,6 +679,9 @@ const releaseFlightLog = async (req, res) => {
 
     // Release the flight log
     const previousFlightLog = toComparableFlightLog(flightLog);
+    if (isB412AircraftType(flightLog.aircraftType)) {
+      flightLog.broughtForwardLocked = true;
+    }
     flightLog.release(name, signature);
     await flightLog.save();
     await createFlightLogNotifications({
@@ -812,6 +923,10 @@ const searchFlightLogs = async (req, res) => {
         { aircraftType: { $regex: q, $options: "i" } },
         { controlNo: { $regex: q, $options: "i" } },
         { remarks: { $regex: q, $options: "i" } },
+        { "b412Data.serialNumber": { $regex: q, $options: "i" } },
+        { "b412Data.discrepancyRemarks": { $regex: q, $options: "i" } },
+        { "b412Data.correctionItems.category": { $regex: q, $options: "i" } },
+        { "b412Data.correctionItems.workDone": { $regex: q, $options: "i" } },
         { "legs.stations.from": { $regex: q, $options: "i" } },
         { "legs.stations.to": { $regex: q, $options: "i" } },
       ],
