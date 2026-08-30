@@ -17,6 +17,7 @@ import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import FlightLogSignatureModal from "../../components/FlightLog/FlightLogSignatureModal";
+import { isB412Aircraft } from "../../components/FlightLog/b412FlightLogData";
 import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders as getMobileAuthHeaders } from "../../utilities/mobileApi";
@@ -327,12 +328,15 @@ export default function FlightLog({ route, navigation }) {
         if (options.showToast) {
           showToast("Flight log added successfully");
         }
+        return true;
       } else {
         showToast(data.message || "Failed to add flight log");
+        return false;
       }
     } catch (error) {
       console.error("Save error:", error);
       showToast("Failed to connect to server");
+      return false;
     }
   };
 
@@ -368,12 +372,15 @@ export default function FlightLog({ route, navigation }) {
         if (options.showToast !== false) {
           showToast("Flight log updated successfully");
         }
+        return true;
       } else {
         showToast(data.message || "Failed to update flight log");
+        return false;
       }
     } catch (error) {
       console.error("Update error:", error);
       showToast("Failed to connect to server");
+      return false;
     }
   };
 
@@ -619,16 +626,36 @@ export default function FlightLog({ route, navigation }) {
     if (!confirmed) return;
 
     try {
+      const isB412 = isB412Aircraft(log?.aircraftType);
       const toDateData =
         log?.componentData?.toDateData &&
         Object.keys(log.componentData.toDateData).length > 0
           ? log.componentData.toDateData
           : buildToDateData(log);
+      const b412ToDate = log?.b412Data?.componentData?.toDateData || {};
       const aircraft = log.aircraft || log.rpc;
 
       if (!aircraft) {
         throw new Error("Aircraft identifier is missing.");
       }
+
+      const totalsPayload = isB412
+        ? {
+            acftTT: Number(b412ToDate.airframe) || 0,
+            engTT:
+              Number(b412ToDate.engine1?.tsn) ||
+              Number(b412ToDate.airframe) ||
+              0,
+            n1Cycles: Number(b412ToDate.engine1?.cycle) || 0,
+            n2Cycles: Number(b412ToDate.engine2?.cycle) || 0,
+            landings: Number(b412ToDate.landingCycle) || 0,
+          }
+        : {
+            acftTT: Number(toDateData.airframe) || 0,
+            n1Cycles: Number(toDateData.cycleN1) || 0,
+            n2Cycles: Number(toDateData.cycleN2) || 0,
+            landings: Number(toDateData.landingCycle) || 0,
+          };
 
       const totalsResponse = await fetch(
         `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`,
@@ -636,10 +663,7 @@ export default function FlightLog({ route, navigation }) {
           method: "PUT",
           headers: await getAuthHeaders(),
           body: JSON.stringify({
-            acftTT: Number(toDateData.airframe) || 0,
-            n1Cycles: Number(toDateData.cycleN1) || 0,
-            n2Cycles: Number(toDateData.cycleN2) || 0,
-            landings: Number(toDateData.landingCycle) || 0,
+            ...totalsPayload,
             updatedBy: getUserDisplayName(),
             confirmAction: true,
           }),

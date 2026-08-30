@@ -4,6 +4,12 @@ const {
   createPreInspectionNotifications,
 } = require("../utils/preInspectionNotificationService");
 const { auditLog } = require("./logsController");
+const {
+  areAllB412PreInspectionChecksComplete,
+  getB412PreInspectionPayloadShapeError,
+  isAS350AircraftType,
+  isB412AircraftType,
+} = require("../utils/b412PreInspection");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -13,10 +19,13 @@ const withActorId = (req, action, fallbackId = null) => {
   };
 };
 
-const PRE_INSPECTION_CHECK_FIELDS = Object.entries(
+const LEGACY_PRE_INSPECTION_CHECK_FIELDS = Object.entries(
   PreInspection.schema.paths,
 )
-  .filter(([, schemaType]) => schemaType.instance === "Boolean")
+  .filter(
+    ([field, schemaType]) =>
+      schemaType.instance === "Boolean" && !field.startsWith("b412Data."),
+  )
   .map(([field]) => field);
 
 const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
@@ -29,12 +38,27 @@ const hasValidFob = (record = {}) => {
   return Number.isFinite(numericValue) && numericValue >= 0;
 };
 
-const areAllReleaseChecksComplete = (record = {}) =>
-  PRE_INSPECTION_CHECK_FIELDS.every((field) => record[field] === true);
+const areAllReleaseChecksComplete = (record = {}) => {
+  if (isB412AircraftType(record.aircraftType)) {
+    return areAllB412PreInspectionChecksComplete(record);
+  }
+  if (!isAS350AircraftType(record.aircraftType)) return false;
+  return LEGACY_PRE_INSPECTION_CHECK_FIELDS.every(
+    (field) => record[field] === true,
+  );
+};
 
 const getReleaseValidationMessage = (record = {}) => {
+  if (
+    !isB412AircraftType(record.aircraftType) &&
+    !isAS350AircraftType(record.aircraftType)
+  ) {
+    return "No pre-flight inspection checklist is configured for this aircraft type.";
+  }
   if (!areAllReleaseChecksComplete(record)) {
-    return "Please check all pre-flight inspection items before release";
+    return isB412AircraftType(record.aircraftType)
+      ? "Please check all Bell 412 pre-flight inspection items before release"
+      : "Please check all pre-flight inspection items before release";
   }
   if (!hasValidFob(record)) {
     return "FOB must be filled in before release.";
@@ -49,6 +73,21 @@ const createPreInspection = async (req, res) => {
       dateAdded: req.body.dateAdded || new Date().toLocaleDateString("en-US"),
       status: req.body.status || "pending",
     };
+
+    if (isB412AircraftType(payload.aircraftType)) {
+      if (payload.b412Data === undefined) {
+        payload.b412Data = { checks: {} };
+      }
+
+      const b412PayloadError = getB412PreInspectionPayloadShapeError(
+        payload.b412Data,
+      );
+      if (b412PayloadError) {
+        return res.status(400).json({ message: b412PayloadError });
+      }
+    } else {
+      delete payload.b412Data;
+    }
 
     if (normalizeStatus(payload.status) === "released") {
       const validationMessage = getReleaseValidationMessage(payload);
@@ -69,6 +108,9 @@ const createPreInspection = async (req, res) => {
       dateAdded: payload.dateAdded || new Date().toLocaleDateString("en-US"),
       createdBy: payload.createdBy || "",
       status: "pending",
+      ...(isB412AircraftType(payload.aircraftType)
+        ? { b412Data: { checks: {} } }
+        : {}),
     };
 
     try {
@@ -143,6 +185,29 @@ const updatePreInspection = async (req, res) => {
         .json({ message: "Completed pre-flight inspections are view-only." });
     }
 
+    const nextIsB412 = isB412AircraftType(nextPayload.aircraftType);
+    const updates = { ...req.body };
+
+    if (nextIsB412) {
+      if (nextPayload.b412Data === undefined || nextPayload.b412Data === null) {
+        nextPayload.b412Data = { checks: {} };
+        updates.b412Data = nextPayload.b412Data;
+      }
+
+      const b412PayloadError = getB412PreInspectionPayloadShapeError(
+        nextPayload.b412Data,
+      );
+      if (b412PayloadError) {
+        return res.status(400).json({ message: b412PayloadError });
+      }
+    } else if (
+      isB412AircraftType(previousPayload.aircraftType) ||
+      Object.prototype.hasOwnProperty.call(req.body, "b412Data")
+    ) {
+      updates.b412Data = null;
+      nextPayload.b412Data = null;
+    }
+
     if (nextStatus === "released") {
       const validationMessage = getReleaseValidationMessage(nextPayload);
       if (validationMessage) {
@@ -156,16 +221,20 @@ const updatePreInspection = async (req, res) => {
           message: "Only released pre-flight inspections can be accepted.",
         });
       }
-      if (!hasValidFob(nextPayload)) {
-        return res
-          .status(400)
-          .json({ message: "FOB must be filled in before acceptance." });
+      const validationMessage = getReleaseValidationMessage(nextPayload);
+      if (validationMessage) {
+        return res.status(400).json({
+          message:
+            validationMessage === "FOB must be filled in before release."
+              ? "FOB must be filled in before acceptance."
+              : validationMessage,
+        });
       }
     }
 
     const inspection = await PreInspection.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updates,
       { returnDocument: "after", runValidators: true },
     );
 

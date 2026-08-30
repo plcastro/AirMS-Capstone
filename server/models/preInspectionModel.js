@@ -1,4 +1,23 @@
 const mongoose = require("mongoose");
+const b412Checklist = require("../../shared/b412PreInspectionChecklist.json");
+
+const b412CheckFields = Object.fromEntries(
+  b412Checklist.sections.flatMap((section) =>
+    section.items.map((item) => [
+      item.key,
+      { type: Boolean, default: false },
+    ]),
+  ),
+);
+
+const b412ChecksSchema = new mongoose.Schema(b412CheckFields, { _id: false });
+
+const b412PreInspectionDataSchema = new mongoose.Schema(
+  {
+    checks: { type: b412ChecksSchema, default: () => ({}) },
+  },
+  { _id: false },
+);
 
 const signatureSchema = new mongoose.Schema(
   {
@@ -76,6 +95,9 @@ const preInspectionSchema = new mongoose.Schema(
     fob: { type: String, default: "" },
     releasedBy: { type: signatureSchema, default: () => ({}) },
     acceptedBy: { type: signatureSchema, default: () => ({}) },
+    // Bell 412 EP uses an aircraft-specific checklist. It remains undefined on
+    // AS350/legacy records so their payload and export behavior stay unchanged.
+    b412Data: { type: b412PreInspectionDataSchema, default: undefined },
   },
   { collection: "pre_inspections", timestamps: true },
 );

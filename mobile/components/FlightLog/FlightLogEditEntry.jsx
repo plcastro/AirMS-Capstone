@@ -21,10 +21,21 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
+import FlightLogB412Legs from "./FlightLogB412Legs";
+import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import {
+  B412_FLIGHT_LOG_TABS,
+  calculateB412ToDate,
+  createEmptyB412Data,
+  createEmptyB412Leg,
+  ensureSixB412Legs,
+  hasCompleteB412BroughtForward,
+  isB412Aircraft,
+} from "./b412FlightLogData";
 
 const parseDate = (dateValue) => {
   if (!dateValue) return new Date();
@@ -154,9 +165,16 @@ export default function FlightLogEditEntry({
   // Load log data
   useEffect(() => {
     if (logData) {
+      const logIsB412 = isB412Aircraft(logData.aircraftType);
       setFormData({
         ...logData,
         date: parseDate(logData.date),
+        legs: logIsB412
+          ? ensureSixB412Legs(logData.legs)
+          : logData.legs || [createEmptyB412Leg()],
+        ...(logIsB412
+          ? { b412Data: createEmptyB412Data(logData.b412Data) }
+          : {}),
       });
       setComponentData(
         logData.componentData || {
@@ -169,6 +187,12 @@ export default function FlightLogEditEntry({
       setIsLoading(false);
     }
   }, [logData]);
+
+  const isB412 = isB412Aircraft(formData.aircraftType);
+  const isAircraftSelected = Boolean(
+    String(formData.rpc || "").trim() &&
+      String(formData.aircraftType || "").trim(),
+  );
 
   // Calculate toDateData whenever broughtForwardData or thisFlightData changes
   useEffect(() => {
@@ -198,6 +222,29 @@ export default function FlightLogEditEntry({
     setComponentData((prev) => ({ ...prev, toDateData: calculated }));
   }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
+  useEffect(() => {
+    if (!isB412 || !formData.b412Data?.componentData) return;
+
+    const broughtForward =
+      formData.b412Data.componentData.broughtForwardData || {};
+    const thisFlight = formData.b412Data.componentData.thisFlightData || {};
+
+    setFormData((prev) => ({
+      ...prev,
+      b412Data: {
+        ...prev.b412Data,
+        componentData: {
+          ...prev.b412Data.componentData,
+          toDateData: calculateB412ToDate(broughtForward, thisFlight),
+        },
+      },
+    }));
+  }, [
+    formData.b412Data?.componentData?.broughtForwardData,
+    formData.b412Data?.componentData?.thisFlightData,
+    isB412,
+  ]);
+
   // Reset page when modal opens
   useEffect(() => {
     if (visible) {
@@ -216,6 +263,14 @@ export default function FlightLogEditEntry({
   };
 
   const getFlightLogTabs = () => {
+    if (!isAircraftSelected) {
+      return ["Basic Information"];
+    }
+
+    if (isB412) {
+      return B412_FLIGHT_LOG_TABS;
+    }
+
     const nextTabs = [
       "Basic Information",
       "Destination/s",
@@ -267,6 +322,59 @@ export default function FlightLogEditEntry({
 
   const updateLeg = (updatedLegData) => {
     setFormData(updatedLegData);
+  };
+
+  const updateB412Legs = (legs) => {
+    setFormData((prev) => ({ ...prev, legs: ensureSixB412Legs(legs) }));
+  };
+
+  const updateB412Data = (b412Data) => {
+    setFormData((prev) => ({ ...prev, b412Data }));
+  };
+
+  const handleAircraftDataLoaded = (data) => {
+    if (!data) {
+      setFormData((prev) => ({
+        ...prev,
+        legs: [createEmptyB412Leg()],
+        fuelServicing: [],
+        oilServicing: [],
+        remarks: "",
+        sling: "",
+        workItems: [],
+        broughtForwardLocked: false,
+        b412Data: createEmptyB412Data(),
+      }));
+      setComponentData({
+        broughtForwardData: {},
+        thisFlightData: {},
+        toDateData: {},
+      });
+      setWorkItems([]);
+      return;
+    }
+
+    if (!isB412Aircraft(data.aircraftType)) return;
+
+    const serialNumber =
+      data.serialNumber ||
+      data.serialNo ||
+      data.serial ||
+      data.aircraftSerialNumber ||
+      data.referenceData?.serialNumber ||
+      "";
+
+    setFormData((prev) => {
+      const currentB412Data = createEmptyB412Data(prev.b412Data);
+      return {
+        ...prev,
+        legs: ensureSixB412Legs(prev.legs),
+        b412Data: {
+          ...currentB412Data,
+          serialNumber: serialNumber || currentB412Data.serialNumber,
+        },
+      };
+    });
   };
 
   const updateFuelServicing = (legIndex, data) => {
@@ -322,20 +430,56 @@ export default function FlightLogEditEntry({
       toDateData: calculatedToDate,
     };
 
-    const allFieldsFilled =
-      componentData.broughtForwardData &&
-      Object.values(componentData.broughtForwardData).every((v) => v !== "");
+    const {
+      b412Data: sourceB412Data,
+      ...nonB412FormData
+    } = updatedFormData;
+    const shouldIncludeB412Data = isB412Aircraft(
+      updatedFormData.aircraftType,
+    );
+    const shouldClearB412Data =
+      !shouldIncludeB412Data && sourceB412Data !== undefined;
+    const normalizedB412Data = shouldIncludeB412Data
+      ? createEmptyB412Data(sourceB412Data)
+      : null;
+
+    if (normalizedB412Data) {
+      normalizedB412Data.componentData.toDateData = calculateB412ToDate(
+        normalizedB412Data.componentData.broughtForwardData,
+        normalizedB412Data.componentData.thisFlightData,
+      );
+    }
+
+    const b412BroughtForward =
+      normalizedB412Data?.componentData?.broughtForwardData;
+    const allFieldsFilled = b412BroughtForward
+      ? hasCompleteB412BroughtForward(b412BroughtForward)
+      : componentData.broughtForwardData &&
+        Object.values(componentData.broughtForwardData).every(
+          (value) => String(value ?? "").trim() !== "",
+        );
+    const shouldLockB412ForWorkflow =
+      normalizedB412Data && updatedFormData.status !== "pending_release";
 
     const payload = {
-      ...updatedFormData,
+      ...nonB412FormData,
+      ...(normalizedB412Data
+        ? { b412Data: normalizedB412Data }
+        : shouldClearB412Data
+          ? { b412Data: null }
+          : {}),
       componentData: finalComponentData,
       workItems,
-      broughtForwardLocked: isMechanic && allFieldsFilled,
+      broughtForwardLocked: isMechanic
+        ? Boolean(allFieldsFilled || shouldLockB412ForWorkflow)
+        : formData.broughtForwardLocked === true,
     };
 
-    if (onSave) {
-      await onSave(payload, { closeOnSave, showToast: closeOnSave });
-    }
+    if (!onSave) return false;
+
+    return (
+      (await onSave(payload, { closeOnSave, showToast: closeOnSave })) !== false
+    );
   };
 
   const showFeedbackAlert = (
@@ -357,10 +501,14 @@ export default function FlightLogEditEntry({
       ...formData,
       releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
+      broughtForwardLocked: isB412
+        ? true
+        : formData.broughtForwardLocked,
     };
-    setFormData(updated);
-    await persistLog(updated, false);
+    const saved = await persistLog(updated, false);
     setShowReleaseModal(false);
+    if (!saved) return;
+    setFormData(updated);
     showFeedbackAlert("Flight log has been released");
   };
 
@@ -377,9 +525,10 @@ export default function FlightLogEditEntry({
       acceptedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "accepted",
     };
-    setFormData(updated);
-    await persistLog(updated, false);
+    const saved = await persistLog(updated, false);
     setShowAcceptModal(false);
+    if (!saved) return;
+    setFormData(updated);
     showFeedbackAlert("Flight log has been accepted");
   };
 
@@ -395,8 +544,9 @@ export default function FlightLogEditEntry({
       ...formData,
       notifiedForCompletion: true,
     };
+    const saved = await persistLog(updated, false);
+    if (!saved) return;
     setFormData(updated);
-    await persistLog(updated, false);
     showFeedbackAlert("Mechanic has been notified to complete the flight log");
   };
 
@@ -408,14 +558,29 @@ export default function FlightLogEditEntry({
         return;
       }
 
-      const payload = {
-        acftTT: Number(toDateData.airframe) || 0,
-        engTT: Number(toDateData.engine) || Number(toDateData.airframe) || 0,
-        n1Cycles: Number(toDateData.cycleN1) || 0,
-        n2Cycles: Number(toDateData.cycleN2) || 0,
-        landings: Number(toDateData.landingCycle) || 0,
-        updatedBy: userRole,
-      };
+      const b412ToDate =
+        formData.b412Data?.componentData?.toDateData || {};
+      const payload = isB412
+        ? {
+            acftTT: Number(b412ToDate.airframe) || 0,
+            engTT:
+              Number(b412ToDate.engine1?.tsn) ||
+              Number(b412ToDate.airframe) ||
+              0,
+            n1Cycles: Number(b412ToDate.engine1?.cycle) || 0,
+            n2Cycles: Number(b412ToDate.engine2?.cycle) || 0,
+            landings: Number(b412ToDate.landingCycle) || 0,
+            updatedBy: userRole,
+          }
+        : {
+            acftTT: Number(toDateData.airframe) || 0,
+            engTT:
+              Number(toDateData.engine) || Number(toDateData.airframe) || 0,
+            n1Cycles: Number(toDateData.cycleN1) || 0,
+            n2Cycles: Number(toDateData.cycleN2) || 0,
+            landings: Number(toDateData.landingCycle) || 0,
+            updatedBy: userRole,
+          };
 
       const url = `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/update-totals`;
       const authHeaders = await getAuthHeaders({
@@ -492,6 +657,11 @@ export default function FlightLogEditEntry({
       return;
     }
 
+    if (!isAircraftSelected) {
+      showToast("Select an aircraft and wait for its type to load");
+      return;
+    }
+
     await persistLog(formData, true);
   };
 
@@ -508,23 +678,27 @@ export default function FlightLogEditEntry({
   };
 
   const showReleaseButton =
+    isAircraftSelected &&
     !readOnly &&
     !isCompletedLog &&
     isMechanic &&
     formData.status === "pending_release";
   const showAcceptButton =
+    isAircraftSelected &&
     !readOnly &&
     !isCompletedLog &&
     isPilot &&
     formData.status === "pending_acceptance" &&
     Boolean(formData.releasedBy?.signature || formData.releasedBy?.name);
   const showNotifyButton =
+    isAircraftSelected &&
     !readOnly &&
     !isCompletedLog &&
     isPilot &&
     formData.status === "accepted" &&
     !formData.notifiedForCompletion;
   const showCompleteButton =
+    isAircraftSelected &&
     !readOnly &&
     !isCompletedLog &&
     isMechanic &&
@@ -541,6 +715,45 @@ export default function FlightLogEditEntry({
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
+    if (isB412 && currentTab !== "Basic Information") {
+      if (currentTab === "Flight Legs") {
+        return (
+          <FlightLogB412Legs
+            legs={ensureSixB412Legs(formData.legs)}
+            onUpdateLegs={updateB412Legs}
+            isEditable={isDestinationsEditable}
+          />
+        );
+      }
+
+      return (
+        <FlightLogB412Section
+          section={currentTab}
+          data={createEmptyB412Data(formData.b412Data)}
+          onChange={updateB412Data}
+          isEditable={
+            currentTab === "Passengers"
+              ? isDestinationsEditable
+              : [
+                    "BRT FORWARD",
+                    "This Flight",
+                    "To Date",
+                    "Fuel Servicing",
+                    "Oil Servicing",
+                  ].includes(currentTab)
+                ? isComponentEditable
+                : isDiscrepancyEditable
+          }
+          totalsEditable={
+            currentTab !== "To Date" &&
+            isComponentEditable &&
+            !(currentTab === "BRT Forward" && isBroughtForwardLocked)
+          }
+          correctionEditable={isWorkDoneEditable}
+        />
+      );
+    }
+
     switch (currentTab) {
       case "Basic Information":
         return (
@@ -549,6 +762,16 @@ export default function FlightLogEditEntry({
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
             isRPCEditable={isRPCEditable}
+            isActive={visible}
+            onAircraftDataLoaded={handleAircraftDataLoaded}
+            isB412={isB412}
+            serialNumber={formData.b412Data?.serialNumber || ""}
+            onUpdateSerialNumber={(serialNumber) =>
+              updateB412Data({
+                ...formData.b412Data,
+                serialNumber,
+              })
+            }
           />
         );
 
@@ -1033,24 +1256,30 @@ export default function FlightLogEditEntry({
 
           <TouchableOpacity
             onPress={
-              isLastPage
+              !isAircraftSelected && !readOnly && !isCompletedLog
+                ? undefined
+                : isLastPage
                 ? readOnly || isCompletedLog
                   ? onClose
                   : handleSave
                 : handleNext
             }
+            disabled={!isAircraftSelected && !readOnly && !isCompletedLog}
             style={{
               paddingVertical: 8,
               paddingHorizontal: 24,
               borderRadius: 4,
               backgroundColor: COLORS.primaryLight,
-              opacity: 1,
+              opacity:
+                !isAircraftSelected && !readOnly && !isCompletedLog ? 0.5 : 1,
             }}
           >
             <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
-              {isLastPage
+              {!isAircraftSelected && !readOnly && !isCompletedLog
+                ? "Select Aircraft"
+                : isLastPage
                 ? readOnly || isCompletedLog
                   ? "Close"
                   : "Save"

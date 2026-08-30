@@ -1,0 +1,120 @@
+{
+  "aircraftType": "B412EP",
+  "title": "Bell 412 Post Flight Inspection",
+  "footerNote": "Procedures by Flight Manual Postflight Inspection, FAA Approved, revised 16 October 2009, Rev. 29.",
+  "sections": [
+    {
+      "key": "fuselageFront",
+      "title": "FUSELAGE - FRONT",
+      "items": [
+        { "key": "fuselageFront_cabinNose", "title": "Cabin Nose", "description": "Condition; all glass clean; wipers stowed.", "page": 1 },
+        { "key": "fuselageFront_remoteHydraulicFilterBypassIndicator", "title": "Remote Hydraulic Filter Bypass Indicator", "description": "Verify normal.", "page": 1 },
+        { "key": "fuselageFront_pitotTubes", "title": "Pitot Tubes", "description": "Covered.", "page": 1 },
+        { "key": "fuselageFront_staticPorts", "title": "Static Ports (L & R)", "description": "Covered.", "page": 1 },
+        { "key": "fuselageFront_cabinNoseVentilators", "title": "Cabin Nose Ventilators", "description": "Covered.", "page": 1 },
+        { "key": "fuselageFront_noseCompartmentDoor", "title": "Nose Compartment Door", "description": "Secured.", "page": 1 },
+        { "key": "fuselageFront_batteryVentAndDrainTubes", "title": "Battery Vent and Drain Tubes", "description": "Checked.", "page": 1 },
+        { "key": "fuselageFront_searchlightAndLandingLight", "title": "Searchlight and Landing Light", "description": "Stowed.", "page": 1 },
+        { "key": "fuselageFront_antennas", "title": "Antennas", "description": "Condition and security.", "page": 1 }
+      ]
+    },
+    {
+      "key": "fuselageCabinLeftSide",
+      "title": "FUSELAGE - CABIN LEFT SIDE",
+      "items": [
+        { "key": "fuselageCabinLeftSide_copilotDoor", "title": "Copilot Door", "description": "Condition and operation.", "page": 1 },
+        { "key": "fuselageCabinLeftSide_positionLights", "title": "Position Lights", "description": "Condition.", "page": 1 },
+        { "key": "fuselageCabinLeftSide_passengerDoor", "title": "Passenger Door", "description": "Condition and operation.", "page": 1 },
+        { "key": "fuselageCabinLeftSide_landingGear", "title": "Landing Gear", "description": "Condition.", "page": 1 },
+        { "key": "fuselageCabinLeftSide_passengerStep", "title": "Passenger Step", "description": "Condition and security.", "page": 1 }
+      ]
+    },
+    {
+      "key": "fuselageAftLeftSide",
+      "title": "FUSELAGE - AFT LEFT SIDE",
+      "items": [
+        { "key": "fuselageAftLeftSide_no1EngineCompartment", "title": "No. 1 Engine Compartment", "description": "Check.", "page": 1 },
+        { "key": "fuselageAftLeftSide_no1EngineOilLevel", "title": "No. 1 Engine Oil Level", "description": "Verify actual presence of oil in sight gauge. Visually check oil level.", "page": 1 },
+        { "key": "fuselageAftLeftSide_n2GovernorSpring", "title": "N₂ Governor Spring", "description": "Check condition.", "page": 1 },
+        { "key": "fuselageAftLeftSide_engineFireExtinguisher", "title": "Engine Fire Extinguisher", "description": "Check bottle pressure gauge and temperature range.", "page": 1 },
+        { "key": "fuselageAftLeftSide_combiningGearboxFilter", "title": "Combining Gearbox Filter", "description": "Check bypass indicator retracted.", "page": 1 },
+        { "key": "fuselageAftLeftSide_oilCoolerBlower", "title": "Oil Cooler Blower", "description": "Condition.", "page": 2 },
+        { "key": "fuselageAftLeftSide_avionicsCompartment", "title": "Avionics Compartment", "description": "Security of components checked.", "page": 2 },
+        { "key": "fuselageAftLeftSide_accessDoorAndEngineCowling", "title": "Access Door and Engine Cowling", "description": "Secured.", "page": 2 },
+        { "key": "fuselageAftLeftSide_drainLines", "title": "Drain Lines", "description": "Checked.", "page": 2 },
+        { "key": "fuselageAftLeftSide_engineExhaustEjectors", "title": "Engine Exhaust Ejectors", "description": "Checked.", "page": 2 }
+      ]
+    },
+    {
+      "key": "tailboom",
+      "title": "TAILBOOM",
+      "items": [
+        { "key": "tailboom_tailboomAccessCovers", "title": "Tailboom", "description": "Condition checked.", "page": 2 },
+        { "key": "tailboom_tailRotorDriveshaftCovers", "title": "Tail Rotor Driveshaft Covers", "description": "Secured.", "page": 2 },
+        { "key": "tailboom_elevatorSpringCondition", "title": "Elevator", "description": "Condition checked.", "cautionBefore": "CAUTION: Do not bend elevator trailing edge tab.", "page": 2 },
+        { "key": "tailboom_tailRotor90Gearbox", "title": "Tail Rotor (90°) Gearbox", "description": "Verify actual presence of oil in sight gauge.", "page": 2 },
+        { "key": "tailboom_tailRotorBlades", "title": "Tail Rotor Blades", "description": "Condition checked.", "page": 2 },
+        { "key": "tailboom_tailRotor", "title": "Tail Rotor", "description": "Condition and free movement on flapping axis.", "page": 2 },
+        { "key": "tailboom_tailRotorYoke", "title": "Tail Rotor Yoke", "description": "Evidence of static-stop contact damage (deformed static-stop yield indicator).", "page": 2 },
+        { "key": "tailboom_tailSkid", "title": "Tail Skid", "description": "Condition checked.", "page": 2 },
+        { "key": "tailboom_intermediate42Gearbox", "title": "Intermediate (42°) Gearbox", "description": "Verify actual presence of oil in sight gauge.", "page": 2 },
+        { "key": "tailboom_elevatorCondition", "title": "Elevator", "description": "Condition checked.", "page": 2 },
+        { "key": "tailboom_tailboomCondition", "title": "Tailboom", "description": "Condition checked.", "page": 2 },
+        { "key": "tailboom_baggageCompartment", "title": "Baggage Compartment", "description": "Condition checked.", "page": 2 }
+      ]
+    },
+    {
+      "key": "fuselageAftRightSide",
+      "title": "FUSELAGE - AFT RIGHT SIDE",
+      "items": [
+        { "key": "fuselageAftRightSide_aftCompartment", "title": "Aft Compartment", "description": "Condition checked.", "page": 2 },
+        { "key": "fuselageAftRightSide_tailRotorActuator", "title": "Tail Rotor Actuator", "description": "Checked.", "page": 2 },
+        { "key": "fuselageAftRightSide_engineFireExtinguisher", "title": "Engine Fire Extinguisher", "description": "Condition checked.", "page": 2 },
+        { "key": "fuselageAftRightSide_combiningGearboxOilLevel", "title": "Combining Gearbox Oil Level", "description": "Verify actual presence of oil in sight gauge.", "page": 2 },
+        { "key": "fuselageAftRightSide_oilCoolerBlower", "title": "Oil Cooler Blower", "description": "Condition checked.", "page": 2 },
+        { "key": "fuselageAftRightSide_no2EngineCompartment", "title": "No. 2 Engine Compartment", "description": "Condition checked.", "page": 2 },
+        { "key": "fuselageAftRightSide_no2EngineOilLevel", "title": "No. 2 Engine Oil Level", "description": "Verify actual presence of oil in sight gauge.", "page": 3 },
+        { "key": "fuselageAftRightSide_accessDoorsAndEngineCowling", "title": "Access Doors and Engine Cowling", "description": "Checked.", "page": 3 },
+        { "key": "fuselageAftRightSide_fuelFiller", "title": "Fuel Filler", "description": "Condition checked.", "page": 3 }
+      ]
+    },
+    {
+      "key": "fuselageCabinRightSide",
+      "title": "FUSELAGE - CABIN RIGHT SIDE",
+      "items": [
+        { "key": "fuselageCabinRightSide_passengerDoor", "title": "Passenger Door", "description": "Condition checked.", "page": 3 },
+        { "key": "fuselageCabinRightSide_transmissionOil", "title": "Transmission Oil", "description": "Verify actual presence of oil in sight gauge.", "page": 3 },
+        { "key": "fuselageCabinRightSide_positionLights", "title": "Position Lights", "description": "Condition checked.", "page": 3 },
+        { "key": "fuselageCabinRightSide_landingGear", "title": "Landing Gear", "description": "Condition checked.", "page": 3 },
+        { "key": "fuselageCabinRightSide_passengerStep", "title": "Passenger Step", "description": "Condition checked.", "page": 3 },
+        { "key": "fuselageCabinRightSide_pilotDoor", "title": "Pilot Door", "description": "Condition checked.", "page": 3 }
+      ]
+    },
+    {
+      "key": "cabinTop",
+      "title": "CABIN TOP",
+      "items": [
+        { "key": "cabinTop_hubAndSleeveAssembly", "title": "Hub and Sleeve Assembly", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_swashplateSupportAssemblyAndCollectiveLever", "title": "Swashplate, Support Assembly, and Collective Lever", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_mainRotorPitchLinks", "title": "Main Rotor Pitch Links", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_mastRetainingNut", "title": "Mast Retaining Nut", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_yokeAssembly", "title": "Yoke Assembly", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_pitchHorns", "title": "Pitch Horns", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_elastomericBearingsLeadLagDampers", "title": "Elastomeric Bearings, Lead-Lag Dampers", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_bladeRetentionBolts", "title": "Blade Retention Bolts", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_droopRestrainers", "title": "Droop Restrainers", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_simplePendulumAbsorbers", "title": "Simple Pendulum Absorbers", "description": "Condition checked.", "page": 3 },
+        { "key": "cabinTop_mainDriveshaftAndCoupling", "title": "Main Driveshaft and Coupling", "description": "Condition checked.", "cautionAfter": "CAUTION: If any temp-plate is missing or has black dots, maintenance personnel shall assist in determining airworthiness.", "page": 3 },
+        { "key": "cabinTop_transmissionOilFillerCap", "title": "Transmission Oil Filler Cap", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_hydraulicReservoirs1And2", "title": "No. 1 and No. 2 Hydraulic Reservoirs", "description": "Visually check fluid levels.", "page": 4 },
+        { "key": "cabinTop_antennas", "title": "Antennas", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_combiningGearboxOilFillerCap", "title": "Combining Gearbox Oil Filler Cap", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_anticollisionLight", "title": "Anticollision Light", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_engineAirIntakes1And2", "title": "No. 1 and No. 2 Engine Air Intakes", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_engineAndTransmissionCowling", "title": "Engine and Transmission Cowling", "description": "Secured.", "page": 4 },
+        { "key": "cabinTop_freshAirInletScreen", "title": "Fresh Air Inlet Screen", "description": "Condition checked.", "page": 4 },
+        { "key": "cabinTop_rotorBrakeReservoirCap", "title": "Rotor Brake Reservoir Cap", "description": "Condition checked.", "page": 4 }
+      ]
+    }
+  ]
+}
