@@ -216,6 +216,29 @@ const createFlightLog = async (req, res) => {
       });
     }
 
+    const hasCompleteLegs =
+      Array.isArray(flightLogData.legs) &&
+      flightLogData.legs.length > 0 &&
+      flightLogData.legs.every((leg) => {
+        const hasValidDate =
+          Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
+        const hasCompleteRoute =
+          Array.isArray(leg?.stations) &&
+          leg.stations.some(
+            (station) =>
+              String(station?.from || "").trim() &&
+              String(station?.to || "").trim(),
+          );
+        return hasValidDate && hasCompleteRoute;
+      });
+
+    if (!hasCompleteLegs) {
+      return res.status(400).json({
+        success: false,
+        message: "Each leg must include complete station route and date",
+      });
+    }
+
     const existingOngoingFlightLog = await findOngoingFlightLogForAircraft(
       flightLogData.rpc,
     );

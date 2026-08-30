@@ -53,6 +53,9 @@ export default function OTP() {
   const [pinReady, setPinReady] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [message, setMessage] = useState("");
+  const [messageStatus, setMessageStatus] = useState("error");
+  const [verifiedTitle, setVerifiedTitle] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const rememberMe = Boolean(route.params?.rememberMe);
   const [trustDevice, setTrustDevice] = useState(rememberMe);
   const MAX_CODE_LENGTH = 6;
@@ -74,7 +77,7 @@ export default function OTP() {
   }, [resendTimer]);
 
   const handlePasswordResetOtpVerify = async () => {
-    if (!pinReady) return;
+    if (!pinReady || isVerifying) return;
 
     if (!token) {
       setMessage("Missing verification token.");
@@ -82,6 +85,8 @@ export default function OTP() {
     }
 
     try {
+      setIsVerifying(true);
+      setMessageStatus("error");
       const res = await fetch(`${API_BASE}/api/user/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,6 +95,9 @@ export default function OTP() {
 
       const data = await parseResponse(res);
       if (res.ok) {
+        setMessageStatus("success");
+        setMessage("OTP verified. Redirecting...");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
         navigation.navigate("resetPassword", { token });
       } else {
         const message = String(data?.message || "");
@@ -102,11 +110,13 @@ export default function OTP() {
     } catch (err) {
       console.error("OTP verification error:", err);
       setMessage("Failed to verify OTP. Try again.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleLoginOtpVerify = async () => {
-    if (!pinReady) return;
+    if (!pinReady || isVerifying) return;
 
     if (!token) {
       setMessage("Missing verification token.");
@@ -114,6 +124,8 @@ export default function OTP() {
     }
 
     try {
+      setIsVerifying(true);
+      setMessageStatus("error");
       const res = await fetch(`${API_BASE}/api/user/login/verify-otp`, {
         method: "POST",
         headers: {
@@ -135,11 +147,14 @@ export default function OTP() {
       const data = await parseResponse(res);
       if (!res.ok) {
         const message = String(data?.message || "");
+        const isExpired = message.toLowerCase().includes("expired");
         setMessage(
-          message.toLowerCase().includes("expired")
-            ? "OTP expired! Please request a new one."
-            : message || "Invalid OTP",
+          isExpired ? "OTP expired. Please log in again." : message || "Invalid OTP",
         );
+        if (isExpired) {
+          setToken(null);
+          setTimeout(() => navigation.replace("login"), 1500);
+        }
         return;
       }
 
@@ -173,6 +188,11 @@ export default function OTP() {
         rememberMe,
       });
 
+      setVerifiedTitle("Login Verified");
+      setMessageStatus("success");
+      setMessage("OTP verified. Redirecting...");
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
       const pendingRedirect = await readPendingRedirect();
       if (pendingRedirect?.screen) {
         await clearPendingRedirect();
@@ -187,6 +207,8 @@ export default function OTP() {
     } catch (err) {
       console.error("Login OTP verification error:", err);
       setMessage("Failed to verify OTP. Try again.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -248,7 +270,8 @@ export default function OTP() {
       >
         <LoginLayout
           cardTitle={
-            mode === "login-2fa" ? "Login Verification" : "Account Verification"
+            verifiedTitle ||
+            (mode === "login-2fa" ? "Login Verification" : "Account Verification")
           }
           cardsubTitle={
             "Please enter the 6-digit code sent to " +
@@ -269,7 +292,7 @@ export default function OTP() {
                 ? handleLoginOtpVerify
                 : handlePasswordResetOtpVerify
             }
-            disabled={!pinReady}
+            disabled={!pinReady || isVerifying}
             buttonStyle={[
               styles.primaryBtn,
               { minWidth: "100%", marginBottom: 10 },
@@ -333,7 +356,13 @@ export default function OTP() {
             buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
             buttonTextStyle={styles.secondaryBtnTxt}
           />
-          <AppText style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+          <AppText
+            style={{
+              color: messageStatus === "success" ? "#26866F" : "red",
+              marginTop: 10,
+              textAlign: "left",
+            }}
+          >
             {pinReady ? message : ""}
           </AppText>
         </LoginLayout>

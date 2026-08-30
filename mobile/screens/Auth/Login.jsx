@@ -90,10 +90,10 @@ export default function Login() {
   const validate = () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
-      return setMessage("Please enter your username/email and password");
+      return setMessage("Username/email and password are required");
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
-    if (!password.trim()) return setMessage("Please enter your password");
+    if (!password.trim()) return setMessage("Password is required");
     if (!selectedBase) {
       return setMessage("Please select where you are logging in from");
     }
@@ -233,7 +233,7 @@ export default function Login() {
       nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Login error. Try again later.");
+      setMessage("Login Failed. Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -367,7 +367,7 @@ export default function Login() {
           )}
           <View style={styles.loginHelper}>
             <CheckBox
-              title="Stay signed in"
+              title="Remember me"
               checkboxStyle={styles.checkBox}
               value={rememberMe}
               onValueChange={setRememberMe}

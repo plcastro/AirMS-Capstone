@@ -648,7 +648,7 @@ export default function PreInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleFooterAction : handleNext}
+            onPress={isViewOnly || isLastPage ? handleFooterAction : handleNext}
             disabled={isSubmitting}
             style={{
               paddingVertical: 8,
@@ -661,7 +661,7 @@ export default function PreInspectionEditEntry({
             <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
-              {isLastPage ? footerActionLabel : "Next"}
+              {isViewOnly ? "Close" : isLastPage ? footerActionLabel : "Next"}
             </AppText>
           </TouchableOpacity>
         </View>

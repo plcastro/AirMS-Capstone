@@ -158,8 +158,22 @@ export default function ActivityLogs() {
     try {
       if (!silent) setLoading(true);
       const token = await AsyncStorage.getItem("currentUserToken");
+      const query = new URLSearchParams({ page: "1", limit: "1000" });
+
+      if (dateRangeFilter !== "all") {
+        const days = Number(dateRangeFilter);
+        if (Number.isFinite(days) && days > 0) {
+          const endDate = new Date();
+          const startDate = new Date(
+            endDate.getTime() - days * 24 * 60 * 60 * 1000,
+          );
+          query.set("startDate", startDate.toISOString());
+          query.set("endDate", endDate.toISOString());
+        }
+      }
+
       const response = await fetch(
-        `${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`,
+        `${API_BASE}/api/logs/getAllUserLogs?${query.toString()}`,
         {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -172,21 +186,20 @@ export default function ActivityLogs() {
         throw new Error(json?.message || "Failed to fetch logs");
       }
 
-      const mapped = Array.isArray(json.data)
-        ? json.data.map((item, index) => ({
-            _id: item._id || String(index),
-            index: index + 1,
-            dateTime: item.dateTime,
-            actionMade: item.actionMade || item.action || "N/A",
-            username: item.username || "Unknown",
-            base: String(item.base || item.loginBase || "unknown")
-              .trim()
-              .toUpperCase(),
-            platform: String(item.platform || "unknown")
-              .trim()
-              .toLowerCase(),
-          }))
-        : [];
+      const responseLogs = Array.isArray(json.data) ? json.data : [];
+      const mapped = responseLogs.map((item, index) => ({
+        _id: item._id || String(index),
+        index: index + 1,
+        dateTime: item.dateTime,
+        actionMade: item.actionMade || item.action || "N/A",
+        username: item.username || "Unknown",
+        base: String(item.base || item.loginBase || "unknown")
+          .trim()
+          .toUpperCase(),
+        platform: String(item.platform || "unknown")
+          .trim()
+          .toLowerCase(),
+      }));
 
       setLogs(mapped);
     } catch (error) {
@@ -196,7 +209,7 @@ export default function ActivityLogs() {
       if (!silent) setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [dateRangeFilter]);
 
   useEffect(() => {
     fetchLogs();

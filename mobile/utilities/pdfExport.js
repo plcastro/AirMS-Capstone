@@ -3,6 +3,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { Alert, Image } from "react-native";
 import { requestStoragePermissionForDownload } from "./storagePermission";
+import { showToast } from "./toast";
 import {
   exportPostInspectionTemplatePdf,
   exportPreInspectionTemplatePdf,
@@ -2644,6 +2645,7 @@ const exportRecordToPdf = async ({
   record,
   html,
   fileName,
+  successMessage,
 }) => {
   try {
     const canUseStorage = await requestStoragePermissionForDownload();
@@ -2684,6 +2686,8 @@ const exportRecordToPdf = async ({
       UTI: "com.adobe.pdf",
     });
 
+    if (successMessage) showToast(successMessage);
+
     return finalUri;
   } catch (error) {
     console.error(`Failed to export ${title}:`, error);
@@ -2707,6 +2711,7 @@ export const exportFlightLogPdf = async (log) => {
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
     html,
+    successMessage: "Flight log exported successfully.",
   });
 };
 
@@ -2716,5 +2721,6 @@ export const exportMaintenanceLogPdf = async (log, options = {}) => {
     title: "Work Done Report",
     fileName: getMaintenanceLogFileName(log),
     html: buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri),
+    successMessage: "Maintenance log exported successfully.",
   });
 };

@@ -884,6 +884,30 @@ export default function FlightLogEntry({
       return;
     }
 
+    const isLegComplete = (leg) => {
+      const date = leg?.date;
+      const hasValidDate =
+        Boolean(date) && !Number.isNaN(new Date(date).getTime());
+      const hasCompleteRoute =
+        Array.isArray(leg?.stations) &&
+        leg.stations.some(
+          (station) =>
+            String(station?.from || "").trim() &&
+            String(station?.to || "").trim(),
+        );
+      return hasValidDate && hasCompleteRoute;
+    };
+
+    if (
+      !Array.isArray(formData.legs) ||
+      formData.legs.length === 0 ||
+      !formData.legs.every(isLegComplete)
+    ) {
+      showToast("Each leg must include complete station route and date");
+      setCurrentPage(tabs.indexOf("Destination/s"));
+      return;
+    }
+
     onSave(buildFlightLogPayload(formData));
   };
 
