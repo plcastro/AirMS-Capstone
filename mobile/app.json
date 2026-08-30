@@ -4,7 +4,11 @@
     "slug": "AirMS",
     "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -17,6 +21,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.arckexe.airms",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "icon": "./assets/AirMS_ios_icon.png"
     },
     "android": {
@@ -55,7 +60,10 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBMessaging"
+            ]
           }
         }
       ]
