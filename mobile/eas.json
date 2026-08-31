@@ -14,10 +14,7 @@
         "NODE_ENV": "development",
         "EXPO_PUBLIC_APP_ENV": "development",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
-
         "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
-        "EXPO_PUBLIC_BACKEND_URL_FALLBACK": "https://api.airms.online",
-
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
@@ -40,9 +37,7 @@
         "NODE_ENV": "production",
         "EXPO_PUBLIC_APP_ENV": "preview",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
-
         "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
-        "EXPO_PUBLIC_BACKEND_URL_FALLBACK": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
@@ -67,7 +62,6 @@
         "EXPO_PUBLIC_APP_ENV": "production",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
         "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
-        "EXPO_PUBLIC_BACKEND_URL_FALLBACK": "https://api.airms.online",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
