@@ -11,7 +11,7 @@ import { COLORS } from "../../stylesheets/colors";
 
 const DEFAULT_SERIES = [{ key: "value", color: "#26866f", name: "Value" }];
 const MIN_CHART_WIDTH = 320;
-const POINT_SLOT_WIDTH = 92;
+const POINT_SLOT_WIDTH = 110;
 const CHART_SIDE_PADDING = 128;
 
 const getPointValue = (item, key) => Number(item?.[key]) || 0;
@@ -63,7 +63,7 @@ export default function AreaChart({
     viewportWidth,
     safeData.length * POINT_SLOT_WIDTH + CHART_SIDE_PADDING,
   );
-  const chartHeight = Math.max(height + 42, 216);
+  const chartHeight = Math.max(height + 60, 230);
   const canScrollHorizontally = chartWidth > viewportWidth;
 
   if (!safeData.length) {
@@ -108,7 +108,7 @@ export default function AreaChart({
           withInnerLines
           withOuterLines={false}
           segments={4}
-          verticalLabelRotation={18}
+          verticalLabelRotation={0}
           xLabelsOffset={4}
           style={styles.chart}
         />
