@@ -194,7 +194,7 @@ const getAllUserLogs = async (req, res) => {
     const { startDate, endDate, search = "", page = 1, limit = 20 } = req.query;
 
     const safePage = Math.max(parseInt(page, 10) || 1, 1);
-    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 1000);
     const skip = (safePage - 1) * safeLimit;
 
     const filter = {};
