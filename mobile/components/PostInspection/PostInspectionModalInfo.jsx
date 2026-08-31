@@ -4,6 +4,7 @@ import AppInput from "../common/AppInput";
 import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE } from "../../utilities/API_BASE";
 
 export default function PostInspectionModalInfo({
@@ -13,6 +14,7 @@ export default function PostInspectionModalInfo({
   rpcOptions = [],
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -56,6 +58,23 @@ export default function PostInspectionModalInfo({
 
   const toggleRPCDropdown = () => {
     setShowRPCDropdown(!showRPCDropdown);
+  };
+
+  const getDatePickerValue = (value) => {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+    const parts = String(value || "").split("/");
+    if (parts.length === 3) {
+      const parsed = new Date(
+        Number(parts[2]),
+        Number(parts[0]) - 1,
+        Number(parts[1]),
+      );
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   };
 
   const resolveAircraftTypeByRpc = async (rpc) => {
@@ -278,16 +297,20 @@ export default function PostInspectionModalInfo({
             >
               Date:
             </AppText>
-            <View
+            <TouchableOpacity
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
+                backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
                 borderRadius: 6,
+                borderWidth: 1,
+                borderColor: COLORS.grayMedium,
                 height: 42,
                 paddingHorizontal: 12,
               }}
+              onPress={isEditable ? () => setShowDatePicker(true) : undefined}
+              disabled={!isEditable}
             >
               <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
                 {formatDate(formData.date)}
@@ -297,7 +320,20 @@ export default function PostInspectionModalInfo({
                 size={18}
                 color={COLORS.grayDark}
               />
-            </View>
+            </TouchableOpacity>
+            {showDatePicker && isEditable && (
+              <DateTimePicker
+                value={getDatePickerValue(formData.date)}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (event.type !== "dismissed" && selectedDate) {
+                    updateForm("date", formatDate(selectedDate));
+                  }
+                }}
+              />
+            )}
           </View>
         </View>
       </View>

@@ -96,8 +96,9 @@ export default function OTP() {
       if (res.ok) {
         setMessageStatus("success");
         setMessage("OTP verified. Redirecting...");
+        showToast("OTP verified. Redirecting...");
         await new Promise((resolve) => setTimeout(resolve, 1200));
-        navigation.navigate("resetPassword", { token });
+        navigation.replace("resetPassword", { token });
       } else {
         const message = String(data?.message || "");
         setMessage(
@@ -192,6 +193,7 @@ export default function OTP() {
       setVerifiedTitle("Login Verified");
       setMessageStatus("success");
       setMessage("OTP verified. Redirecting...");
+      showToast("Login verified");
       await new Promise((resolve) => setTimeout(resolve, 1200));
 
       const pendingRedirect = await readPendingRedirect();

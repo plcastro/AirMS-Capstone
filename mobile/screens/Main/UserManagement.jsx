@@ -26,6 +26,7 @@ import { confirmAction } from "../../utilities/confirmAction";
 import UserStatsRow from "../../components/UserManagement/UserStatsRow";
 import UserCard from "../../components/UserManagement/UserCard";
 import UserFormModal from "../../components/UserManagement/UserFormModal";
+import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { JOB_TITLE_OPTIONS } from "../../components/UserManagement/constants";
 import { matchesSearch } from "../../utilities/search";
@@ -56,6 +57,7 @@ export default function UserManagement() {
   const [formVisible, setFormVisible] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [savingUser, setSavingUser] = useState(false);
+  const [invitationEmail, setInvitationEmail] = useState("");
   const [inviteActionLoadingByUser, setInviteActionLoadingByUser] = useState(
     {},
   );
@@ -352,11 +354,18 @@ export default function UserManagement() {
       }
 
       showToast(
-        isEdit ? "User updated successfully." : "User created successfully.",
+        isEdit
+          ? "User has been updated successfully!"
+          : "User added successfully!",
       );
+      await fetchUsers({ silent: true });
       setFormVisible(false);
       setUserToEdit(null);
-      fetchUsers({ silent: true });
+      if (!isEdit) {
+        setInvitationEmail(
+          json?.invitationEmail || requestPayload?.email || "",
+        );
+      }
     } catch (error) {
       showToast(error.message);
     } finally {
@@ -612,6 +621,13 @@ export default function UserManagement() {
         userToEdit={userToEdit}
         currentUserId={currentUserId}
         saving={savingUser}
+      />
+      <AlertComp
+        visible={Boolean(invitationEmail)}
+        title="Email Sent"
+        message={`Activation credentials were sent to ${invitationEmail}.`}
+        confirmText="OK"
+        onConfirm={() => setInvitationEmail("")}
       />
     </View>
   );

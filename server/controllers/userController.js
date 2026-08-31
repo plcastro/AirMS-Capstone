@@ -1427,6 +1427,8 @@ const createUser = async (req, res) => {
     res.status(201).json({
       message: "User created successfully",
       data: newUser,
+      emailSent: true,
+      invitationEmail: email,
     });
   } catch (err) {
     console.error("Error in createUser:", err);
@@ -1630,9 +1632,20 @@ const updateUser = async (req, res) => {
       changedFields.push("License Number");
     }
 
+    const newImagePath = req.file
+      ? req.file.savedPath || `/uploads/${req.file.filename}`
+      : "";
+    if (newImagePath) {
+      changedFields.push("Profile Image");
+    }
+
     const updateData = {
       $set: { firstName, lastName, email, username, access, jobTitle },
     };
+
+    if (newImagePath) {
+      updateData.$set.image = newImagePath;
+    }
 
     if (requiresLicense) {
       updateData.$set.licenseNo = licenseNo;
@@ -1644,6 +1657,10 @@ const updateUser = async (req, res) => {
       returnDocument: "after",
       runValidators: true,
     });
+
+    if (newImagePath && user.image && user.image !== newImagePath) {
+      await deleteFile(user.image);
+    }
     // console.log(updatedUser.username);
 
     if (roleOrAccessChanged) {

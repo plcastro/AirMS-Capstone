@@ -152,6 +152,66 @@ const downloadPartsRequisitionExcel = async (requisitionId, fileName) => {
   }
 };
 
+const downloadPartsLifespanExcel = async (aircraft) => {
+  try {
+    if (!aircraft) {
+      throw new Error("Select an aircraft before exporting.");
+    }
+
+    const canUseStorage = await requestStoragePermissionForDownload();
+    if (!canUseStorage) {
+      throw new Error("Storage permission is required to download files.");
+    }
+
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const safeAircraft = sanitizeFileName(aircraft);
+    const safeFileName = `${safeAircraft}-Parts-Lifespan-Monitoring.xlsx`;
+    const fileUri = FileSystem.documentDirectory + safeFileName;
+
+    showToast("Generating Excel file...");
+
+    const response = await fetch(
+      `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/export-excel`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+    );
+
+    if (!response.ok) {
+      let message = "Failed to download parts lifespan workbook";
+      try {
+        const errorBody = await response.json();
+        message = errorBody?.message || message;
+      } catch {
+        // The endpoint may return a non-JSON proxy or server error.
+      }
+      throw new Error(message);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(fileUri, {
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        dialogTitle: safeFileName,
+      });
+    }
+
+    showToast("Parts lifespan monitoring exported successfully");
+    return fileUri;
+  } catch (error) {
+    console.error("Parts lifespan Excel export error:", error);
+    showToast(error.message || "Unable to export parts lifespan workbook.");
+    throw error;
+  }
+};
+
 export const exportPreInspectionTemplatePdf = (inspection) => {
   if (!inspection?._id) {
     showToast("Invalid inspection data.");
@@ -194,10 +254,15 @@ export const exportPartsRequisitionExcel = (request) => {
   );
 };
 
+export const exportPartsLifespanMonitoringExcel = (aircraft) =>
+  downloadPartsLifespanExcel(aircraft);
+
 export default {
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
   exportPartsRequisitionExcel,
+  exportPartsLifespanMonitoringExcel,
   downloadInspectionDocument,
   downloadPartsRequisitionExcel,
+  downloadPartsLifespanExcel,
 };
