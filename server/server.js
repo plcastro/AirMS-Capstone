@@ -46,7 +46,6 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8081",
-  "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000",
@@ -252,7 +251,16 @@ app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
     setHeaders: (res) => {
-      res.setHeader("Access-Control-Allow-Origin", "*");
+      const origin = res.req.headers.origin;
+
+      if (
+        origin === "https://airms.online" ||
+        origin === "https://www.airms.online"
+      ) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
+      }
+
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   }),
