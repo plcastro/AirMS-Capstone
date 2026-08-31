@@ -5,7 +5,9 @@ const androidEmulatorUrl = "http://10.0.2.2:8000";
 
 // Expo only guarantees EXPO_PUBLIC_* variables at runtime.
 const envBackendUrl =
-  process.env.EXPO_PUBLIC_BACKEND_URL || process.env.BACKEND_URL;
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  process.env.BACKEND_URL ||
+  process.env.EXPO_PUBLIC_BACKEND_URL_FALLBACK;
 
 const isLocalOrEmulatorHost = (url) => {
   if (!url) return false;

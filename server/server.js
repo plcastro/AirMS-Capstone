@@ -139,6 +139,7 @@ app.use(
           "https://airms.online",
           "https://www.airms.online",
           "https://api.airms.online",
+          "https://airms-server.vercel.app",
           "ws:",
           "wss:",
         ],
