@@ -153,7 +153,7 @@ export default function ActivityLogs() {
       try {
         if (!silent) setLoading(true);
         const token = await AsyncStorage.getItem("currentUserToken");
-        const query = new URLSearchParams({ page: "1", limit: "200" });
+        const query = new URLSearchParams({ page: "1", limit: "1000" });
 
         if (dateRangeFilter !== "all") {
           const days = Number(dateRangeFilter);
@@ -334,7 +334,11 @@ export default function ActivityLogs() {
           "CEBU",
           "CDO",
           ...logs
-            .map((item) => String(item.base || "").trim().toUpperCase())
+            .map((item) =>
+              String(item.base || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ]),
       ).sort();
@@ -349,7 +353,11 @@ export default function ActivityLogs() {
           "WEB",
           "MOBILE",
           ...logs
-            .map((item) => String(item.platform || "").trim().toUpperCase())
+            .map((item) =>
+              String(item.platform || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ]),
       ).sort();
