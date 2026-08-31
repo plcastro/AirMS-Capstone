@@ -9,7 +9,6 @@
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
-    "eas-build-pre-install": "node scripts/write-google-services.js",
     "build:apk": "npx eas-cli build -p android --profile development",
     "build:aab": "npx eas-cli build -p android --profile production",
     "build:ios:development": "npx eas-cli build -p ios --profile development",
