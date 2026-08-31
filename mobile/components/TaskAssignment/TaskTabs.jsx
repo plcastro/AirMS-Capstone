@@ -18,13 +18,9 @@ import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const TASK_CALENDAR_STORAGE_KEY = "airms.taskCalendar.enabled";
 const TASK_CALENDAR_ENV_ENABLED =
-  process.env.EXPO_PUBLIC_TASK_CALENDAR_ENABLED === "true";
+  process.env.EXPO_PUBLIC_TASK_CALENDAR_ENABLED === "false";
 const OPEN_TASK_STATUSES = new Set(["pending", "returned", "ongoing"]);
-const COMPLETED_TASK_STATUSES = new Set([
-  "completed",
-  "turned in",
-  "approved",
-]);
+const COMPLETED_TASK_STATUSES = new Set(["completed", "turned in", "approved"]);
 const CALENDAR_COLORS = [
   { bg: "#E6F4FF", border: "#91CAFF", text: "#0958D9" },
   { bg: "#F6FFED", border: "#B7EB8F", text: "#237804" },
