@@ -5,7 +5,9 @@ const { put } = require("@vercel/blob");
 
 const MAX_MESSAGE_UPLOAD_MB = Number(process.env.MAX_MESSAGE_UPLOAD_MB || 10);
 const MAX_MESSAGE_UPLOAD_BYTES = MAX_MESSAGE_UPLOAD_MB * 1024 * 1024;
-const MAX_MESSAGE_ATTACHMENTS = Number(process.env.MAX_MESSAGE_ATTACHMENTS || 5);
+const MAX_MESSAGE_ATTACHMENTS = Number(
+  process.env.MAX_MESSAGE_ATTACHMENTS || 5,
+);
 const IS_VERCEL_RUNTIME = process.env.VERCEL === "1";
 
 const allowedMimeTypes = new Set([
@@ -31,10 +33,12 @@ const messageUpload = multer({
     files: MAX_MESSAGE_ATTACHMENTS,
   },
   fileFilter: (req, file, cb) => {
-    if (file?.mimetype?.startsWith("image/") || allowedMimeTypes.has(file?.mimetype)) {
+    if (
+      file?.mimetype?.startsWith("image/") ||
+      allowedMimeTypes.has(file?.mimetype)
+    ) {
       return cb(null, true);
     }
-
     return cb(new Error("INVALID_MESSAGE_FILE_TYPE"));
   },
 });
@@ -51,9 +55,10 @@ const saveMessageAttachments = async (req, res, next) => {
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) return next();
 
-    if (IS_VERCEL_RUNTIME && !process.env.BLOB_READ_WRITE_TOKEN) {
+    if (IS_VERCEL_RUNTIME && !process.env.DOCUMENT_BLOB_TOKEN) {
       return res.status(500).json({
-        message: "Server upload configuration error: missing BLOB_READ_WRITE_TOKEN.",
+        message:
+          "Server upload configuration error: missing DOCUMENT_BLOB_TOKEN.",
       });
     }
 
@@ -63,29 +68,33 @@ const saveMessageAttachments = async (req, res, next) => {
     for (const [index, file] of files.entries()) {
       const originalName = sanitizeFilename(file.originalname);
       const extension = path.extname(originalName);
-      const basename = path.basename(originalName, extension).slice(0, 80) || "attachment";
+      const basename =
+        path.basename(originalName, extension).slice(0, 80) || "attachment";
       const storedName = `message-${req.user?.id || "unknown"}-${timestamp}-${index}-${basename}${extension}`;
       const kind = file.mimetype?.startsWith("image/") ? "image" : "file";
 
-      let url;
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
+      let idOrPath;
+      if (process.env.DOCUMENT_BLOB_TOKEN) {
         const blob = await put(`messages/${storedName}`, file.buffer, {
-          access: "public",
+          access: "private", // switched to private
           contentType: file.mimetype || "application/octet-stream",
-          token: process.env.BLOB_READ_WRITE_TOKEN,
+          token: process.env.DOCUMENT_BLOB_TOKEN,
         });
-        url = blob.url;
+        idOrPath = blob.pathname; // store ID in DB, not public URL
       } else {
         const uploadPath = path.resolve(__dirname, "../uploads/messages");
         if (!fs.existsSync(uploadPath)) {
           fs.mkdirSync(uploadPath, { recursive: true });
         }
-        await fs.promises.writeFile(path.join(uploadPath, storedName), file.buffer);
-        url = `/uploads/messages/${storedName}`;
+        await fs.promises.writeFile(
+          path.join(uploadPath, storedName),
+          file.buffer,
+        );
+        idOrPath = `/uploads/messages/${storedName}`;
       }
 
       savedAttachments.push({
-        url,
+        url: idOrPath, // now this is a blob ID, not a public URL
         name: originalName,
         mimeType: file.mimetype || "application/octet-stream",
         size: file.size || 0,
@@ -122,7 +131,8 @@ const handleMessageUploadError = (err, req, res, next) => {
 
   if (err.message === "INVALID_MESSAGE_FILE_TYPE") {
     return res.status(415).json({
-      message: "Unsupported file type. Upload images, PDF, Word, Excel, CSV, or text files.",
+      message:
+        "Unsupported file type. Upload images, PDF, Word, Excel, CSV, or text files.",
     });
   }
 
