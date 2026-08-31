@@ -49,6 +49,9 @@ const jobTitles = {
   ],
 
   "maintenance manager": [
+    permissions.REPORTS_READ,
+    permissions.REPORTS_EXPORT,
+
     permissions.TASKS_READ_ALL,
     permissions.TASKS_CREATE,
     permissions.TASKS_UPDATE_ALL,

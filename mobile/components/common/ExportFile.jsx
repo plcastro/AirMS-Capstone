@@ -6,15 +6,22 @@ import {
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import { InfoCard } from "./MobileModule";
 import { COLORS } from "../../stylesheets/colors";
-import { exportReportCsv, exportReportPdf } from "../../utilities/reportExport";
+import { exportReportExcel, exportReportPdf } from "../../utilities/reportExport";
 import { showToast } from "../../utilities/toast";
 
-export default function ExportFile({ title = "Reports and Analytics", sections = [] }) {
+export default function ExportFile({
+  title = "Reports and Analytics",
+  sections = [],
+  summaryCards = [],
+  barCharts = [],
+}) {
   const [exporting, setExporting] = useState(false);
+  const [fileType, setFileType] = useState("PDF");
 
-  const handleExport = async (format) => {
+  const handleExport = async () => {
     if (!sections.length) {
       showToast("No report data to export.");
       return;
@@ -23,13 +30,13 @@ export default function ExportFile({ title = "Reports and Analytics", sections =
     try {
       setExporting(true);
 
-      if (format === "pdf") {
-        await exportReportPdf({ title, sections });
+      if (fileType === "PDF") {
+        await exportReportPdf({ title, sections, summaryCards, barCharts });
       } else {
-        await exportReportCsv({ title, sections });
+        await exportReportExcel({ title, sections });
       }
 
-      showToast(`Exported ${format.toUpperCase()} successfully.`);
+      showToast(`Reports and analytics ${fileType} exported successfully`);
     } catch (error) {
       console.error("Report export failed:", error);
       showToast(error.message || "Export failed.");
@@ -38,44 +45,38 @@ export default function ExportFile({ title = "Reports and Analytics", sections =
     }
   };
 
-  const ExportButton = ({ label, icon, onPress }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={exporting}
-      style={{
-        flex: 1,
-        backgroundColor: COLORS.primaryLight,
-        borderRadius: 8,
-        minHeight: 42,
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "row",
-        opacity: exporting ? 0.6 : 1,
-      }}
-    >
-      <MaterialCommunityIcons name={icon} size={16} color={COLORS.white} />
-      {exporting ? (
-        <ActivityIndicator
-          size="small"
-          color={COLORS.white}
-          style={{ marginLeft: 6 }}
-        />
-      ) : null}
-      <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700", marginLeft: 6 }}>
-        {exporting ? "Exporting..." : label}
-      </AppText>
-    </TouchableOpacity>
-  );
-
   return (
-    <InfoCard
-      title="Export Reports"
-      subtitle="Share report snapshot as PDF or CSV"
-    >
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-        <ExportButton label="Export PDF" icon="file-pdf-box" onPress={() => handleExport("pdf")} />
-        <ExportButton label="Export CSV" icon="file-delimited" onPress={() => handleExport("csv")} />
+    <InfoCard title="Export Reports" subtitle="Select a file type and export">
+      <AppText style={{ color: COLORS.grayDark, fontSize: 11, fontWeight: "700", marginTop: 8 }}>
+        FILE TYPE
+      </AppText>
+      <View style={{ borderColor: COLORS.grayMedium, borderRadius: 8, borderWidth: 1, marginVertical: 6, overflow: "hidden" }}>
+        <Picker
+          accessibilityLabel="File Type"
+          enabled={!exporting}
+          selectedValue={fileType}
+          onValueChange={setFileType}
+          style={{ color: COLORS.black, height: 48 }}
+        >
+          <Picker.Item label="PDF" value="PDF" />
+          <Picker.Item label="Excel" value="Excel" />
+        </Picker>
       </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={handleExport}
+        disabled={exporting}
+        style={{ backgroundColor: COLORS.primaryLight, borderRadius: 8, minHeight: 42, alignItems: "center", justifyContent: "center", flexDirection: "row", opacity: exporting ? 0.6 : 1 }}
+      >
+        {exporting ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <MaterialCommunityIcons name={fileType === "PDF" ? "file-pdf-box" : "file-excel"} size={17} color={COLORS.white} />
+        )}
+        <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700", marginLeft: 6 }}>
+          {exporting ? "Exporting..." : "Export"}
+        </AppText>
+      </TouchableOpacity>
     </InfoCard>
   );
 }

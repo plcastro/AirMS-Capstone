@@ -151,6 +151,7 @@ export default function FlightLogEditEntry({
     closeOnFinish: false,
   });
   const scrollViewRef = useRef(null);
+  const tabScrollViewRef = useRef(null);
   const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
@@ -258,9 +259,7 @@ export default function FlightLogEditEntry({
     scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentPage]);
 
-  const hasDiscrepancy = () => {
-    return formData.remarks && formData.remarks.trim() !== "";
-  };
+  const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -282,7 +281,7 @@ export default function FlightLogEditEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy()) {
+    if (hasDiscrepancy) {
       nextTabs.push("Work Done");
     }
 
@@ -308,6 +307,12 @@ export default function FlightLogEditEntry({
     !isCompletedLog &&
     isMechanic &&
     formData.status === "pending_release";
+
+  useEffect(() => {
+    if (hasDiscrepancy && !isB412) {
+      tabScrollViewRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [hasDiscrepancy, isB412]);
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -906,6 +911,7 @@ export default function FlightLogEditEntry({
           </View>
 
           <ScrollView
+            ref={tabScrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{

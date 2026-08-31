@@ -18,6 +18,7 @@ const {
   importPartsMonitoringWorkbook,
   previewPartsMonitoringWorkbook,
   updateAircraftTotals,
+  exportPartsMonitoringExcel,
 } = require("../controllers/partsMonitoringController");
 
 const workbookUpload = multer({
@@ -70,6 +71,12 @@ router.get("/aircraft-list", getAircraftList);
 router.get("/maintenance-priority/rules", getMaintenancePriorityRules);
 router.get("/maintenance-priority", getMaintenancePriority);
 router.get("/inspection-remaining-hours", getInspectionRemainingHours);
+router.get(
+  "/:aircraft/export-excel",
+  verifyToken,
+  touchSessionActivity,
+  exportPartsMonitoringExcel,
+);
 router.get("/:aircraft", getPartsMonitoring);
 
 router.post(

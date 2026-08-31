@@ -13,6 +13,9 @@ const {
 } = require("../utils/partsMonitoringFormulas");
 const { estimateInspectionSchedule } = require("../utils/inspectionTiming");
 const { publishTypedForRecipients } = require("../utils/realtimeEvents");
+const {
+  buildPartsMonitoringWorkbook,
+} = require("../services/partsMonitoringExcelService");
 
 const MAJOR_INSPECTION_HOURS = new Set([10, 150, 600, 750, 1200, 1500]);
 const TURNAROUND_TIE_HOURS = 15;
@@ -1606,6 +1609,52 @@ const getAircraftList = async (req, res) => {
     });
   }
 };
+
+const exportPartsMonitoringExcel = async (req, res) => {
+  try {
+    const aircraft = normalizeAircraftName(req.params.aircraft);
+    if (!aircraft) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft is required",
+      });
+    }
+
+    const record = await PartsMonitoring.findOne({ aircraft }).lean();
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "No parts lifespan data found for this aircraft",
+      });
+    }
+
+    const workbook = buildPartsMonitoringWorkbook(
+      serializePartsMonitoringRecord(record),
+    );
+    const safeAircraft = String(record.aircraft || aircraft)
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-");
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeAircraft}-Parts-Lifespan-Monitoring.xlsx"`,
+    );
+
+    await workbook.xlsx.write(res);
+    return res.end();
+  } catch (error) {
+    console.error("Parts lifespan Excel export failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export parts lifespan monitoring workbook",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   getMaintenancePriorityRules: exports.getMaintenancePriorityRules,
   getMaintenancePriority: exports.getMaintenancePriority,
@@ -1618,6 +1667,7 @@ module.exports = {
   deleteAircraftData,
   deletePartsMonitoring: exports.deletePartsMonitoring,
   getAircraftList,
+  exportPartsMonitoringExcel,
   getAllPartsMonitoring: exports.getAllPartsMonitoring,
   getPartsMonitoring: exports.getPartsMonitoring,
 };

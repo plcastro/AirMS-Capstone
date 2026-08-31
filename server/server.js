@@ -26,6 +26,7 @@ const messageRoutes = require("./routes/messageRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
+const reportExportRoutes = require("./routes/reportExportRoute");
 const sendEmail = require("./utils/sendEmail");
 const http = require("http");
 const {
@@ -244,6 +245,7 @@ app.use("/api/post-flight", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
+app.use("/api/reports", reportExportRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",

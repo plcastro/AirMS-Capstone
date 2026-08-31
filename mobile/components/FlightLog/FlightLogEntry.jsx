@@ -86,6 +86,7 @@ export default function FlightLogEntry({
     closeOnFinish: false,
   });
   const scrollViewRef = useRef(null);
+  const tabScrollViewRef = useRef(null);
   const normalizedRole = String(userRole || "")
     .trim()
     .toLowerCase()
@@ -497,9 +498,7 @@ export default function FlightLogEntry({
     };
   }, [loadedAircraftData, formData.rpc]);
 
-  const hasDiscrepancy = () => {
-    return formData.remarks && formData.remarks.trim() !== "";
-  };
+  const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -521,7 +520,7 @@ export default function FlightLogEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy()) {
+    if (hasDiscrepancy) {
       nextTabs.push("Work Done");
     }
 
@@ -542,6 +541,12 @@ export default function FlightLogEntry({
       setCurrentPage(Math.max(totalPages - 1, 0));
     }
   }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (hasDiscrepancy && !isB412) {
+      tabScrollViewRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [hasDiscrepancy, isB412]);
 
   useEffect(() => {
     if (!isB412 || formData.legs.length === 6) return;
@@ -884,13 +889,23 @@ export default function FlightLogEntry({
       return;
     }
 
+    const isLegStarted = (leg) =>
+      Boolean(String(leg?.date || "").trim()) ||
+      (Array.isArray(leg?.stations) &&
+        leg.stations.some(
+          (station) =>
+            String(station?.from || "").trim() ||
+            String(station?.to || "").trim(),
+        ));
+
     const isLegComplete = (leg) => {
       const date = leg?.date;
       const hasValidDate =
         Boolean(date) && !Number.isNaN(new Date(date).getTime());
       const hasCompleteRoute =
         Array.isArray(leg?.stations) &&
-        leg.stations.some(
+        leg.stations.length > 0 &&
+        leg.stations.every(
           (station) =>
             String(station?.from || "").trim() &&
             String(station?.to || "").trim(),
@@ -898,13 +913,16 @@ export default function FlightLogEntry({
       return hasValidDate && hasCompleteRoute;
     };
 
+    const pilotLegs = Array.isArray(formData.legs)
+      ? formData.legs.filter((leg) => !isB412 || isLegStarted(leg))
+      : [];
+
     if (
-      !Array.isArray(formData.legs) ||
-      formData.legs.length === 0 ||
-      !formData.legs.every(isLegComplete)
+      isPilot &&
+      (pilotLegs.length === 0 || !pilotLegs.every(isLegComplete))
     ) {
       showToast("Each leg must include complete station route and date");
-      setCurrentPage(tabs.indexOf("Destination/s"));
+      setCurrentPage(tabs.indexOf(isB412 ? "Flight Legs" : "Destination/s"));
       return;
     }
 
@@ -1091,6 +1109,7 @@ export default function FlightLogEntry({
 
           {/* TABS */}
           <ScrollView
+            ref={tabScrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{

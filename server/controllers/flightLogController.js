@@ -51,6 +51,55 @@ const escapeRegex = (value = "") =>
 
 const normalizeAircraftRpc = (value = "") => String(value || "").trim();
 
+const normalizeRole = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
+
+const isPilotFlightLogRequest = (req, payload = {}) =>
+  normalizeRole(
+    req.user?.jobTitle ||
+      req.user?.access ||
+      req.user?.role ||
+      payload.createdBy,
+  ) === "pilot";
+
+const isFlightLogLegStarted = (leg = {}) =>
+  Boolean(String(leg.date || "").trim()) ||
+  (Array.isArray(leg.stations) &&
+    leg.stations.some(
+      (station) =>
+        String(station?.from || "").trim() ||
+        String(station?.to || "").trim(),
+    ));
+
+const hasCompleteFlightLogLegs = (legs, { allowUnused = false } = {}) => {
+  if (!Array.isArray(legs)) return false;
+
+  const relevantLegs = allowUnused
+    ? legs.filter(isFlightLogLegStarted)
+    : legs;
+
+  return (
+    relevantLegs.length > 0 &&
+    relevantLegs.every((leg) => {
+      const hasValidDate =
+        Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
+      const hasCompleteRoute =
+        Array.isArray(leg?.stations) &&
+        leg.stations.length > 0 &&
+        leg.stations.every(
+          (station) =>
+            String(station?.from || "").trim() &&
+            String(station?.to || "").trim(),
+        );
+
+      return hasValidDate && hasCompleteRoute;
+    })
+  );
+};
+
 const findOngoingFlightLogForAircraft = async (rpc, excludedId = null) => {
   const normalizedRpc = normalizeAircraftRpc(rpc);
 
@@ -216,23 +265,12 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    const hasCompleteLegs =
-      Array.isArray(flightLogData.legs) &&
-      flightLogData.legs.length > 0 &&
-      flightLogData.legs.every((leg) => {
-        const hasValidDate =
-          Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
-        const hasCompleteRoute =
-          Array.isArray(leg?.stations) &&
-          leg.stations.some(
-            (station) =>
-              String(station?.from || "").trim() &&
-              String(station?.to || "").trim(),
-          );
-        return hasValidDate && hasCompleteRoute;
-      });
-
-    if (!hasCompleteLegs) {
+    if (
+      isPilotFlightLogRequest(req, flightLogData) &&
+      !hasCompleteFlightLogLegs(flightLogData.legs, {
+        allowUnused: isB412AircraftType(flightLogData.aircraftType),
+      })
+    ) {
       return res.status(400).json({
         success: false,
         message: "Each leg must include complete station route and date",

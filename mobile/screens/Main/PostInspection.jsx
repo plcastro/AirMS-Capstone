@@ -352,11 +352,13 @@ export default function PostInspection({ route }) {
               },
             );
 
-            if (!response.ok) {
-              throw new Error("Failed to update post-inspection");
-            }
-
             const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.message || "Failed to update post-inspection",
+              );
+            }
             setInspections((prev) =>
               prev.map((inspection) =>
                 inspection._id === data.data._id ? data.data : inspection,
@@ -365,13 +367,13 @@ export default function PostInspection({ route }) {
             if (options.closeOnSave) {
               setShowEditModal(false);
               setSelectedInspection(null);
-              showToast("Post-inspection updated successfully");
+              showToast("Post-inspection updated");
             } else {
               setSelectedInspection(data.data);
             }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
-            showToast("Failed to update post-inspection");
+            showToast(error.message || "Failed to update post-inspection");
             throw error;
           }
         }}

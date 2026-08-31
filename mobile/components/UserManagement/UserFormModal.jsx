@@ -242,9 +242,9 @@ export default function UserFormModal({
       setPickedImageAsset({
         ...asset,
         uri: resized.uri,
+        fileName: asset.fileName || `user-${Date.now()}.jpg`,
+        mimeType: "image/jpeg",
       });
-      setImageUri(asset.uri || "");
-      setPickedImageAsset(asset);
       setError("");
     } catch (pickerError) {
       setError("Failed to select image. Please try again later.");

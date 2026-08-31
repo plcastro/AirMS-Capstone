@@ -181,6 +181,26 @@ export default function UpdateSecurity() {
 
   // --- Save Password or PIN ---
   const handleSave = async (type) => {
+    if (type === "Password") {
+      let requirementMessage = "";
+      if (newPassword.length < 8) {
+        requirementMessage = "Use at least 8 characters";
+      } else if (!/[A-Z]/.test(newPassword)) {
+        requirementMessage = "Include at least one uppercase letter.";
+      } else if (!/\d/.test(newPassword)) {
+        requirementMessage = "Include at least one number.";
+      } else if (newPassword !== confirmPassword) {
+        requirementMessage = "Passwords must match";
+      } else if (!currentPassword) {
+        requirementMessage = "Enter your current password.";
+      }
+
+      if (requirementMessage) {
+        showToast(`Password requirements not met: ${requirementMessage}`);
+        return;
+      }
+    }
+
     if (type === "PIN" && !isValidPinUpdate) {
       showToast(
         "Current PIN must be 6 digits, and New PIN and Confirm PIN must match.",
@@ -381,7 +401,7 @@ export default function UpdateSecurity() {
           <Button
             mode="contained"
             loading={actionLoadingKey === "save-password"}
-            disabled={!Object.values(passwordErrors).every(Boolean)}
+            disabled={Boolean(actionLoadingKey)}
             onPress={() =>
               runWithLoading("save-password", () => handleSave("Password"))
             }

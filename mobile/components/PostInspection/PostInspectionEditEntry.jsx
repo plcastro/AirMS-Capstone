@@ -161,8 +161,16 @@ export default function PostInspectionEditEntry({
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
   const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
+  const isCompletedInspection =
+    String(formData.status || "").trim().toLowerCase() === "completed";
+  const canEditCompletedInspection =
+    isCompletedInspection && canReleasePostInspection;
+  const isViewOnly = readOnly;
   const isFormEditable =
-    !readOnly && !isPilot && !hasReleaseSignature && !hasAcceptSignature;
+    !isViewOnly &&
+    !isPilot &&
+    (canEditCompletedInspection ||
+      (!hasReleaseSignature && !hasAcceptSignature));
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -173,7 +181,7 @@ export default function PostInspectionEditEntry({
           <PostInspectionModalInfo
             formData={formData}
             updateForm={updateForm}
-            isEditable={false}
+            isEditable={isFormEditable}
             rpcOptions={rpcOptions}
           />
         );
@@ -244,7 +252,7 @@ export default function PostInspectionEditEntry({
 
   const showReleaseButton =
     canReleasePostInspection &&
-    !readOnly &&
+    !isViewOnly &&
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
@@ -268,7 +276,7 @@ export default function PostInspectionEditEntry({
           >
             <View>
               <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                {readOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
+                {isViewOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
               </AppText>
               <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section

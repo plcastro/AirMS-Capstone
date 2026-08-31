@@ -67,7 +67,7 @@ const countBy = (records, getKey) =>
     return totals;
   }, {});
 
-const topRows = (counts, limit = 4) =>
+const topRows = (counts, limit = Infinity) =>
   Object.entries(counts)
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value)
@@ -94,7 +94,7 @@ const isKnownReportLabel = (value) => {
   );
 };
 
-const topKnownReportRows = (counts, limit = 4) =>
+const topKnownReportRows = (counts, limit = Infinity) =>
   Object.entries(counts)
     .filter(([label]) => isKnownReportLabel(label))
     .map(([label, value]) => ({ label, value }))
@@ -185,15 +185,21 @@ const getTaskDueDate = (task = {}) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const getTaskCompletionDate = (task = {}) =>
+  task.approvedAt || task.completedAt || task.dateRectified || task.updatedAt;
+
 const getTaskCategory = (task = {}) => {
   if (isCompletedTask(task)) return "completed";
   const due = getTaskDueDate(task);
   if (!due) return "other";
-  const now = new Date();
-  const threeDaysLater = new Date();
-  threeDaysLater.setDate(now.getDate() + 3);
-  if (due < now) return "overdue";
-  if (due <= threeDaysLater) return "dueSoon";
+  const dueDay = new Date(due);
+  const today = new Date();
+  dueDay.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const threeDaysLater = new Date(today);
+  threeDaysLater.setDate(today.getDate() + 3);
+  if (dueDay < today) return "overdue";
+  if (dueDay <= threeDaysLater) return "dueSoon";
   return "other";
 };
 
@@ -273,6 +279,7 @@ export default function ReportsAndAnalytics() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [taskView, setTaskView] = useState("dueSoon");
+  const [activeKpi, setActiveKpi] = useState("dueSoon");
   const [tasks, setTasks] = useState([]);
   const [partsRecords, setPartsRecords] = useState([]);
   const [flightLogs, setFlightLogs] = useState([]);
@@ -512,12 +519,57 @@ export default function ReportsAndAnalytics() {
         (Number.isFinite(hours) && hours <= 50)
       );
     });
+    const totalRequisitionItems = filteredPartsRequisitions.reduce(
+      (sum, record) => sum + (record.items?.length || 0),
+      0,
+    );
+    const baseNames = Array.from(
+      new Set([
+        ...baseDamageRepairSummary.damageRows.map((row) => row.label),
+        ...baseDamageRepairSummary.repairRows.map((row) => row.label),
+      ]),
+    );
 
     return [
       {
-        title: "Maintenance History",
+        title: "Overview Statistics",
+        columns: ["Metric", "Value"],
+        rows: [
+          ["Total Tasks", filteredTasks.length],
+          ["Completed Tasks", stats.completed],
+          ["Due Soon Tasks", stats.dueSoon],
+          ["Overdue Tasks", stats.overdue],
+          ["Parts Monitoring Aircraft", filteredPartsRecords.length],
+          ["Tracked Components", componentRows.length],
+          ["Due / Due Soon Components", dueComponents.length],
+          ["Flight Logs", filteredFlightLogs.length],
+          ["Pre-Flight Inspections", filteredPreInspections.length],
+          ["Post-Flight Inspections", filteredPostInspections.length],
+          ["Parts Requisitions", filteredPartsRequisitions.length],
+          ["Requested Line Items", totalRequisitionItems],
+        ],
+      },
+      {
+        title: "Base Damage and Repair Counts",
+        columns: ["Base", "Damage Reports", "Repaired Aircraft"],
+        rows: baseNames.map((base) => [
+          base,
+          baseDamageRepairSummary.damageRows.find((row) => row.label === base)
+            ?.value || 0,
+          baseDamageRepairSummary.repairRows.find((row) => row.label === base)
+            ?.value || 0,
+        ]),
+      },
+      {
+        title: "Task Status Counts",
         rows: topRows(
           countBy(filteredTasks, (task) => normalizeStatus(task.status)),
+        ),
+      },
+      {
+        title: "Task Priority Counts",
+        rows: topRows(
+          countBy(filteredTasks, (task) => task.priority || "Normal"),
         ),
       },
       {
@@ -525,6 +577,29 @@ export default function ReportsAndAnalytics() {
         rows: topRows(
           countBy(filteredTasks, (task) => task.aircraft || "Unknown"),
         ),
+      },
+      {
+        title: "Task Details",
+        columns: [
+          "Aircraft",
+          "Task",
+          "Assigned Mechanic",
+          "Type",
+          "Due Date",
+          "Completed Date",
+          "Priority",
+          "Status",
+        ],
+        rows: filteredTasks.map((task) => [
+          task.aircraft || "N/A",
+          task.title || task.summary?.category || "Untitled task",
+          task.assignedToName || task.assignedMechanic || "Unassigned",
+          task.maintenanceType || "N/A",
+          formatDate(getTaskDueDate(task)),
+          formatDate(getTaskCompletionDate(task)),
+          task.priority || "Normal",
+          task.status || "Pending",
+        ]),
       },
       {
         title: "Flight Logs by Aircraft",
@@ -536,7 +611,7 @@ export default function ReportsAndAnalytics() {
         ),
       },
       {
-        title: "Flight Logs by Status",
+        title: "Flight Log Status Counts",
         rows: topKnownReportRows(
           countBy(filteredFlightLogs, (record) =>
             normalizeStatus(record.status),
@@ -552,7 +627,7 @@ export default function ReportsAndAnalytics() {
         ),
       },
       {
-        title: "Pre-Inspection Status",
+        title: "Pre-Flight Inspection Status Counts",
         rows: topKnownReportRows(
           countBy(filteredPreInspections, (record) =>
             normalizeStatus(record.status),
@@ -560,7 +635,7 @@ export default function ReportsAndAnalytics() {
         ),
       },
       {
-        title: "Post-Inspection Status",
+        title: "Post-Flight Inspection Status Counts",
         rows: topKnownReportRows(
           countBy(filteredPostInspections, (record) =>
             normalizeStatus(record.status),
@@ -568,10 +643,19 @@ export default function ReportsAndAnalytics() {
         ),
       },
       {
-        title: "Parts Requisition Status",
+        title: "Parts Requisition Status Counts",
         rows: topKnownReportRows(
           countBy(filteredPartsRequisitions, (record) =>
             normalizeStatus(record.status),
+          ),
+        ),
+      },
+      {
+        title: "Parts Requisition Item Stock Counts",
+        rows: topRows(
+          countBy(
+            filteredPartsRequisitions.flatMap((record) => record.items || []),
+            (item) => normalizeStatus(item.stockStatus),
           ),
         ),
       },
@@ -581,13 +665,57 @@ export default function ReportsAndAnalytics() {
       },
     ];
   }, [
+    baseDamageRepairSummary,
     filteredFlightLogs,
     filteredPartsRecords,
     filteredPartsRequisitions,
     filteredPostInspections,
     filteredPreInspections,
     filteredTasks,
+    stats,
   ]);
+
+  const reportSummaryCards = useMemo(
+    () => [
+      { label: "Completed Tasks", value: stats.completed, color: "#26866F" },
+      { label: "Due Soon Tasks", value: stats.dueSoon, color: "#d46b08" },
+      { label: "Overdue Tasks", value: stats.overdue, color: "#cf1322" },
+      {
+        label: "Top Damage Base",
+        value: `${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`,
+        color: "#cf1322",
+      },
+      {
+        label: "Top Repaired Base",
+        value: `${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`,
+        color: "#26866F",
+      },
+    ],
+    [baseDamageRepairSummary, stats],
+  );
+
+  const reportBarCharts = useMemo(
+    () => [
+      {
+        title: "Task Status Distribution",
+        rows: topRows(
+          countBy(filteredTasks, (task) => normalizeStatus(task.status)),
+        ),
+        color: "#26866F",
+      },
+      {
+        title: "Base Damage Reports",
+        rows: baseDamageRepairSummary.damageRows,
+        color: "#cf1322",
+      },
+      {
+        title: "Base Repaired Aircraft",
+        rows: baseDamageRepairSummary.repairRows,
+        color: "#26866F",
+      },
+    ],
+    [baseDamageRepairSummary, filteredTasks],
+  );
 
   const reportCards = useMemo(
     () => [
@@ -834,15 +962,53 @@ export default function ReportsAndAnalytics() {
       {!hasActiveSearch && (
         <>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <StatCard label="Completed Tasks" value={stats.completed} />
-            <StatCard label="Due Soon" value={stats.dueSoon} tone="#d46b08" />
-            <StatCard label="Overdue" value={stats.overdue} tone="#cf1322" />
-            <StatCard label="Module Reports" value={reportSections.length} />
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => {
+                setTaskView("completed");
+                setActiveKpi("completed");
+              }}
+              style={{ flex: 1, minWidth: "45%" }}
+            >
+              <StatCard label="Completed Tasks" value={stats.completed} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => {
+                setTaskView("dueSoon");
+                setActiveKpi("dueSoon");
+              }}
+              style={{ flex: 1, minWidth: "45%" }}
+            >
+              <StatCard
+                label="Due Soon (next 3 days)"
+                value={stats.dueSoon}
+                tone="#d46b08"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => {
+                setTaskView("overdue");
+                setActiveKpi("overdue");
+              }}
+              style={{ flex: 1, minWidth: "45%" }}
+            >
+              <StatCard
+                label="Overdue Tasks"
+                value={stats.overdue}
+                tone="#cf1322"
+              />
+            </TouchableOpacity>
+            <View style={{ flex: 1, minWidth: "45%" }}>
+              <StatCard label="Module Reports" value={reportCards.length} />
+            </View>
           </View>
 
           <InfoCard
             title="Base Damage Distribution"
             subtitle={`Top: ${baseDamageRepairSummary.topDamagedBase.label} (${baseDamageRepairSummary.topDamagedBase.value})`}
+            onPress={() => setActiveKpi("baseDamage")}
           >
             <View style={{ marginTop: 12 }}>
               <SDMChart data={damageBasePieData} size={218} />
@@ -852,6 +1018,7 @@ export default function ReportsAndAnalytics() {
           <InfoCard
             title="Base Repaired Distribution"
             subtitle={`Top: ${baseDamageRepairSummary.topRepairedBase.label} (${baseDamageRepairSummary.topRepairedBase.value})`}
+            onPress={() => setActiveKpi("baseRepair")}
           >
             <View style={{ marginTop: 12 }}>
               <SDMChart data={repairedBasePieData} size={218} />
@@ -861,22 +1028,37 @@ export default function ReportsAndAnalytics() {
       )}
 
       {canExportReports && (
-        <ExportFile title="Reports and Analytics" sections={reportSections} />
+        <ExportFile
+          title="Reports and Analytics"
+          sections={reportSections}
+          summaryCards={reportSummaryCards}
+          barCharts={reportBarCharts}
+        />
       )}
 
       {!hasActiveSearch && (
         <>
           <InfoCard
-            title="Task Details"
-            subtitle="Records behind the summary cards"
+            title="Insight Drilldown"
+            subtitle={
+              activeKpi === "baseDamage"
+                ? "Base vs. Damage Reports"
+                : activeKpi === "baseRepair"
+                  ? "Base vs. Repaired Aircraft"
+                  : "Task records for the selected operational KPI"
+            }
           >
+            {!["baseDamage", "baseRepair"].includes(activeKpi) && (
             <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
               {tabs.map(([key, label]) => {
                 const selected = taskView === key;
                 return (
                   <TouchableOpacity
                     key={key}
-                    onPress={() => setTaskView(key)}
+                    onPress={() => {
+                      setTaskView(key);
+                      setActiveKpi(key);
+                    }}
                     style={{
                       flex: 1,
                       borderRadius: 8,
@@ -902,13 +1084,49 @@ export default function ReportsAndAnalytics() {
                 );
               })}
             </View>
+            )}
+            {["baseDamage", "baseRepair"].includes(activeKpi) && (
+              <View style={{ marginTop: 10 }}>
+                {(activeKpi === "baseDamage"
+                  ? baseDamageRepairSummary.damageRows
+                  : baseDamageRepairSummary.repairRows
+                ).map((row, index) => (
+                  <View
+                    key={`${activeKpi}-${row.label}`}
+                    style={{
+                      borderTopWidth: index ? 1 : 0,
+                      borderTopColor: COLORS.border,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      paddingVertical: 9,
+                    }}
+                  >
+                    <AppText style={{ fontWeight: "600" }}>{row.label}</AppText>
+                    <AppText style={{ fontWeight: "800" }}>{row.value}</AppText>
+                  </View>
+                ))}
+                {(activeKpi === "baseDamage"
+                  ? baseDamageRepairSummary.damageRows
+                  : baseDamageRepairSummary.repairRows
+                ).length === 0 && (
+                  <AppText style={{ color: COLORS.grayDark }}>
+                    No base records for this view.
+                  </AppText>
+                )}
+              </View>
+            )}
           </InfoCard>
 
-          {loading && <LoadingState text="Loading reports..." />}
-          {!loading && taskRows.length === 0 && (
+          {loading && !["baseDamage", "baseRepair"].includes(activeKpi) && (
+            <LoadingState text="Loading reports..." />
+          )}
+          {!loading &&
+            !["baseDamage", "baseRepair"].includes(activeKpi) &&
+            taskRows.length === 0 && (
             <EmptyState text="No task records for this view." />
           )}
-          {taskRows.slice(0, 12).map((task) => (
+          {!["baseDamage", "baseRepair"].includes(activeKpi) &&
+            taskRows.slice(0, 12).map((task) => (
             <InfoCard
               key={task._id || task.id}
               title={task.aircraft || "N/A"}
@@ -937,7 +1155,7 @@ export default function ReportsAndAnalytics() {
                 <FieldRow label="Priority" value={task.priority || "Normal"} />
               </View>
             </InfoCard>
-          ))}
+            ))}
         </>
       )}
 
