@@ -109,7 +109,22 @@ const buildSafeFileToken = (value, fallback = "Unknown") =>
     .replace(/[^A-Za-z0-9.-]+/g, "") || fallback;
 
 const formatFileDate = (value = new Date()) => {
-  const date = value instanceof Date ? value : new Date(value);
+  let date = value instanceof Date ? value : null;
+
+  if (!date) {
+    const raw = String(value || "").trim();
+    const slashDate = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+
+    if (slashDate) {
+      const [, month, day, yearValue] = slashDate;
+      const year =
+        yearValue.length === 2 ? Number(`20${yearValue}`) : Number(yearValue);
+      date = new Date(year, Number(month) - 1, Number(day));
+    } else {
+      date = new Date(value);
+    }
+  }
+
   if (Number.isNaN(date.getTime())) return formatFileDate();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -2677,6 +2692,7 @@ const exportRecordToPdf = async ({
 
     if (!canShare) {
       Alert.alert("Export ready", `PDF saved to:\n${finalUri}`);
+      if (successMessage) showToast(successMessage);
       return finalUri;
     }
 
@@ -2711,7 +2727,7 @@ export const exportFlightLogPdf = async (log) => {
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
     html,
-    successMessage: "Flight log exported successfully.",
+    successMessage: "Flight Log Exported!",
   });
 };
 

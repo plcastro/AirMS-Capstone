@@ -36,6 +36,7 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { exportPartsLifespanMonitoringExcel } from "../../utilities/documentExport";
 import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const referenceFields = [
@@ -147,6 +148,7 @@ export default function PartsLifespanMonitoring() {
   const [loadingAircraft, setLoadingAircraft] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [pendingImportAsset, setPendingImportAsset] = useState(null);
@@ -409,6 +411,19 @@ export default function PartsLifespanMonitoring() {
     setShowAircraftDropdown(false);
   };
 
+  const exportAircraftWorkbook = async () => {
+    if (!selectedAircraft || loading || exporting || parts.length === 0) return;
+
+    try {
+      setExporting(true);
+      await exportPartsLifespanMonitoringExcel(selectedAircraft);
+    } catch {
+      // The export utility reports the actionable error to the user.
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const appendWorkbookToForm = (formData, asset) => {
     formData.append("workbook", {
       uri: asset.uri,
@@ -606,6 +621,32 @@ export default function PartsLifespanMonitoring() {
             </AppText>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[
+            moduleStyles.button,
+            { marginTop: 12 },
+            !selectedAircraft || loading || exporting || parts.length === 0
+              ? { backgroundColor: COLORS.grayMedium }
+              : null,
+          ]}
+          onPress={exportAircraftWorkbook}
+          disabled={
+            !selectedAircraft || loading || exporting || parts.length === 0
+          }
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <MaterialCommunityIcons
+              name="file-export-outline"
+              size={18}
+              color={COLORS.white}
+            />
+          )}
+          <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+            {exporting ? "Exporting..." : "Export"}
+          </AppText>
+        </TouchableOpacity>
       </InfoCard>
 
       {!!selectedAircraft && (

@@ -239,7 +239,7 @@ export default function Login() {
       nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Login Failed. Network error. Please try again.");
+      setMessage("Login error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -373,7 +373,7 @@ export default function Login() {
           )}
           <View style={styles.loginHelper}>
             <CheckBox
-              title="Remember me"
+              title="Stay signed in"
               checkboxStyle={styles.checkBox}
               value={rememberMe}
               onValueChange={setRememberMe}

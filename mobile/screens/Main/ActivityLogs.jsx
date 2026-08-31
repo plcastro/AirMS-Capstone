@@ -38,6 +38,11 @@ const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
 ];
+const SCOPE_TYPE_OPTIONS = [
+  { label: "All Scope", value: "all" },
+  { label: "Base", value: "base" },
+  { label: "Platform", value: "platform" },
+];
 const LOGS_PER_PAGE = 10;
 const ACTIVITY_TREND_SERIES = AUDIT_ACTION_CHART_CATEGORIES.map(
   ({ value, label, color }) => ({
@@ -135,8 +140,9 @@ export default function ActivityLogs() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
-  const [scopeFilter, setScopeFilter] = useState("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState("7");
+  const [scopeType, setScopeType] = useState("all");
+  const [scopeValue, setScopeValue] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState("30");
   const [openFilter, setOpenFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [exporting, setExporting] = useState(false);
@@ -187,7 +193,7 @@ export default function ActivityLogs() {
             .toUpperCase(),
           platform: String(item.platform || "unknown")
             .trim()
-            .toLowerCase(),
+            .toUpperCase(),
         }));
 
         setLogs(mapped);
@@ -244,25 +250,28 @@ export default function ActivityLogs() {
       );
     }
 
-    if (scopeFilter !== "all") {
-      const [scopeType, scopeValue] = String(scopeFilter).split(":");
+    if (scopeType !== "all" && scopeValue !== "all") {
       if (scopeType === "base") {
         next = next.filter(
-          (item) => String(item.base || "unknown") === String(scopeValue),
+          (item) =>
+            String(item.base || "unknown").toUpperCase() ===
+            String(scopeValue).toUpperCase(),
         );
       } else if (scopeType === "platform") {
         next = next.filter(
-          (item) => String(item.platform || "unknown") === String(scopeValue),
+          (item) =>
+            String(item.platform || "unknown").toUpperCase() ===
+            String(scopeValue).toUpperCase(),
         );
       }
     }
 
     return next.filter((item) => matchesSearch(searchQuery, item));
-  }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+  }, [actionType, dateRangeFilter, logs, scopeType, scopeValue, searchQuery]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
+  }, [actionType, dateRangeFilter, scopeType, scopeValue, searchQuery]);
 
   const totalPages = Math.max(
     1,
@@ -317,35 +326,40 @@ export default function ActivityLogs() {
     return { topUsers, topModules };
   }, [filteredLogs]);
 
-  const scopeOptions = useMemo(() => {
-    const platformValues = Array.from(
-      new Set(logs.map((item) => item.platform).filter(Boolean)),
-    ).sort((a, b) => {
-      if (a === "unknown") return 1;
-      if (b === "unknown") return -1;
-      return a.localeCompare(b);
-    });
-    const baseValues = Array.from(
-      new Set([
-        "MANILA",
-        "CEBU",
-        "CDO",
-        ...logs.map((item) => item.base).filter(Boolean),
-      ]),
-    ).sort();
-
-    return [
-      { label: "All Platform/Base", value: "all" },
-      ...platformValues.map((value) => ({
-        label: `Platform > ${value[0].toUpperCase() + value.slice(1)}`,
-        value: `platform:${value}`,
-      })),
-      ...baseValues.map((value) => ({
-        label: `Base > ${value}`,
-        value: `base:${value}`,
-      })),
-    ];
-  }, [logs]);
+  const scopeValueOptions = useMemo(() => {
+    if (scopeType === "base") {
+      const values = Array.from(
+        new Set([
+          "MANILA",
+          "CEBU",
+          "CDO",
+          ...logs
+            .map((item) => String(item.base || "").trim().toUpperCase())
+            .filter(Boolean),
+        ]),
+      ).sort();
+      return [
+        { label: "All Base", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+    if (scopeType === "platform") {
+      const values = Array.from(
+        new Set([
+          "WEB",
+          "MOBILE",
+          ...logs
+            .map((item) => String(item.platform || "").trim().toUpperCase())
+            .filter(Boolean),
+        ]),
+      ).sort();
+      return [
+        { label: "All Platform", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+    return [];
+  }, [logs, scopeType]);
 
   const selectedActionLabel =
     ACTION_TYPE_OPTIONS.find((option) => option.value === actionType)?.label ||
@@ -353,9 +367,19 @@ export default function ActivityLogs() {
   const selectedDateRangeLabel =
     DATE_RANGE_OPTIONS.find((option) => option.value === dateRangeFilter)
       ?.label || "Date Range";
-  const selectedScopeLabel =
-    scopeOptions.find((option) => option.value === scopeFilter)?.label ||
+  const selectedScopeTypeLabel =
+    SCOPE_TYPE_OPTIONS.find((option) => option.value === scopeType)?.label ||
     "Scope";
+  const selectedScopeValueLabel =
+    scopeValueOptions.find((option) => option.value === scopeValue)?.label ||
+    (scopeType === "base" ? "All Base" : "All Platform");
+  const visibleTrendSeries = useMemo(
+    () =>
+      actionType === "all"
+        ? ACTIVITY_TREND_SERIES
+        : ACTIVITY_TREND_SERIES.filter((series) => series.key === actionType),
+    [actionType],
+  );
 
   const toggleFilter = (filterKey) => {
     setOpenFilter((current) => (current === filterKey ? null : filterKey));
@@ -453,10 +477,25 @@ export default function ActivityLogs() {
     {
       filterKey: "scope",
       label: "Scope",
-      selectedLabel: selectedScopeLabel,
-      options: scopeOptions,
-      onSelect: (value) => selectFilterValue(setScopeFilter, value),
+      selectedLabel: selectedScopeTypeLabel,
+      options: SCOPE_TYPE_OPTIONS,
+      onSelect: (value) => {
+        setScopeType(value);
+        setScopeValue("all");
+        setOpenFilter(null);
+      },
     },
+    ...(scopeType === "all"
+      ? []
+      : [
+          {
+            filterKey: "scopeValue",
+            label: scopeType === "base" ? "Base" : "Platform",
+            selectedLabel: selectedScopeValueLabel,
+            options: scopeValueOptions,
+            onSelect: (value) => selectFilterValue(setScopeValue, value),
+          },
+        ]),
   ];
   const shouldScrollFilters = filterControls.length > 2;
 
@@ -588,12 +627,15 @@ export default function ActivityLogs() {
           <AreaChart
             data={trendSeries}
             height={160}
-            series={ACTIVITY_TREND_SERIES}
+            series={visibleTrendSeries}
             showLegend={false}
             xKey="label"
           />
           <View style={styles.legendRow}>
-            {AUDIT_ACTION_CHART_CATEGORIES.map((category) => (
+            {AUDIT_ACTION_CHART_CATEGORIES.filter(
+              (category) =>
+                actionType === "all" || category.value === actionType,
+            ).map((category) => (
               <View key={category.value} style={styles.legendItem}>
                 <View
                   style={[

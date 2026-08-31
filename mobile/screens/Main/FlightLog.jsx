@@ -385,7 +385,7 @@ export default function FlightLog({ route, navigation }) {
           setSelectedLog(savedLog);
         }
         if (options.showToast !== false) {
-          showToast("Flight log updated successfully");
+          showToast("The flight log has been successfully updated");
         }
         return true;
       } else {

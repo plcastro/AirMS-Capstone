@@ -957,14 +957,19 @@ export default function PartsRequisition({ route, navigation }) {
 
     setExportingReport(true);
     try {
+      const exportDate = new Date();
+      const dateStamp = `${exportDate.getFullYear()}-${String(
+        exportDate.getMonth() + 1,
+      ).padStart(2, "0")}-${String(exportDate.getDate()).padStart(2, "0")}`;
       await exportReportPdf({
         title: "Parts Requisition Monitoring Report",
+        fileName: `Parts-Requisition-Monitoring-Report-${dateStamp}.pdf`,
         sections: buildPartsRequisitionReportSections(
           filteredRequisitions,
           selectedTab,
         ),
       });
-      showToast("Parts requisition report exported as PDF.");
+      showToast("PDF Exported!");
     } catch (error) {
       console.error("Parts requisition PDF export failed:", error);
       showToast(error.message || "Failed to export parts requisition report.");
