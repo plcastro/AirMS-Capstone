@@ -251,16 +251,7 @@ app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
     setHeaders: (res) => {
-      const origin = res.req.headers.origin;
-
-      if (
-        origin === "https://airms.online" ||
-        origin === "https://www.airms.online"
-      ) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Vary", "Origin");
-      }
-
+      res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   }),
