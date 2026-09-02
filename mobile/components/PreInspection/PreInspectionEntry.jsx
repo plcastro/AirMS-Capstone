@@ -119,6 +119,11 @@ export default function PreInspectionEntry({
       return false;
     }
 
+    if (!String(formData.date || "").trim()) {
+      showToast("Date is required");
+      return false;
+    }
+
     const fobValue = String(formData.fob || "").trim();
     const numericFob = Number(fobValue);
     if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
@@ -136,14 +141,12 @@ export default function PreInspectionEntry({
 
   const fobValue = String(formData.fob ?? "").trim();
   const numericFob = Number(fobValue);
-  const hasValidDate =
-    Boolean(formData.date) &&
-    !Number.isNaN(new Date(formData.date).getTime());
+  const hasDate = Boolean(String(formData.date || "").trim());
   const isDraftValid =
     Boolean(String(formData.rpc || "").trim()) &&
     Boolean(String(formData.aircraftType || "").trim()) &&
     Boolean(String(formData.base || "").trim()) &&
-    hasValidDate &&
+    hasDate &&
     Boolean(fobValue) &&
     Number.isFinite(numericFob) &&
     numericFob >= 0 &&

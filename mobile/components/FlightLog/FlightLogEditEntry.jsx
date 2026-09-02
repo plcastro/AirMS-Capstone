@@ -284,8 +284,7 @@ export default function FlightLogEditEntry({
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
   const hasWorkItems = Array.isArray(workItems) && workItems.length > 0;
-  const shouldShowWorkDone =
-    hasWorkItems || (hasDiscrepancy && isMechanic);
+  const shouldShowWorkDone = hasDiscrepancy || hasWorkItems;
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
