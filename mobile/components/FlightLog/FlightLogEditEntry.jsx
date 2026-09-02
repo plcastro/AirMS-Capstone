@@ -328,10 +328,8 @@ export default function FlightLogEditEntry({
   const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
   const isDiscrepancyEditable = !readOnly && !isCompletedLog;
   const isWorkDoneEditable =
-    !readOnly &&
-    !isCompletedLog &&
-    isMechanic &&
-    formData.status === "pending_release";
+    !readOnly && !isCompletedLog && !isB412 && shouldShowWorkDone;
+  const isB412CorrectionEditable = isDiscrepancyEditable;
 
   useEffect(() => {
     if (shouldShowWorkDone && !isB412) {
@@ -779,7 +777,7 @@ export default function FlightLogEditEntry({
             isComponentEditable &&
             !(currentTab === "BRT Forward" && isBroughtForwardLocked)
           }
-          correctionEditable={isWorkDoneEditable}
+          correctionEditable={isB412CorrectionEditable}
         />
       );
     }
