@@ -499,6 +499,10 @@ export default function FlightLogEntry({
   }, [loadedAircraftData, formData.rpc]);
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
+  const hasWorkItems =
+    Array.isArray(formData.workItems) && formData.workItems.length > 0;
+  const shouldShowWorkDone =
+    hasWorkItems || (hasDiscrepancy && isMechanic);
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -520,7 +524,7 @@ export default function FlightLogEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy) {
+    if (shouldShowWorkDone) {
       nextTabs.push("Work Done");
     }
 
@@ -543,10 +547,10 @@ export default function FlightLogEntry({
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    if (hasDiscrepancy && !isB412) {
+    if (shouldShowWorkDone && !isB412) {
       tabScrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [hasDiscrepancy, isB412]);
+  }, [shouldShowWorkDone, isB412]);
 
   useEffect(() => {
     if (!isB412 || formData.legs.length === 6) return;

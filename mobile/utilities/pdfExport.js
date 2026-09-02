@@ -1,8 +1,7 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import { Alert, Image } from "react-native";
-import { requestStoragePermissionForDownload } from "./storagePermission";
+import { Alert, Image, Platform } from "react-native";
 import { showToast } from "./toast";
 import {
   exportPostInspectionTemplatePdf,
@@ -101,6 +100,100 @@ const buildSafeFileName = (value, fallback = "export") =>
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
+
+const PDF_MIME_TYPE = "application/pdf";
+
+const printHtmlOnWeb = (html, title) =>
+  new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("Browser printing is unavailable."));
+      return;
+    }
+
+    const printFrame = document.createElement("iframe");
+    printFrame.setAttribute("title", title);
+    printFrame.style.position = "fixed";
+    printFrame.style.width = "1px";
+    printFrame.style.height = "1px";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.border = "0";
+    printFrame.style.opacity = "0";
+
+    const removeFrame = () => {
+      setTimeout(() => printFrame.remove(), 1000);
+    };
+
+    printFrame.onload = () => {
+      try {
+        const printWindow = printFrame.contentWindow;
+        if (!printWindow) {
+          throw new Error("Browser printing is unavailable.");
+        }
+        printWindow.document.title = title;
+        printWindow.focus();
+        printWindow.print();
+        removeFrame();
+        resolve("web-print-dialog");
+      } catch (error) {
+        printFrame.remove();
+        reject(error);
+      }
+    };
+
+    printFrame.srcdoc = html;
+    document.body.appendChild(printFrame);
+  });
+
+const createShareablePdfUri = async (sourceUri, fileName) => {
+  const outputDirectory =
+    FileSystem.cacheDirectory || FileSystem.documentDirectory;
+  if (!outputDirectory) return sourceUri;
+
+  const finalUri = `${outputDirectory}${buildSafeFileName(fileName)}.pdf`;
+
+  try {
+    await FileSystem.copyAsync({ from: sourceUri, to: finalUri });
+    return finalUri;
+  } catch (error) {
+    console.warn("Unable to rename generated PDF; using temporary file", error);
+    return sourceUri;
+  }
+};
+
+const savePdfWithAndroidPicker = async (sourceUri, fileName) => {
+  if (Platform.OS !== "android") return null;
+
+  const storage = FileSystem.StorageAccessFramework;
+  if (!storage) return null;
+
+  let initialDirectoryUri;
+  try {
+    initialDirectoryUri = storage.getUriForDirectoryInRoot("Download");
+  } catch {
+    initialDirectoryUri = null;
+  }
+
+  const permission = await storage.requestDirectoryPermissionsAsync(
+    initialDirectoryUri,
+  );
+  if (!permission.granted) return null;
+
+  const safeFileName = buildSafeFileName(fileName).replace(/\.pdf$/i, "");
+  const destinationUri = await storage.createFileAsync(
+    permission.directoryUri,
+    safeFileName,
+    PDF_MIME_TYPE,
+  );
+  const pdfBase64 = await FileSystem.readAsStringAsync(sourceUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  await FileSystem.writeAsStringAsync(destinationUri, pdfBase64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return destinationUri;
+};
 
 const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
@@ -2659,16 +2752,15 @@ const exportRecordToPdf = async ({
   subtitle,
   record,
   html,
+  buildHtml,
   fileName,
   successMessage,
+  saveToDownloads = false,
 }) => {
   try {
-    const canUseStorage = await requestStoragePermissionForDownload();
-    if (!canUseStorage) {
-      throw new Error("Storage permission is required to download files.");
-    }
-
-    let finalHtml = html;
+    showToast(`Generating ${title} PDF...`);
+    let finalHtml =
+      typeof buildHtml === "function" ? await buildHtml() : html;
 
     if (!finalHtml) {
       const rows = flattenRecord(record);
@@ -2681,12 +2773,42 @@ const exportRecordToPdf = async ({
       finalHtml = buildGenericHtml({ title, subtitle, rows, logoDataUri });
     }
 
-    const { uri } = await Print.printToFileAsync({
+    if (Platform.OS === "web") {
+      const result = await printHtmlOnWeb(finalHtml, title);
+      showToast("Print dialog opened. Choose Save as PDF to download it.");
+      return result;
+    }
+
+    const printResult = await Print.printToFileAsync({
       html: finalHtml,
       base64: false,
     });
-    const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(fileName || title)}.pdf`;
-    await FileSystem.copyAsync({ from: uri, to: finalUri });
+    const sourceUri = printResult?.uri;
+    if (!sourceUri) {
+      throw new Error("The PDF file could not be generated.");
+    }
+
+    const finalUri = await createShareablePdfUri(
+      sourceUri,
+      fileName || title,
+    );
+
+    if (saveToDownloads && Platform.OS === "android") {
+      try {
+        const savedUri = await savePdfWithAndroidPicker(
+          finalUri,
+          fileName || title,
+        );
+        if (savedUri) {
+          if (successMessage) showToast(successMessage);
+          return savedUri;
+        }
+        showToast("No folder selected. Opening share options instead.");
+      } catch (error) {
+        console.warn("Unable to save PDF to the selected folder", error);
+        showToast("Unable to save there. Opening share options instead.");
+      }
+    }
 
     const canShare = await Sharing.isAvailableAsync();
 
@@ -2697,7 +2819,7 @@ const exportRecordToPdf = async ({
     }
 
     await Sharing.shareAsync(finalUri, {
-      mimeType: "application/pdf",
+      mimeType: PDF_MIME_TYPE,
       dialogTitle: title,
       UTI: "com.adobe.pdf",
     });
@@ -2708,6 +2830,7 @@ const exportRecordToPdf = async ({
   } catch (error) {
     console.error(`Failed to export ${title}:`, error);
     Alert.alert("Export failed", error.message || "Unable to generate PDF");
+    return null;
   }
 };
 
@@ -2718,25 +2841,28 @@ export const exportPostInspectionPdf = (inspection) =>
   exportPostInspectionTemplatePdf(inspection);
 
 export const exportFlightLogPdf = async (log) => {
-  const logoDataUri = await getNgcpLogoDataUri();
-  const html = isB412FlightLog(log)
-    ? buildB412FlightLogHtml(log, logoDataUri)
-    : buildFlightLogHtml(log, logoDataUri);
-
   return exportRecordToPdf({
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
-    html,
+    buildHtml: async () => {
+      const logoDataUri = await getNgcpLogoDataUri();
+      return isB412FlightLog(log)
+        ? buildB412FlightLogHtml(log, logoDataUri)
+        : buildFlightLogHtml(log, logoDataUri);
+    },
+    saveToDownloads: true,
     successMessage: "Flight Log Exported!",
   });
 };
 
 export const exportMaintenanceLogPdf = async (log, options = {}) => {
-  const logoDataUri = await getNgcpLogoDataUri();
   return exportRecordToPdf({
     title: "Work Done Report",
     fileName: getMaintenanceLogFileName(log),
-    html: buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri),
+    buildHtml: async () => {
+      const logoDataUri = await getNgcpLogoDataUri();
+      return buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri);
+    },
     successMessage: "Maintenance log exported successfully.",
   });
 };

@@ -56,11 +56,23 @@ const parseDate = (dateValue) => {
   return new Date();
 };
 
+const normalizeFlightLogStatus = (status = "") =>
+  String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+const normalizeEditableFlightLogStatus = (status = "") => {
+  const normalizedStatus = normalizeFlightLogStatus(status);
+
+  return ["", "ongoing", "draft"].includes(normalizedStatus)
+    ? "pending_release"
+    : normalizedStatus;
+};
+
 const isReleasedFlightLogStatus = (status = "") =>
   ["pending_acceptance", "released", "accepted", "completed"].includes(
-    String(status || "")
-      .trim()
-      .toLowerCase(),
+    normalizeFlightLogStatus(status),
   );
 
 const hasDestinationInfo = (log = {}) =>
@@ -152,10 +164,20 @@ export default function FlightLogEditEntry({
   });
   const scrollViewRef = useRef(null);
   const tabScrollViewRef = useRef(null);
-  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const normalizedRole = String(userRole || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
+    [
+      "mechanic",
+      "engineer",
+      "maintenance manager",
+      "head of maintenance",
+      "admin",
+      "superadmin",
+    ].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -170,6 +192,7 @@ export default function FlightLogEditEntry({
       setFormData({
         ...logData,
         date: parseDate(logData.date),
+        status: normalizeEditableFlightLogStatus(logData.status),
         legs: logIsB412
           ? ensureSixB412Legs(logData.legs)
           : logData.legs || [createEmptyB412Leg()],
@@ -260,6 +283,9 @@ export default function FlightLogEditEntry({
   }, [currentPage]);
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
+  const hasWorkItems = Array.isArray(workItems) && workItems.length > 0;
+  const shouldShowWorkDone =
+    hasWorkItems || (hasDiscrepancy && isMechanic);
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -281,7 +307,7 @@ export default function FlightLogEditEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy) {
+    if (shouldShowWorkDone) {
       nextTabs.push("Work Done");
     }
 
@@ -309,10 +335,10 @@ export default function FlightLogEditEntry({
     formData.status === "pending_release";
 
   useEffect(() => {
-    if (hasDiscrepancy && !isB412) {
+    if (shouldShowWorkDone && !isB412) {
       tabScrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [hasDiscrepancy, isB412]);
+  }, [shouldShowWorkDone, isB412]);
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
