@@ -725,28 +725,16 @@ export default function ReportsAndAnalytics() {
         title: "General Reports",
         component: (
           <GeneralReports
-            tasks={
-              hasActiveSearch ? filteredTasks : tasks
-            }
-            flightLogs={
-              hasActiveSearch
-                ? filteredFlightLogs
-                : flightLogs
-            }
+            tasks={hasActiveSearch ? filteredTasks : tasks}
+            flightLogs={hasActiveSearch ? filteredFlightLogs : flightLogs}
             preInspections={
-              hasActiveSearch
-                ? filteredPreInspections
-                : preInspections
+              hasActiveSearch ? filteredPreInspections : preInspections
             }
             postInspections={
-              hasActiveSearch
-                ? filteredPostInspections
-                : postInspections
+              hasActiveSearch ? filteredPostInspections : postInspections
             }
             partsRequisitions={
-              hasActiveSearch
-                ? filteredPartsRequisitions
-                : partsRequisitions
+              hasActiveSearch ? filteredPartsRequisitions : partsRequisitions
             }
             loading={loading}
           />
@@ -772,9 +760,7 @@ export default function ReportsAndAnalytics() {
         title: "Performance Overview",
         component: (
           <MaintenancePerformance
-            tasks={
-              hasActiveSearch ? filteredTasks : tasks
-            }
+            tasks={hasActiveSearch ? filteredTasks : tasks}
           />
         ),
         keywords: ["performance", "overview"],
@@ -787,9 +773,7 @@ export default function ReportsAndAnalytics() {
         title: "Maintenance History",
         component: (
           <MaintenanceHistory
-            tasks={
-              hasActiveSearch ? filteredTasks : tasks
-            }
+            tasks={hasActiveSearch ? filteredTasks : tasks}
             loading={loading}
           />
         ),
@@ -803,9 +787,7 @@ export default function ReportsAndAnalytics() {
         title: "Maintenance Insights",
         component: (
           <MaintenanceSummary
-            tasks={
-              hasActiveSearch ? filteredTasks : tasks
-            }
+            tasks={hasActiveSearch ? filteredTasks : tasks}
             loading={loading}
           />
         ),
@@ -819,11 +801,7 @@ export default function ReportsAndAnalytics() {
         title: "Component Analysis",
         component: (
           <ComponentUsage
-            records={
-              hasActiveSearch
-                ? filteredPartsRecords
-                : partsRecords
-            }
+            records={hasActiveSearch ? filteredPartsRecords : partsRecords}
             loading={loading}
           />
         ),
@@ -837,11 +815,7 @@ export default function ReportsAndAnalytics() {
         title: "Flight Log Report",
         component: (
           <FlightLogReport
-            records={
-              hasActiveSearch
-                ? filteredFlightLogs
-                : flightLogs
-            }
+            records={hasActiveSearch ? filteredFlightLogs : flightLogs}
             loading={loading}
           />
         ),
@@ -856,11 +830,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <InspectionReport
             title="Pre-Inspection Report"
-            records={
-              hasActiveSearch
-                ? filteredPreInspections
-                : preInspections
-            }
+            records={hasActiveSearch ? filteredPreInspections : preInspections}
             loading={loading}
           />
         ),
@@ -876,9 +846,7 @@ export default function ReportsAndAnalytics() {
           <InspectionReport
             title="Post-Inspection Report"
             records={
-              hasActiveSearch
-                ? filteredPostInspections
-                : postInspections
+              hasActiveSearch ? filteredPostInspections : postInspections
             }
             loading={loading}
           />
@@ -894,9 +862,7 @@ export default function ReportsAndAnalytics() {
         component: (
           <PartsRequisitionReport
             records={
-              hasActiveSearch
-                ? filteredPartsRequisitions
-                : partsRequisitions
+              hasActiveSearch ? filteredPartsRequisitions : partsRequisitions
             }
             loading={loading}
           />
@@ -968,7 +934,7 @@ export default function ReportsAndAnalytics() {
                 setTaskView("completed");
                 setActiveKpi("completed");
               }}
-              style={{ flex: 1, minWidth: "45%" }}
+              style={{ width: "48%" }}
             >
               <StatCard label="Completed Tasks" value={stats.completed} />
             </TouchableOpacity>
@@ -978,7 +944,7 @@ export default function ReportsAndAnalytics() {
                 setTaskView("dueSoon");
                 setActiveKpi("dueSoon");
               }}
-              style={{ flex: 1, minWidth: "45%" }}
+              style={{ width: "48%" }}
             >
               <StatCard
                 label="Due Soon (next 3 days)"
@@ -992,7 +958,7 @@ export default function ReportsAndAnalytics() {
                 setTaskView("overdue");
                 setActiveKpi("overdue");
               }}
-              style={{ flex: 1, minWidth: "45%" }}
+              style={{ width: "48%" }}
             >
               <StatCard
                 label="Overdue Tasks"
@@ -1000,7 +966,7 @@ export default function ReportsAndAnalytics() {
                 tone="#cf1322"
               />
             </TouchableOpacity>
-            <View style={{ flex: 1, minWidth: "45%" }}>
+            <View style={{ width: "48%" }}>
               <StatCard label="Module Reports" value={reportCards.length} />
             </View>
           </View>
@@ -1049,41 +1015,41 @@ export default function ReportsAndAnalytics() {
             }
           >
             {!["baseDamage", "baseRepair"].includes(activeKpi) && (
-            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-              {tabs.map(([key, label]) => {
-                const selected = taskView === key;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    onPress={() => {
-                      setTaskView(key);
-                      setActiveKpi(key);
-                    }}
-                    style={{
-                      flex: 1,
-                      borderRadius: 8,
-                      paddingVertical: 9,
-                      paddingHorizontal: 6,
-                      backgroundColor: selected
-                        ? COLORS.primaryLight
-                        : COLORS.grayLight,
-                      alignItems: "center",
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        color: selected ? COLORS.white : COLORS.grayDark,
-                        fontSize: 9,
-                        fontWeight: "700",
+              <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                {tabs.map(([key, label]) => {
+                  const selected = taskView === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => {
+                        setTaskView(key);
+                        setActiveKpi(key);
                       }}
-                      numberOfLines={2}
+                      style={{
+                        flex: 1,
+                        borderRadius: 8,
+                        paddingVertical: 9,
+                        paddingHorizontal: 6,
+                        backgroundColor: selected
+                          ? COLORS.primaryLight
+                          : COLORS.grayLight,
+                        alignItems: "center",
+                      }}
                     >
-                      {label}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                      <AppText
+                        style={{
+                          color: selected ? COLORS.white : COLORS.grayDark,
+                          fontSize: 9,
+                          fontWeight: "700",
+                        }}
+                        numberOfLines={2}
+                      >
+                        {label}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
             {["baseDamage", "baseRepair"].includes(activeKpi) && (
               <View style={{ marginTop: 10 }}>
@@ -1123,38 +1089,45 @@ export default function ReportsAndAnalytics() {
           {!loading &&
             !["baseDamage", "baseRepair"].includes(activeKpi) &&
             taskRows.length === 0 && (
-            <EmptyState text="No task records for this view." />
-          )}
+              <EmptyState text="No task records for this view." />
+            )}
           {!["baseDamage", "baseRepair"].includes(activeKpi) &&
             taskRows.slice(0, 12).map((task) => (
-            <InfoCard
-              key={task._id || task.id}
-              title={task.aircraft || "N/A"}
-              subtitle={task.title || task.summary?.category || "Untitled task"}
-              right={
-                <StatusChip
-                  label={task.status || "Pending"}
-                  color={
-                    taskView === "overdue" ? "#cf1322" : COLORS.primaryLight
-                  }
-                />
-              }
-            >
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                <FieldRow
-                  label="Mechanic"
-                  value={
-                    task.assignedToName || task.assignedMechanic || "Unassigned"
-                  }
-                />
-                <FieldRow label="Type" value={task.maintenanceType} />
-                <FieldRow
-                  label="Due Date"
-                  value={formatDate(task.dueDate || task.endDateTime)}
-                />
-                <FieldRow label="Priority" value={task.priority || "Normal"} />
-              </View>
-            </InfoCard>
+              <InfoCard
+                key={task._id || task.id}
+                title={task.aircraft || "N/A"}
+                subtitle={
+                  task.title || task.summary?.category || "Untitled task"
+                }
+                right={
+                  <StatusChip
+                    label={task.status || "Pending"}
+                    color={
+                      taskView === "overdue" ? "#cf1322" : COLORS.primaryLight
+                    }
+                  />
+                }
+              >
+                <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <FieldRow
+                    label="Mechanic"
+                    value={
+                      task.assignedToName ||
+                      task.assignedMechanic ||
+                      "Unassigned"
+                    }
+                  />
+                  <FieldRow label="Type" value={task.maintenanceType} />
+                  <FieldRow
+                    label="Due Date"
+                    value={formatDate(task.dueDate || task.endDateTime)}
+                  />
+                  <FieldRow
+                    label="Priority"
+                    value={task.priority || "Normal"}
+                  />
+                </View>
+              </InfoCard>
             ))}
         </>
       )}
