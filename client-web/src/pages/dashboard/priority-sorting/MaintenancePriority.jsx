@@ -54,25 +54,32 @@ const formatDueSummary = (record) => {
   return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
-const normalizeFilterValue = (value) => {
+const normalizeSortValue = (value) => {
   if (value === null || value === undefined || value === "") return "N/A";
   return String(value);
 };
 
-const getUniqueFilters = (records, getValue) =>
-  Array.from(
-    new Set(records.map((record) => normalizeFilterValue(getValue(record)))),
-  )
-    .sort((left, right) =>
-      left.localeCompare(right, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    )
-    .map((value) => ({
-      text: value,
-      value,
-    }));
+const compareText = (left, right) =>
+  normalizeSortValue(left).localeCompare(normalizeSortValue(right), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+const compareNumber = (left, right) =>
+  Number(left ?? Number.POSITIVE_INFINITY) -
+  Number(right ?? Number.POSITIVE_INFINITY);
+
+const getRemainingSortValue = (record) => {
+  if (record.dueByHours !== null && record.dueByHours !== undefined) {
+    return Number(record.dueByHours);
+  }
+
+  if (record.dueByDays !== null && record.dueByDays !== undefined) {
+    return Number(record.dueByDays) * 24;
+  }
+
+  return Number.POSITIVE_INFINITY;
+};
 
 const formatDueBasis = (basis) => {
   switch (basis) {
@@ -324,71 +331,48 @@ export default function MaintenancePriority() {
     };
   }, [priorityData]);
 
-  const columnFilters = useMemo(
-    () => ({
-      rank: getUniqueFilters(priorityData, (record) => record.rank),
-      aircraft: getUniqueFilters(priorityData, (record) => record.aircraft),
-      aircraftModel: getUniqueFilters(
-        priorityData,
-        (record) => record.aircraftModel,
-      ),
-      nextInspection: getUniqueFilters(
-        priorityData,
-        (record) => record.nextInspection,
-      ),
-      remaining: getUniqueFilters(priorityData, formatDueSummary),
-    }),
-    [priorityData],
-  );
-
   const columns = [
     {
       title: "Rank",
       dataIndex: "rank",
       key: "rank",
       width: 50,
-      filters: columnFilters.rank,
-      filterSearch: true,
-      onFilter: (value, record) =>
-        normalizeFilterValue(record.rank) === value,
+      sorter: (left, right) => compareNumber(left.rank, right.rank),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
       width: 100,
-      filters: columnFilters.aircraft,
-      filterSearch: true,
-      onFilter: (value, record) =>
-        normalizeFilterValue(record.aircraft) === value,
+      sorter: (left, right) => compareText(left.aircraft, right.aircraft),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
       width: 100,
-      filters: columnFilters.aircraftModel,
-      filterSearch: true,
-      onFilter: (value, record) =>
-        normalizeFilterValue(record.aircraftModel) === value,
+      sorter: (left, right) =>
+        compareText(left.aircraftModel, right.aircraftModel),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
       width: 120,
-      filters: columnFilters.nextInspection,
-      filterSearch: true,
-      onFilter: (value, record) =>
-        normalizeFilterValue(record.nextInspection) === value,
+      sorter: (left, right) =>
+        compareText(left.nextInspection, right.nextInspection),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Remaining",
       key: "dueSoonest",
       width: 120,
-      filters: columnFilters.remaining,
-      filterSearch: true,
-      onFilter: (value, record) => formatDueSummary(record) === value,
+      sorter: (left, right) =>
+        getRemainingSortValue(left) - getRemainingSortValue(right),
+      sortDirections: ["ascend", "descend"],
       render: (_, record) => formatDueSummary(record),
     },
     {
