@@ -54,6 +54,26 @@ const formatDueSummary = (record) => {
   return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
+const normalizeFilterValue = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  return String(value);
+};
+
+const getUniqueFilters = (records, getValue) =>
+  Array.from(
+    new Set(records.map((record) => normalizeFilterValue(getValue(record)))),
+  )
+    .sort((left, right) =>
+      left.localeCompare(right, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    )
+    .map((value) => ({
+      text: value,
+      value,
+    }));
+
 const formatDueBasis = (basis) => {
   switch (basis) {
     case "hours-and-calendar":
@@ -304,35 +324,71 @@ export default function MaintenancePriority() {
     };
   }, [priorityData]);
 
+  const columnFilters = useMemo(
+    () => ({
+      rank: getUniqueFilters(priorityData, (record) => record.rank),
+      aircraft: getUniqueFilters(priorityData, (record) => record.aircraft),
+      aircraftModel: getUniqueFilters(
+        priorityData,
+        (record) => record.aircraftModel,
+      ),
+      nextInspection: getUniqueFilters(
+        priorityData,
+        (record) => record.nextInspection,
+      ),
+      remaining: getUniqueFilters(priorityData, formatDueSummary),
+    }),
+    [priorityData],
+  );
+
   const columns = [
     {
       title: "Rank",
       dataIndex: "rank",
       key: "rank",
       width: 50,
+      filters: columnFilters.rank,
+      filterSearch: true,
+      onFilter: (value, record) =>
+        normalizeFilterValue(record.rank) === value,
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
       width: 100,
+      filters: columnFilters.aircraft,
+      filterSearch: true,
+      onFilter: (value, record) =>
+        normalizeFilterValue(record.aircraft) === value,
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
       width: 100,
+      filters: columnFilters.aircraftModel,
+      filterSearch: true,
+      onFilter: (value, record) =>
+        normalizeFilterValue(record.aircraftModel) === value,
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
       width: 120,
+      filters: columnFilters.nextInspection,
+      filterSearch: true,
+      onFilter: (value, record) =>
+        normalizeFilterValue(record.nextInspection) === value,
     },
     {
       title: "Remaining",
       key: "dueSoonest",
       width: 120,
+      filters: columnFilters.remaining,
+      filterSearch: true,
+      onFilter: (value, record) => formatDueSummary(record) === value,
       render: (_, record) => formatDueSummary(record),
     },
     {
