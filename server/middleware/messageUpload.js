@@ -12,7 +12,9 @@ const MAX_MESSAGE_ATTACHMENTS = Number(
 const IS_VERCEL_RUNTIME = process.env.VERCEL === "1";
 
 const getMessageBlobToken = () =>
-  process.env.DOCUMENT_BLOB_TOKEN || process.env.BLOB_READ_WRITE_TOKEN || "";
+  process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN ||
+  process.env.BLOB_READ_WRITE_TOKEN ||
+  "";
 
 const allowedMimeTypes = new Set([
   "application/msword",
