@@ -133,7 +133,7 @@ const buildActivationEmail = ({
         You can also access AirMS through the mobile app.
       </p>
       <div style="background: ${palette.warningBg}; border: 1px solid ${palette.warningBorder}; border-radius: 6px; padding: 12px 14px; color: ${palette.text}; font-size: 13px; line-height: 1.6;">
-        <strong>Security note:</strong> This temporary password expires in <strong>1 hour</strong>.
+        <strong>Security note:</strong> This temporary password expires in <strong>1 Day</strong>.
       </div>
     `,
   });
