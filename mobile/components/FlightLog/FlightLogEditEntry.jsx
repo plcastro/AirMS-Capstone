@@ -24,6 +24,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import FlightLogB412Legs from "./FlightLogB412Legs";
 import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
@@ -899,7 +900,8 @@ export default function FlightLogEditEntry({
   return (
     <>
       <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+        <IosModalSafeAreaProvider>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
@@ -1316,7 +1318,8 @@ export default function FlightLogEditEntry({
             </AppText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+          </SafeAreaView>
+        </IosModalSafeAreaProvider>
       </Modal>
 
       <FlightLogSignatureModal

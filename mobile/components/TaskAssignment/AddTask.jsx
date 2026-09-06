@@ -15,6 +15,7 @@ import Button from "../Button";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 import {
   addMinutesToDate,
   addDaysToDate,
@@ -1074,7 +1075,7 @@ export default function AddTask({
         transparent
         onRequestClose={handleCloseWithWarning}
       >
-        <View style={styles.alertOverlay}>
+        <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
               styles.alertContainer,
@@ -1500,7 +1501,7 @@ export default function AddTask({
               />
             </View>
           </View>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
       <AlertComp
         visible={showDiscardAlert}

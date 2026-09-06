@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import AppText from "./AppText";
 import {
   ActivityIndicator,
+  Platform,
   TouchableOpacity,
   View
 } from "react-native";
@@ -11,6 +12,9 @@ import { InfoCard } from "./MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { exportReportExcel, exportReportPdf } from "../../utilities/reportExport";
 import { showToast } from "../../utilities/toast";
+
+// Keep the iOS wheel compact while leaving enough room to scroll its two items.
+const FILE_TYPE_PICKER_HEIGHT = Platform.OS === "ios" ? 120 : 48;
 
 export default function ExportFile({
   title = "Reports and Analytics",
@@ -35,8 +39,6 @@ export default function ExportFile({
       } else {
         await exportReportExcel({ title, sections });
       }
-
-      showToast(`Reports and analytics ${fileType} exported successfully`);
     } catch (error) {
       console.error("Report export failed:", error);
       showToast(error.message || "Export failed.");
@@ -56,7 +58,15 @@ export default function ExportFile({
           enabled={!exporting}
           selectedValue={fileType}
           onValueChange={setFileType}
-          style={{ color: COLORS.black, height: 48 }}
+          style={{
+            color: COLORS.black,
+            height: FILE_TYPE_PICKER_HEIGHT,
+          }}
+          itemStyle={
+            Platform.OS === "ios"
+              ? { color: COLORS.black, height: FILE_TYPE_PICKER_HEIGHT }
+              : undefined
+          }
         >
           <Picker.Item label="PDF" value="PDF" />
           <Picker.Item label="Excel" value="Excel" />

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { issueSignedToken, presignUrl } = require("@vercel/blob");
 const Conversation = require("../models/conversationModel");
 const Message = require("../models/messageModel");
 const NotificationModel = require("../models/notificationModel");
@@ -7,6 +8,7 @@ const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
 const { publishTypedForUsers } = require("../utils/realtimeEvents");
 const { sendPushNotificationToUsers } = require("../utils/mobilePushService");
+const { getMessageBlobToken } = require("../middleware/messageUpload");
 
 const getUserId = (req) => req.user?.id;
 
@@ -486,6 +488,85 @@ const validateBody = (body) => {
   return { value: trimmedBody };
 };
 
+const getMessageAttachmentUrl = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { messageId, attachmentIndex } = req.params;
+    const index = Number(attachmentIndex);
+
+    if (
+      !mongoose.Types.ObjectId.isValid(messageId) ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return res.status(400).json({ message: "Invalid attachment" });
+    }
+
+    const message = await Message.findById(messageId)
+      .select("sender recipient conversation attachments")
+      .lean();
+    if (!message) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    let canAccess =
+      isSameId(message.sender, userId) || isSameId(message.recipient, userId);
+
+    if (!canAccess && message.conversation) {
+      canAccess = Boolean(
+        await Conversation.exists({
+          _id: message.conversation,
+          members: userId,
+        }),
+      );
+    }
+
+    if (!canAccess) {
+      return res.status(403).json({ message: "Attachment access denied" });
+    }
+
+    const attachment = message.attachments?.[index];
+    const pathname = String(attachment?.url || "").trim();
+    if (!pathname) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    if (/^https?:\/\//i.test(pathname) || pathname.startsWith("/uploads/")) {
+      return res.status(200).json({ data: { url: pathname, expiresAt: null } });
+    }
+
+    const token = getMessageBlobToken();
+    if (!token) {
+      return res.status(503).json({
+        message: "Message attachment storage is not configured",
+      });
+    }
+
+    const validUntil = Date.now() + 5 * 60 * 1000;
+    const signedToken = await issueSignedToken({
+      pathname,
+      operations: ["get"],
+      validUntil,
+      token,
+    });
+    const { presignedUrl } = await presignUrl(signedToken, {
+      pathname,
+      operation: "get",
+      validUntil,
+      access: "private",
+    });
+
+    return res.status(200).json({
+      data: { url: presignedUrl, expiresAt: new Date(validUntil).toISOString() },
+    });
+  } catch (error) {
+    console.error("Failed to prepare message attachment download:", error);
+    return res.status(500).json({
+      message: "Failed to open attachment",
+    });
+  }
+};
+
 const sendMessage = async (req, res) => {
   try {
     const senderId = getUserId(req);
@@ -716,5 +797,6 @@ module.exports = {
   getMessageSummary,
   createGroupConversation,
   getThread,
+  getMessageAttachmentUrl,
   sendMessage,
 };

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 
 const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
@@ -111,7 +112,8 @@ export default function PartsRequisitionEntry({
       transparent
       onRequestClose={onClose}
     >
-      <SafeAreaView
+      <IosModalSafeAreaProvider>
+        <SafeAreaView
         style={{
           flex: 1,
           backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -452,7 +454,8 @@ export default function PartsRequisitionEntry({
             </View>
           </ScrollView>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

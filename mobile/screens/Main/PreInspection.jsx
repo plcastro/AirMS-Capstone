@@ -16,6 +16,10 @@ import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  createEmptyB412PreInspectionData,
+  isB412Aircraft,
+} from "../../components/PreInspection/b412PreInspectionData";
 
 const getDisplayStatus = (status) => {
   const normalizedStatus = String(status || "").trim().toLowerCase();
@@ -29,6 +33,26 @@ const getDisplayStatus = (status) => {
 
 const isCompletedInspection = (inspection) =>
   String(inspection?.status || "").toLowerCase() === "completed";
+
+const normalizePreInspectionPayload = (inspection = {}) => {
+  if (isB412Aircraft(inspection.aircraftType)) {
+    return {
+      ...inspection,
+      b412Data: createEmptyB412PreInspectionData(inspection.b412Data),
+    };
+  }
+
+  const { b412Data, ...legacyInspection } = inspection;
+  return legacyInspection;
+};
+
+const readJsonResponse = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
 
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
@@ -117,10 +141,15 @@ export default function PreInspection({ route }) {
   }, []);
 
   const handleSaveNewEntry = (newEntry) => {
-    return newEntry;
+    const createdBy =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      newEntry.createdBy;
+
+    return normalizePreInspectionPayload({ ...newEntry, createdBy });
   };
 
-  const handleSaveEdit = (updatedInspection) => updatedInspection;
+  const handleSaveEdit = (updatedInspection) =>
+    normalizePreInspectionPayload(updatedInspection);
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
@@ -384,17 +413,18 @@ export default function PreInspection({ route }) {
               },
             );
 
+            const data = await readJsonResponse(response);
             if (!response.ok) {
-              throw new Error("Failed to create pre-flight inspection");
+              throw new Error(
+                data?.message || "Failed to create pre-flight inspection",
+              );
             }
 
-            const data = await response.json();
             setInspections((prev) => [data.data, ...prev]);
             setShowNewEntryModal(false);
             showToast("Pre-inspection created successfully");
           } catch (error) {
             console.error("Error creating pre-flight inspection:", error);
-            showToast("Failed to create pre-flight inspection");
             throw error;
           }
         }}
@@ -434,11 +464,13 @@ export default function PreInspection({ route }) {
               },
             );
 
+            const data = await readJsonResponse(response);
             if (!response.ok) {
-              throw new Error("Failed to update pre-flight inspection");
+              throw new Error(
+                data?.message || "Failed to update pre-flight inspection",
+              );
             }
 
-            const data = await response.json();
             setInspections((prev) =>
               prev.map((inspection) =>
                 inspection._id === data.data._id ? data.data : inspection,
@@ -449,7 +481,6 @@ export default function PreInspection({ route }) {
             showToast("Pre-inspection updated successfully");
           } catch (error) {
             console.error("Error updating pre-flight inspection:", error);
-            showToast("Failed to update pre-flight inspection");
             throw error;
           }
         }}

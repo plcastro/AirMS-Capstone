@@ -969,7 +969,6 @@ export default function PartsRequisition({ route, navigation }) {
           selectedTab,
         ),
       });
-      showToast("PDF Exported!");
     } catch (error) {
       console.error("Parts requisition PDF export failed:", error);
       showToast(error.message || "Failed to export parts requisition report.");

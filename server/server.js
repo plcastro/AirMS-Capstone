@@ -215,6 +215,14 @@ app.use((req, res, next) => {
       return;
     }
 
+    if (
+      method === "POST" &&
+      String(req.originalUrl || "").split("?")[0] ===
+        "/api/messages/attachments/upload"
+    ) {
+      return;
+    }
+
     publishEvent("airms:data-changed", {
       url: req.originalUrl,
       method,

@@ -185,6 +185,7 @@ export default function PartsLifespanMonitoring() {
 
   const loadAircraftData = useCallback(async (aircraft) => {
     if (!aircraft) {
+      setRefs(normalizeRef());
       setParts([]);
       setAircraftDetails({});
       return;
@@ -561,7 +562,7 @@ export default function PartsLifespanMonitoring() {
                 ? "Loading aircraft..."
                 : selectedAircraft
                   ? `RP/C: ${selectedAircraft}`
-                  : "Choose Aircraft"}
+                  : "Choose an aircraft"}
             </AppText>
             <MaterialCommunityIcons
               name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
@@ -573,6 +574,19 @@ export default function PartsLifespanMonitoring() {
           {showAircraftDropdown && (
             <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
               <ScrollView nestedScrollEnabled>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !selectedAircraft }}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    styles.unifiedDropdownItemBordered,
+                  ]}
+                  onPress={() => selectAircraft("")}
+                >
+                  <AppText style={styles.unifiedDropdownItemText}>
+                    Choose an aircraft
+                  </AppText>
+                </TouchableOpacity>
                 {aircraftOptions.length === 0 ? (
                   <View style={styles.unifiedDropdownItem}>
                     <AppText style={styles.unifiedDropdownItemText}>
@@ -589,6 +603,10 @@ export default function PartsLifespanMonitoring() {
                           ? styles.unifiedDropdownItemBordered
                           : null,
                       ]}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        selected: selectedAircraft === aircraft,
+                      }}
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>

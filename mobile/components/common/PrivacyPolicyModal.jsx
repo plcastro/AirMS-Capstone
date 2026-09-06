@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
+import IosModalSafeAreaView from "./IosModalSafeAreaView";
 
 const privacySections = [
   {
@@ -54,8 +55,9 @@ export default function PrivacyPolicyModal({ visible, onClose }) {
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard}>
+      <IosModalSafeAreaView style={styles.safeAreaBackdrop}>
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable style={styles.modalCard}>
           <View style={styles.header}>
             <AppText style={styles.title}>Privacy Policy</AppText>
             <TouchableOpacity
@@ -88,13 +90,18 @@ export default function PrivacyPolicyModal({ visible, onClose }) {
               </View>
             ))}
           </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </IosModalSafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaBackdrop: {
+    flex: 1,
+    backgroundColor: COLORS.overlayDark,
+  },
   backdrop: {
     flex: 1,
     justifyContent: "center",

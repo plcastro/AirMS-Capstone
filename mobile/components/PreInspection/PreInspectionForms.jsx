@@ -1,3 +1,9 @@
+import {
+  areAllB412PreInspectionChecksComplete,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PreInspectionData";
+
 export const getDefaultSignature = () => ({
   name: "",
   id: "",
@@ -67,7 +73,19 @@ export const getDefaultPreInspectionFormData = (userRole = "") => ({
   acceptedBy: getDefaultSignature(),
 });
 
-export const areAllInspectionChecksComplete = (formData) =>
-  Object.entries(formData)
+const areAllLegacyInspectionChecksComplete = (formData) =>
+  Object.entries(formData || {})
     .filter(([, value]) => typeof value === "boolean")
     .every(([, value]) => value === true);
+
+export const areAllInspectionChecksComplete = (formData = {}) => {
+  if (isB412Aircraft(formData.aircraftType)) {
+    return areAllB412PreInspectionChecksComplete(formData.b412Data);
+  }
+
+  if (!isAS350Aircraft(formData.aircraftType)) {
+    return false;
+  }
+
+  return areAllLegacyInspectionChecksComplete(formData);
+};

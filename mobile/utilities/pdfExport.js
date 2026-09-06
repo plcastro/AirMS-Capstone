@@ -1,8 +1,9 @@
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { Alert, Image, Platform } from "react-native";
 import { showToast } from "./toast";
+import { saveExportFile } from "./saveExportFile";
+import { openPdfPrintDialogOnWeb } from "./webPdfExport";
 import {
   exportPostInspectionTemplatePdf,
   exportPreInspectionTemplatePdf,
@@ -102,98 +103,6 @@ const buildSafeFileName = (value, fallback = "export") =>
     .replace(/\s+/g, "-");
 
 const PDF_MIME_TYPE = "application/pdf";
-
-const printHtmlOnWeb = (html, title) =>
-  new Promise((resolve, reject) => {
-    if (typeof document === "undefined") {
-      reject(new Error("Browser printing is unavailable."));
-      return;
-    }
-
-    const printFrame = document.createElement("iframe");
-    printFrame.setAttribute("title", title);
-    printFrame.style.position = "fixed";
-    printFrame.style.width = "1px";
-    printFrame.style.height = "1px";
-    printFrame.style.right = "0";
-    printFrame.style.bottom = "0";
-    printFrame.style.border = "0";
-    printFrame.style.opacity = "0";
-
-    const removeFrame = () => {
-      setTimeout(() => printFrame.remove(), 1000);
-    };
-
-    printFrame.onload = () => {
-      try {
-        const printWindow = printFrame.contentWindow;
-        if (!printWindow) {
-          throw new Error("Browser printing is unavailable.");
-        }
-        printWindow.document.title = title;
-        printWindow.focus();
-        printWindow.print();
-        removeFrame();
-        resolve("web-print-dialog");
-      } catch (error) {
-        printFrame.remove();
-        reject(error);
-      }
-    };
-
-    printFrame.srcdoc = html;
-    document.body.appendChild(printFrame);
-  });
-
-const createShareablePdfUri = async (sourceUri, fileName) => {
-  const outputDirectory =
-    FileSystem.cacheDirectory || FileSystem.documentDirectory;
-  if (!outputDirectory) return sourceUri;
-
-  const finalUri = `${outputDirectory}${buildSafeFileName(fileName)}.pdf`;
-
-  try {
-    await FileSystem.copyAsync({ from: sourceUri, to: finalUri });
-    return finalUri;
-  } catch (error) {
-    console.warn("Unable to rename generated PDF; using temporary file", error);
-    return sourceUri;
-  }
-};
-
-const savePdfWithAndroidPicker = async (sourceUri, fileName) => {
-  if (Platform.OS !== "android") return null;
-
-  const storage = FileSystem.StorageAccessFramework;
-  if (!storage) return null;
-
-  let initialDirectoryUri;
-  try {
-    initialDirectoryUri = storage.getUriForDirectoryInRoot("Download");
-  } catch {
-    initialDirectoryUri = null;
-  }
-
-  const permission = await storage.requestDirectoryPermissionsAsync(
-    initialDirectoryUri,
-  );
-  if (!permission.granted) return null;
-
-  const safeFileName = buildSafeFileName(fileName).replace(/\.pdf$/i, "");
-  const destinationUri = await storage.createFileAsync(
-    permission.directoryUri,
-    safeFileName,
-    PDF_MIME_TYPE,
-  );
-  const pdfBase64 = await FileSystem.readAsStringAsync(sourceUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  await FileSystem.writeAsStringAsync(destinationUri, pdfBase64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  return destinationUri;
-};
 
 const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
@@ -2754,8 +2663,6 @@ const exportRecordToPdf = async ({
   html,
   buildHtml,
   fileName,
-  successMessage,
-  saveToDownloads = false,
 }) => {
   try {
     showToast(`Generating ${title} PDF...`);
@@ -2774,7 +2681,7 @@ const exportRecordToPdf = async ({
     }
 
     if (Platform.OS === "web") {
-      const result = await printHtmlOnWeb(finalHtml, title);
+      const result = await openPdfPrintDialogOnWeb(finalHtml, title);
       showToast("Print dialog opened. Choose Save as PDF to download it.");
       return result;
     }
@@ -2788,45 +2695,12 @@ const exportRecordToPdf = async ({
       throw new Error("The PDF file could not be generated.");
     }
 
-    const finalUri = await createShareablePdfUri(
-      sourceUri,
-      fileName || title,
-    );
-
-    if (saveToDownloads && Platform.OS === "android") {
-      try {
-        const savedUri = await savePdfWithAndroidPicker(
-          finalUri,
-          fileName || title,
-        );
-        if (savedUri) {
-          if (successMessage) showToast(successMessage);
-          return savedUri;
-        }
-        showToast("No folder selected. Opening share options instead.");
-      } catch (error) {
-        console.warn("Unable to save PDF to the selected folder", error);
-        showToast("Unable to save there. Opening share options instead.");
-      }
-    }
-
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      Alert.alert("Export ready", `PDF saved to:\n${finalUri}`);
-      if (successMessage) showToast(successMessage);
-      return finalUri;
-    }
-
-    await Sharing.shareAsync(finalUri, {
+    return await saveExportFile({
+      fileName: `${buildSafeFileName(fileName || title).replace(/\.pdf$/i, "")}.pdf`,
       mimeType: PDF_MIME_TYPE,
-      dialogTitle: title,
-      UTI: "com.adobe.pdf",
+      sourceUri,
+      cleanupSource: true,
     });
-
-    if (successMessage) showToast(successMessage);
-
-    return finalUri;
   } catch (error) {
     console.error(`Failed to export ${title}:`, error);
     Alert.alert("Export failed", error.message || "Unable to generate PDF");
@@ -2850,8 +2724,6 @@ export const exportFlightLogPdf = async (log) => {
         ? buildB412FlightLogHtml(log, logoDataUri)
         : buildFlightLogHtml(log, logoDataUri);
     },
-    saveToDownloads: true,
-    successMessage: "Flight Log Exported!",
   });
 };
 
@@ -2863,6 +2735,5 @@ export const exportMaintenanceLogPdf = async (log, options = {}) => {
       const logoDataUri = await getNgcpLogoDataUri();
       return buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri);
     },
-    successMessage: "Maintenance log exported successfully.",
   });
 };

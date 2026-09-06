@@ -54,7 +54,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing",
+      [
+        "expo-file-system",
+        {
+          "supportsOpeningDocumentsInPlace": true,
+          "enableFileSharing": true
+        }
+      ],
       [
         "expo-build-properties",
         {

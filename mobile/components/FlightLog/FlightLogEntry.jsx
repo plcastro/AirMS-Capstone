@@ -5,7 +5,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -23,6 +23,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import FlightLogB412Legs from "./FlightLogB412Legs";
 import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import {
@@ -1077,7 +1078,8 @@ export default function FlightLogEntry({
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
         <View style={{ backgroundColor: "#F9F9F9", paddingTop: 16 }}>
           {/* HEADER ROW */}
@@ -1289,7 +1291,8 @@ export default function FlightLogEntry({
             }
           }}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

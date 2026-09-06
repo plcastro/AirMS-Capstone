@@ -11,6 +11,7 @@ import {
 import { styles } from "../../stylesheets/styles";
 import AlertComp from "../AlertComp";
 import FlightLogApprove from "./FlightLogApprove";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 const { width } = Dimensions.get("window");
 export default function FlightLogVerifyTechnical({
@@ -396,7 +397,7 @@ export default function FlightLogVerifyTechnical({
         animationType="fade"
         onRequestClose={onClose}
       >
-        <View style={styles.modalOverlay}>
+        <IosModalSafeAreaView style={styles.modalOverlay}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -510,7 +511,7 @@ export default function FlightLogVerifyTechnical({
               </View>
             </View>
           </ScrollView>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
 
       {/* First Confirmation: Approve Log */}

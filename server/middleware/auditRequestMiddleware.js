@@ -310,6 +310,12 @@ const shouldAuditRequest = (req) => {
   const method = String(req.method || "").toUpperCase();
   const path = stripQuery(req.originalUrl);
 
+  // This endpoint only issues a short-lived, scoped Blob upload token. The
+  // actual message creation remains audited by POST /api/messages.
+  if (method === "POST" && path === "/api/messages/attachments/upload") {
+    return false;
+  }
+
   if (
     !AUDITED_METHODS.has(method) &&
     !(

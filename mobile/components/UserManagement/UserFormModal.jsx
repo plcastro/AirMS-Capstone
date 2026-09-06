@@ -20,6 +20,7 @@ import {
 } from "./constants";
 import * as ImageManipulator from "expo-image-manipulator";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 const buildUsername = ({
   firstName,
@@ -261,7 +262,7 @@ export default function UserFormModal({
         animationType="slide"
         onRequestClose={handleCancelWithWarning}
       >
-        <View style={styles.backdrop}>
+        <IosModalSafeAreaView style={styles.backdrop}>
           <View style={styles.card}>
             <AppText style={styles.title}>
               {isEdit ? "Edit User" : "Add User"}
@@ -440,7 +441,7 @@ export default function UserFormModal({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
       <AlertComp
         visible={showDiscardAlert}

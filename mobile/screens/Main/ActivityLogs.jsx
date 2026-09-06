@@ -553,7 +553,6 @@ export default function ActivityLogs() {
           },
         ],
       });
-      showToast("Activity logs exported as PDF.");
     } catch (error) {
       console.error("Activity logs PDF export failed:", error);
       showToast(error.message || "Failed to export activity logs.");
