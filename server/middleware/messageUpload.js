@@ -55,10 +55,10 @@ const saveMessageAttachments = async (req, res, next) => {
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) return next();
 
-    if (IS_VERCEL_RUNTIME && !process.env.DOCUMENT_BLOB_TOKEN) {
+    if (IS_VERCEL_RUNTIME && !process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN) {
       return res.status(500).json({
         message:
-          "Server upload configuration error: missing DOCUMENT_BLOB_TOKEN.",
+          "Server upload configuration error: missing DOCUMENT_BLOB_READ_WRITE_TOKEN.",
       });
     }
 
@@ -74,11 +74,11 @@ const saveMessageAttachments = async (req, res, next) => {
       const kind = file.mimetype?.startsWith("image/") ? "image" : "file";
 
       let idOrPath;
-      if (process.env.DOCUMENT_BLOB_TOKEN) {
+      if (process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN) {
         const blob = await put(`messages/${storedName}`, file.buffer, {
           access: "private", // switched to private
           contentType: file.mimetype || "application/octet-stream",
-          token: process.env.DOCUMENT_BLOB_TOKEN,
+          token: process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN,
         });
         idOrPath = blob.pathname; // store ID in DB, not public URL
       } else {
