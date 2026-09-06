@@ -14,12 +14,32 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
+import PreInspectionB412Checklist from "./PreInspectionB412Checklist";
 import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import {
+  B412_PRE_INSPECTION_SECTIONS,
+  createEmptyB412PreInspectionData,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PreInspectionData";
 import { showToast } from "../../utilities/toast";
+
+const BASIC_INFORMATION_TAB = {
+  key: "basic",
+  label: "Basic Information",
+};
+
+const LEGACY_PRE_INSPECTION_TABS = [
+  BASIC_INFORMATION_TAB,
+  { key: "stations", label: "Station 1 and 2" },
+  { key: "station3-sling", label: "Station 3 and Sling" },
+  { key: "floats-onboard", label: "Floats and Onboard" },
+];
 
 export default function PreInspectionEntry({
   visible,
@@ -31,15 +51,6 @@ export default function PreInspectionEntry({
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
 
-  const tabs = [
-    "Basic Information",
-    "Station 1 and 2",
-    "Station 3 and Sling",
-    "Floats and Onboard",
-  ];
-  const totalPages = tabs.length;
-  const isLastPage = currentPage === totalPages - 1;
-
   const [formData, setFormData] = useState(
     getDefaultPreInspectionFormData(userRole),
   );
@@ -49,6 +60,23 @@ export default function PreInspectionEntry({
   const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
     normalizedRole,
   );
+  const hasAircraftType = Boolean(String(formData.aircraftType || "").trim());
+  const isB412 = hasAircraftType && isB412Aircraft(formData.aircraftType);
+  const isAS350 = hasAircraftType && isAS350Aircraft(formData.aircraftType);
+  const tabs = isB412
+    ? [
+        BASIC_INFORMATION_TAB,
+        ...B412_PRE_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412:${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+      ]
+    : isAS350
+      ? LEGACY_PRE_INSPECTION_TABS
+      : [BASIC_INFORMATION_TAB];
+  const totalPages = tabs.length;
+  const isLastPage = currentPage === totalPages - 1;
 
   useEffect(() => {
     if (visible) {
@@ -66,8 +94,44 @@ export default function PreInspectionEntry({
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(0);
+    }
+  }, [currentPage, totalPages]);
+
   const updateForm = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === "rpc" && value !== prev.rpc) {
+        const defaults = getDefaultPreInspectionFormData(userRole);
+        const clearedLegacyChecks = Object.fromEntries(
+          Object.entries(defaults).filter(
+            ([, defaultValue]) => typeof defaultValue === "boolean",
+          ),
+        );
+
+        return {
+          ...prev,
+          ...clearedLegacyChecks,
+          rpc: value,
+          aircraftType: "",
+          fob: "",
+          b412Data: undefined,
+        };
+      }
+
+      if (field === "aircraftType") {
+        return {
+          ...prev,
+          aircraftType: value,
+          b412Data: isB412Aircraft(value)
+            ? createEmptyB412PreInspectionData(prev.b412Data)
+            : undefined,
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleSave = async () => {
@@ -87,7 +151,7 @@ export default function PreInspectionEntry({
       await persistInspection(formData);
     } catch (error) {
       console.error("Error saving pre-flight inspection:", error);
-      showToast("Failed to save pre-flight inspection");
+      showToast(error.message || "Failed to save pre-flight inspection");
     }
   };
 
@@ -119,6 +183,11 @@ export default function PreInspectionEntry({
       return false;
     }
 
+    if (!String(formData.date || "").trim()) {
+      showToast("Date is required");
+      return false;
+    }
+
     const fobValue = String(formData.fob || "").trim();
     const numericFob = Number(fobValue);
     if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
@@ -136,14 +205,12 @@ export default function PreInspectionEntry({
 
   const fobValue = String(formData.fob ?? "").trim();
   const numericFob = Number(fobValue);
-  const hasValidDate =
-    Boolean(formData.date) &&
-    !Number.isNaN(new Date(formData.date).getTime());
+  const hasDate = Boolean(String(formData.date || "").trim());
   const isDraftValid =
     Boolean(String(formData.rpc || "").trim()) &&
     Boolean(String(formData.aircraftType || "").trim()) &&
     Boolean(String(formData.base || "").trim()) &&
-    hasValidDate &&
+    hasDate &&
     Boolean(fobValue) &&
     Number.isFinite(numericFob) &&
     numericFob >= 0 &&
@@ -152,7 +219,16 @@ export default function PreInspectionEntry({
   const persistInspection = async (nextFormData) => {
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData);
+      await onSave(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PreInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : { ...nextFormData, b412Data: undefined },
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -172,14 +248,12 @@ export default function PreInspectionEntry({
       status: "released",
     };
 
-    setFormData(updatedFormData);
-
     try {
       await persistInspection(updatedFormData);
+      setFormData(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
       console.error("Error releasing pre-flight inspection:", error);
-      showToast("Failed to release pre-flight inspection");
       throw error;
     }
   };
@@ -187,8 +261,21 @@ export default function PreInspectionEntry({
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
-    switch (currentTab) {
-      case "Basic Information":
+    if (currentTab?.b412SectionKey) {
+      return (
+        <PreInspectionB412Checklist
+          value={formData.b412Data}
+          onChange={(b412Data) => updateForm("b412Data", b412Data)}
+          fob={formData.fob}
+          onFobChange={(fob) => updateForm("fob", fob)}
+          isEditable
+          sectionKey={currentTab.b412SectionKey}
+        />
+      );
+    }
+
+    switch (currentTab?.key) {
+      case "basic":
         return (
           <PreInspectionModalInfo
             formData={formData}
@@ -197,7 +284,7 @@ export default function PreInspectionEntry({
             rpcOptions={rpcOptions}
           />
         );
-      case "Station 1 and 2":
+      case "stations":
         return (
           <PreInspectionModalStations
             formData={formData}
@@ -205,7 +292,7 @@ export default function PreInspectionEntry({
             isEditable={true}
           />
         );
-      case "Station 3 and Sling":
+      case "station3-sling":
         return (
           <PreInspectionModalSling
             formData={formData}
@@ -213,7 +300,7 @@ export default function PreInspectionEntry({
             isEditable={true}
           />
         );
-      case "Floats and Onboard":
+      case "floats-onboard":
         return (
           <PreInspectionModalFloatsOnboard
             formData={formData}
@@ -228,7 +315,8 @@ export default function PreInspectionEntry({
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         {/* Tab Bar */}
@@ -282,7 +370,7 @@ export default function PreInspectionEntry({
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
-                key={index}
+                key={tab.key}
                 onPress={() => setCurrentPage(index)}
                 style={{
                   paddingVertical: 8,
@@ -305,7 +393,7 @@ export default function PreInspectionEntry({
                       currentPage === index ? COLORS.white : COLORS.grayDark,
                   }}
                 >
-                  {tab}
+                  {tab.label}
                 </AppText>
               </TouchableOpacity>
             ))}
@@ -435,7 +523,8 @@ export default function PreInspectionEntry({
           aircraftRPC={formData.rpc}
           actionLabel="release"
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

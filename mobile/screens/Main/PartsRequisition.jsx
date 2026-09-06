@@ -969,7 +969,6 @@ export default function PartsRequisition({ route, navigation }) {
           selectedTab,
         ),
       });
-      showToast("PDF Exported!");
     } catch (error) {
       console.error("Parts requisition PDF export failed:", error);
       showToast(error.message || "Failed to export parts requisition report.");
@@ -1546,6 +1545,7 @@ export default function PartsRequisition({ route, navigation }) {
           initialItems={initialEditItems}
           title={editingRequest ? "Edit Request" : "New Entry"}
           submitLabel={editingRequest ? "Save Changes" : "Submit"}
+          alertConfig={alertConfig}
         />
       )}
 
@@ -1567,10 +1567,13 @@ export default function PartsRequisition({ route, navigation }) {
         onMarkRestocked={handleMarkRestocked}
         onMarkDelivered={handleMarkDelivered}
         onExportExcel={isWarehouse ? exportPartsRequisitionExcel : null}
+        alertConfig={alertConfig}
       />
 
       <AlertComp
-        visible={alertConfig.visible}
+        visible={
+          alertConfig.visible && !showNewEntryModal && !showDetailsModal
+        }
         title={alertConfig.title}
         message={alertConfig.message}
         confirmText={alertConfig.confirmText}

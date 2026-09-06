@@ -1,9 +1,9 @@
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import { Alert, Image } from "react-native";
-import { requestStoragePermissionForDownload } from "./storagePermission";
+import { Alert, Image, Platform } from "react-native";
 import { showToast } from "./toast";
+import { saveExportFile } from "./saveExportFile";
+import { openPdfPrintDialogOnWeb } from "./webPdfExport";
 import {
   exportPostInspectionTemplatePdf,
   exportPreInspectionTemplatePdf,
@@ -101,6 +101,8 @@ const buildSafeFileName = (value, fallback = "export") =>
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-");
+
+const PDF_MIME_TYPE = "application/pdf";
 
 const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
@@ -2659,16 +2661,13 @@ const exportRecordToPdf = async ({
   subtitle,
   record,
   html,
+  buildHtml,
   fileName,
-  successMessage,
 }) => {
   try {
-    const canUseStorage = await requestStoragePermissionForDownload();
-    if (!canUseStorage) {
-      throw new Error("Storage permission is required to download files.");
-    }
-
-    let finalHtml = html;
+    showToast(`Generating ${title} PDF...`);
+    let finalHtml =
+      typeof buildHtml === "function" ? await buildHtml() : html;
 
     if (!finalHtml) {
       const rows = flattenRecord(record);
@@ -2681,33 +2680,31 @@ const exportRecordToPdf = async ({
       finalHtml = buildGenericHtml({ title, subtitle, rows, logoDataUri });
     }
 
-    const { uri } = await Print.printToFileAsync({
+    if (Platform.OS === "web") {
+      const result = await openPdfPrintDialogOnWeb(finalHtml, title);
+      showToast("Print dialog opened. Choose Save as PDF to download it.");
+      return result;
+    }
+
+    const printResult = await Print.printToFileAsync({
       html: finalHtml,
       base64: false,
     });
-    const finalUri = `${FileSystem.cacheDirectory}${buildSafeFileName(fileName || title)}.pdf`;
-    await FileSystem.copyAsync({ from: uri, to: finalUri });
-
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      Alert.alert("Export ready", `PDF saved to:\n${finalUri}`);
-      if (successMessage) showToast(successMessage);
-      return finalUri;
+    const sourceUri = printResult?.uri;
+    if (!sourceUri) {
+      throw new Error("The PDF file could not be generated.");
     }
 
-    await Sharing.shareAsync(finalUri, {
-      mimeType: "application/pdf",
-      dialogTitle: title,
-      UTI: "com.adobe.pdf",
+    return await saveExportFile({
+      fileName: `${buildSafeFileName(fileName || title).replace(/\.pdf$/i, "")}.pdf`,
+      mimeType: PDF_MIME_TYPE,
+      sourceUri,
+      cleanupSource: true,
     });
-
-    if (successMessage) showToast(successMessage);
-
-    return finalUri;
   } catch (error) {
     console.error(`Failed to export ${title}:`, error);
     Alert.alert("Export failed", error.message || "Unable to generate PDF");
+    return null;
   }
 };
 
@@ -2718,25 +2715,25 @@ export const exportPostInspectionPdf = (inspection) =>
   exportPostInspectionTemplatePdf(inspection);
 
 export const exportFlightLogPdf = async (log) => {
-  const logoDataUri = await getNgcpLogoDataUri();
-  const html = isB412FlightLog(log)
-    ? buildB412FlightLogHtml(log, logoDataUri)
-    : buildFlightLogHtml(log, logoDataUri);
-
   return exportRecordToPdf({
     title: "Flight Log",
     fileName: getFlightLogFileName(log),
-    html,
-    successMessage: "Flight Log Exported!",
+    buildHtml: async () => {
+      const logoDataUri = await getNgcpLogoDataUri();
+      return isB412FlightLog(log)
+        ? buildB412FlightLogHtml(log, logoDataUri)
+        : buildFlightLogHtml(log, logoDataUri);
+    },
   });
 };
 
 export const exportMaintenanceLogPdf = async (log, options = {}) => {
-  const logoDataUri = await getNgcpLogoDataUri();
   return exportRecordToPdf({
     title: "Work Done Report",
     fileName: getMaintenanceLogFileName(log),
-    html: buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri),
-    successMessage: "Maintenance log exported successfully.",
+    buildHtml: async () => {
+      const logoDataUri = await getNgcpLogoDataUri();
+      return buildMaintenanceLogHtml(log, options.aircraftData, logoDataUri);
+    },
   });
 };

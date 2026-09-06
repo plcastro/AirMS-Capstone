@@ -8,6 +8,7 @@ import React, {
 import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -415,6 +416,9 @@ export default function ActivityLogs() {
           styles.filterDropdownWrap,
           widthStyle,
           isOpen ? styles.filterDropdownWrapOpen : null,
+          Platform.OS === "android" && isOpen && filterKey === "action"
+            ? styles.filterDropdownWrapOpenAndroid
+            : null,
         ]}
       >
         <TouchableOpacity
@@ -440,7 +444,12 @@ export default function ActivityLogs() {
 
         {isOpen && (
           <View style={styles.unifiedDropdownMenu}>
-            <ScrollView nestedScrollEnabled>
+            <ScrollView
+              style={styles.unifiedDropdownScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
               {options.map((option, index) => (
                 <TouchableOpacity
                   key={option.value}
@@ -544,7 +553,6 @@ export default function ActivityLogs() {
           },
         ],
       });
-      showToast("Activity logs exported as PDF.");
     } catch (error) {
       console.error("Activity logs PDF export failed:", error);
       showToast(error.message || "Failed to export activity logs.");
@@ -570,6 +578,8 @@ export default function ActivityLogs() {
       />
 
       <ScrollView
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -589,7 +599,12 @@ export default function ActivityLogs() {
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             contentContainerStyle={styles.filtersScrollContent}
-            style={styles.filtersScroll}
+            style={[
+              styles.filtersScroll,
+              Platform.OS === "android" && openFilter === "action"
+                ? styles.filtersScrollOpenAndroid
+                : null,
+            ]}
           >
             {filterControls.map((filter) =>
               renderFilterDropdown({
@@ -788,6 +803,10 @@ const styles = StyleSheet.create({
     overflow: "visible",
     zIndex: 20,
   },
+  filtersScrollOpenAndroid: {
+    height: 312,
+    zIndex: 1000,
+  },
   filtersScrollContent: {
     columnGap: 12,
     paddingRight: 8,
@@ -804,6 +823,9 @@ const styles = StyleSheet.create({
   filterDropdownWrapOpen: {
     zIndex: 1000,
     elevation: 6,
+  },
+  filterDropdownWrapOpenAndroid: {
+    height: 312,
   },
   unifiedFilterButton: {
     flexDirection: "row",
@@ -840,6 +862,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
+  },
+  unifiedDropdownScroll: {
+    maxHeight: 258,
   },
   unifiedDropdownItem: {
     paddingHorizontal: 12,

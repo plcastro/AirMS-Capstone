@@ -185,6 +185,7 @@ export default function PartsLifespanMonitoring() {
 
   const loadAircraftData = useCallback(async (aircraft) => {
     if (!aircraft) {
+      setRefs(normalizeRef());
       setParts([]);
       setAircraftDetails({});
       return;
@@ -333,6 +334,13 @@ export default function PartsLifespanMonitoring() {
   const openDatePicker = (target) => {
     if (!canEditParts) return;
     setDatePickerTarget(target);
+  };
+
+  const closePartEditor = () => {
+    setDatePickerTarget((currentTarget) =>
+      currentTarget?.type === "part" ? null : currentTarget,
+    );
+    setSelectedPartIndex(null);
   };
 
   const handleDatePickerChange = (event, selectedDate) => {
@@ -561,7 +569,7 @@ export default function PartsLifespanMonitoring() {
                 ? "Loading aircraft..."
                 : selectedAircraft
                   ? `RP/C: ${selectedAircraft}`
-                  : "Choose Aircraft"}
+                  : "Choose an aircraft"}
             </AppText>
             <MaterialCommunityIcons
               name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
@@ -573,6 +581,19 @@ export default function PartsLifespanMonitoring() {
           {showAircraftDropdown && (
             <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
               <ScrollView nestedScrollEnabled>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !selectedAircraft }}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    styles.unifiedDropdownItemBordered,
+                  ]}
+                  onPress={() => selectAircraft("")}
+                >
+                  <AppText style={styles.unifiedDropdownItemText}>
+                    Choose an aircraft
+                  </AppText>
+                </TouchableOpacity>
                 {aircraftOptions.length === 0 ? (
                   <View style={styles.unifiedDropdownItem}>
                     <AppText style={styles.unifiedDropdownItemText}>
@@ -589,6 +610,10 @@ export default function PartsLifespanMonitoring() {
                           ? styles.unifiedDropdownItemBordered
                           : null,
                       ]}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        selected: selectedAircraft === aircraft,
+                      }}
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
@@ -914,13 +939,9 @@ export default function PartsLifespanMonitoring() {
         </>
       )}
 
-      {datePickerTarget && (
+      {datePickerTarget?.type === "ref" && (
         <DateTimePicker
-          value={parsePickerDate(
-            datePickerTarget.type === "ref"
-              ? refs[datePickerTarget.key]
-              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
-          )}
+          value={parsePickerDate(refs[datePickerTarget.key])}
           mode="date"
           display="default"
           onChange={handleDatePickerChange}
@@ -930,7 +951,7 @@ export default function PartsLifespanMonitoring() {
         visible={Boolean(selectedPart)}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedPartIndex(null)}
+        onRequestClose={closePartEditor}
       >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -1014,6 +1035,18 @@ export default function PartsLifespanMonitoring() {
                       </TouchableOpacity>
                     </View>
                   </View>
+                  {datePickerTarget?.type === "part" && (
+                    <DateTimePicker
+                      value={parsePickerDate(
+                        parts[datePickerTarget.sourceIndex]?.[
+                          datePickerTarget.field
+                        ],
+                      )}
+                      mode="date"
+                      display="default"
+                      onChange={handleDatePickerChange}
+                    />
+                  )}
                 </ScrollView>
                 <View
                   style={[
@@ -1023,7 +1056,7 @@ export default function PartsLifespanMonitoring() {
                 >
                   <TouchableOpacity
                     style={[moduleStyles.button, styles.sheetButton, { backgroundColor: COLORS.grayMedium }]}
-                    onPress={() => setSelectedPartIndex(null)}
+                    onPress={closePartEditor}
                   >
                     <AppText style={moduleStyles.buttonText}>Close</AppText>
                   </TouchableOpacity>

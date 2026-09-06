@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { Picker } from "@react-native-picker/picker";
+import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 
 const REQUEST_ITEMS_PAGE_SIZE = 5;
 
@@ -145,6 +147,7 @@ export default function PartsRequisitionDetails({
   onMarkRestocked,
   onMarkDelivered,
   onExportExcel,
+  alertConfig = {},
 }) {
   const [availableQtyMap, setAvailableQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
@@ -341,9 +344,14 @@ export default function PartsRequisitionDetails({
       visible={visible}
       animationType="fade"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={
+        alertConfig.visible
+          ? alertConfig.onCancel || alertConfig.onConfirm
+          : onClose
+      }
     >
-      <SafeAreaView
+      <IosModalSafeAreaProvider>
+        <SafeAreaView
         style={{
           flex: 1,
           backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -1031,7 +1039,18 @@ export default function PartsRequisitionDetails({
             )}
           </ScrollView>
         </View>
-      </SafeAreaView>
+        <AlertComp
+          embedded
+          visible={Boolean(alertConfig.visible)}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+          onConfirm={alertConfig.onConfirm}
+          onCancel={alertConfig.onCancel}
+        />
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

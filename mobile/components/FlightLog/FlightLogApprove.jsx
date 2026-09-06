@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { styles } from "../../stylesheets/styles";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
   const [data, setData] = useState({
@@ -36,7 +37,7 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
 
   return (
     <Modal transparent animationType="fade" visible={visible}>
-      <View style={styles.modalOverlay}>
+      <IosModalSafeAreaView style={styles.modalOverlay}>
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
@@ -385,7 +386,7 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
             <AppText style={styles.secondaryBtnTxt}>Cancel</AppText>
           </TouchableOpacity>
         </View>
-      </View>
+      </IosModalSafeAreaView>
     </Modal>
   );
 }

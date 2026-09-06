@@ -1,8 +1,6 @@
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "./API_BASE";
-import { requestStoragePermissionForDownload } from "./storagePermission";
+import { saveExportFile } from "./saveExportFile";
 import { showToast } from "./toast";
 const sanitizeFileName = (value) =>
   String(value || "N-A")
@@ -16,17 +14,6 @@ const formatToday = () =>
     year: "numeric",
   });
 
-const arrayBufferToBase64 = (buffer) => {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-
-  return global.btoa(binary);
-};
-
 const downloadInspectionDocument = async (
   inspectionId,
   documentType,
@@ -37,18 +24,11 @@ const downloadInspectionDocument = async (
       throw new Error("Inspection ID is required");
     }
 
-    const canUseStorage = await requestStoragePermissionForDownload();
-    if (!canUseStorage) {
-      throw new Error("Storage permission is required to download files.");
-    }
-
     const token = await AsyncStorage.getItem("currentUserToken");
 
     const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/export-pdf`;
 
     const safeFileName = sanitizeFileName(fileName);
-
-    const fileUri = FileSystem.documentDirectory + safeFileName;
 
     showToast("Generating PDF...");
 
@@ -61,30 +41,11 @@ const downloadInspectionDocument = async (
       throw new Error("Failed to download document from server");
     }
 
-    // Convert to base64
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Data = arrayBufferToBase64(arrayBuffer);
-
-    // Write file
-    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // Share if available
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      showToast(`PDF exported. Saved to: ${fileUri}`);
-      return fileUri;
-    }
-
-    await Sharing.shareAsync(fileUri, {
+    return await saveExportFile({
+      fileName: safeFileName,
       mimeType: "application/pdf",
-      dialogTitle: fileName,
+      bytes: await response.arrayBuffer(),
     });
-
-    showToast("PDF exported successfully.");
-    return fileUri;
   } catch (error) {
     console.error("Download error:", error);
 
@@ -102,14 +63,8 @@ const downloadPartsRequisitionExcel = async (requisitionId, fileName) => {
       throw new Error("Requisition ID is required");
     }
 
-    const canUseStorage = await requestStoragePermissionForDownload();
-    if (!canUseStorage) {
-      throw new Error("Storage permission is required to download files.");
-    }
-
     const token = await AsyncStorage.getItem("currentUserToken");
     const safeFileName = sanitizeFileName(fileName);
-    const fileUri = FileSystem.documentDirectory + safeFileName;
 
     showToast("Generating Excel file...");
 
@@ -124,27 +79,12 @@ const downloadPartsRequisitionExcel = async (requisitionId, fileName) => {
       throw new Error("Failed to download Excel file from server");
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Data = arrayBufferToBase64(arrayBuffer);
-
-    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    const canShare = await Sharing.isAvailableAsync();
-    if (!canShare) {
-      showToast(`Excel exported. Saved to: ${fileUri}`);
-      return fileUri;
-    }
-
-    await Sharing.shareAsync(fileUri, {
+    return await saveExportFile({
+      fileName: safeFileName,
       mimeType:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      dialogTitle: safeFileName,
+      bytes: await response.arrayBuffer(),
     });
-
-    showToast("Excel exported successfully.");
-    return fileUri;
   } catch (error) {
     console.error("Parts requisition Excel export error:", error);
     showToast(error.message || "Unable to export Excel file.");
@@ -158,15 +98,9 @@ const downloadPartsLifespanExcel = async (aircraft) => {
       throw new Error("Select an aircraft before exporting.");
     }
 
-    const canUseStorage = await requestStoragePermissionForDownload();
-    if (!canUseStorage) {
-      throw new Error("Storage permission is required to download files.");
-    }
-
     const token = await AsyncStorage.getItem("currentUserToken");
     const safeAircraft = sanitizeFileName(aircraft);
     const safeFileName = `${safeAircraft}-Parts-Lifespan-Monitoring.xlsx`;
-    const fileUri = FileSystem.documentDirectory + safeFileName;
 
     showToast("Generating Excel file...");
 
@@ -188,23 +122,12 @@ const downloadPartsLifespanExcel = async (aircraft) => {
       throw new Error(message);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Data = arrayBufferToBase64(arrayBuffer);
-    await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-      encoding: FileSystem.EncodingType.Base64,
+    return await saveExportFile({
+      fileName: safeFileName,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      bytes: await response.arrayBuffer(),
     });
-
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(fileUri, {
-        mimeType:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        dialogTitle: safeFileName,
-      });
-    }
-
-    showToast("Parts lifespan monitoring exported successfully");
-    return fileUri;
   } catch (error) {
     console.error("Parts lifespan Excel export error:", error);
     showToast(error.message || "Unable to export parts lifespan workbook.");

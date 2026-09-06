@@ -5,7 +5,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -23,6 +23,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import FlightLogB412Legs from "./FlightLogB412Legs";
 import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import {
@@ -499,6 +500,10 @@ export default function FlightLogEntry({
   }, [loadedAircraftData, formData.rpc]);
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
+  const hasWorkItems =
+    Array.isArray(formData.workItems) && formData.workItems.length > 0;
+  const shouldShowWorkDone =
+    hasWorkItems || (hasDiscrepancy && isMechanic);
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -520,7 +525,7 @@ export default function FlightLogEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy) {
+    if (shouldShowWorkDone) {
       nextTabs.push("Work Done");
     }
 
@@ -543,10 +548,10 @@ export default function FlightLogEntry({
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    if (hasDiscrepancy && !isB412) {
+    if (shouldShowWorkDone && !isB412) {
       tabScrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [hasDiscrepancy, isB412]);
+  }, [shouldShowWorkDone, isB412]);
 
   useEffect(() => {
     if (!isB412 || formData.legs.length === 6) return;
@@ -1073,7 +1078,8 @@ export default function FlightLogEntry({
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
         <View style={{ backgroundColor: "#F9F9F9", paddingTop: 16 }}>
           {/* HEADER ROW */}
@@ -1285,7 +1291,8 @@ export default function FlightLogEntry({
             }
           }}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

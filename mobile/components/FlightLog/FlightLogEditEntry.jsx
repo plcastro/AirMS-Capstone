@@ -24,6 +24,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import FlightLogB412Legs from "./FlightLogB412Legs";
 import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
@@ -56,11 +57,23 @@ const parseDate = (dateValue) => {
   return new Date();
 };
 
+const normalizeFlightLogStatus = (status = "") =>
+  String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+const normalizeEditableFlightLogStatus = (status = "") => {
+  const normalizedStatus = normalizeFlightLogStatus(status);
+
+  return ["", "ongoing", "draft"].includes(normalizedStatus)
+    ? "pending_release"
+    : normalizedStatus;
+};
+
 const isReleasedFlightLogStatus = (status = "") =>
   ["pending_acceptance", "released", "accepted", "completed"].includes(
-    String(status || "")
-      .trim()
-      .toLowerCase(),
+    normalizeFlightLogStatus(status),
   );
 
 const hasDestinationInfo = (log = {}) =>
@@ -152,10 +165,20 @@ export default function FlightLogEditEntry({
   });
   const scrollViewRef = useRef(null);
   const tabScrollViewRef = useRef(null);
-  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const normalizedRole = String(userRole || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
   const isMechanic =
-    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
+    [
+      "mechanic",
+      "engineer",
+      "maintenance manager",
+      "head of maintenance",
+      "admin",
+      "superadmin",
+    ].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -170,6 +193,7 @@ export default function FlightLogEditEntry({
       setFormData({
         ...logData,
         date: parseDate(logData.date),
+        status: normalizeEditableFlightLogStatus(logData.status),
         legs: logIsB412
           ? ensureSixB412Legs(logData.legs)
           : logData.legs || [createEmptyB412Leg()],
@@ -260,6 +284,8 @@ export default function FlightLogEditEntry({
   }, [currentPage]);
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
+  const hasWorkItems = Array.isArray(workItems) && workItems.length > 0;
+  const shouldShowWorkDone = hasDiscrepancy || hasWorkItems;
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -281,7 +307,7 @@ export default function FlightLogEditEntry({
       "Discrepancy/Remarks",
     ];
 
-    if (hasDiscrepancy) {
+    if (shouldShowWorkDone) {
       nextTabs.push("Work Done");
     }
 
@@ -303,16 +329,14 @@ export default function FlightLogEditEntry({
   const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
   const isDiscrepancyEditable = !readOnly && !isCompletedLog;
   const isWorkDoneEditable =
-    !readOnly &&
-    !isCompletedLog &&
-    isMechanic &&
-    formData.status === "pending_release";
+    !readOnly && !isCompletedLog && !isB412 && shouldShowWorkDone;
+  const isB412CorrectionEditable = isDiscrepancyEditable;
 
   useEffect(() => {
-    if (hasDiscrepancy && !isB412) {
+    if (shouldShowWorkDone && !isB412) {
       tabScrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [hasDiscrepancy, isB412]);
+  }, [shouldShowWorkDone, isB412]);
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -754,7 +778,7 @@ export default function FlightLogEditEntry({
             isComponentEditable &&
             !(currentTab === "BRT Forward" && isBroughtForwardLocked)
           }
-          correctionEditable={isWorkDoneEditable}
+          correctionEditable={isB412CorrectionEditable}
         />
       );
     }
@@ -876,7 +900,8 @@ export default function FlightLogEditEntry({
   return (
     <>
       <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+        <IosModalSafeAreaProvider>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
@@ -1293,7 +1318,8 @@ export default function FlightLogEditEntry({
             </AppText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+          </SafeAreaView>
+        </IosModalSafeAreaProvider>
       </Modal>
 
       <FlightLogSignatureModal

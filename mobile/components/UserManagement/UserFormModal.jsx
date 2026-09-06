@@ -20,6 +20,7 @@ import {
 } from "./constants";
 import * as ImageManipulator from "expo-image-manipulator";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 const buildUsername = ({
   firstName,
@@ -103,6 +104,7 @@ export default function UserFormModal({
       setPickedImageAsset(null);
     }
     setError("");
+    setShowDiscardAlert(false);
   }, [isEdit, userToEdit, visible]);
 
   useEffect(() => {
@@ -259,9 +261,13 @@ export default function UserFormModal({
         visible={visible}
         transparent
         animationType="slide"
-        onRequestClose={handleCancelWithWarning}
+        onRequestClose={
+          showDiscardAlert
+            ? () => setShowDiscardAlert(false)
+            : handleCancelWithWarning
+        }
       >
-        <View style={styles.backdrop}>
+        <IosModalSafeAreaView style={styles.backdrop}>
           <View style={styles.card}>
             <AppText style={styles.title}>
               {isEdit ? "Edit User" : "Add User"}
@@ -440,20 +446,21 @@ export default function UserFormModal({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          <AlertComp
+            embedded
+            visible={showDiscardAlert}
+            title="Discard changes?"
+            message="You have unsaved changes. Cancel and discard them?"
+            cancelText="Keep editing"
+            confirmText="Discard"
+            onCancel={() => setShowDiscardAlert(false)}
+            onConfirm={() => {
+              setShowDiscardAlert(false);
+              onClose?.();
+            }}
+          />
+        </IosModalSafeAreaView>
       </Modal>
-      <AlertComp
-        visible={showDiscardAlert}
-        title="Discard changes?"
-        message="You have unsaved changes. Cancel and discard them?"
-        cancelText="Keep editing"
-        confirmText="Discard"
-        onCancel={() => setShowDiscardAlert(false)}
-        onConfirm={() => {
-          setShowDiscardAlert(false);
-          onClose?.();
-        }}
-      />
     </>
   );
 }

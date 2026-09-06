@@ -17,6 +17,7 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 const { width } = Dimensions.get("window");
 
@@ -463,7 +464,7 @@ export default function EditTask({
   return (
     <>
       <Modal visible={visible} animationType="slide" transparent>
-        <View style={styles.alertOverlay}>
+        <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
               styles.alertContainer,
@@ -748,7 +749,7 @@ export default function EditTask({
               />
             </View>
           </View>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
       <AlertComp
         visible={saveConfirmVisible}

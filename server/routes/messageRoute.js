@@ -6,6 +6,8 @@ const {
   messageUpload,
   saveMessageAttachments,
   handleMessageUploadError,
+  handleMessageAttachmentUpload,
+  validateDirectMessageAttachments,
 } = require("../middleware/messageUpload");
 const {
   getMessageUsers,
@@ -14,6 +16,7 @@ const {
   createGroupConversation,
   getThread,
   sendMessage,
+  getMessageAttachmentUrl,
 } = require("../controllers/messageController");
 
 router.use(verifyToken);
@@ -22,6 +25,15 @@ router.get("/users", getMessageUsers);
 router.get("/conversations", getConversations);
 router.get("/summary", getMessageSummary);
 router.post("/groups", touchSessionActivity, createGroupConversation);
+router.post(
+  "/attachments/upload",
+  touchSessionActivity,
+  handleMessageAttachmentUpload,
+);
+router.get(
+  "/:messageId/attachments/:attachmentIndex",
+  getMessageAttachmentUrl,
+);
 router.get("/:otherUserId", getThread);
 router.post(
   "/",
@@ -29,6 +41,7 @@ router.post(
   messageUpload.array("attachments", 5),
   handleMessageUploadError,
   saveMessageAttachments,
+  validateDirectMessageAttachments,
   sendMessage,
 );
 

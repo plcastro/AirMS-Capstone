@@ -117,7 +117,7 @@ export default function FlightLogModalWorkDone({
     </View>
   );
 
-  if (workItems.length === 0 && isEditable) {
+  if (workItems.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
@@ -140,22 +140,26 @@ export default function FlightLogModalWorkDone({
         }}>
           <MaterialCommunityIcons name="tools" size={48} color={COLORS.grayMedium} />
           <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 12, textAlign: "center" }}>
-            No work items yet
+            {isEditable
+              ? "No work items yet"
+              : "No work done has been recorded yet"}
           </AppText>
-          <TouchableOpacity
-            onPress={addWorkItem}
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 6,
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-              marginTop: 16,
-            }}
-          >
-            <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>
-              + Add Work Done
-            </AppText>
-          </TouchableOpacity>
+          {isEditable && (
+            <TouchableOpacity
+              onPress={addWorkItem}
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 6,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                marginTop: 16,
+              }}
+            >
+              <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>
+                + Add Work Done
+              </AppText>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     );

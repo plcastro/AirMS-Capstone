@@ -240,8 +240,12 @@ export default function ChatView({
                         {item.body}
                       </AppText>
                     ) : null}
-                    {(item.attachments || []).map((attachment) => {
-                      const url = getAttachmentUrl(attachment.url);
+                    {(item.attachments || []).map((attachment, attachmentIndex) => {
+                      const url = getAttachmentUrl(
+                        attachment.url,
+                        item._id,
+                        attachmentIndex,
+                      );
                       const isImage =
                         attachment.kind === "image" ||
                         attachment.mimeType?.startsWith("image/");

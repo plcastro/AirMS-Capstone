@@ -6,9 +6,17 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, AppState, BackHandler, View } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  BackHandler,
+  Platform,
+  View,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { upload } from "@vercel/blob/client";
 import * as DocumentPicker from "expo-document-picker";
+import { File as ExpoFile } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../Context/AuthContext";
@@ -22,8 +30,102 @@ import ChatView from "../../components/Messaging/ChatView";
 
 const LIVE_SYNC_INTERVAL_MS = 1000;
 const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
+const MAX_MESSAGE_ATTACHMENTS = 5;
+const MAX_MESSAGE_ATTACHMENT_MB = 10;
+const MAX_MESSAGE_ATTACHMENT_BYTES =
+  MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
+const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
+  "application/msword",
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/csv",
+  "text/plain",
+]);
+const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
+  csv: "text/csv",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 
 const ignoreBackgroundMessagingError = () => {};
+
+const getFilenameExtension = (filename = "") => {
+  const match = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
+  return match?.[1] || "";
+};
+
+const getAttachmentMimeType = (file) => {
+  const declaredType = String(file?.type || "").toLowerCase();
+  if (declaredType && declaredType !== "application/octet-stream") {
+    return declaredType;
+  }
+
+  return (
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[
+      getFilenameExtension(file?.name)
+    ] || declaredType
+  );
+};
+
+const getAttachmentValidationError = (file, size = file?.size) => {
+  if (Number(size || 0) > MAX_MESSAGE_ATTACHMENT_BYTES) {
+    return `${file?.name || "Attachment"} is larger than ${MAX_MESSAGE_ATTACHMENT_MB} MB.`;
+  }
+
+  const mimeType = getAttachmentMimeType(file);
+  if (
+    !mimeType.startsWith("image/") &&
+    !ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES.has(mimeType)
+  ) {
+    return `${file?.name || "Attachment"} is not a supported file type.`;
+  }
+
+  return "";
+};
+
+const sanitizeAttachmentPathnamePart = (filename = "attachment") =>
+  String(filename)
+    .replace(/[^\w.\-() ]+/g, "_")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "attachment";
+
+const buildAttachmentPathname = (userId, file, index) =>
+  `messages/${userId}/${Date.now()}-${index}-${sanitizeAttachmentPathnamePart(file.name)}`;
+
+const isLocalApiBase = (() => {
+  try {
+    return ["localhost", "127.0.0.1", "10.0.2.2"].includes(
+      new URL(API_BASE).hostname,
+    );
+  } catch {
+    return false;
+  }
+})();
+
+const isPrivateMessageAttachment = (url) =>
+  String(url || "").startsWith("messages/");
+
+const getAttachmentCacheKey = (messageId, attachmentIndex, url) =>
+  `${messageId}:${attachmentIndex}:${url}`;
+
+const getUploadErrorMessage = (error) => {
+  if (
+    error?.status === 413 ||
+    /too large|maximum size|exceeds.*size/i.test(error?.message || "")
+  ) {
+    return `Each attachment must be ${MAX_MESSAGE_ATTACHMENT_MB} MB or smaller.`;
+  }
+
+  return error?.message || "Failed to upload attachment. Please try again.";
+};
 
 const getDisplayName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
@@ -39,9 +141,16 @@ const getEntityId = (value) => value?._id || value?.id || value;
 
 const getAttachmentUrl = (url) => {
   if (!url) return "";
-  return String(url).startsWith("http") || String(url).startsWith("file:")
-    ? url
-    : `${API_BASE}${url}`;
+  const value = String(url);
+  if (
+    value.startsWith("http") ||
+    value.startsWith("file:") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+  return `${API_BASE}${value.startsWith("/") ? "" : "/"}${value}`;
 };
 
 const getAttachmentLabel = (attachments = []) => {
@@ -123,6 +232,7 @@ export default function Messaging({ navigation, route }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState({});
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
@@ -140,6 +250,7 @@ export default function Messaging({ navigation, route }) {
   const liveSyncPausedUntilRef = useRef(0);
   const notifiedMessageIdsRef = useRef(new Set());
   const handledNotificationTargetRef = useRef("");
+  const attachmentUrlCacheRef = useRef(new Map());
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -281,6 +392,69 @@ export default function Messaging({ navigation, route }) {
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
+
+  useEffect(() => {
+    const refreshBeforeMs = 30 * 1000;
+
+    messages.forEach((message) => {
+      if (String(message?._id || "").startsWith("temp-")) return;
+
+      (message.attachments || []).forEach((attachment, attachmentIndex) => {
+        if (!isPrivateMessageAttachment(attachment?.url)) return;
+
+        const cacheKey = getAttachmentCacheKey(
+          message._id,
+          attachmentIndex,
+          attachment.url,
+        );
+        const cached = attachmentUrlCacheRef.current.get(cacheKey);
+        if (
+          cached?.pending ||
+          cached?.retryAt > Date.now() ||
+          (cached?.url && cached.expiresAt > Date.now() + refreshBeforeMs)
+        ) {
+          return;
+        }
+
+        attachmentUrlCacheRef.current.set(cacheKey, { pending: true });
+        authFetch(
+          `${API_BASE}/api/messages/${message._id}/attachments/${attachmentIndex}`,
+        )
+          .then((data) => {
+            if (!data?.data?.url) return;
+            const expiresAt = data.data.expiresAt
+              ? new Date(data.data.expiresAt).getTime()
+              : Number.MAX_SAFE_INTEGER;
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              url: data.data.url,
+              expiresAt,
+            });
+            setResolvedAttachmentUrls((current) => ({
+              ...current,
+              [cacheKey]: data.data.url,
+            }));
+          })
+          .catch(() => {
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              retryAt: Date.now() + 30 * 1000,
+            });
+          });
+      });
+    });
+  }, [authFetch, messages]);
+
+  const getDisplayAttachmentUrl = useCallback(
+    (url, messageId, attachmentIndex) => {
+      if (!isPrivateMessageAttachment(url)) return getAttachmentUrl(url);
+      const cacheKey = getAttachmentCacheKey(
+        messageId,
+        attachmentIndex,
+        url,
+      );
+      return resolvedAttachmentUrls[cacheKey] || "";
+    },
+    [resolvedAttachmentUrls],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -599,9 +773,18 @@ export default function Messaging({ navigation, route }) {
       return;
     }
 
+    const attachmentsToSend = [...attachments];
+    const invalidAttachment = attachmentsToSend.find((file) =>
+      getAttachmentValidationError(file),
+    );
+    if (invalidAttachment) {
+      showToast(getAttachmentValidationError(invalidAttachment));
+      return;
+    }
+
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
-    const pendingAttachments = attachments.map((file) => ({
+    const pendingAttachments = attachmentsToSend.map((file) => ({
       url: file.uri,
       name: file.name,
       mimeType: file.type,
@@ -624,21 +807,74 @@ export default function Messaging({ navigation, route }) {
 
     try {
       setSending(true);
-      const formData = new FormData();
-      formData.append(isGroup ? "conversationId" : "recipientId", selectedConversation.id);
-      formData.append("body", body);
-      attachments.forEach((file) => {
-        formData.append("attachments", {
-          uri: file.uri,
-          name: file.name,
-          type: file.type || "application/octet-stream",
-        });
-      });
+      let data;
 
-      const data = await authFetch(`${API_BASE}/api/messages`, {
-        method: "POST",
-        body: formData,
-      });
+      if (isLocalApiBase && attachmentsToSend.length > 0) {
+        const formData = new FormData();
+        formData.append(
+          isGroup ? "conversationId" : "recipientId",
+          selectedConversation.id,
+        );
+        formData.append("body", body);
+        attachmentsToSend.forEach((file) => {
+          formData.append("attachments", {
+            uri: file.uri,
+            name: file.name,
+            type: file.type || "application/octet-stream",
+          });
+        });
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const token = await getToken();
+        if (!token) {
+          throw new Error("Session expired. Please log in again.");
+        }
+
+        const uploadedAttachments = [];
+        for (const [index, file] of attachmentsToSend.entries()) {
+          const mimeType = getAttachmentMimeType(file);
+          const uploadBody =
+            Platform.OS === "web"
+              ? await fetch(file.uri).then((response) => response.blob())
+              : new ExpoFile(file.uri);
+          const validationError = getAttachmentValidationError(
+            file,
+            uploadBody.size || file.size,
+          );
+          if (validationError) throw new Error(validationError);
+
+          const blob = await upload(
+            buildAttachmentPathname(currentUserId, file, index),
+            uploadBody,
+            {
+              access: "private",
+              handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
+              headers: { Authorization: `Bearer ${token}` },
+              contentType: mimeType,
+            },
+          );
+          uploadedAttachments.push({
+            pathname: blob.pathname,
+            name: file.name,
+            mimeType: blob.contentType || mimeType,
+            size: uploadBody.size || file.size || 0,
+          });
+        }
+
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            [isGroup ? "conversationId" : "recipientId"]:
+              selectedConversation.id,
+            body,
+            attachments: uploadedAttachments,
+          }),
+        });
+      }
 
       setMessages((current) =>
         current
@@ -663,7 +899,11 @@ export default function Messaging({ navigation, route }) {
           item._id === tempId ? { ...item, deliveryStatus: "failed" } : item,
         ),
       );
-      showToast(error.message || "Failed to send message");
+      setDraft((current) => current || body);
+      setAttachments((current) =>
+        current.length > 0 ? current : attachmentsToSend,
+      );
+      showToast(getUploadErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -691,7 +931,24 @@ export default function Messaging({ navigation, route }) {
       size: asset.fileSize || 0,
     }));
 
-    setAttachments((current) => [...current, ...selected].slice(0, 5));
+    const valid = selected.filter((file) => {
+      const validationError = getAttachmentValidationError(file);
+      if (validationError) showToast(validationError);
+      return !validationError;
+    });
+    const availableSlots = Math.max(
+      0,
+      MAX_MESSAGE_ATTACHMENTS - attachments.length,
+    );
+    if (valid.length > availableSlots) {
+      showToast(
+        `You can attach up to ${MAX_MESSAGE_ATTACHMENTS} files per message.`,
+      );
+    }
+    setAttachments((current) => [
+      ...current,
+      ...valid.slice(0, availableSlots),
+    ]);
   };
 
   const handlePickFile = async () => {
@@ -718,7 +975,24 @@ export default function Messaging({ navigation, route }) {
       size: asset.size || 0,
     }));
 
-    setAttachments((current) => [...current, ...selected].slice(0, 5));
+    const valid = selected.filter((file) => {
+      const validationError = getAttachmentValidationError(file);
+      if (validationError) showToast(validationError);
+      return !validationError;
+    });
+    const availableSlots = Math.max(
+      0,
+      MAX_MESSAGE_ATTACHMENTS - attachments.length,
+    );
+    if (valid.length > availableSlots) {
+      showToast(
+        `You can attach up to ${MAX_MESSAGE_ATTACHMENTS} files per message.`,
+      );
+    }
+    setAttachments((current) => [
+      ...current,
+      ...valid.slice(0, availableSlots),
+    ]);
   };
 
   const removeAttachment = (index) => {
@@ -829,7 +1103,7 @@ export default function Messaging({ navigation, route }) {
       removeAttachment={removeAttachment}
       handlePickImage={handlePickImage}
       handlePickFile={handlePickFile}
-      getAttachmentUrl={getAttachmentUrl}
+      getAttachmentUrl={getDisplayAttachmentUrl}
       handleSend={handleSend}
       sending={sending}
       membersModalOpen={membersModalOpen}

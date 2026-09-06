@@ -19,6 +19,7 @@ import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior
 import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import { getDefaultPostInspectionFormData } from "./PostInspectionForms";
 import { showToast } from "../../utilities/toast";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 
 export default function PostInspectionEntry({
   visible,
@@ -158,7 +159,8 @@ export default function PostInspectionEntry({
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
@@ -314,7 +316,8 @@ export default function PostInspectionEntry({
             </AppText>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

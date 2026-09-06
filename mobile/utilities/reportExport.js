@@ -1,10 +1,11 @@
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import { Image } from "react-native";
-import { requestStoragePermissionForDownload } from "./storagePermission";
+import { Image, Platform } from "react-native";
 import { API_BASE } from "./API_BASE";
 import { getAuthHeaders } from "./mobileApi";
+import { saveExportFile } from "./saveExportFile";
+import { showToast } from "./toast";
+import { openPdfPrintDialogOnWeb } from "./webPdfExport";
 
 const NGCP_LOGO_ASSET = require("../assets/ngcp-logo.png");
 let cachedNgcpLogoDataUri = "";
@@ -256,11 +257,6 @@ export const exportReportPdf = async ({
   barCharts = [],
   fileName,
 }) => {
-  const canUseStorage = await requestStoragePermissionForDownload();
-  if (!canUseStorage) {
-    throw new Error("Storage permission is required to download files.");
-  }
-
   const normalizedSections = normalizeSections(sections);
   const logoDataUri = await getNgcpLogoDataUri();
   const html = buildHtml(
@@ -270,19 +266,20 @@ export const exportReportPdf = async ({
     summaryCards,
     barCharts,
   );
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const finalUri = `${FileSystem.documentDirectory || FileSystem.cacheDirectory}${resolveExportFileName(fileName, title, "pdf")}`;
-  await FileSystem.copyAsync({ from: uri, to: finalUri });
 
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(finalUri, {
-      mimeType: "application/pdf",
-      dialogTitle: title,
-      UTI: "com.adobe.pdf",
-    });
+  if (Platform.OS === "web") {
+    const result = await openPdfPrintDialogOnWeb(html, title);
+    showToast("Print dialog opened. Choose Save as PDF to download it.");
+    return result;
   }
 
-  return finalUri;
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return saveExportFile({
+    fileName: resolveExportFileName(fileName, title, "pdf"),
+    mimeType: "application/pdf",
+    sourceUri: uri,
+    cleanupSource: true,
+  });
 };
 
 export const exportReportExcel = async ({
@@ -290,11 +287,6 @@ export const exportReportExcel = async ({
   sections = [],
   fileName,
 }) => {
-  const canUseStorage = await requestStoragePermissionForDownload();
-  if (!canUseStorage) {
-    throw new Error("Storage permission is required to download files.");
-  }
-
   const normalizedSections = normalizeSections(sections);
   const response = await fetch(`${API_BASE}/api/reports/export-excel`, {
     method: "POST",
@@ -306,44 +298,22 @@ export const exportReportExcel = async ({
     throw new Error(payload?.message || "Failed to generate Excel report.");
   }
 
-  const finalUri = `${FileSystem.documentDirectory || FileSystem.cacheDirectory}${resolveExportFileName(fileName, title, "xlsx")}`;
-  const base64 = arrayBufferToBase64(await response.arrayBuffer());
-  await FileSystem.writeAsStringAsync(finalUri, base64, {
-    encoding: FileSystem.EncodingType.Base64,
+  return saveExportFile({
+    fileName: resolveExportFileName(fileName, title, "xlsx"),
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    bytes: await response.arrayBuffer(),
   });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(finalUri, {
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      dialogTitle: title,
-      UTI: "org.openxmlformats.spreadsheetml.sheet",
-    });
-  }
-  return finalUri;
 };
 
 export const exportReportCsv = async ({ title = "analytics-report", sections = [] }) => {
-  const canUseStorage = await requestStoragePermissionForDownload();
-  if (!canUseStorage) {
-    throw new Error("Storage permission is required to download files.");
-  }
-
   const normalizedSections = normalizeSections(sections);
   const csv = buildCsv(normalizedSections);
   const fileName = buildReportFileName(title, "csv");
-  const uri = `${FileSystem.cacheDirectory}${fileName}`;
 
-  await FileSystem.writeAsStringAsync(uri, csv, {
-    encoding: FileSystem.EncodingType.UTF8,
+  return saveExportFile({
+    fileName,
+    mimeType: "text/csv",
+    text: csv,
   });
-
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      mimeType: "text/csv",
-      dialogTitle: title,
-      UTI: "public.comma-separated-values-text",
-    });
-  }
-
-  return uri;
 };
