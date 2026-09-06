@@ -7,6 +7,7 @@ const Docxtemplater = require("docxtemplater");
 const sharp = require("sharp");
 const PDFDocument = require("pdfkit");
 const UserModel = require("../models/userModel");
+const POST_INSPECTION_PDF_GROUPS = require("./postInspectionPdfCatalog");
 const B412_PRE_INSPECTION_CHECKLIST = require("../../shared/b412PreInspectionChecklist.json");
 const B412_POST_INSPECTION_CHECKLIST = require("../../shared/b412PostInspectionChecklist.json");
 

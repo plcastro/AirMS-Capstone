@@ -336,6 +336,13 @@ export default function PartsLifespanMonitoring() {
     setDatePickerTarget(target);
   };
 
+  const closePartEditor = () => {
+    setDatePickerTarget((currentTarget) =>
+      currentTarget?.type === "part" ? null : currentTarget,
+    );
+    setSelectedPartIndex(null);
+  };
+
   const handleDatePickerChange = (event, selectedDate) => {
     const target = datePickerTarget;
     setDatePickerTarget(null);
@@ -932,13 +939,9 @@ export default function PartsLifespanMonitoring() {
         </>
       )}
 
-      {datePickerTarget && (
+      {datePickerTarget?.type === "ref" && (
         <DateTimePicker
-          value={parsePickerDate(
-            datePickerTarget.type === "ref"
-              ? refs[datePickerTarget.key]
-              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
-          )}
+          value={parsePickerDate(refs[datePickerTarget.key])}
           mode="date"
           display="default"
           onChange={handleDatePickerChange}
@@ -948,7 +951,7 @@ export default function PartsLifespanMonitoring() {
         visible={Boolean(selectedPart)}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedPartIndex(null)}
+        onRequestClose={closePartEditor}
       >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -1032,6 +1035,18 @@ export default function PartsLifespanMonitoring() {
                       </TouchableOpacity>
                     </View>
                   </View>
+                  {datePickerTarget?.type === "part" && (
+                    <DateTimePicker
+                      value={parsePickerDate(
+                        parts[datePickerTarget.sourceIndex]?.[
+                          datePickerTarget.field
+                        ],
+                      )}
+                      mode="date"
+                      display="default"
+                      onChange={handleDatePickerChange}
+                    />
+                  )}
                 </ScrollView>
                 <View
                   style={[
@@ -1041,7 +1056,7 @@ export default function PartsLifespanMonitoring() {
                 >
                   <TouchableOpacity
                     style={[moduleStyles.button, styles.sheetButton, { backgroundColor: COLORS.grayMedium }]}
-                    onPress={() => setSelectedPartIndex(null)}
+                    onPress={closePartEditor}
                   >
                     <AppText style={moduleStyles.buttonText}>Close</AppText>
                   </TouchableOpacity>

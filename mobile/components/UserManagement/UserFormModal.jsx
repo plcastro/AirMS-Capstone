@@ -104,6 +104,7 @@ export default function UserFormModal({
       setPickedImageAsset(null);
     }
     setError("");
+    setShowDiscardAlert(false);
   }, [isEdit, userToEdit, visible]);
 
   useEffect(() => {
@@ -260,7 +261,11 @@ export default function UserFormModal({
         visible={visible}
         transparent
         animationType="slide"
-        onRequestClose={handleCancelWithWarning}
+        onRequestClose={
+          showDiscardAlert
+            ? () => setShowDiscardAlert(false)
+            : handleCancelWithWarning
+        }
       >
         <IosModalSafeAreaView style={styles.backdrop}>
           <View style={styles.card}>
@@ -441,20 +446,21 @@ export default function UserFormModal({
               </TouchableOpacity>
             </View>
           </View>
+          <AlertComp
+            embedded
+            visible={showDiscardAlert}
+            title="Discard changes?"
+            message="You have unsaved changes. Cancel and discard them?"
+            cancelText="Keep editing"
+            confirmText="Discard"
+            onCancel={() => setShowDiscardAlert(false)}
+            onConfirm={() => {
+              setShowDiscardAlert(false);
+              onClose?.();
+            }}
+          />
         </IosModalSafeAreaView>
       </Modal>
-      <AlertComp
-        visible={showDiscardAlert}
-        title="Discard changes?"
-        message="You have unsaved changes. Cancel and discard them?"
-        cancelText="Keep editing"
-        confirmText="Discard"
-        onCancel={() => setShowDiscardAlert(false)}
-        onConfirm={() => {
-          setShowDiscardAlert(false);
-          onClose?.();
-        }}
-      />
     </>
   );
 }
