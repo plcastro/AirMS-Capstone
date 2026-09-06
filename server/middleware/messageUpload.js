@@ -225,7 +225,7 @@ const saveMessageAttachments = async (req, res, next) => {
       let idOrPath;
       if (process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN) {
         const blob = await put(`messages/${storedName}`, file.buffer, {
-          access: "public", // switched to public
+          access: "private", // switched to private
           contentType: file.mimetype || "application/octet-stream",
           token: process.env.DOCUMENT_BLOB_READ_WRITE_TOKEN,
         });
