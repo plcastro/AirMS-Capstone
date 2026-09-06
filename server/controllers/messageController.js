@@ -553,11 +553,14 @@ const getMessageAttachmentUrl = async (req, res) => {
       pathname,
       operation: "get",
       validUntil,
-      access: "private",
+      access: "public",
     });
 
     return res.status(200).json({
-      data: { url: presignedUrl, expiresAt: new Date(validUntil).toISOString() },
+      data: {
+        url: presignedUrl,
+        expiresAt: new Date(validUntil).toISOString(),
+      },
     });
   } catch (error) {
     console.error("Failed to prepare message attachment download:", error);

@@ -45,8 +45,7 @@ const { TextArea } = Input;
 const LIVE_SYNC_INTERVAL_MS = 1000;
 const MAX_MESSAGE_ATTACHMENTS = 5;
 const MAX_MESSAGE_ATTACHMENT_MB = 10;
-const MAX_MESSAGE_ATTACHMENT_BYTES =
-  MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
 const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
 const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
   "application/msword",
@@ -68,7 +67,9 @@ const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
 };
 
 const getFilenameExtension = (filename = "") => {
-  const match = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
   return match?.[1] || "";
 };
 
@@ -79,9 +80,8 @@ const getAttachmentMimeType = (file) => {
   }
 
   return (
-    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[
-      getFilenameExtension(file?.name)
-    ] || declaredType
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
   );
 };
 
@@ -721,7 +721,7 @@ export default function Messaging() {
               buildAttachmentPathname(currentUserId, file, index),
               file,
               {
-                access: "private",
+                access: "public",
                 handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
                 headers: authHeaders,
                 contentType: mimeType,

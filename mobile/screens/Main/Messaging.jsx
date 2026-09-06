@@ -32,8 +32,7 @@ const LIVE_SYNC_INTERVAL_MS = 1000;
 const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
 const MAX_MESSAGE_ATTACHMENTS = 5;
 const MAX_MESSAGE_ATTACHMENT_MB = 10;
-const MAX_MESSAGE_ATTACHMENT_BYTES =
-  MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
 const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
 const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
   "application/msword",
@@ -57,7 +56,9 @@ const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
 const ignoreBackgroundMessagingError = () => {};
 
 const getFilenameExtension = (filename = "") => {
-  const match = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
   return match?.[1] || "";
 };
 
@@ -68,9 +69,8 @@ const getAttachmentMimeType = (file) => {
   }
 
   return (
-    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[
-      getFilenameExtension(file?.name)
-    ] || declaredType
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
   );
 };
 
@@ -357,14 +357,11 @@ export default function Messaging({ navigation, route }) {
     await fetchConversations();
   }, [fetchConversations, fetchThread]);
 
-  const notifyIncomingChat = useCallback(
-    (messagePayload) => {
-      const messageId = String(messagePayload?._id || "");
-      if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
-      notifiedMessageIdsRef.current.add(messageId);
-    },
-    [],
-  );
+  const notifyIncomingChat = useCallback((messagePayload) => {
+    const messageId = String(messagePayload?._id || "");
+    if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
+    notifiedMessageIdsRef.current.add(messageId);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -446,11 +443,7 @@ export default function Messaging({ navigation, route }) {
   const getDisplayAttachmentUrl = useCallback(
     (url, messageId, attachmentIndex) => {
       if (!isPrivateMessageAttachment(url)) return getAttachmentUrl(url);
-      const cacheKey = getAttachmentCacheKey(
-        messageId,
-        attachmentIndex,
-        url,
-      );
+      const cacheKey = getAttachmentCacheKey(messageId, attachmentIndex, url);
       return resolvedAttachmentUrls[cacheKey] || "";
     },
     [resolvedAttachmentUrls],
@@ -624,7 +617,13 @@ export default function Messaging({ navigation, route }) {
       }
       wsRef.current?.close?.();
     };
-  }, [currentUserId, fetchConversations, fetchThread, getToken, notifyIncomingChat]);
+  }, [
+    currentUserId,
+    fetchConversations,
+    fetchThread,
+    getToken,
+    notifyIncomingChat,
+  ]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -766,7 +765,6 @@ export default function Messaging({ navigation, route }) {
     setMessages([]);
   };
 
-
   const handleSend = async () => {
     const body = draft.trim();
     if (!selectedConversation?.id || (!body && attachments.length === 0)) {
@@ -850,7 +848,7 @@ export default function Messaging({ navigation, route }) {
             buildAttachmentPathname(currentUserId, file, index),
             uploadBody,
             {
-              access: "private",
+              access: "public",
               handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
               headers: { Authorization: `Bearer ${token}` },
               contentType: mimeType,
