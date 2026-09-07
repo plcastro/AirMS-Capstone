@@ -13,6 +13,15 @@ import { showToast } from "../../utilities/toast";
 import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
+
+const getTaskAssigneeId = (task = {}) => {
+  const assignee = task.assignedTo;
+  if (assignee && typeof assignee === "object") {
+    return assignee._id || assignee.id || "";
+  }
+  return assignee || "";
+};
+
 export default function MechanicTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -106,7 +115,7 @@ export default function MechanicTaskScreen({
       if (response.ok) {
         const data = await parseJsonSafely(response);
         const assignedTasks = (data?.data || []).filter(
-          (task) => String(task.assignedTo) === String(currentUserId),
+          (task) => String(getTaskAssigneeId(task)) === String(currentUserId),
         );
         setTasks(assignedTasks || []);
       } else {

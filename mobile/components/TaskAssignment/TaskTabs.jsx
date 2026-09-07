@@ -486,13 +486,16 @@ export default function TaskTabs({
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
+        style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           flexDirection: "row",
           justifyContent: "flex-start",
+          alignItems: "center",
           gap: 3,
           paddingRight: 8,
+          paddingBottom: 8,
         }}
       >
         {tabsToRender.map((tab) => (

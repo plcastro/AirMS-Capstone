@@ -681,8 +681,10 @@ export default function TaskAssignment() {
     () =>
       isManager
         ? tasks
-        : tasks.filter((task) => String(task.assignedTo) === String(user?.id)),
-    [isManager, tasks, user?.id],
+        : tasks.filter(
+            (task) => String(getTaskAssigneeId(task)) === String(user?.id),
+          ),
+    [getTaskAssigneeId, isManager, tasks, user?.id],
   );
 
   const filteredByTab = useMemo(() => {

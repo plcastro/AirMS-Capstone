@@ -29,6 +29,14 @@ const normalizeTaskStatus = (status) =>
     .trim()
     .toLowerCase();
 
+const getTaskAssigneeId = (task = {}) => {
+  const assignee = task.assignedTo;
+  if (assignee && typeof assignee === "object") {
+    return assignee._id || assignee.id || "";
+  }
+  return assignee || "";
+};
+
 export default function HeadTaskScreen({
   targetTaskId,
   targetNotificationStatus,
@@ -86,7 +94,7 @@ export default function HeadTaskScreen({
         .trim()
         .toLowerCase();
       return (
-        String(task?.assignedTo || "") === String(employeeId) &&
+        String(getTaskAssigneeId(task)) === String(employeeId) &&
         OPEN_TASK_STATUSES.has(status)
       );
     });
@@ -97,7 +105,7 @@ export default function HeadTaskScreen({
       isBusy: isEmployeeBusy(employee.id),
       activeTaskCount: tasks.filter(
         (task) =>
-          String(task?.assignedTo || "") === String(employee.id) &&
+          String(getTaskAssigneeId(task)) === String(employee.id) &&
           OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
       ).length,
     }));
@@ -329,7 +337,7 @@ export default function HeadTaskScreen({
     );
     const activeTaskCount = tasks.filter(
       (task) =>
-        String(task?.assignedTo || "") === String(updatedTask.assignedTo) &&
+        String(getTaskAssigneeId(task)) === String(updatedTask.assignedTo) &&
         String(task?.id || task?._id || "") !==
           String(updatedTask.id || updatedTask._id || "") &&
         OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
