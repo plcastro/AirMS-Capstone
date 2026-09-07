@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { upload } from "@vercel/blob/client";
+
 import * as DocumentPicker from "expo-document-picker";
 import { File as ExpoFile } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
@@ -809,18 +809,22 @@ export default function Messaging({ navigation, route }) {
 
       if (isLocalApiBase && attachmentsToSend.length > 0) {
         const formData = new FormData();
+
         formData.append(
           isGroup ? "conversationId" : "recipientId",
           selectedConversation.id,
         );
+
         formData.append("body", body);
+
         attachmentsToSend.forEach((file) => {
           formData.append("attachments", {
             uri: file.uri,
             name: file.name,
-            type: file.type || "application/octet-stream",
+            type: getAttachmentMimeType(file) || "application/octet-stream",
           });
         });
+
         data = await authFetch(`${API_BASE}/api/messages`, {
           method: "POST",
           body: formData,
