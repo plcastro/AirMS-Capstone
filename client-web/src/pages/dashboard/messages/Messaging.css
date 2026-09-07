@@ -93,7 +93,13 @@
   flex-direction: column;
   gap: 6px;
   max-width: 260px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
 }
 
@@ -152,6 +158,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.message-image-preview-modal .ant-modal-content {
+  overflow: hidden;
+}
+
+.message-image-preview-modal .ant-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: calc(92vh - 72px);
+  padding: 12px;
+  background: #0f1211;
+}
+
+.message-image-preview {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 96px);
+  object-fit: contain;
 }
 
 .messages-user-list::-webkit-scrollbar {

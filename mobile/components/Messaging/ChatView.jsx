@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Modal,
   ScrollView,
   TouchableOpacity,
   View,
@@ -49,6 +50,7 @@ export default function ChatView({
 }) {
   const isNearBottomRef = useRef(true);
   const lastConversationIdRef = useRef(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const scrollToLatest = (animated = true) => {
     requestAnimationFrame(() => {
@@ -255,7 +257,15 @@ export default function ChatView({
                           key={`${item._id}-${attachment.url}-${attachment.name}`}
                           activeOpacity={0.8}
                           onPress={() => {
-                            if (url) Linking.openURL(url);
+                            if (!url) return;
+                            if (isImage) {
+                              setImagePreview({
+                                url,
+                                name: attachment.name || "Attachment",
+                              });
+                              return;
+                            }
+                            Linking.openURL(url);
                           }}
                           style={{
                             marginTop: item.body ? 8 : 0,
@@ -548,6 +558,76 @@ export default function ChatView({
             renderAvatar={renderAvatar}
             getDisplayName={getDisplayName}
           />
+
+          <Modal
+            visible={Boolean(imagePreview)}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setImagePreview(null)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.92)",
+                paddingTop: insets.top + 8,
+                paddingBottom: insets.bottom + 12,
+              }}
+            >
+              <View
+                style={{
+                  minHeight: 52,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 12,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => setImagePreview(null)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.white}
+                  />
+                </TouchableOpacity>
+                <AppText
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    color: COLORS.white,
+                    fontSize: 14,
+                    fontWeight: "700",
+                  }}
+                >
+                  {imagePreview?.name || "Attachment"}
+                </AppText>
+              </View>
+
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 8,
+                }}
+              >
+                {imagePreview?.url ? (
+                  <Image
+                    source={{ uri: imagePreview.url }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="contain"
+                  />
+                ) : null}
+              </View>
+            </View>
+          </Modal>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

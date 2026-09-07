@@ -247,6 +247,7 @@ export default function Messaging() {
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [mobileView, setMobileView] = useState("list");
+  const [imagePreview, setImagePreview] = useState(null);
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
@@ -841,12 +842,16 @@ export default function Messaging() {
 
       if (isImage && url) {
         return (
-          <a
+          <button
             key={`${message._id}-${attachment.url}-${attachment.name}`}
-            href={url}
-            target="_blank"
-            rel="noreferrer"
+            type="button"
             className="message-attachment-image-link"
+            onClick={() =>
+              setImagePreview({
+                url,
+                name: attachment.name || "Attachment",
+              })
+            }
           >
             <img
               src={url}
@@ -856,7 +861,7 @@ export default function Messaging() {
             <span className="message-attachment-image-name">
               {attachment.name || "Attachment"}
             </span>
-          </a>
+          </button>
         );
       }
 
@@ -1352,6 +1357,25 @@ export default function Messaging() {
             ))}
           </Space>
         )}
+      </Modal>
+
+      <Modal
+        title={imagePreview?.name || "Attachment"}
+        open={Boolean(imagePreview)}
+        onCancel={() => setImagePreview(null)}
+        footer={null}
+        centered
+        width="min(96vw, 980px)"
+        zIndex={3100}
+        className="message-image-preview-modal"
+      >
+        {imagePreview?.url ? (
+          <img
+            src={imagePreview.url}
+            alt={imagePreview.name || "Attachment"}
+            className="message-image-preview"
+          />
+        ) : null}
       </Modal>
     </div>
   );
