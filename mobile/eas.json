@@ -3,13 +3,11 @@
     "version": ">= 16.0.0",
     "appVersionSource": "remote"
   },
-
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
-
       "env": {
         "NODE_ENV": "development",
         "EXPO_PUBLIC_APP_ENV": "development",
@@ -23,16 +21,14 @@
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:215064194890:android:a340cd815b3800fbda9bb3",
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
       },
-
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "development"
     },
-
     "preview": {
       "distribution": "internal",
       "environment": "preview",
-
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_APP_ENV": "preview",
@@ -46,17 +42,15 @@
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:215064194890:android:a340cd815b3800fbda9bb3",
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
       },
-
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
-
     "production": {
       "distribution": "store",
       "environment": "production",
       "autoIncrement": true,
-
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -70,13 +64,12 @@
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:215064194890:android:a340cd815b3800fbda9bb3",
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
       },
-
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "channel": "production"
     }
   },
-
   "submit": {
     "production": {
       "ios": {}

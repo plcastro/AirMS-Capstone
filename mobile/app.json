@@ -22,14 +22,28 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.arckexe.airms",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "icon": "./assets/AirMS_ios_icon.png"
+      "icon": "./assets/AirMS_ios_icon.png",
+      "entitlements": {
+        "aps-environment": "development"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
       ],
       "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
@@ -78,6 +92,12 @@
       "eas": {
         "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f3f4990e-6447-461d-a182-38fdf0bd06ca"
     }
   }
 }
