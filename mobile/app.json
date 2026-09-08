@@ -4,11 +4,7 @@
     "slug": "AirMS",
     "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -27,10 +23,8 @@
         "aps-environment": "development"
       },
       "infoPlist": {
-        "UIBackgroundModes": [
-          "fetch",
-          "remote-notification"
-        ]
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["fetch", "remote-notification"]
       }
     },
     "android": {
@@ -80,10 +74,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "forceStaticLinking": [
-              "RNFBApp",
-              "RNFBMessaging"
-            ]
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
           }
         }
       ]
