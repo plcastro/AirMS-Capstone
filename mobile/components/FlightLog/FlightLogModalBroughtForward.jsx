@@ -13,7 +13,8 @@ export default function FlightLogModalBroughtForward({
   isEditable = true,
   isLocked = false,
 }) {
-  const isFieldEditable = (field) => isEditable && field === "usage";
+  const isFieldEditable = (field) =>
+    isEditable && !isLocked && field === "usage";
 
   const renderField = (label, field) => {
     const editable = isFieldEditable(field);

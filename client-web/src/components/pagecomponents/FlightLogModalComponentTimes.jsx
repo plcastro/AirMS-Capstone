@@ -61,7 +61,7 @@ export default function FlightLogModalComponentTimes({
             </div>
             <div className="fl-card-body">
               {COMPONENT_FIELDS.map((field) => {
-                const value = componentData?.[key]?.[field.key] || "";
+                const value = componentData?.[key]?.[field.key] ?? "";
 
                 return (
                   <div className="fl-field-row" key={field.key}>

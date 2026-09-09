@@ -44,6 +44,8 @@ import { isDateLikeSearchQuery, matchesSearch } from "../../../utils/search";
 import {
   calculateB412ToDate,
   isB412Aircraft,
+  mapB412FlightLogToMonitoringTotals,
+  mapStandardFlightLogToMonitoringTotals,
 } from "../../../utils/b412FlightLog";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
@@ -549,42 +551,36 @@ export default function FlightLog() {
   const buildToDateData = (log) => {
     const broughtForward = log?.componentData?.broughtForwardData || {};
     const thisFlight = log?.componentData?.thisFlightData || {};
+    const stored = log?.componentData?.toDateData || {};
+    const sumValue = (field) => {
+      const broughtValue = String(broughtForward[field] ?? "").trim();
+      const flightValue = String(thisFlight[field] ?? "").trim();
+      if (!broughtValue && !flightValue) return stored[field] ?? "";
+      return (parseFloat(broughtValue) || 0) + (parseFloat(flightValue) || 0);
+    };
 
     return {
-      airframe:
-        (parseFloat(broughtForward.airframe) || 0) +
-        (parseFloat(thisFlight.airframe) || 0),
-      gearBoxMain:
-        (parseFloat(broughtForward.gearBoxMain) || 0) +
-        (parseFloat(thisFlight.gearBoxMain) || 0),
-      gearBoxTail:
-        (parseFloat(broughtForward.gearBoxTail) || 0) +
-        (parseFloat(thisFlight.gearBoxTail) || 0),
-      rotorMain:
-        (parseFloat(broughtForward.rotorMain) || 0) +
-        (parseFloat(thisFlight.rotorMain) || 0),
-      rotorTail:
-        (parseFloat(broughtForward.rotorTail) || 0) +
-        (parseFloat(thisFlight.rotorTail) || 0),
-      engine:
-        (parseFloat(broughtForward.engine) || 0) +
-        (parseFloat(thisFlight.engine) || 0),
-      cycleN1:
-        (parseFloat(broughtForward.cycleN1) || 0) +
-        (parseFloat(thisFlight.cycleN1) || 0),
-      cycleN2:
-        (parseFloat(broughtForward.cycleN2) || 0) +
-        (parseFloat(thisFlight.cycleN2) || 0),
-      landingCycle:
-        (parseFloat(broughtForward.landingCycle) || 0) +
-        (parseFloat(thisFlight.landingCycle) || 0),
-      usage:
-        (parseFloat(broughtForward.usage) || 0) +
-        (parseFloat(thisFlight.usage) || 0),
+      ...stored,
+      airframe: sumValue("airframe"),
+      gearBoxMain: sumValue("gearBoxMain"),
+      gearBoxTail: sumValue("gearBoxTail"),
+      rotorMain: sumValue("rotorMain"),
+      rotorTail: sumValue("rotorTail"),
+      engine: sumValue("engine"),
+      cycleN1: sumValue("cycleN1"),
+      cycleN2: sumValue("cycleN2"),
+      landingCycle: sumValue("landingCycle"),
+      usage: sumValue("usage"),
       airframeNextInsp:
-        thisFlight.airframeNextInsp || broughtForward.airframeNextInsp || "",
+        thisFlight.airframeNextInsp ||
+        broughtForward.airframeNextInsp ||
+        stored.airframeNextInsp ||
+        "",
       engineNextInsp:
-        thisFlight.engineNextInsp || broughtForward.engineNextInsp || "",
+        thisFlight.engineNextInsp ||
+        broughtForward.engineNextInsp ||
+        stored.engineNextInsp ||
+        "",
     };
   };
 
@@ -815,13 +811,25 @@ export default function FlightLog() {
 
       if (action === "complete") {
         const isB412 = isB412Aircraft(log.aircraftType);
-        const toDateData =
-          log?.componentData?.toDateData &&
-          Object.keys(log.componentData.toDateData).length > 0
-            ? log.componentData.toDateData
-            : buildToDateData(log);
-        let completionLog = log;
+        const toDateData = buildToDateData(log);
+        let completionLog = {
+          ...log,
+          componentData: {
+            ...(log.componentData || {}),
+            toDateData,
+          },
+        };
         let totalsPayload;
+        const requiredNumber = (value, label) => {
+          const rawValue = String(value ?? "").trim();
+          const parsedValue = Number(rawValue);
+          if (!rawValue || !Number.isFinite(parsedValue)) {
+            throw new Error(
+              `Enter a valid To Date value for ${label} before completing the flight log.`,
+            );
+          }
+          return parsedValue;
+        };
 
         if (isB412) {
           const b412ComponentData = log?.b412Data?.componentData || {};
@@ -834,43 +842,30 @@ export default function FlightLog() {
             String(calculatedValue ?? "").trim() !== ""
               ? calculatedValue
               : storedValue;
-          const b412ToDateData = {
-            airframe: preferCalculatedValue(
-              calculatedToDate.airframe,
-              storedToDate.airframe,
-            ),
-            landingCycle: preferCalculatedValue(
-              calculatedToDate.landingCycle,
-              storedToDate.landingCycle,
-            ),
-            engine1: {
-              tsn: preferCalculatedValue(
-                calculatedToDate.engine1?.tsn,
-                storedToDate.engine1?.tsn,
-              ),
-              cycle: preferCalculatedValue(
-                calculatedToDate.engine1?.cycle,
-                storedToDate.engine1?.cycle,
-              ),
-            },
-            engine2: {
-              cycle: preferCalculatedValue(
-                calculatedToDate.engine2?.cycle,
-                storedToDate.engine2?.cycle,
-              ),
-            },
-          };
-          const requiredNumber = (value, label) => {
-            const rawValue = String(value ?? "").trim();
-            const parsedValue = Number(rawValue);
-            if (!rawValue || !Number.isFinite(parsedValue)) {
-              throw new Error(
-                `Enter a valid Bell 412 To Date value for ${label} before completing the flight log.`,
-              );
+          const mergeCalculatedTotals = (calculatedValue, storedValue) => {
+            if (
+              calculatedValue &&
+              typeof calculatedValue === "object" &&
+              !Array.isArray(calculatedValue)
+            ) {
+              return Object.keys({
+                ...(storedValue || {}),
+                ...calculatedValue,
+              }).reduce((result, key) => {
+                result[key] = mergeCalculatedTotals(
+                  calculatedValue[key],
+                  storedValue?.[key],
+                );
+                return result;
+              }, {});
             }
-            return parsedValue;
-          };
 
+            return preferCalculatedValue(calculatedValue, storedValue);
+          };
+          const b412ToDateData = mergeCalculatedTotals(
+            calculatedToDate,
+            storedToDate,
+          );
           const acftTT = requiredNumber(b412ToDateData.airframe, "Airframe");
           const engineTimeValue = String(
             b412ToDateData.engine1?.tsn ?? "",
@@ -880,6 +875,10 @@ export default function FlightLog() {
             : acftTT;
 
           totalsPayload = {
+            ...mapB412FlightLogToMonitoringTotals({
+              ...b412ComponentData,
+              toDateData: b412ToDateData,
+            }),
             acftTT,
             engTT,
             n1Cycles: requiredNumber(
@@ -896,34 +895,55 @@ export default function FlightLog() {
             ),
           };
 
-          const persistResponse = await fetch(
-            `${API_BASE}/api/flightlogs/${log._id}`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                "x-action-confirmed": "true",
-                ...(getAuthHeader ? await getAuthHeader() : {}),
+          const logWithToDate = {
+            ...log,
+            b412Data: {
+              ...(log.b412Data || {}),
+              componentData: {
+                ...b412ComponentData,
+                toDateData: b412ToDateData,
               },
-              body: JSON.stringify(log),
             },
-          );
-          const persistData = await persistResponse.json();
-          if (!persistResponse.ok) {
-            throw new Error(
-              persistData.message ||
-                "Failed to save the B412 flight log before completion",
-            );
-          }
-          completionLog = persistData.data || log;
+          };
+
+          completionLog = logWithToDate;
         } else {
           totalsPayload = {
-            acftTT: Number(toDateData.airframe) || 0,
-            n1Cycles: Number(toDateData.cycleN1) || 0,
-            n2Cycles: Number(toDateData.cycleN2) || 0,
-            landings: Number(toDateData.landingCycle) || 0,
+            ...mapStandardFlightLogToMonitoringTotals({
+              ...(log?.componentData || {}),
+              toDateData,
+            }),
+            acftTT: requiredNumber(toDateData.airframe, "Airframe"),
+            engTT: requiredNumber(toDateData.engine, "Engine"),
+            n1Cycles: requiredNumber(toDateData.cycleN1, "Cycle N1"),
+            n2Cycles: requiredNumber(toDateData.cycleN2, "Cycle N2"),
+            landings: requiredNumber(
+              toDateData.landingCycle,
+              "Landing Cycle",
+            ),
           };
         }
+
+        const persistResponse = await fetch(
+          `${API_BASE}/api/flightlogs/${log._id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+              ...(getAuthHeader ? await getAuthHeader() : {}),
+            },
+            body: JSON.stringify(completionLog),
+          },
+        );
+        const persistData = await persistResponse.json();
+        if (!persistResponse.ok) {
+          throw new Error(
+            persistData.message ||
+              "Failed to save the flight log before completion",
+          );
+        }
+        completionLog = persistData.data || completionLog;
 
         const aircraft = log.aircraft || log.rpc;
         if (!aircraft) {

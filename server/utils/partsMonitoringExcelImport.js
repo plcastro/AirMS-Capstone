@@ -99,6 +99,14 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const toOptionalNumber = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(String(value).replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const normalizeCreepDamage = (value) => {
   if (value === null || value === undefined || value === "") {
     return "";
@@ -114,7 +122,7 @@ const normalizeCreepDamage = (value) => {
 
 const parseAircraftType = (value) => {
   const text = normalizeValue(value);
-  const typeMatch = text.match(/ACFT\.\s*TYPE:\s*([^S]+?)(?:\s+SN:|$)/i);
+  const typeMatch = text.match(/ACFT\.\s*TYPE:\s*(.+?)(?:\s+SN:|$)/i);
   return typeMatch
     ? typeMatch[1].trim()
     : text.replace(/^ACFT\.\s*TYPE:\s*/i, "").trim();
@@ -284,14 +292,28 @@ const readWorkbookData = async ({ buffer, filePath, aircraft, sheetName }) => {
   }
 
   const aircraftTypeCell = readCell(worksheet, 3, 3);
+  const aircraftType = parseAircraftType(aircraftTypeCell) || "AS350B3";
+  const isB412 = /B(?:ELL)?\s*412\s*EP/i.test(aircraftType);
+  const referenceCells = extractReferenceCells(worksheet);
   const referenceData = {
     today: readCell(worksheet, 1, 12) || formatDate(new Date()),
     acftTT: toNumber(readCell(worksheet, 3, 12)),
     engTT: toNumber(readCell(worksheet, 2, 12)),
-    n1Cycles: toNumber(readCell(worksheet, 3, 8)),
-    n2Cycles: toNumber(readCell(worksheet, 3, 10)),
+    n1Cycles: toNumber(readCell(worksheet, isB412 ? 2 : 3, 8)),
+    n2Cycles: toNumber(readCell(worksheet, 3, isB412 ? 8 : 10)),
     landings: toNumber(readCell(worksheet, 1, 10)),
-    referenceCells: extractReferenceCells(worksheet),
+    ...(isB412
+      ? {
+          eng1TT: toOptionalNumber(readCell(worksheet, 2, 12)),
+          eng1TSO: toOptionalNumber(readCell(worksheet, 2, 10)),
+          eng1Cycles: toOptionalNumber(readCell(worksheet, 2, 8)),
+          eng2TT: toOptionalNumber(readCell(worksheet, 2, 14)),
+          eng2TSO: toOptionalNumber(readCell(worksheet, 3, 10)),
+          eng2Cycles: toOptionalNumber(readCell(worksheet, 3, 8)),
+          usage: toOptionalNumber(readCell(worksheet, 3, 14)),
+        }
+      : {}),
+    referenceCells,
   };
 
   const parts = extractRows(worksheet);
@@ -302,7 +324,7 @@ const readWorkbookData = async ({ buffer, filePath, aircraft, sheetName }) => {
   return {
     aircraft: aircraftName,
     dateManufactured: parseDateManufactured(worksheet) || null,
-    aircraftType: parseAircraftType(aircraftTypeCell) || "AS350B3",
+    aircraftType,
     serialNumber: parseSerialNumber(aircraftTypeCell),
     creepDamage: parseCreepDamage(worksheet),
     referenceData,

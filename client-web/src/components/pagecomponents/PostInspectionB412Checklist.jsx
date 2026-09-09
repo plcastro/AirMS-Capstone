@@ -62,6 +62,10 @@ export default function PostInspectionB412Checklist({
   return (
     <Space orientation="vertical" size={14} style={{ width: "100%" }}>
       {sections.map((section) => {
+        const sectionNumber =
+          B412_POST_INSPECTION_SECTIONS.findIndex(
+            (candidate) => candidate.key === section.key,
+          ) + 1;
         const checkedCount = section.items.reduce(
           (count, item) => count + (checks[item.key] ? 1 : 0),
           0,
@@ -73,7 +77,7 @@ export default function PostInspectionB412Checklist({
           <Card
             key={section.key}
             size="small"
-            title={section.title}
+            title={`${sectionNumber}. ${section.title}`}
             extra={
               <Checkbox
                 checked={allChecked}
@@ -91,7 +95,7 @@ export default function PostInspectionB412Checklist({
             }}
           >
             <Row gutter={[12, 12]}>
-              {section.items.map((item, index) => (
+              {section.items.map((item) => (
                 <React.Fragment key={item.key}>
                   {item.cautionBefore ? (
                     <ChecklistCaution text={item.cautionBefore} />
@@ -104,7 +108,7 @@ export default function PostInspectionB412Checklist({
                         style={{ width: "100%" }}
                       >
                         <Text strong>
-                          {index + 1}. {item.title}
+                          {item.title}
                         </Text>
                         <Text>{item.description}</Text>
                         <Checkbox

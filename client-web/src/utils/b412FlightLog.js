@@ -224,60 +224,12 @@ export const calculateB412ToDate = (broughtForward = {}, thisFlight = {}) => {
   };
 };
 
-export const hasNestedB412Value = (value) => {
-  if (Array.isArray(value)) return value.some(hasNestedB412Value);
-  if (value && typeof value === "object") {
-    return Object.values(value).some(hasNestedB412Value);
-  }
-  return String(value ?? "").trim() !== "";
-};
-
-export const mapAircraftReferenceToB412 = (aircraftData = {}) => {
-  const referenceData = aircraftData?.referenceData || {};
-  const broughtForwardData = createEmptyComponentTotals();
-
-  return {
-    broughtForwardData: {
-      ...broughtForwardData,
-      airframe: referenceData.acftTT || "",
-      mrGearbox: {
-        tsn: referenceData.gbmTT || referenceData.acftTT || "",
-        tso: referenceData.gbmTSO || "",
-      },
-      tr90Gearbox: {
-        tsn: referenceData.gbtTT || referenceData.acftTT || "",
-        tso: referenceData.gbtTSO || "",
-      },
-      tr42Gearbox: {
-        tsn: referenceData.gbt42TT || referenceData.gbtTT || "",
-        tso: referenceData.gbt42TSO || referenceData.gbtTSO || "",
-      },
-      landingCycle: referenceData.landings || "",
-      engine1: {
-        tsn:
-          referenceData.eng1TT ||
-          referenceData.engTT ||
-          referenceData.acftTT ||
-          "",
-        tso: referenceData.eng1TSO || "",
-        cycle: referenceData.n1Cycles || "",
-      },
-      engine2: {
-        tsn:
-          referenceData.eng2TT ||
-          referenceData.engTT ||
-          referenceData.acftTT ||
-          "",
-        tso: referenceData.eng2TSO || "",
-        cycle: referenceData.n2Cycles || "",
-      },
-      sling: referenceData.usage || "",
-      others: "",
-    },
-    airframeNextInspectionDueAt: referenceData.acrfNextInsp || "",
-    engineNextInspectionDueAt: referenceData.engNextInsp || "",
-  };
-};
+export {
+  mapAircraftReferenceToB412,
+  mapAircraftReferenceToBroughtForward,
+  mapB412FlightLogToMonitoringTotals,
+  mapStandardFlightLogToMonitoringTotals,
+} from "../../../shared/flightLogPartsMonitoring";
 
 export const B412_FLIGHT_LOG_SECTIONS = [
   "Basic Information",

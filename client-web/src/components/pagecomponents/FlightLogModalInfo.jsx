@@ -9,6 +9,7 @@ export default function FlightLogModalInfo({
   updateForm,
   isEditable = true,
   isRPCEditable = true,
+  isActive = true,
   onAircraftDataLoaded,
   serialNumber = "",
   onUpdateSerialNumber,
@@ -17,11 +18,20 @@ export default function FlightLogModalInfo({
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
   const rpcRequestId = useRef(0);
   const autoResolveRpc = useRef("");
+  const isActiveRef = useRef(isActive);
   const callbacksRef = useRef({ updateForm, onAircraftDataLoaded });
+  isActiveRef.current = isActive;
 
   useEffect(() => {
     callbacksRef.current = { updateForm, onAircraftDataLoaded };
   }, [updateForm, onAircraftDataLoaded]);
+
+  useEffect(() => {
+    if (!isActive) {
+      rpcRequestId.current += 1;
+      autoResolveRpc.current = "";
+    }
+  }, [isActive]);
 
   const normalizeRpc = (value = "") =>
     String(value || "")
@@ -159,6 +169,8 @@ export default function FlightLogModalInfo({
   }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
   const handleRPCSelect = async (rpc) => {
+    if (!isActiveRef.current) return;
+
     const requestId = rpcRequestId.current + 1;
     rpcRequestId.current = requestId;
     autoResolveRpc.current = normalizeRpc(rpc);
@@ -172,7 +184,7 @@ export default function FlightLogModalInfo({
       );
       const data = await response.json();
 
-      if (requestId !== rpcRequestId.current) return;
+      if (!isActiveRef.current || requestId !== rpcRequestId.current) return;
 
       if (response.ok && data?.data) {
         updateForm("aircraftType", data.data.aircraftType || "");
@@ -182,7 +194,7 @@ export default function FlightLogModalInfo({
         onAircraftDataLoaded?.(null);
       }
     } catch (error) {
-      if (requestId !== rpcRequestId.current) return;
+      if (!isActiveRef.current || requestId !== rpcRequestId.current) return;
       console.error("Error fetching aircraft type:", error);
       updateForm("aircraftType", "");
       onAircraftDataLoaded?.(null);
@@ -196,7 +208,12 @@ export default function FlightLogModalInfo({
     const rpc = String(formData.rpc || "")
       .trim()
       .toUpperCase();
-    if (!rpc || formData.aircraftType || autoResolveRpc.current === rpc) {
+    if (
+      !isActive ||
+      !rpc ||
+      formData.aircraftType ||
+      autoResolveRpc.current === rpc
+    ) {
       return;
     }
 
@@ -239,7 +256,7 @@ export default function FlightLogModalInfo({
         autoResolveRpc.current = "";
       }
     };
-  }, [formData.rpc, formData.aircraftType]);
+  }, [formData.rpc, formData.aircraftType, isActive]);
 
   return (
     <div className="fl-section">

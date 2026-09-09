@@ -24,7 +24,6 @@ import FlightLogB412Legs from "./FlightLogB412Legs";
 import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
-import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import {
   B412_FLIGHT_LOG_TABS,
@@ -34,6 +33,8 @@ import {
   ensureSixB412Legs,
   hasCompleteB412BroughtForward,
   isB412Aircraft,
+  mapAircraftReferenceToB412,
+  mapAircraftReferenceToBroughtForward,
 } from "./b412FlightLogData";
 
 const toTitleCase = (value = "") =>
@@ -248,148 +249,6 @@ export default function FlightLogEntry({
     engineNextInsp: "",
   });
 
-  const hasComponentValues = (values = {}) =>
-    Object.values(values).some((value) => String(value ?? "").trim() !== "");
-
-  const hasNestedValues = (value) => {
-    if (Array.isArray(value)) return value.some(hasNestedValues);
-    if (value && typeof value === "object") {
-      return Object.values(value).some(hasNestedValues);
-    }
-    return String(value ?? "").trim() !== "";
-  };
-
-  const getReferenceBroughtForwardData = (aircraftData) => {
-    const referenceData = aircraftData?.referenceData || {};
-
-    return {
-      ...getEmptyComponentValues(),
-      airframe: referenceData.acftTT || "",
-      gearBoxMain: referenceData.gbmTT || referenceData.acftTT || "",
-      gearBoxTail: referenceData.gbtTT || referenceData.acftTT || "",
-      rotorMain: referenceData.mrbTT || referenceData.acftTT || "",
-      rotorTail: referenceData.trbTT || referenceData.acftTT || "",
-      airframeNextInsp: referenceData.acrfNextInsp || "",
-      engine: referenceData.engTT || referenceData.acftTT || "",
-      cycleN1: referenceData.n1Cycles || "",
-      cycleN2: referenceData.n2Cycles || "",
-      usage: referenceData.usage || "",
-      landingCycle: referenceData.landings || "",
-      engineNextInsp: referenceData.engNextInsp || "",
-    };
-  };
-
-  const fetchPreviousToDateData = async (rpc) => {
-    if (!rpc) return null;
-
-    try {
-      const params = new URLSearchParams({
-        page: "1",
-        limit: "10",
-        aircraftRPC: rpc,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const previousLog = (data.data || []).find((log) =>
-        hasComponentValues(log?.componentData?.toDateData),
-      );
-
-      return previousLog?.componentData?.toDateData || null;
-    } catch (error) {
-      console.error("Error fetching previous flight log To Date:", error);
-      return null;
-    }
-  };
-
-  const fetchPreviousB412ToDateData = async (rpc) => {
-    if (!rpc) return null;
-
-    try {
-      const params = new URLSearchParams({
-        page: "1",
-        limit: "10",
-        aircraftRPC: rpc,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const response = await fetch(
-        `${API_BASE}/api/flightlogs?${params.toString()}`,
-      );
-      const data = await response.json();
-
-      if (!response.ok) return null;
-
-      const previousLog = (data.data || []).find((log) =>
-        hasNestedValues(log?.b412Data?.componentData?.toDateData),
-      );
-
-      if (!previousLog) return null;
-
-      return {
-        toDateData: previousLog.b412Data.componentData.toDateData,
-        airframeNextInspectionDueAt:
-          previousLog.b412Data.componentData.airframeNextInspectionDueAt || "",
-        engineNextInspectionDueAt:
-          previousLog.b412Data.componentData.engineNextInspectionDueAt || "",
-      };
-    } catch (error) {
-      console.error("Error fetching previous B412 flight log To Date:", error);
-      return null;
-    }
-  };
-
-  const getReferenceB412BroughtForwardData = (aircraftData) => {
-    const referenceData = aircraftData?.referenceData || {};
-    const emptyValues = createEmptyB412Data().componentData.broughtForwardData;
-
-    return {
-      ...emptyValues,
-      airframe: referenceData.acftTT || "",
-      mrGearbox: {
-        tsn: referenceData.gbmTT || referenceData.acftTT || "",
-        tso: referenceData.gbmTSO || "",
-      },
-      tr90Gearbox: {
-        tsn: referenceData.gbtTT || referenceData.acftTT || "",
-        tso: referenceData.gbtTSO || "",
-      },
-      tr42Gearbox: {
-        tsn: referenceData.gbt42TT || referenceData.gbtTT || "",
-        tso: referenceData.gbt42TSO || referenceData.gbtTSO || "",
-      },
-      landingCycle: referenceData.landings || "",
-      engine1: {
-        tsn:
-          referenceData.eng1TT ||
-          referenceData.engTT ||
-          referenceData.acftTT ||
-          "",
-        tso: referenceData.eng1TSO || "",
-        cycle: referenceData.n1Cycles || "",
-      },
-      engine2: {
-        tsn:
-          referenceData.eng2TT ||
-          referenceData.engTT ||
-          referenceData.acftTT ||
-          "",
-        tso: referenceData.eng2TSO || "",
-        cycle: referenceData.n2Cycles || "",
-      },
-      sling: referenceData.usage || "",
-      others: "",
-    };
-  };
-
   // Auto-calculate toDateData whenever broughtForwardData or thisFlightData changes
   useEffect(() => {
     const bf = componentData.broughtForwardData || {};
@@ -418,86 +277,53 @@ export default function FlightLogEntry({
     setComponentData((prev) => ({ ...prev, toDateData: calculated }));
   }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
-  // Populate Brought Forward from previous To Date, falling back to aircraft reference totals.
+  // Parts Lifespan Monitoring is the source of truth for a new log's totals.
   useEffect(() => {
     if (!loadedAircraftData || !formData.rpc) {
       return;
     }
 
-    let isActive = true;
+    if (
+      isB412Aircraft(loadedAircraftData.aircraftType || formData.aircraftType)
+    ) {
+      const carried = mapAircraftReferenceToB412(loadedAircraftData);
 
-    const populateBroughtForward = async () => {
-      if (
-        isB412Aircraft(
-          loadedAircraftData?.aircraftType || formData.aircraftType,
-        )
-      ) {
-        const previousB412ToDate = await fetchPreviousB412ToDateData(
-          formData.rpc,
-        );
-        const nextBroughtForward = hasNestedValues(
-          previousB412ToDate?.toDateData,
-        )
-          ? previousB412ToDate.toDateData
-          : getReferenceB412BroughtForwardData(loadedAircraftData);
+      setFormData((prev) => {
+        if (prev.rpc !== formData.rpc) return prev;
 
-        if (!isActive) return;
+        const currentB412Data = createEmptyB412Data(prev.b412Data);
+        const broughtForwardData = createEmptyB412Data({
+          componentData: {
+            broughtForwardData: carried.broughtForwardData,
+          },
+        }).componentData.broughtForwardData;
 
-        setFormData((prev) => {
-          const currentB412Data = createEmptyB412Data(prev.b412Data);
-          const normalizedBroughtForward = createEmptyB412Data({
-            componentData: { broughtForwardData: nextBroughtForward },
-          }).componentData.broughtForwardData;
-
-          return {
-            ...prev,
-            b412Data: {
-              ...currentB412Data,
-              componentData: {
-                ...currentB412Data.componentData,
-                broughtForwardData: normalizedBroughtForward,
-                airframeNextInspectionDueAt:
-                  previousB412ToDate?.airframeNextInspectionDueAt ||
-                  loadedAircraftData?.referenceData?.acrfNextInsp ||
-                  currentB412Data.componentData
-                    .airframeNextInspectionDueAt,
-                engineNextInspectionDueAt:
-                  previousB412ToDate?.engineNextInspectionDueAt ||
-                  loadedAircraftData?.referenceData?.engNextInsp ||
-                  currentB412Data.componentData.engineNextInspectionDueAt,
-              },
+        return {
+          ...prev,
+          b412Data: {
+            ...currentB412Data,
+            componentData: {
+              ...currentB412Data.componentData,
+              broughtForwardData,
+              airframeNextInspectionDueAt:
+                carried.airframeNextInspectionDueAt,
+              engineNextInspectionDueAt:
+                carried.engineNextInspectionDueAt,
             },
-          };
-        });
-        return;
-      }
+          },
+        };
+      });
+      return;
+    }
 
-      const previousToDate = await fetchPreviousToDateData(formData.rpc);
-      const nextBroughtForward = hasComponentValues(previousToDate)
-        ? { ...getEmptyComponentValues(), ...previousToDate }
-        : getReferenceBroughtForwardData(loadedAircraftData);
-
-      if (!isActive) {
-        return;
-      }
-
-      setComponentData((prev) => ({
-        ...prev,
-        broughtForwardData: {
-          ...prev.broughtForwardData,
-          ...nextBroughtForward,
-          usage:
-            prev.broughtForwardData?.usage || nextBroughtForward.usage || "",
-        },
-      }));
-    };
-
-    populateBroughtForward();
-
-    return () => {
-      isActive = false;
-    };
-  }, [loadedAircraftData, formData.rpc]);
+    setComponentData((prev) => ({
+      ...prev,
+      broughtForwardData: {
+        ...getEmptyComponentValues(),
+        ...mapAircraftReferenceToBroughtForward(loadedAircraftData),
+      },
+    }));
+  }, [loadedAircraftData, formData.aircraftType, formData.rpc]);
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
   const hasWorkItems =

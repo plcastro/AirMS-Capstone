@@ -1,3 +1,9 @@
+import {
+  areAllB412PostInspectionChecksComplete,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PostInspectionData";
+
 export const getDefaultPostInspectionSignature = () => ({
   name: "",
   id: "",
@@ -105,7 +111,19 @@ export const getDefaultPostInspectionFormData = (userRole = "") => ({
   cabin_batterySwitchOff_off: false,
 });
 
-export const areAllPostInspectionChecksComplete = (formData = {}) =>
-  Object.entries(formData)
-    .filter(([, value]) => typeof value === "boolean")
+export const areAllPostInspectionChecksComplete = (formData = {}) => {
+  if (isB412Aircraft(formData.aircraftType)) {
+    return areAllB412PostInspectionChecksComplete(formData.b412Data);
+  }
+
+  if (!isAS350Aircraft(formData.aircraftType)) {
+    return false;
+  }
+
+  return Object.entries(formData)
+    .filter(
+      ([key, value]) =>
+        key !== "linkedFromPreFlight" && typeof value === "boolean",
+    )
     .every(([, value]) => value === true);
+};
