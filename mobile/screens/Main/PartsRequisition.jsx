@@ -1201,7 +1201,6 @@ export default function PartsRequisition({ route, navigation }) {
         items: updatedItems,
       },
       "Remaining items are still to be restocked.",
-      { closeDetails: false },
     );
   };
 

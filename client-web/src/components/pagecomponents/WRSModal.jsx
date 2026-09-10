@@ -681,7 +681,6 @@ export default function WRSModal({
           items: savedItems,
         },
         "Remaining items are still to be restocked.",
-        false,
       );
       setPersistedQtyMap({ ...availQtyMap });
       return;
