@@ -90,6 +90,10 @@ const normalizeStatus = (value) =>
 const isTurnedIn = (task) => normalizeStatus(task?.status) === "turned in";
 const isReviewed = (task) =>
   task?.isApproved || normalizeStatus(task?.status) === "approved";
+const isForReview = (task) =>
+  !isReviewed(task) &&
+  (isTurnedIn(task) || normalizeStatus(task?.status) === "completed");
+const getDisplayStatus = (task) => (isReviewed(task) ? "Approved" : task?.status);
 const getTaskDate = (task, key) => {
   const value = task?.[key];
   const date = value ? dayjs(value) : null;
@@ -700,10 +704,7 @@ export default function TaskAssignment() {
       if (activeTab === "assigned")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
       if (activeTab === "for_review")
-        return (
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved)
-        );
+        return isForReview(task);
       if (activeTab === "reviewed") return isReviewed(task);
       if (activeTab === "ongoing")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
@@ -745,9 +746,7 @@ export default function TaskAssignment() {
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
       forReview: myTasks.filter(
-        (task) =>
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved),
+        (task) => isForReview(task),
       ).length,
       reviewed: myTasks.filter((task) => isReviewed(task)).length,
       ongoing: myTasks.filter((task) =>
@@ -1542,7 +1541,8 @@ export default function TaskAssignment() {
             {
               title: "Status",
               dataIndex: "status",
-              render: (value) => renderStatusTag(value, "Pending"),
+              render: (_, record) =>
+                renderStatusTag(getDisplayStatus(record), "Pending"),
             },
             {
               title: "Due",

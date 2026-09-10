@@ -28,6 +28,12 @@ const normalizeTaskStatus = (status) =>
   String(status || "")
     .trim()
     .toLowerCase();
+const isReviewedTask = (task) =>
+  task?.isApproved === true || normalizeTaskStatus(task?.status) === "approved";
+const isForReviewTask = (task) =>
+  !isReviewedTask(task) &&
+  (normalizeTaskStatus(task?.status) === "turned in" ||
+    normalizeTaskStatus(task?.status) === "completed");
 
 const getTaskAssigneeId = (task = {}) => {
   const assignee = task.assignedTo;
@@ -227,12 +233,9 @@ export default function HeadTaskScreen({
       case "Assigned":
         return OPEN_TASK_STATUSES.has(taskStatus);
       case "For Review":
-        return (
-          taskStatus === "turned in" ||
-          (taskStatus === "completed" && !task.isApproved)
-        );
+        return isForReviewTask(task);
       case "Reviewed":
-        return task.isApproved === true || taskStatus === "approved";
+        return isReviewedTask(task);
       default:
         return false;
     }
@@ -246,12 +249,9 @@ export default function HeadTaskScreen({
         case "Assigned":
           return OPEN_TASK_STATUSES.has(taskStatus);
         case "For Review":
-          return (
-            taskStatus === "turned in" ||
-            (taskStatus === "completed" && !task.isApproved)
-          );
+          return isForReviewTask(task);
         case "Reviewed":
-          return task.isApproved === true || taskStatus === "approved";
+          return isReviewedTask(task);
         default:
           return false;
       }
