@@ -38,6 +38,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
 import { exportPartsLifespanMonitoringExcel } from "../../utilities/documentExport";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import { isB412Aircraft } from "../../components/FlightLog/b412FlightLogData";
 
 const referenceFields = [
   ["engTT", "Engine Cycle"],
@@ -46,6 +47,7 @@ const referenceFields = [
   ["n2Cycles", "N2"],
   ["acftTT", "Acft. TT"],
   ["landings", "Landings"],
+  ["usage", "Sling"],
 ];
 
 const previewColumns = [
@@ -109,6 +111,7 @@ const parsePickerDate = (value) => {
 };
 
 const normalizeRef = (referenceData = {}) => ({
+  ...referenceData,
   today: referenceData.today
     ? new Date(referenceData.today).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10),
@@ -159,6 +162,14 @@ export default function PartsLifespanMonitoring() {
   const [parts, setParts] = useState([]);
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
+  const isB412Monitoring = isB412Aircraft(aircraftDetails.aircraftType);
+  const getReferenceFieldLabel = (key, fallback) => {
+    if (!isB412Monitoring) return fallback;
+    if (key === "engTT") return "Engine No. 1 TSN";
+    if (key === "n1Cycles") return "Engine No. 1 Cycle";
+    if (key === "n2Cycles") return "Engine No. 2 Cycle";
+    return fallback;
+  };
   const [activeTab, setActiveTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState("all");
   const [componentPage, setComponentPage] = useState(0);
@@ -203,7 +214,10 @@ export default function PartsLifespanMonitoring() {
       }
 
       const data = result.data;
-      setRefs(normalizeRef(data.referenceData));
+      setRefs({
+        ...normalizeRef(data.referenceData),
+        aircraftType: data.aircraftType || "",
+      });
       setParts(Array.isArray(data.parts) ? data.parts : []);
       setAircraftDetails({
         dateManufactured: data.dateManufactured,
@@ -382,6 +396,7 @@ export default function PartsLifespanMonitoring() {
         }),
         body: JSON.stringify({
           aircraft: selectedAircraft,
+          aircraftType: aircraftDetails.aircraftType,
           referenceData: {
             ...refs,
             today: new Date(refs.today),
@@ -756,7 +771,9 @@ export default function PartsLifespanMonitoring() {
           <View style={styles.inputGrid}>
             {referenceFields.map(([key, label]) => (
               <View key={key} style={styles.inputCell}>
-                <AppText style={moduleStyles.label}>{label}</AppText>
+                <AppText style={moduleStyles.label}>
+                  {getReferenceFieldLabel(key, label)}
+                </AppText>
                 {key === "today" ? (
                   <TouchableOpacity
                     disabled={!canEditParts}
@@ -1195,7 +1212,10 @@ export default function PartsLifespanMonitoring() {
                           }
                         />
                       ))}
-                      <FieldRow label="Sling" value="" />
+                      <FieldRow
+                        label="Sling"
+                        value={importPreview.referenceData?.usage ?? "N/A"}
+                      />
                     </View>
                   </View>
                   <SectionTitle

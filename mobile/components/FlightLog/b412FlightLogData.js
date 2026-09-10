@@ -237,6 +237,13 @@ export const hasCompleteB412BroughtForward = (values = {}) => {
   ].every((value) => String(value ?? "").trim() !== "");
 };
 
+export {
+  mapAircraftReferenceToB412,
+  mapAircraftReferenceToBroughtForward,
+  mapB412FlightLogToMonitoringTotals,
+  mapStandardFlightLogToMonitoringTotals,
+} from "../../../shared/flightLogPartsMonitoring";
+
 export const B412_FLIGHT_LOG_TABS = [
   "Basic Information",
   "Flight Legs",

@@ -82,8 +82,6 @@ const createPostInspection = async (req, res) => {
     }
 
     if (isB412AircraftType(payload.aircraftType)) {
-      // Linked pre-flight records are created pending without Bell data. The
-      // checklist is initialized when the post-flight record is first edited.
       if (hasOwn(req.body, "b412Data")) {
         const b412PayloadError = getB412PostInspectionPayloadShapeError(
           payload.b412Data,
@@ -91,6 +89,8 @@ const createPostInspection = async (req, res) => {
         if (b412PayloadError) {
           return res.status(400).json({ message: b412PayloadError });
         }
+      } else {
+        payload.b412Data = { checks: {} };
       }
     } else {
       delete payload.b412Data;
@@ -210,6 +210,9 @@ const updatePostInspection = async (req, res) => {
         if (b412PayloadError) {
           return res.status(400).json({ message: b412PayloadError });
         }
+      } else {
+        nextPayload.b412Data = { checks: {} };
+        updates.b412Data = nextPayload.b412Data;
       }
     } else {
       delete nextPayload.b412Data;

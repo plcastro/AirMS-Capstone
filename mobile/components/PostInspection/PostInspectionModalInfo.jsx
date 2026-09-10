@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import { View, TouchableOpacity, ScrollView } from "react-native";
@@ -6,15 +6,18 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE } from "../../utilities/API_BASE";
+import { isB412Aircraft } from "./b412PostInspectionData";
 
 export default function PostInspectionModalInfo({
   formData,
   updateForm,
   isEditable = true,
+  isAircraftEditable = isEditable,
   rpcOptions = [],
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const aircraftTypeRequestRef = useRef(0);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -78,6 +81,8 @@ export default function PostInspectionModalInfo({
   };
 
   const resolveAircraftTypeByRpc = async (rpc) => {
+    const requestId = ++aircraftTypeRequestRef.current;
+
     try {
       if (!rpc) return;
       const response = await fetch(
@@ -86,8 +91,10 @@ export default function PostInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== aircraftTypeRequestRef.current) return;
+
       const resolvedType = data?.data?.aircraftType || "";
-      if (resolvedType && resolvedType !== formData.aircraftType) {
+      if (resolvedType) {
         updateForm("aircraftType", resolvedType);
       }
     } catch (error) {
@@ -103,6 +110,10 @@ export default function PostInspectionModalInfo({
       resolveAircraftTypeByRpc(formData.rpc);
     }
   }, [formData.rpc]);
+
+  const aircraftClassLabel = isB412Aircraft(formData.aircraftType)
+    ? "Rotary Winged Aircraft - Twin Engine"
+    : "Rotary Winged Aircraft - Single Engine";
 
   const renderAircraftTypeField = () => (
     <View>
@@ -130,14 +141,14 @@ export default function PostInspectionModalInfo({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          backgroundColor: isAircraftEditable ? "#F8F8F8" : "#E8E8E8",
           borderRadius: 6,
           borderWidth: 1,
           borderColor: COLORS.grayMedium,
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? toggleRPCDropdown : null}
+        onPress={isAircraftEditable ? toggleRPCDropdown : null}
       >
         <AppText
           style={{
@@ -147,7 +158,7 @@ export default function PostInspectionModalInfo({
         >
           {formData.rpc || "Select RP/C"}
         </AppText>
-        {isEditable && (
+        {isAircraftEditable && (
           <MaterialCommunityIcons
             name={showRPCDropdown ? "chevron-up" : "chevron-down"}
             size={20}
@@ -156,7 +167,7 @@ export default function PostInspectionModalInfo({
         )}
       </TouchableOpacity>
 
-      {showRPCDropdown && isEditable && (
+      {showRPCDropdown && isAircraftEditable && (
         <View
           style={{
             marginTop: 6,
@@ -253,7 +264,7 @@ export default function PostInspectionModalInfo({
           <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
-            Rotary Winged Aircraft - Single Engine
+            {aircraftClassLabel}
           </AppText>
         </View>
 

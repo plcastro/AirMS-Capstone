@@ -20,6 +20,24 @@ import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  createEmptyB412PostInspectionData,
+  isB412Aircraft,
+} from "../../components/PostInspection/b412PostInspectionData";
+
+const normalizePostInspectionPayload = (inspection = {}) => {
+  if (isB412Aircraft(inspection.aircraftType)) {
+    return {
+      ...inspection,
+      b412Data: createEmptyB412PostInspectionData(inspection.b412Data),
+    };
+  }
+
+  const legacyInspection = { ...inspection };
+  delete legacyInspection.b412Data;
+  return legacyInspection;
+};
+
 const getDisplayStatus = (status) => {
   const normalizedStatus = String(status || "").trim().toLowerCase();
 
@@ -118,7 +136,8 @@ export default function PostInspection({ route }) {
     fetchAircraftRpcOptions();
   }, []);
 
-  const handleSaveEdit = (updatedInspection) => updatedInspection;
+  const handleSaveEdit = (updatedInspection) =>
+    normalizePostInspectionPayload(updatedInspection);
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);

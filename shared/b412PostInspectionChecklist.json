@@ -1,7 +1,8 @@
 {
   "aircraftType": "B412EP",
-  "title": "Bell 412 Post Flight Inspection",
-  "footerNote": "Procedures by Flight Manual Postflight Inspection, FAA Approved, revised 16 October 2009, Rev. 29.",
+  "title": "FORM BELL412 POST-FLIGHT INSPECTION FOR BELL412EP",
+  "scopeTitle": "EXTERIOR :",
+  "footerNote": "Procedures by Flight Manual Postflight Inspection FAA Approved Revised: 16 October 2009 Rev. 29",
   "sections": [
     {
       "key": "fuselageFront",
@@ -51,7 +52,7 @@
       "items": [
         { "key": "tailboom_tailboomAccessCovers", "title": "Tailboom", "description": "Condition checked.", "page": 2 },
         { "key": "tailboom_tailRotorDriveshaftCovers", "title": "Tail Rotor Driveshaft Covers", "description": "Secured.", "page": 2 },
-        { "key": "tailboom_elevatorSpringCondition", "title": "Elevator", "description": "Condition checked.", "cautionBefore": "CAUTION: Do not bend elevator trailing edge tab.", "page": 2 },
+        { "key": "tailboom_elevatorSpringCondition", "title": "Elevator", "description": "Condition checked.", "cautionBefore": "*Caution: Do not Bend Elevator Trailing Edge Tab.", "page": 2 },
         { "key": "tailboom_tailRotor90Gearbox", "title": "Tail Rotor (90°) Gearbox", "description": "Verify actual presence of oil in sight gauge.", "page": 2 },
         { "key": "tailboom_tailRotorBlades", "title": "Tail Rotor Blades", "description": "Condition checked.", "page": 2 },
         { "key": "tailboom_tailRotor", "title": "Tail Rotor", "description": "Condition and free movement on flapping axis.", "page": 2 },

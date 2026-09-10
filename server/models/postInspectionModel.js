@@ -146,7 +146,7 @@ const postInspectionSchema = new mongoose.Schema(
     releasedBy: { type: signatureSchema, default: () => ({}) },
     acceptedBy: { type: signatureSchema, default: () => ({}) },
     // Bell 412 EP uses an aircraft-specific checklist. It remains undefined on
-    // AS350/legacy records and on linked pending records until they are edited.
+    // AS350/legacy records and is initialized for B412 records by the controller.
     b412Data: { type: b412PostInspectionDataSchema, default: undefined },
   },
   { collection: "post_inspections", timestamps: true },
