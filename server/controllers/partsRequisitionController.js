@@ -3,7 +3,7 @@ const { auditLog } = require("./logsController");
 const {
   createPartsRequisitionNotifications,
 } = require("../utils/partsRequisitionNotificationService");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 const {
   buildPartsRequisitionWorkbook,
 } = require("../services/partsRequisitionExcelService");
@@ -95,6 +95,12 @@ const hasLockedItemAvailableQtyChanges = (
     );
   });
 };
+
+const hasItemsBelowRequestedQuantity = (items = []) =>
+  items.some(
+    (item) => (Number(item.availableQty) || 0) < (Number(item.quantity) || 0),
+  );
+
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -103,6 +109,30 @@ const withActorId = (req, action, fallbackId = null) => {
     action: actorId ? `${action} (actorId: ${actorId})` : action,
   };
 };
+
+const publishRequisitionUpdated = (requisition, actorUserId) =>
+  publishTypedForRecipients(
+    {
+      recipientRoles: [
+        "superadmin",
+        "maintenance manager",
+        "officer-in-charge",
+        "warehouse staff",
+      ],
+      recipientUsers: requisition?.staff?.requisitionerId
+        ? [requisition.staff.requisitionerId]
+        : [],
+      excludedUsers: actorUserId ? [actorUserId] : [],
+    },
+    "requisition:updated",
+    {
+      requisitionId: String(requisition._id),
+      updatedAt: requisition.updatedAt || requisition.createdAt,
+      status: requisition.status,
+    },
+  ).catch((error) => {
+    console.error("Failed to publish requisition update:", error);
+  });
 
 const getAllRequisitions = async (req, res) => {
   try {
@@ -229,12 +259,9 @@ const createRequisition = async (req, res) => {
     await createPartsRequisitionNotifications({
       previousRequisition: null,
       requisition: savedRequisition,
+      actorUserId: req.user?.id,
     });
-    publishTypedEvent("requisition:updated", {
-      requisitionId: String(savedRequisition._id),
-      updatedAt: savedRequisition.updatedAt || savedRequisition.createdAt,
-      status: savedRequisition.status,
-    });
+    publishRequisitionUpdated(savedRequisition, req.user?.id);
     res.status(201).json(savedRequisition);
   } catch (error) {
     res.status(400).json({ message: "Invalid data", error: error.message });
@@ -336,6 +363,18 @@ const updateRequisitionStatus = async (req, res) => {
       });
     }
 
+    if (
+      updatePayload.status === "Ordered" &&
+      hasItemsBelowRequestedQuantity(
+        updatePayload.items || existingRequisition.items,
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
+      });
+    }
+
     const updatedRequisition = await partsRequisitionModel.findByIdAndUpdate(
       req.params.id,
       updatePayload,
@@ -353,12 +392,9 @@ const updateRequisitionStatus = async (req, res) => {
     await createPartsRequisitionNotifications({
       previousRequisition: existingRequisition,
       requisition: updatedRequisition,
+      actorUserId: req.user?.id,
     });
-    publishTypedEvent("requisition:updated", {
-      requisitionId: String(updatedRequisition._id),
-      updatedAt: updatedRequisition.updatedAt || updatedRequisition.createdAt,
-      status: updatedRequisition.status,
-    });
+    publishRequisitionUpdated(updatedRequisition, req.user?.id);
     res.status(200).json(updatedRequisition);
   } catch (error) {
     res.status(400).json({ message: "Update failed", error: error.message });

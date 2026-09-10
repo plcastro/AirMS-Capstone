@@ -32,6 +32,7 @@ import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { useNavigate } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Title, Text } = Typography;
 
@@ -257,6 +258,10 @@ export default function MaintenanceTracking() {
   const [rectifyingKey, setRectifyingKey] = useState("");
   const [selectedAircraftFilter, setSelectedAircraftFilter] = useState("all");
   const [inspectionLimitSearch, setInspectionLimitSearch] = useState("");
+  const debouncedInspectionLimitSearch = useDebouncedValue(
+    inspectionLimitSearch,
+    300,
+  );
   const [visibleOptionalFindingColumns, setVisibleOptionalFindingColumns] =
     useState(["recommendedAction"]);
   const [popup, setPopup] = useState({
@@ -433,9 +438,12 @@ export default function MaintenanceTracking() {
         result.meta?.llmLastResult || refreshedHealth?.lastResult || {};
 
       if (llmCount > 0) {
-        message.success(
-          `Updated ${llmCount} OpenAI maintenance summar${llmCount === 1 ? "y" : "ies"}.`,
-        );
+        setPopup({
+          open: true,
+          status: "success",
+          title: "AI Insights Regenerated",
+          subTitle: `Successfully updated ${llmCount} OpenAI maintenance summar${llmCount === 1 ? "y" : "ies"}.`,
+        });
       } else if (refreshedHealth?.cooldown?.active) {
         message.warning(
           `OpenAI did not return summaries because quota is cooling down. Rule recommendations and references were refreshed. Try again in ${
@@ -489,9 +497,13 @@ export default function MaintenanceTracking() {
           );
 
     return aircraftFiltered.filter((row) =>
-      matchesInspectionLimitSearch(row, inspectionLimitSearch),
+      matchesInspectionLimitSearch(row, debouncedInspectionLimitSearch),
     );
-  }, [inspectionLimitSearch, inspectionRemainingRows, selectedAircraftFilter]);
+  }, [
+    debouncedInspectionLimitSearch,
+    inspectionRemainingRows,
+    selectedAircraftFilter,
+  ]);
 
   const summary = useMemo(
     () =>
@@ -1066,7 +1078,7 @@ export default function MaintenanceTracking() {
         <Alert
           type={aiStatusNotice.type}
           showIcon
-          message={aiStatusNotice.message}
+          title={aiStatusNotice.message}
         />
       )}
 

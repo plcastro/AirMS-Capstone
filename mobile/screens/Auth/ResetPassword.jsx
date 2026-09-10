@@ -43,6 +43,10 @@ export default function ResetPassword() {
     passwordRequirements.hasNumber &&
     formData.confirmPassword &&
     formData.newPassword === formData.confirmPassword;
+  const passwordsMatch =
+    formData.newPassword.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.newPassword === formData.confirmPassword;
 
   const getRequirementStyle = (met) => ({
     color: met ? "#26866F" : "#999",
@@ -98,7 +102,7 @@ export default function ResetPassword() {
       setTimeout(() => navigation.replace("login"), 1600);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err.message || "Network error. Please try again.");
+      setError(err.message || "Network error. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -188,6 +192,13 @@ export default function ResetPassword() {
               value={formData.confirmPassword}
               onChangeText={(text) => handleChange("confirmPassword", text)}
             />
+            {passwordsMatch && (
+              <AppText
+                style={{ color: "#26866F", fontSize: 12, marginTop: 6 }}
+              >
+                Passwords match.
+              </AppText>
+            )}
           </View>
 
           {/* REQUIREMENTS BOX */}
@@ -196,7 +207,9 @@ export default function ResetPassword() {
               Password Requirements:
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.minLength)}
+            >
               {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
               characters
             </AppText>
@@ -208,7 +221,9 @@ export default function ResetPassword() {
               letter
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.hasNumber)}
+            >
               {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
             </AppText>
           </View>
@@ -249,7 +264,7 @@ export default function ResetPassword() {
               onPress={handleSubmit}
               buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
               buttonTextStyle={styles.primaryBtnTxt}
-              disabled={loading || redirecting || !isFormValid}
+              disabled={loading || redirecting}
             />
           </View>
 

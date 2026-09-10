@@ -1,7 +1,7 @@
 import {
   View,
   ScrollView,
-  RefreshControl
+  RefreshControl,
 } from "react-native";
 import AppText from "../common/AppText";
 import React, { useState, useContext } from "react";
@@ -12,16 +12,27 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 import { COLORS } from "../../stylesheets/colors";
+import { resolveUserRole } from "../../../shared/navigationAccess";
+
+const OPEN_TASK_STATUSES = new Set(["pending", "returned", "ongoing"]);
+const COMPLETED_TASK_STATUSES = new Set(["completed", "turned in", "approved"]);
+
+const normalizeTaskStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
 
 export default function TaskTabs({
-  tasks,
+  tasks = [],
   employees = [],
   onTaskPress,
   onRefresh,
   refreshing = false,
 }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
+  const userRole = resolveUserRole(user);
+  const isHead = ["maintenance manager", "superadmin"].includes(userRole);
+  const now = new Date();
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];
@@ -30,8 +41,6 @@ export default function TaskTabs({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-
-  const now = new Date();
 
   const formatDisplayDate = (dateString) => {
     const date = new Date(dateString);
@@ -47,14 +56,17 @@ export default function TaskTabs({
         case "Tasks":
           return tasks;
         case "Submitted":
-          return tasks.filter(
-            (t) => t.status === "Completed" || t.status === "Turned in",
+          return tasks.filter((task) =>
+            ["completed", "turned in"].includes(
+              normalizeTaskStatus(task.status),
+            ),
           );
         default:
           return [];
       }
     } else {
       return tasks.filter((task) => {
+        const taskStatus = normalizeTaskStatus(task.status);
         const deadline = task.endDateTime || task.dueDate;
         if (!deadline) return false;
         const dueDate = new Date(deadline);
@@ -67,25 +79,11 @@ export default function TaskTabs({
 
         switch (activeTab) {
           case "Upcoming":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              !isPastDue
-            );
+            return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
           case "Past Due":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              isPastDue
-            );
+            return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
           case "Completed":
-            return (
-              task.status === "Completed" ||
-              task.status === "Turned in" ||
-              task.status === "Approved"
-            );
+            return COMPLETED_TASK_STATUSES.has(taskStatus);
           default:
             return false;
         }
@@ -95,6 +93,7 @@ export default function TaskTabs({
 
   const getMechanicTabCount = (tab) =>
     tasks.filter((task) => {
+      const taskStatus = normalizeTaskStatus(task.status);
       const deadline = task.endDateTime || task.dueDate;
       if (!deadline) return false;
 
@@ -104,25 +103,11 @@ export default function TaskTabs({
 
       switch (tab) {
         case "Upcoming":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            !isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
         case "Past Due":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
         case "Completed":
-          return (
-            task.status === "Completed" ||
-            task.status === "Turned in" ||
-            task.status === "Approved"
-          );
+          return COMPLETED_TASK_STATUSES.has(taskStatus);
         default:
           return false;
       }
@@ -183,11 +168,17 @@ export default function TaskTabs({
 
   return (
     <View style={{ flex: 1 }}>
-      <View
-        style={{
+      <ScrollView
+        style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
           flexDirection: "row",
           justifyContent: "flex-start",
+          alignItems: "center",
           gap: 3,
+          paddingRight: 8,
+          paddingBottom: 8,
         }}
       >
         {tabsToRender.map((tab) => (
@@ -217,11 +208,12 @@ export default function TaskTabs({
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
-      </View>
+      </ScrollView>
 
       {/* Task List */}
       <View style={styles.taskTable}>
         <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={{ padding: 10, paddingBottom: 110 }}
           refreshControl={
             onRefresh ? (

@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { AuthContext } from "../../Context/AuthContext";
 import HeadTaskScreen from "./HeadTaskScreen";
 import MechanicTaskScreen from "./MechanicTaskScreen";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 export default function TaskAssignment({ route }) {
   const { user } = useContext(AuthContext);
   const targetTaskId = route?.params?.targetTaskId;
@@ -26,11 +27,9 @@ export default function TaskAssignment({ route }) {
         }
       : null;
 
-  if (
-    ["maintenance manager", "superadmin"].includes(
-      user?.jobTitle?.toLowerCase() || "",
-    )
-  ) {
+  const userRole = resolveUserRole(user);
+
+  if (["maintenance manager", "superadmin"].includes(userRole)) {
     return (
       <HeadTaskScreen
         targetTaskId={targetTaskId}

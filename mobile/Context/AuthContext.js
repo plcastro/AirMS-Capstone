@@ -22,7 +22,6 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const REMEMBERED_SESSION_STARTED_AT_KEY = "rememberedSessionStartedAt";
-  const MOBILE_SESSION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
   const ACCESS_TOKEN_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -30,6 +29,7 @@ export const AuthProvider = ({ children }) => {
   const [rememberMePreference, setRememberMePreference] = useState(false);
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
+  const refreshPromiseRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
   const lastActivityWriteRef = useRef(0);
 
@@ -129,40 +129,14 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const getMobileSessionStartedAt = useCallback(async () => {
-    const startedAt = Number(
-      await AsyncStorage.getItem(REMEMBERED_SESSION_STARTED_AT_KEY),
-    );
-    if (Number.isFinite(startedAt)) return startedAt;
-
-    const hasStoredAuth = Boolean(
-      (await AsyncStorage.getItem("currentUser")) ||
-      (await AsyncStorage.getItem("currentUserToken")) ||
-      (await AsyncStorage.getItem("refreshToken")) ||
-      (await secureGetItem("refreshToken")),
-    );
-    if (!hasStoredAuth) return null;
-
-    const migratedStartedAt = Date.now();
-    await AsyncStorage.setItem(
-      REMEMBERED_SESSION_STARTED_AT_KEY,
-      String(migratedStartedAt),
-    );
-    return migratedStartedAt;
-  }, []);
-
-  const hasMobileSessionExpired = useCallback(async () => {
-    const startedAt = await getMobileSessionStartedAt();
-    return !startedAt || Date.now() - startedAt > MOBILE_SESSION_WINDOW_MS;
-  }, [getMobileSessionStartedAt]);
-
   const refreshSession = useCallback(
-    async ({ logoutOnFailure = true } = {}) => {
-      try {
-        if (await hasMobileSessionExpired()) {
-          throw new Error("Mobile session expired");
-        }
+    async () => {
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current;
+      }
 
+      refreshPromiseRef.current = (async () => {
+      try {
         const inMemoryRefreshToken = refreshTokenRef.current;
         const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
         const secureRefreshToken = await secureGetItem("refreshToken");
@@ -228,7 +202,6 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         const refreshMessage = String(err?.message || "");
         const isInvalidRefreshToken =
-          refreshMessage.toLowerCase().includes("mobile session expired") ||
           refreshMessage.toLowerCase().includes("invalid refresh token") ||
           refreshMessage.toLowerCase().includes("refresh token");
 
@@ -253,13 +226,18 @@ export const AuthProvider = ({ children }) => {
           setRememberMePreference(
             (await AsyncStorage.getItem("rememberMe")) === "true",
           );
-        } else if (logoutOnFailure) {
-          await logoutUser();
         }
         return null;
       }
+      })();
+
+      try {
+        return await refreshPromiseRef.current;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
     },
-    [clearStoredAuth, getSessionMeta, hasMobileSessionExpired, logoutUser],
+    [clearStoredAuth, getSessionMeta],
   );
 
   useEffect(() => {
@@ -280,7 +258,7 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false;
     const refreshActiveSession = async () => {
       if (cancelled || AppState.currentState !== "active") return;
-      await refreshSession({ logoutOnFailure: false });
+      await refreshSession();
     };
 
     const intervalId = setInterval(
@@ -306,25 +284,16 @@ export const AuthProvider = ({ children }) => {
         const rememberedPreference = await AsyncStorage.getItem("rememberMe");
         const remembered = rememberedPreference === "true";
         setRememberMePreference(remembered);
-        if (await hasMobileSessionExpired()) {
-          setUser(null);
-          setToken(null);
-          accessTokenRef.current = null;
-          refreshTokenRef.current = null;
-          await clearStoredAuth();
-          setRememberMePreference(remembered);
-          return;
-        }
-
         const storedUser = await AsyncStorage.getItem("currentUser");
         const accessToken = await AsyncStorage.getItem("currentUserToken");
         const persistedRefreshToken =
           (await AsyncStorage.getItem("refreshToken")) ||
           (await secureGetItem("refreshToken"));
+        const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
 
         const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
-        if (hasAuthMaterial && storedUser) {
-          setUser(JSON.parse(storedUser));
+        if (hasAuthMaterial && parsedStoredUser) {
+          setUser(parsedStoredUser);
         } else {
           setUser(null);
         }
@@ -338,7 +307,18 @@ export const AuthProvider = ({ children }) => {
 
         refreshTokenRef.current = persistedRefreshToken;
 
-        if (storedUser && (accessToken || persistedRefreshToken)) {
+        if (parsedStoredUser && (accessToken || persistedRefreshToken)) {
+          const sessionMeta = await getSessionMeta();
+          if (
+            !sessionMeta?.sessionId &&
+            (parsedStoredUser?.sessionId || parsedStoredUser?.base)
+          ) {
+            await persistSessionMeta({
+              base: parsedStoredUser?.base,
+              sessionId: parsedStoredUser?.sessionId,
+            });
+          }
+
           if (persistedRefreshToken) {
             await refreshSession();
           }
@@ -350,7 +330,12 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadPersistedAuth();
-  }, [clearStoredAuth, hasMobileSessionExpired, refreshSession]);
+  }, [
+    clearStoredAuth,
+    getSessionMeta,
+    persistSessionMeta,
+    refreshSession,
+  ]);
 
   const loginUser = async ({
     user: userData,
@@ -368,10 +353,6 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem("currentUserToken", accessToken);
       await secureSetItem("accessToken", accessToken);
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
-      await AsyncStorage.setItem(
-        REMEMBERED_SESSION_STARTED_AT_KEY,
-        String(Date.now()),
-      );
       await persistSessionMeta({
         base: userData?.base,
         sessionId: userData?.sessionId,
@@ -451,10 +432,6 @@ export const AuthProvider = ({ children }) => {
     setRememberMePreference(rememberMe);
     await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
-    await AsyncStorage.setItem(
-      REMEMBERED_SESSION_STARTED_AT_KEY,
-      String(Date.now()),
-    );
     await AsyncStorage.setItem("refreshToken", nextRefreshToken);
     await secureSetItem("refreshToken", nextRefreshToken);
     return payload;

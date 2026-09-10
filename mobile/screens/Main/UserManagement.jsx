@@ -17,7 +17,6 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -27,6 +26,7 @@ import { confirmAction } from "../../utilities/confirmAction";
 import UserStatsRow from "../../components/UserManagement/UserStatsRow";
 import UserCard from "../../components/UserManagement/UserCard";
 import UserFormModal from "../../components/UserManagement/UserFormModal";
+import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { JOB_TITLE_OPTIONS } from "../../components/UserManagement/constants";
 import { matchesSearch } from "../../utilities/search";
@@ -52,9 +52,12 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobTitleFilter, setJobTitleFilter] = useState("all");
+  const [accessFilter, setAccessFilter] = useState("all");
+  const [openFilter, setOpenFilter] = useState(null);
   const [formVisible, setFormVisible] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [savingUser, setSavingUser] = useState(false);
+  const [invitationEmail, setInvitationEmail] = useState("");
   const [inviteActionLoadingByUser, setInviteActionLoadingByUser] = useState(
     {},
   );
@@ -351,11 +354,18 @@ export default function UserManagement() {
       }
 
       showToast(
-        isEdit ? "User updated successfully." : "User created successfully.",
+        isEdit
+          ? "User has been updated successfully!"
+          : "User added successfully!",
       );
+      await fetchUsers({ silent: true });
       setFormVisible(false);
       setUserToEdit(null);
-      fetchUsers({ silent: true });
+      if (!isEdit) {
+        setInvitationEmail(
+          json?.invitationEmail || requestPayload?.email || "",
+        );
+      }
     } catch (error) {
       showToast(error.message);
     } finally {
@@ -378,8 +388,16 @@ export default function UserManagement() {
             .toLowerCase() === jobTitleFilter,
       );
     }
+    if (accessFilter !== "all") {
+      next = next.filter(
+        (u) =>
+          String(u.access || "")
+            .trim()
+            .toLowerCase() === accessFilter,
+      );
+    }
     return next.filter((u) => matchesSearch(searchQuery, u));
-  }, [jobTitleFilter, searchQuery, statusFilter, users]);
+  }, [accessFilter, jobTitleFilter, searchQuery, statusFilter, users]);
 
   const counts = useMemo(() => {
     const base = {
@@ -405,6 +423,112 @@ export default function UserManagement() {
     return ["all", ...merged];
   }, [users]);
 
+  const accessOptions = useMemo(() => {
+    const dynamicAccess = users
+      .map((u) => String(u.access || "").trim())
+      .filter(Boolean);
+    const merged = Array.from(
+      new Set(["Superadmin", "Superuser", "User", ...dynamicAccess]),
+    );
+    return ["all", ...merged];
+  }, [users]);
+
+  const roleFilterOptions = useMemo(
+    () =>
+      jobTitleOptions.map((option) => ({
+        value: String(option).toLowerCase(),
+        label: option === "all" ? "All Roles" : String(option),
+      })),
+    [jobTitleOptions],
+  );
+
+  const accessFilterOptions = useMemo(
+    () =>
+      accessOptions.map((option) => ({
+        value: String(option).toLowerCase(),
+        label: option === "all" ? "All Access" : String(option),
+      })),
+    [accessOptions],
+  );
+
+  const roleFilterLabel =
+    roleFilterOptions.find((option) => option.value === jobTitleFilter)
+      ?.label || "All Roles";
+  const accessFilterLabel =
+    accessFilterOptions.find((option) => option.value === accessFilter)
+      ?.label || "All Access";
+
+  const toggleFilter = (filterKey) => {
+    setOpenFilter((current) => (current === filterKey ? null : filterKey));
+  };
+
+  const selectFilterValue = (setter, value) => {
+    setter(value);
+    setOpenFilter(null);
+  };
+
+  const renderFilterDropdown = ({
+    filterKey,
+    selectedLabel,
+    options,
+    onSelect,
+  }) => {
+    const isOpen = openFilter === filterKey;
+
+    return (
+      <View
+        style={[
+          ui.filterDropdownWrap,
+          isOpen ? ui.filterDropdownWrapOpen : null,
+        ]}
+      >
+        <TouchableOpacity
+          style={ui.unifiedFilterButton}
+          activeOpacity={0.82}
+          onPress={() => toggleFilter(filterKey)}
+        >
+          <MaterialCommunityIcons
+            name="tune"
+            size={16}
+            color={COLORS.primaryLight}
+            style={{ marginRight: 6 }}
+          />
+          <AppText style={ui.unifiedFilterButtonText} numberOfLines={1}>
+            {selectedLabel}
+          </AppText>
+          <MaterialCommunityIcons
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={ui.unifiedDropdownMenu}>
+            <ScrollView nestedScrollEnabled>
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    ui.unifiedDropdownItem,
+                    index < options.length - 1
+                      ? ui.unifiedDropdownItemBordered
+                      : null,
+                  ]}
+                  onPress={() => onSelect(option.value)}
+                >
+                  <AppText style={ui.unifiedDropdownItemText} numberOfLines={2}>
+                    {option.label}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={ui.center}>
@@ -428,27 +552,25 @@ export default function UserManagement() {
           placeholder="Search users"
           containerStyle={ui.searchControl}
         />
+      </View>
 
-        <View style={ui.filterDropdownWrap}>
-          <Picker
-            selectedValue={jobTitleFilter}
-            onValueChange={setJobTitleFilter}
-            style={ui.filterPicker}
-          >
-            {jobTitleOptions.map((option) => (
-              <Picker.Item
-                key={option}
-                value={String(option).toLowerCase()}
-                label={
-                  option === "all" ? "ALL ROLES" : String(option).toUpperCase()
-                }
-              />
-            ))}
-          </Picker>
-        </View>
+      <View style={ui.filterControlsRow}>
+        {renderFilterDropdown({
+          filterKey: "role",
+          selectedLabel: roleFilterLabel,
+          options: roleFilterOptions,
+          onSelect: (value) => selectFilterValue(setJobTitleFilter, value),
+        })}
+        {renderFilterDropdown({
+          filterKey: "access",
+          selectedLabel: accessFilterLabel,
+          options: accessFilterOptions,
+          onSelect: (value) => selectFilterValue(setAccessFilter, value),
+        })}
       </View>
 
       <ScrollView
+        style={ui.userList}
         contentContainerStyle={ui.listContent}
         refreshControl={
           <RefreshControl
@@ -497,7 +619,15 @@ export default function UserManagement() {
         onSubmit={handleSubmitUser}
         users={users}
         userToEdit={userToEdit}
+        currentUserId={currentUserId}
         saving={savingUser}
+      />
+      <AlertComp
+        visible={Boolean(invitationEmail)}
+        title="Email Sent"
+        message={`Activation credentials were sent to ${invitationEmail}.`}
+        confirmText="OK"
+        onConfirm={() => setInvitationEmail("")}
       />
     </View>
   );
@@ -507,34 +637,85 @@ const ui = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F7F8", padding: 12 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   pageTitle: { fontSize: 18, fontWeight: "700", color: "#1A1A1A" },
-  listContent: { paddingBottom: 92 },
+  listContent: { flexGrow: 1, paddingBottom: 92 },
   searchFilterRow: {
+    marginBottom: 10,
+    zIndex: 20,
+  },
+  userList: {
+    flex: 1,
+  },
+  searchControl: {
+    height: 48,
+    marginBottom: 0,
+  },
+  filterControlsRow: {
     flexDirection: "row",
     gap: 8,
     marginBottom: 10,
-    alignItems: "flex-start",
-  },
-  searchControl: {
-    flex: 1,
-    height: 48,
-    marginBottom: 0,
+    zIndex: 30,
   },
   filterDropdownWrap: {
     flex: 1,
     minWidth: 0,
-    height: 48,
+  },
+  filterDropdownWrapOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
+  unifiedFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: "#DDD",
     borderRadius: 10,
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  filterPicker: {
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
     height: 48,
-    width: "100%",
-    color: COLORS.black,
-    marginTop: -2,
+    paddingHorizontal: 12,
   },
-  emptyState: { alignItems: "center", marginTop: 50, gap: 10 },
+  unifiedFilterButtonText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.black,
+    fontWeight: "600",
+  },
+  unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 260,
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 50,
+  },
 });

@@ -1,18 +1,14 @@
 const admin = require("firebase-admin");
 const UserModel = require("../models/userModel");
 const { sendToUsers } = require("./realtimeEvents");
-
-const ROLE_TO_JOB_TITLE = {
-  "maintenance manager": "Maintenance Manager",
-  "officer-in-charge": "Officer-In-Charge",
-  mechanic: "Mechanic",
-  "warehouse staff": "Warehouse Staff",
-  pilot: "Pilot",
-  superadmin: "superadmin",
-};
+const { getUserIdsForRoles } = require("./notificationRecipients");
 
 const uniqueValues = (values = []) => [
-  ...new Set(values.map(String).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map(String),
+  ),
 ];
 
 const parseServiceAccount = () => {
@@ -45,27 +41,6 @@ const getFirebaseMessaging = () => {
   }
 
   return admin.messaging();
-};
-
-const getUserIdsForRoles = async (roles = []) => {
-  const jobTitles = roles
-    .map((role) => ROLE_TO_JOB_TITLE[String(role).trim().toLowerCase()])
-    .filter(Boolean);
-
-  if (!jobTitles.length) {
-    return [];
-  }
-
-  const users = await UserModel.find({
-    $or: jobTitles.map((jobTitle) => ({
-      jobTitle: {
-        $regex: `^${jobTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
-        $options: "i",
-      },
-    })),
-  }).select("_id");
-
-  return users.map((user) => String(user._id));
 };
 
 const getPushTokensForUsers = async (userIds = []) => {
@@ -114,12 +89,16 @@ const sendPushNotificationToUsers = async ({
   body,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   data = {},
   android = {},
 }) => {
   try {
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
-    const userIds = uniqueValues([...recipientUsers, ...roleUserIds]);
+    const excluded = new Set(uniqueValues(excludedUsers));
+    const userIds = uniqueValues([...recipientUsers, ...roleUserIds]).filter(
+      (userId) => !excluded.has(String(userId)),
+    );
     const fcmTokens = await getPushTokensForUsers(userIds);
 
     sendToUsers(userIds, "notification-created", {

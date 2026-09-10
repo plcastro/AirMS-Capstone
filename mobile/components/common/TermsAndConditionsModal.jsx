@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AppText from "./AppText";
 import { COLORS } from "../../stylesheets/colors";
+import IosModalSafeAreaView from "./IosModalSafeAreaView";
 
 const termsSections = [
   {
@@ -50,8 +51,9 @@ export default function TermsAndConditionsModal({ visible, onClose }) {
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard}>
+      <IosModalSafeAreaView style={styles.safeAreaBackdrop}>
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable style={styles.modalCard}>
           <View style={styles.header}>
             <AppText style={styles.title}>Terms and Conditions</AppText>
             <TouchableOpacity
@@ -83,13 +85,18 @@ export default function TermsAndConditionsModal({ visible, onClose }) {
               </View>
             ))}
           </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </IosModalSafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeAreaBackdrop: {
+    flex: 1,
+    backgroundColor: COLORS.overlayDark,
+  },
   backdrop: {
     flex: 1,
     justifyContent: "center",
@@ -97,7 +104,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlayDark,
   },
   modalCard: {
-    height: "85%",
+    height: "95%",
     borderRadius: 14,
     backgroundColor: COLORS.white,
     overflow: "hidden",
@@ -117,7 +124,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     paddingRight: 12,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     color: COLORS.black,
   },
@@ -141,7 +148,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: COLORS.black,
     marginBottom: 4,

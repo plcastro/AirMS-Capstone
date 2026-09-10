@@ -165,6 +165,18 @@
   justify-content: flex-end;
 }
 
+.auth-mobile-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/images/airms-hero_680.webp");
+  background-size: contain;
+  background-position: top center;
+  background-repeat: no-repeat;
+}
+
 .auth-mobile-bg,
 .auth-mobile-bg img,
 .auth-mobile-scrim,
@@ -244,6 +256,24 @@
   background: #d7ddd9;
 }
 
+.auth-mobile-sheet .ant-select-selection-placeholder {
+  color: #595959 !important;
+  opacity: 1;
+}
+
+.auth-terms-copy {
+  color: #595959;
+}
+
+.auth-terms-copy .ant-btn-link {
+  color: #005f46;
+}
+
+.auth-terms-copy .ant-btn-link:hover,
+.auth-terms-copy .ant-btn-link:focus-visible {
+  color: #244d3b !important;
+}
+
 @keyframes login-spin {
   to {
     transform: rotate(360deg);
@@ -251,6 +281,10 @@
 }
 
 @media (max-width: 480px) {
+  .auth-mobile-shell::before {
+    background-image: url("/images/airms-hero_412.webp");
+  }
+
   .auth-mobile-sheet {
     height: min(74dvh, calc(100dvh - 128px));
     border-radius: 26px 26px 0 0;

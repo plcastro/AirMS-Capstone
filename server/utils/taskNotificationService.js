@@ -3,10 +3,15 @@ const mongoose = require("mongoose");
 const { sendPushNotificationToUsers } = require("./mobilePushService");
 
 const ROLE_MANAGER = "maintenance manager";
-const ROLE_MECHANIC = "mechanic";
 
 const uniqueStrings = (values = []) =>
-  [...new Set(values.map((value) => String(value)).filter(Boolean))];
+  [
+    ...new Set(
+      values
+        .filter((value) => value !== undefined && value !== null && value !== "")
+        .map((value) => String(value)),
+    ),
+  ];
 
 const uniqueObjectIdStrings = (values = []) =>
   uniqueStrings(values).filter((value) => mongoose.Types.ObjectId.isValid(value));
@@ -20,6 +25,7 @@ const createNotification = async ({
   task,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   metadata = {},
 }) => {
   const normalizedRoles = uniqueRoles(recipientRoles);
@@ -37,6 +43,7 @@ const createNotification = async ({
     entityId: task._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers: uniqueObjectIdStrings(excludedUsers),
     metadata: {
       status: task.status,
       assignedTo: task.assignedTo,
@@ -50,6 +57,7 @@ const createNotification = async ({
     body: description,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers,
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
@@ -66,7 +74,7 @@ const createNotification = async ({
   });
 };
 
-const createTaskNotifications = async ({ previousTask, task }) => {
+const createTaskNotifications = async ({ previousTask, task, actorUserId = null }) => {
   if (!task?._id) {
     return;
   }
@@ -76,8 +84,8 @@ const createTaskNotifications = async ({ previousTask, task }) => {
       title: `New task assigned: ${task.title}`,
       description: `A new task has been assigned to ${task.assignedToName || "a mechanic"}.`,
       task,
-      recipientRoles: [ROLE_MECHANIC],
       recipientUsers: task.assignedTo ? [task.assignedTo] : [],
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "task-assigned" },
     });
     return;
@@ -93,8 +101,8 @@ const createTaskNotifications = async ({ previousTask, task }) => {
       title: `Task reassigned: ${task.title}`,
       description: `This task has been reassigned to ${task.assignedToName || "a mechanic"}.`,
       task,
-      recipientRoles: [ROLE_MECHANIC],
       recipientUsers: [task.assignedTo, previousTask.assignedTo],
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "task-reassigned" },
     });
   }
@@ -108,11 +116,12 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         recipientRoles:
           currentStatus === "Turned in"
             ? [ROLE_MANAGER]
-            : [ROLE_MECHANIC],
+            : [],
         recipientUsers:
           currentStatus === "Approved" && task.assignedTo
             ? [task.assignedTo]
             : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "task-updated" },
       });
     }
@@ -127,6 +136,7 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         task,
         recipientRoles: [ROLE_MANAGER],
         recipientUsers: [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "task-turned-in" },
       });
       break;
@@ -135,8 +145,8 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         title: `Task returned: ${task.title}`,
         description: `Your task has been returned for corrections.`,
         task,
-        recipientRoles: [ROLE_MECHANIC],
         recipientUsers: task.assignedTo ? [task.assignedTo] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "task-returned" },
       });
       break;
@@ -145,8 +155,8 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         title: `Task approved: ${task.title}`,
         description: `This task has been approved.`,
         task,
-        recipientRoles: [ROLE_MECHANIC],
         recipientUsers: task.assignedTo ? [task.assignedTo] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "task-approved" },
       });
       break;
@@ -157,6 +167,7 @@ const createTaskNotifications = async ({ previousTask, task }) => {
         task,
         recipientRoles: [ROLE_MANAGER],
         recipientUsers: task.assignedTo ? [task.assignedTo] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "task-completed" },
       });
       break;

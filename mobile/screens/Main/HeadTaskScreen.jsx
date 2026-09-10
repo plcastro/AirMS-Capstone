@@ -24,6 +24,24 @@ const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
+const normalizeTaskStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
+const isReviewedTask = (task) =>
+  task?.isApproved === true || normalizeTaskStatus(task?.status) === "approved";
+const isForReviewTask = (task) =>
+  !isReviewedTask(task) &&
+  (normalizeTaskStatus(task?.status) === "turned in" ||
+    normalizeTaskStatus(task?.status) === "completed");
+
+const getTaskAssigneeId = (task = {}) => {
+  const assignee = task.assignedTo;
+  if (assignee && typeof assignee === "object") {
+    return assignee._id || assignee.id || "";
+  }
+  return assignee || "";
+};
 
 export default function HeadTaskScreen({
   targetTaskId,
@@ -82,7 +100,7 @@ export default function HeadTaskScreen({
         .trim()
         .toLowerCase();
       return (
-        String(task?.assignedTo || "") === String(employeeId) &&
+        String(getTaskAssigneeId(task)) === String(employeeId) &&
         OPEN_TASK_STATUSES.has(status)
       );
     });
@@ -91,8 +109,12 @@ export default function HeadTaskScreen({
     .map((employee) => ({
       ...employee,
       isBusy: isEmployeeBusy(employee.id),
-    }))
-    .filter((employee) => !employee.isBusy);
+      activeTaskCount: tasks.filter(
+        (task) =>
+          String(getTaskAssigneeId(task)) === String(employee.id) &&
+          OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
+      ).length,
+    }));
 
   useEffect(() => {
     if (addTaskDraft) {
@@ -179,7 +201,9 @@ export default function HeadTaskScreen({
         if (response.ok) {
           const data = await response.json();
           const mechanics = (data.data || []).filter(
-            (user) => isAssignableUser(user) && user.status === "active",
+            (user) =>
+              isAssignableUser(user) &&
+              normalizeTaskStatus(user.status) === "active",
           );
           const mappedEmployees = mechanics.map((user) => ({
             id: user._id,
@@ -203,21 +227,15 @@ export default function HeadTaskScreen({
 
   const filteredTasks = tasks.filter((task) => {
     if (!matchesSearch(searchQuery, task)) return false;
+    const taskStatus = normalizeTaskStatus(task.status);
 
     switch (activeTab) {
       case "Assigned":
-        return (
-          task.status === "Pending" ||
-          task.status === "Ongoing" ||
-          task.status === "Returned"
-        );
+        return OPEN_TASK_STATUSES.has(taskStatus);
       case "For Review":
-        return (
-          task.status === "Turned in" ||
-          (task.status === "Completed" && !task.isApproved)
-        );
+        return isForReviewTask(task);
       case "Reviewed":
-        return task.isApproved === true || task.status === "Approved";
+        return isReviewedTask(task);
       default:
         return false;
     }
@@ -225,20 +243,15 @@ export default function HeadTaskScreen({
 
   const getTabCount = (tab) =>
     tasks.filter((task) => {
+      const taskStatus = normalizeTaskStatus(task.status);
+
       switch (tab) {
         case "Assigned":
-          return (
-            task.status === "Pending" ||
-            task.status === "Ongoing" ||
-            task.status === "Returned"
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus);
         case "For Review":
-          return (
-            task.status === "Turned in" ||
-            (task.status === "Completed" && !task.isApproved)
-          );
+          return isForReviewTask(task);
         case "Reviewed":
-          return task.isApproved === true || task.status === "Approved";
+          return isReviewedTask(task);
         default:
           return false;
       }
@@ -267,10 +280,21 @@ export default function HeadTaskScreen({
 
   const handleAddTask = async (newTask) => {
     console.log("Adding task:", newTask);
+    const selectedMechanic = mechanicOptions.find(
+      (employee) => String(employee.id) === String(newTask.assignedTo),
+    );
+    const activeTaskCount = selectedMechanic?.activeTaskCount || 0;
+    const mechanicName = selectedMechanic?.name || "Selected mechanic";
+
     const confirmed = await confirmWithAlert({
-      title: "Create Task",
-      message: "Submit this new task assignment?",
-      confirmText: "Create",
+      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Create Task",
+      message:
+        activeTaskCount > 0
+          ? `${mechanicName} already has ${activeTaskCount} active task${
+              activeTaskCount === 1 ? "" : "s"
+            }. Continue assigning this task?`
+          : `${mechanicName} has no active tasks. Submit this new task assignment?`,
+      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Create",
     });
     if (!confirmed) return;
 
@@ -286,6 +310,7 @@ export default function HeadTaskScreen({
         body: JSON.stringify({
           ...newTask,
           confirmAction: true,
+          confirmBusyMechanic: activeTaskCount > 0,
         }),
       });
       if (response.ok) {
@@ -307,10 +332,27 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
+    const selectedMechanic = mechanicOptions.find(
+      (employee) => String(employee.id) === String(updatedTask.assignedTo),
+    );
+    const activeTaskCount = tasks.filter(
+      (task) =>
+        String(getTaskAssigneeId(task)) === String(updatedTask.assignedTo) &&
+        String(task?.id || task?._id || "") !==
+          String(updatedTask.id || updatedTask._id || "") &&
+        OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
+    ).length;
+    const mechanicName = selectedMechanic?.name || "Selected mechanic";
+
     const confirmed = await confirmWithAlert({
-      title: "Update Task",
-      message: "Save changes to this task?",
-      confirmText: "Save",
+      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Update Task",
+      message:
+        activeTaskCount > 0
+          ? `${mechanicName} already has ${activeTaskCount} active task${
+              activeTaskCount === 1 ? "" : "s"
+            }. Continue assigning this task?`
+          : `${mechanicName} has no active tasks. Save changes to this task?`,
+      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Save",
     });
     if (!confirmed) return;
 
@@ -326,6 +368,7 @@ export default function HeadTaskScreen({
         body: JSON.stringify({
           ...updatedTask,
           confirmAction: true,
+          confirmBusyMechanic: activeTaskCount > 0,
         }),
       });
       if (response.ok) {
@@ -506,7 +549,8 @@ export default function HeadTaskScreen({
 
   const renderTask = ({ item }) => {
     const showEditDelete =
-      activeTab === "Assigned" && item.status === "Pending";
+      activeTab === "Assigned" &&
+      normalizeTaskStatus(item.status) === "pending";
 
     return (
       <View>
@@ -643,7 +687,7 @@ export default function HeadTaskScreen({
         onClose={() => setEditModalVisible(false)}
         task={selectedTask}
         onSave={handleEditTask}
-        employees={employees}
+        employees={mechanicOptions}
       />
 
       <AlertComp

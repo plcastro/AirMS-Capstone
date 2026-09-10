@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
 import { View, StyleSheet } from "react-native";
-import { SegmentedButtons, Text } from "react-native-paper";
+import { SegmentedButtons, Text, TextInput } from "react-native-paper";
 import Button from "../../components/common/AsyncPaperButton";
 import { AuthContext } from "../../Context/AuthContext";
 import CodeInputField from "../../components/CodeInputField";
@@ -9,6 +9,8 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
 export default function UpdateSecurity() {
   const { user } = useContext(AuthContext);
 
@@ -19,7 +21,12 @@ export default function UpdateSecurity() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
-
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+    pinReset: false,
+  });
   // --- PIN States ---
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -36,6 +43,24 @@ export default function UpdateSecurity() {
   const [pinResetToken, setPinResetToken] = useState("");
 
   const [actionLoadingKey, setActionLoadingKey] = useState("");
+
+  const togglePasswordVisibility = (field) => {
+    setVisiblePasswords((current) => ({
+      ...current,
+      [field]: !current[field],
+    }));
+  };
+
+  const renderPasswordVisibilityIcon = (field) => (
+    <TextInput.Icon
+      icon={visiblePasswords[field] ? "eye-off" : "eye"}
+      onPress={() => togglePasswordVisibility(field)}
+      forceTextInputFocus={false}
+      accessibilityLabel={
+        visiblePasswords[field] ? "Hide password" : "Show password"
+      }
+    />
+  );
 
   const securityTabs = [
     {
@@ -127,8 +152,9 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
-  const isValidPinReset =
-    /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinUpdate = /^\d{6}$/.test(currentPin) && isValidPinReset;
+  const isValidOtp = /^\d{6}$/.test(otp);
 
   // --- Reset All Fields ---
   const resetAll = () => {
@@ -144,10 +170,44 @@ export default function UpdateSecurity() {
     setOtpVerified(false);
     setPinResetToken("");
     setForgotPinMode(false);
+    setVisiblePasswords({
+      current: false,
+      new: false,
+      confirm: false,
+      pinReset: false,
+    });
+    setShowPin(false);
   };
 
   // --- Save Password or PIN ---
   const handleSave = async (type) => {
+    if (type === "Password") {
+      let requirementMessage = "";
+      if (newPassword.length < 8) {
+        requirementMessage = "Use at least 8 characters";
+      } else if (!/[A-Z]/.test(newPassword)) {
+        requirementMessage = "Include at least one uppercase letter.";
+      } else if (!/\d/.test(newPassword)) {
+        requirementMessage = "Include at least one number.";
+      } else if (newPassword !== confirmPassword) {
+        requirementMessage = "Passwords must match";
+      } else if (!currentPassword) {
+        requirementMessage = "Enter your current password.";
+      }
+
+      if (requirementMessage) {
+        showToast(`Password requirements not met: ${requirementMessage}`);
+        return;
+      }
+    }
+
+    if (type === "PIN" && !isValidPinUpdate) {
+      showToast(
+        "Current PIN must be 6 digits, and New PIN and Confirm PIN must match.",
+      );
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const endpoint = type === "Password" ? "change-password" : "update-pin";
@@ -209,6 +269,11 @@ export default function UpdateSecurity() {
   };
 
   const verifyOtp = async () => {
+    if (!isValidOtp) {
+      showToast("Please enter the complete 6-digit OTP.");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
         method: "POST",
@@ -241,6 +306,13 @@ export default function UpdateSecurity() {
 
   const handleReset = async (type) => {
     if (type === "PIN") {
+      if (!isValidPinReset) {
+        showToast(
+          "New PIN and Confirm PIN must match and be exactly 6 digits.",
+        );
+        return;
+      }
+
       try {
         const token = await AsyncStorage.getItem("currentUserToken");
         const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
@@ -294,17 +366,21 @@ export default function UpdateSecurity() {
           <AppPaperInput
             label="Current Password *"
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!visiblePasswords.current}
+            keyboardType="default"
             value={currentPassword}
             onChangeText={setCurrentPassword}
+            right={renderPasswordVisibilityIcon("current")}
             style={styles.input}
           />
           <AppPaperInput
             label="New Password *"
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!visiblePasswords.new}
+            keyboardType="default"
             value={newPassword}
             onChangeText={setNewPassword}
+            right={renderPasswordVisibilityIcon("new")}
             style={styles.input}
           />
           {newPassword ? (
@@ -315,15 +391,17 @@ export default function UpdateSecurity() {
           <AppPaperInput
             label="Confirm Password *"
             mode="outlined"
-            secureTextEntry
+            secureTextEntry={!visiblePasswords.confirm}
+            keyboardType="default"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
+            right={renderPasswordVisibilityIcon("confirm")}
             style={styles.input}
           />
           <Button
             mode="contained"
             loading={actionLoadingKey === "save-password"}
-            disabled={!Object.values(passwordErrors).every(Boolean)}
+            disabled={Boolean(actionLoadingKey)}
             onPress={() =>
               runWithLoading("save-password", () => handleSave("Password"))
             }
@@ -364,6 +442,13 @@ export default function UpdateSecurity() {
                   loading={actionLoadingKey === "toggle-pin-1"}
                   onPress={() => setShowPin((current) => !current)}
                   compact
+                  icon={({ size, color }) => (
+                    <MaterialCommunityIcons
+                      name={showPin ? "eye-off-outline" : "eye-outline"}
+                      size={size}
+                      color={color}
+                    />
+                  )}
                   style={styles.linkButton}
                 >
                   {showPin ? "Hide PIN" : "Show PIN"}
@@ -372,7 +457,7 @@ export default function UpdateSecurity() {
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "save-pin"}
-                disabled={!isValidPinReset}
+                disabled={!isValidPinUpdate}
                 onPress={() =>
                   runWithLoading("save-pin", () => handleSave("PIN"))
                 }
@@ -391,9 +476,11 @@ export default function UpdateSecurity() {
               <AppPaperInput
                 label="Current Password *"
                 mode="outlined"
-                secureTextEntry
+                secureTextEntry={!visiblePasswords.pinReset}
+                keyboardType="default"
                 value={passwordForPin}
                 onChangeText={setPasswordForPin}
+                right={renderPasswordVisibilityIcon("pinReset")}
                 style={styles.input}
               />
               <Button
@@ -422,12 +509,12 @@ export default function UpdateSecurity() {
           {forgotPinMode && otpSent && !otpVerified && (
             <View style={styles.section}>
               <Text style={styles.flowTitle}>Verify OTP</Text>
-              {renderCodeField("OTP", otp, setOtp)}
+              {renderCodeField("OTP", otp, setOtp, { secure: false })}
               <Button
                 mode="contained"
                 loading={actionLoadingKey === "verify-otp"}
                 onPress={() => runWithLoading("verify-otp", () => verifyOtp())}
-                disabled={!otp}
+                disabled={!isValidOtp}
                 style={styles.mainBtn}
                 contentStyle={styles.buttonContent}
                 labelStyle={styles.buttonLabel}
@@ -460,6 +547,13 @@ export default function UpdateSecurity() {
                 loading={actionLoadingKey === "toggle-pin-2"}
                 onPress={() => setShowPin((current) => !current)}
                 compact
+                icon={({ size, color }) => (
+                  <MaterialCommunityIcons
+                    name={showPin ? "eye-off-outline" : "eye-outline"}
+                    size={size}
+                    color={color}
+                  />
+                )}
                 style={styles.linkButton}
               >
                 {showPin ? "Hide PIN" : "Show PIN"}

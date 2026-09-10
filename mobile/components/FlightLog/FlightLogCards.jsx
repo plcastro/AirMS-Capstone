@@ -12,6 +12,11 @@ export default function FlightLogCards({
   logs,
   onEdit,
   onExport,
+  onRelease,
+  onAccept,
+  onNotify,
+  onComplete,
+  userRole = "",
   readOnly = false,
 }) {
   const [exportingLogId, setExportingLogId] = useState(null);
@@ -116,10 +121,36 @@ export default function FlightLogCards({
   return (
     <>
       {logs.map((log) => {
+        const controlNumber = log.controlNo || log.control || log.controlNumber;
         const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
         const exportLoading = exportingLogId === logKey;
         const isViewOnly = readOnly || log.status === "completed";
+        const normalizedRole = String(userRole || "").toLowerCase();
+        const isPilot = normalizedRole === "pilot";
+        const isMechanic = [
+          "engineer",
+          "mechanic",
+          "maintenance manager",
+          "superadmin",
+          "head of maintenance",
+        ].includes(normalizedRole);
+        const canRelease =
+          !readOnly && isMechanic && log.status === "pending_release";
+        const canAccept =
+          !readOnly &&
+          isPilot &&
+          ["pending_acceptance", "released"].includes(log.status);
+        const canNotify =
+          !readOnly &&
+          isPilot &&
+          log.status === "accepted" &&
+          !log.notifiedForCompletion;
+        const canComplete =
+          !readOnly &&
+          isMechanic &&
+          log.status === "accepted" &&
+          log.notifiedForCompletion;
 
         return (
           <TouchableOpacity
@@ -194,11 +225,51 @@ export default function FlightLogCards({
                 </AppText>
                 <AppText style={{ fontSize: 11, color: "#444" }}>
                   <AppText style={{ color: "#777" }}>Control:</AppText>{" "}
-                  {log.control || "N/A"}
+                  {controlNumber || "N/A"}
                 </AppText>
               </View>
 
               <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                {canRelease && (
+                  <ActionIconButton
+                    icon="send"
+                    tooltip="Release"
+                    onPress={() => onRelease?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canAccept && (
+                  <ActionIconButton
+                    icon="check"
+                    tooltip="Accept"
+                    onPress={() => onAccept?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canNotify && (
+                  <ActionIconButton
+                    icon="bell-ring-outline"
+                    tooltip="Notify"
+                    onPress={() => onNotify?.(log)}
+                    color="#FA8C16"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canComplete && (
+                  <ActionIconButton
+                    icon="check-circle-outline"
+                    tooltip="Complete"
+                    onPress={() => onComplete?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
                 {onExport && (
                   <ActionIconButton
                     icon="export-variant"

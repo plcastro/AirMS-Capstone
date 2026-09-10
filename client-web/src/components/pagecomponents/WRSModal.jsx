@@ -22,6 +22,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import WRSTable from "../tables/WRSTable";
 import ResultPopup from "../common/ResultPopup";
+import DateOnlyCell from "../common/DateOnlyCell";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -280,6 +281,16 @@ export default function WRSModal({
       }),
     [persistedQtyMap, selectedRecord],
   );
+
+  const enteredRestockItemsReady = useMemo(
+    () =>
+      (selectedRecord?.items || []).every((item) => {
+        const enteredValue = Number(availQtyMap[item._id] ?? 0);
+        return enteredValue >= Number(item.quantity || 0);
+      }),
+    [availQtyMap, selectedRecord],
+  );
+
   const hasItemsStillOutOfStock = useMemo(
     () =>
       (selectedRecord?.items || []).some((item) => {
@@ -377,11 +388,18 @@ export default function WRSModal({
       }
 
       return {
-        title: hasUnsavedStockChanges ? "Save Stock" : "Confirm Restock",
-        description: hasUnsavedStockChanges
-          ? "Save the edited stock quantities first."
-          : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
-        buttonText: hasUnsavedStockChanges ? "Save Stock" : "Mark as Restocked",
+        title:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Confirm Restock",
+        description:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save the edited stock quantities first."
+            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+        buttonText:
+          hasUnsavedStockChanges && !enteredRestockItemsReady
+            ? "Save Stock"
+            : "Mark as Restocked",
         disabled: hasUnsavedStockChanges ? !allQuantitiesFilled : false,
       };
     }
@@ -418,6 +436,7 @@ export default function WRSModal({
     allQuantitiesFilled,
     allRestockItemsReady,
     currentStatus,
+    enteredRestockItemsReady,
     hasItemsStillOutOfStock,
     hasUnsavedStockChanges,
     isMaintenanceReviewer,
@@ -625,7 +644,11 @@ export default function WRSModal({
       };
     });
 
-    if (currentStatus === "To Be Ordered" && hasUnsavedStockChanges) {
+    if (
+      currentStatus === "To Be Ordered" &&
+      hasUnsavedStockChanges &&
+      !enteredRestockItemsReady
+    ) {
       if (!isWarehouseStaff) {
         return;
       }
@@ -657,7 +680,7 @@ export default function WRSModal({
           warehouseByTitle: userTitle,
           items: savedItems,
         },
-        "Stock quantities saved.",
+        "Remaining items are still to be restocked.",
         false,
       );
       setPersistedQtyMap({ ...availQtyMap });
@@ -744,16 +767,16 @@ export default function WRSModal({
         width={"95%"}
         height={"90vh"}
         centered
+        zIndex={3000}
         footer={null}
-        zIndex={1100}
         title={
           <div>
             <Title level={4} style={{ margin: 0 }}>
               Warehouse Requisition Details
             </Title>
             <Text type="secondary">
-              Review stock, confirm ordered items, and mark approved requisitions
-              as delivered.
+              Review stock, confirm ordered items, and mark approved
+              requisitions as delivered.
             </Text>
           </div>
         }
@@ -797,7 +820,10 @@ export default function WRSModal({
                 <Col xs={12} sm={12} md={6}>
                   <Text type="secondary">Date Requested</Text>
                   <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>{selectedRecord.dateRequested}</Text>
+                    <DateOnlyCell
+                      value={selectedRecord.dateRequested}
+                      fallback={selectedRecord.dateRequested || "N/A"}
+                    />
                   </Paragraph>
                 </Col>
                 <Col xs={12} sm={12} md={6}>
@@ -904,7 +930,7 @@ export default function WRSModal({
         title={successPopup.title}
         subTitle={successPopup.subTitle}
         duration={2000}
-        zIndex={1300}
+        zIndex={3100}
         onClose={handleSuccessPopupClose}
       />
     </>

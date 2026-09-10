@@ -1,5 +1,5 @@
 // WEB
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
@@ -32,7 +32,6 @@ export default function OTP() {
   const location = useLocation();
   const params = location.state || {};
   const { loginUser } = useContext(AuthContext);
-  const pendingDashboardPathRef = useRef("");
   const mode = params.mode || "password-reset";
   const token = params.token;
   const email = params.email;
@@ -51,6 +50,10 @@ export default function OTP() {
   });
   const MAX_CODE_LENGTH = 6;
   const pinReady = code.length === MAX_CODE_LENGTH;
+  const normalizeOtpInput = (value) =>
+    (Array.isArray(value) ? value.join("") : String(value || ""))
+      .replace(/\D/g, "")
+      .slice(0, MAX_CODE_LENGTH);
 
   const maskEmail = (email) => {
     const [localPart, domain] = email.split("@");
@@ -144,30 +147,30 @@ export default function OTP() {
             localStorage.removeItem("rememberMe");
           }
 
-          setPopup({
-            open: true,
-            status: "success",
-            title: "Login Verified",
-            subTitle: "You have been successfully logged in.",
-          });
-
           const role = String(data?.user?.jobTitle || "").toLowerCase();
+          let dashboardPath = "/dashboard/profile";
           if (role === "superadmin") {
-            pendingDashboardPathRef.current =
-              "/dashboard/user-management/view-users";
+            dashboardPath = "/dashboard/user-management/view-users";
           } else if (role === "mechanic") {
-            pendingDashboardPathRef.current = "/dashboard/maintenance-log";
+            dashboardPath = "/dashboard/maintenance-log";
           } else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
           ) {
-            pendingDashboardPathRef.current =
-              "/dashboard/maintenance-dashboard";
+            dashboardPath = "/dashboard/maintenance-dashboard";
           } else if (role === "warehouse staff") {
-            pendingDashboardPathRef.current = "/dashboard/parts-requisition";
-          } else {
-            pendingDashboardPathRef.current = "/dashboard/profile";
+            dashboardPath = "/dashboard/parts-requisition";
           }
+
+          navigate(dashboardPath, {
+            state: {
+              resultPopup: {
+                status: "success",
+                title: "Login Verified",
+                subTitle: "You have been successfully logged in.",
+              },
+            },
+          });
           return;
         }
 
@@ -200,15 +203,9 @@ export default function OTP() {
     }
   };
 
-  const handlePopupClose = useCallback(() => {
+  const handlePopupClose = () => {
     setPopup((prev) => ({ ...prev, open: false }));
-
-    if (pendingDashboardPathRef.current) {
-      const dashboardPath = pendingDashboardPathRef.current;
-      pendingDashboardPathRef.current = "";
-      navigate(dashboardPath);
-    }
-  }, [navigate]);
+  };
 
   const handleResend = async () => {
     if (resendTimer > 0) return;
@@ -277,9 +274,15 @@ export default function OTP() {
           <Col span={24} style={{ textAlign: "center" }}>
             <Input.OTP
               value={code}
+              onInput={(value) => {
+                const nextCode = normalizeOtpInput(value);
+                setCode(nextCode);
+                if (nextCode.length) setFieldError("");
+              }}
               onChange={(value) => {
-                setCode(value);
-                if (value.length) setFieldError("");
+                const nextCode = normalizeOtpInput(value);
+                setCode(nextCode);
+                if (nextCode.length) setFieldError("");
               }}
               autoFocus
               style={{ marginTop: 20, fontSize: 24, letterSpacing: 12 }}

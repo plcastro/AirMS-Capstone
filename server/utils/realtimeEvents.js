@@ -1,6 +1,9 @@
 const { EventEmitter } = require("events");
 const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
+const {
+  resolveNotificationRecipientUserIds,
+} = require("./notificationRecipients");
 
 const bus = new EventEmitter();
 
@@ -73,6 +76,13 @@ const getDecodedUserId = (decoded) => {
    SSE (Server-Sent Events)
 ========================= */
 const subscribeSSE = (req, res) => {
+  const decoded = authenticateWebSocket(req);
+  const decodedUserId = getDecodedUserId(decoded);
+  const client = {
+    res,
+    userId: decodedUserId ? String(decodedUserId) : null,
+  };
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -81,7 +91,7 @@ const subscribeSSE = (req, res) => {
 
   res.write("event: connected\ndata: {}\n\n");
 
-  sseClients.add(res);
+  sseClients.add(client);
 
   const interval = setInterval(() => {
     res.write(": ping\n\n"); // keep alive
@@ -89,7 +99,7 @@ const subscribeSSE = (req, res) => {
 
   req.on("close", () => {
     clearInterval(interval);
-    sseClients.delete(res);
+    sseClients.delete(client);
   });
 };
 
@@ -136,8 +146,8 @@ const broadcast = (event, data) => {
   const payload = JSON.stringify({ event, data });
 
   for (const client of sseClients) {
-    client.write(`event: ${event}\n`);
-    client.write(`data: ${JSON.stringify(data)}\n\n`);
+    client.res.write(`event: ${event}\n`);
+    client.res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
   if (wss) {
@@ -154,6 +164,13 @@ const sendToUsers = (userIds = [], event, data) => {
   const uniqueUserIds = [...new Set(userIds.map(String).filter(Boolean))];
 
   uniqueUserIds.forEach((userId) => {
+    for (const client of sseClients) {
+      if (client.userId === userId) {
+        client.res.write(`event: ${event}\n`);
+        client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+      }
+    }
+
     const clients = clientsByUserId.get(userId);
     if (!clients) return;
 
@@ -179,6 +196,21 @@ const publishTypedForUsers = (userIds = [], event, data = {}) => {
   sendToUsers(userIds, event, data);
 };
 
+const publishTypedForRecipients = async (
+  { recipientUsers = [], recipientRoles = [], excludedUsers = [] } = {},
+  event,
+  data = {},
+) => {
+  if (!event) return;
+
+  const userIds = await resolveNotificationRecipientUserIds({
+    recipientUsers,
+    recipientRoles,
+    excludedUsers,
+  });
+  sendToUsers(userIds, event, data);
+};
+
 bus.on("airms:data-changed", (data) => {
   broadcast("data-changed", data);
 });
@@ -188,6 +220,7 @@ module.exports = {
   publishEvent,
   publishTypedEvent,
   publishTypedForUsers,
+  publishTypedForRecipients,
   initWebSocket,
   sendToUsers,
 };

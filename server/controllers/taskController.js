@@ -7,8 +7,9 @@ const {
   syncMaintenanceLogFromTask,
   removeMaintenanceLogForTask,
 } = require("./maintenanceLogController");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
+const BUSY_TASK_STATUSES = ["Pending", "Ongoing", "Returned"];
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
   return {
@@ -16,6 +17,24 @@ const withActorId = (req, action, fallbackId = null) => {
     action: actorId ? `${action} (actorId: ${actorId})` : action,
   };
 };
+
+const publishTaskUpdated = (task, actorUserId, extraData = {}) =>
+  publishTypedForRecipients(
+    {
+      recipientRoles: ["superadmin", "maintenance manager"],
+      recipientUsers: task?.assignedTo ? [task.assignedTo] : [],
+      excludedUsers: actorUserId ? [actorUserId] : [],
+    },
+    "task:updated",
+    {
+      taskId: String(task._id),
+      updatedAt: task.updatedAt || task.createdAt || new Date().toISOString(),
+      status: task.status,
+      ...extraData,
+    },
+  ).catch((error) => {
+    console.error("Failed to publish task update:", error);
+  });
 
 const buildTaskIdentifierQuery = (value) => {
   const identifier = String(value || "").trim();
@@ -26,6 +45,57 @@ const buildTaskIdentifierQuery = (value) => {
   }
 
   return { $or: conditions };
+};
+
+const findActiveTasksForMechanic = (mechanicId) => {
+  const assignedTo = String(mechanicId || "").trim();
+  if (!assignedTo) return [];
+
+  return TaskModel.find({
+    assignedTo,
+    status: { $in: BUSY_TASK_STATUSES },
+  })
+    .select("id title status startDateTime endDateTime dueDate")
+    .lean();
+};
+
+const excludeTaskFromWorkload = (activeTasks = [], taskIdentifier = "") => {
+  const normalizedIdentifier = String(taskIdentifier || "");
+  if (!normalizedIdentifier) return activeTasks;
+
+  return activeTasks.filter(
+    (task) =>
+      String(task.id || "") !== normalizedIdentifier &&
+      String(task._id || "") !== normalizedIdentifier,
+  );
+};
+
+const validateMechanicWorkload = async ({
+  assignedTo,
+  excludeTaskIdentifier = "",
+  confirmBusyMechanic = false,
+}) => {
+  const activeTasks = excludeTaskFromWorkload(
+    await findActiveTasksForMechanic(assignedTo),
+    excludeTaskIdentifier,
+  );
+
+  if (!activeTasks.length) return null;
+
+  if (confirmBusyMechanic !== true) {
+    return {
+      status: 409,
+      body: {
+        message:
+          "Selected mechanic already has active tasks. Confirm workload assignment to continue.",
+        code: "MECHANIC_ACTIVE_WORKLOAD_CONFIRMATION_REQUIRED",
+        activeTaskCount: activeTasks.length,
+        activeTasks,
+      },
+    };
+  }
+
+  return null;
 };
 
 const sanitizeTaskPayload = (payload = {}) => {
@@ -185,6 +255,7 @@ const prepareTaskUpdate = (existingTask, payload = {}) => {
   }
 
   if (nextStatus === "Approved" || sanitizedPayload.isApproved === true) {
+    nextTask.status = "Approved";
     nextTask.reviewedAt =
       nextTask.reviewedAt ||
       nowIso;
@@ -398,19 +469,23 @@ const createTask = async (req, res) => {
       return res.status(400).json({ message: scheduleError });
     }
 
+    const workloadError = await validateMechanicWorkload({
+      assignedTo: taskData.assignedTo,
+      confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
+    });
+    if (workloadError) {
+      return res.status(workloadError.status).json(workloadError.body);
+    }
+
     const task = new TaskModel(taskData);
     await task.save();
     await syncMaintenanceLogFromTask(task);
     try {
-      await createTaskNotifications({ task });
+      await createTaskNotifications({ task, actorUserId: req.user?.id });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
-    publishTypedEvent("task:updated", {
-      taskId: String(task._id),
-      updatedAt: task.updatedAt || task.createdAt,
-      status: task.status,
-    });
+    publishTaskUpdated(task, req.user?.id);
     const audit = withActorId(req, `Task created: ${task.id || task._id}`);
     await auditLog(audit.action, audit.actorId);
     res.status(201).json({ status: "Ok", data: serializeTask(task) });
@@ -459,6 +534,15 @@ const updateTask = async (req, res) => {
       return res.status(400).json({ message: scheduleError });
     }
 
+    const workloadError = await validateMechanicWorkload({
+      assignedTo: nextTask.assignedTo,
+      excludeTaskIdentifier: existingTask.id || existingTask._id,
+      confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
+    });
+    if (workloadError) {
+      return res.status(workloadError.status).json(workloadError.body);
+    }
+
     existingTask.set(buildWritableTaskUpdate(nextTask));
     await existingTask.save();
 
@@ -473,15 +557,12 @@ const updateTask = async (req, res) => {
       await createTaskNotifications({
         previousTask: previousTaskSnapshot,
         task: refreshedTask,
+        actorUserId: req.user?.id,
       });
     } catch (notifyErr) {
       console.error("Task notification failed:", notifyErr);
     }
-    publishTypedEvent("task:updated", {
-      taskId: String(refreshedTask._id),
-      updatedAt: refreshedTask.updatedAt || refreshedTask.createdAt,
-      status: refreshedTask.status,
-    });
+    publishTaskUpdated(refreshedTask, req.user?.id);
 
     res.status(200).json({
       status: "Ok",
@@ -526,8 +607,7 @@ const deleteTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
     await removeMaintenanceLogForTask(task);
-    publishTypedEvent("task:updated", {
-      taskId: String(task._id),
+    publishTaskUpdated(task, req.user?.id, {
       updatedAt: new Date().toISOString(),
       deleted: true,
     });

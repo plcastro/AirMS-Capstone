@@ -360,6 +360,8 @@ export default function FlightLogVerifyTechnical({
       <Modal
         title="Verify Technical Log"
         open={visible}
+        centered
+        zIndex={3000}
         onCancel={onClose}
         footer={null}
         width={600}

@@ -113,6 +113,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                   className="fl-input"
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
+                  inputReadOnly
                   value={oil.date ? dayjs(oil.date) : null}
                   onChange={(date) =>
                     updateOil(

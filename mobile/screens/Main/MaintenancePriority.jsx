@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
@@ -24,6 +30,7 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
 
 const DEFAULT_RULES = {
   criticalDueDays: 5,
@@ -55,6 +62,7 @@ const formatDueSummary = (record) => {
 };
 
 export default function MaintenancePriority() {
+  const { refreshSession } = useContext(AuthContext);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -149,6 +157,25 @@ export default function MaintenancePriority() {
     setRankingPage(0);
   }, [search]);
 
+  const getPrioritySaveHeaders = useCallback(async () => {
+    let headers = await getAuthHeaders({
+      "x-action-confirmed": "true",
+    });
+
+    if (!headers.Authorization && refreshSession) {
+      await refreshSession();
+      headers = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
+    }
+
+    if (!headers.Authorization) {
+      throw new Error("Session not found. Please log in again.");
+    }
+
+    return headers;
+  }, [refreshSession]);
+
   const saveRules = async () => {
     const confirmed = await confirmAction({
       title: "Save Priority Rules",
@@ -163,9 +190,7 @@ export default function MaintenancePriority() {
         `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
         {
           method: "PUT",
-          headers: await getAuthHeaders({
-            "x-action-confirmed": "true",
-          }),
+          headers: await getPrioritySaveHeaders(),
           body: JSON.stringify({
             ...draftRules,
             confirmAction: true,

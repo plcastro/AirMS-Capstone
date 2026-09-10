@@ -14,14 +14,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
+import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 
-const UNIT_OPTIONS = ["pcs", "kg", "ft", "L"];
+const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
 const createEmptyItem = (id) => ({
   id,
   particular: "",
   quantity: "",
-  unit: "pcs",
+  unit: "PC",
   purpose: "",
 });
 
@@ -36,6 +38,7 @@ export default function PartsRequisitionEntry({
   aircraftOptions = [],
   initialAircraft = "",
   initialItems = [],
+  alertConfig = {},
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +51,7 @@ export default function PartsRequisitionEntry({
               id: item.id || item._id || Date.now() + index,
               particular: item.particular || "",
               quantity: item.quantity ? String(item.quantity) : "",
-              unit: item.unit || item.unitOfMeasure || "pcs",
+              unit: item.unit || item.unitOfMeasure || "PC",
               purpose: item.purpose || "",
             }))
           : [createEmptyItem(1)];
@@ -109,9 +112,14 @@ export default function PartsRequisitionEntry({
       visible={visible}
       animationType="fade"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={
+        alertConfig.visible
+          ? alertConfig.onCancel || alertConfig.onConfirm
+          : onClose
+      }
     >
-      <SafeAreaView
+      <IosModalSafeAreaProvider>
+        <SafeAreaView
         style={{
           flex: 1,
           backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -452,7 +460,18 @@ export default function PartsRequisitionEntry({
             </View>
           </ScrollView>
         </View>
-      </SafeAreaView>
+        <AlertComp
+          embedded
+          visible={Boolean(alertConfig.visible)}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+          onConfirm={alertConfig.onConfirm}
+          onCancel={alertConfig.onCancel}
+        />
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

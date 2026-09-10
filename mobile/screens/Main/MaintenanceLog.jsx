@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
@@ -27,6 +28,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
 import { AuthContext } from "../../Context/AuthContext";
 import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const normalizeLog = (entry) => {
   const workDetails =
@@ -67,6 +69,10 @@ const getMechanicLicenseNo = (record = {}) =>
   record.mechanicLicenseNo || record.licenseNo || "";
 
 const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
+
+const getLogStableId = (entry) =>
+  String(entry?.sourceTaskId || entry?.id || entry?._id || "");
 
 export default function MaintenanceLog() {
   const { user } = useContext(AuthContext);
@@ -78,11 +84,12 @@ export default function MaintenanceLog() {
   const [selectedBase, setSelectedBase] = useState("all");
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
-  const userRole = String(user?.jobTitle || "").trim().toLowerCase();
+  const [seenLogIds, setSeenLogIds] = useState(new Set());
+  const userRole = resolveUserRole(user);
   const isMechanic = userRole === "mechanic";
   const userBase = String(user?.base || "").trim().toUpperCase();
   const canExportMaintenanceLogs = canExportModule(
-    user?.jobTitle,
+    userRole,
     "maintenanceLogs",
   );
 
@@ -111,6 +118,22 @@ export default function MaintenanceLog() {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  useEffect(() => {
+    const loadSeenIds = async () => {
+      try {
+        const rawValue = await AsyncStorage.getItem(
+          SEEN_MAINTENANCE_LOG_IDS_KEY,
+        );
+        const parsed = rawValue ? JSON.parse(rawValue) : [];
+        setSeenLogIds(new Set(Array.isArray(parsed) ? parsed : []));
+      } catch {
+        setSeenLogIds(new Set());
+      }
+    };
+
+    loadSeenIds();
+  }, []);
 
   useEffect(() => {
     if (isMechanic && userBase) {
@@ -189,6 +212,20 @@ export default function MaintenanceLog() {
   const selectBase = (base) => {
     setSelectedBase(base);
     setShowBaseDropdown(false);
+  };
+
+  const openAircraftGroup = async (group) => {
+    const nextSeenIds = new Set(seenLogIds);
+    group.rows.forEach((entry) => {
+      const stableId = getLogStableId(entry);
+      if (stableId) nextSeenIds.add(stableId);
+    });
+    setSeenLogIds(nextSeenIds);
+    await AsyncStorage.setItem(
+      SEEN_MAINTENANCE_LOG_IDS_KEY,
+      JSON.stringify(Array.from(nextSeenIds)),
+    );
+    setSelectedAircraft(group);
   };
 
   if (selectedWorkOrder) {
@@ -333,65 +370,85 @@ export default function MaintenanceLog() {
         onChangeText={setSearch}
         placeholder="Search maintenance logs"
       />
-      <View style={{ marginBottom: 12 }}>
-        <TouchableOpacity
-          style={styles.unifiedFilterButton}
-          activeOpacity={0.82}
-          onPress={() => {
-            if (!isMechanic) setShowBaseDropdown((open) => !open);
-          }}
-        >
-          <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-            {selectedBaseLabel}
-          </AppText>
-          <MaterialCommunityIcons
-            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
-            size={22}
-            color={COLORS.grayDark}
-          />
-        </TouchableOpacity>
+      {!isMechanic && (
+        <View style={{ marginBottom: 12 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowBaseDropdown((open) => !open)}
+          >
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {selectedBaseLabel}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
 
-        {showBaseDropdown && !isMechanic && (
-          <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
-            <ScrollView nestedScrollEnabled>
-              {baseOptions.map((base, index) => (
-                <TouchableOpacity
-                  key={base}
-                  style={[
-                    styles.unifiedDropdownItem,
-                    index < baseOptions.length - 1
-                      ? styles.unifiedDropdownItemBordered
-                      : null,
-                  ]}
-                  onPress={() => selectBase(base)}
-                >
-                  <AppText style={styles.unifiedDropdownItemText}>
-                    {base === "all" ? "All Bases" : base}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
+          {showBaseDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {baseOptions.map((base, index) => (
+                  <TouchableOpacity
+                    key={base}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < baseOptions.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectBase(base)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {base === "all" ? "All Bases" : base}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
       {loading && <LoadingState />}
       {!loading && aircraftGroups.length === 0 && (
         <EmptyState text="No maintenance logs found yet." />
       )}
       {aircraftGroups.map((group) => (
-        <InfoCard
-          key={group.aircraft}
-          title={group.aircraft}
-          subtitle="Completed task records"
-          right={<StatusChip label={`${group.rows.length} WO`} />}
-          onPress={() => setSelectedAircraft(group)}
-        >
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Source" value="Task Assignment" />
-            <FieldRow label="Base" value={group.sample?.base} />
-            <FieldRow label="Latest" value={formatDate(group.sample?.dateDefectRectified)} />
-          </View>
-        </InfoCard>
+        (() => {
+          const newCount = group.rows.filter((entry) => {
+            const stableId = getLogStableId(entry);
+            return stableId && !seenLogIds.has(stableId);
+          }).length;
+
+          return (
+            <InfoCard
+              key={group.aircraft}
+              title={group.aircraft}
+              subtitle="Completed task records"
+              right={
+                <View style={{ alignItems: "flex-end", gap: 6 }}>
+                  <StatusChip label={`${group.rows.length} WO`} />
+                  {newCount > 0 && (
+                    <View style={styles.newBadge}>
+                      <AppText style={styles.newBadgeText}>
+                        {newCount} NEW
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+              }
+              onPress={() => openAircraftGroup(group)}
+            >
+              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                <FieldRow label="Source" value="Task Assignment" />
+                <FieldRow label="Base" value={group.sample?.base} />
+                <FieldRow label="Latest" value={formatDate(group.sample?.dateDefectRectified)} />
+              </View>
+            </InfoCard>
+          );
+        })()
       ))}
     </ModuleContainer>
   );
@@ -438,5 +495,18 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     fontSize: 12,
     fontWeight: "500",
+  },
+  newBadge: {
+    backgroundColor: "#FFF3E0",
+    borderColor: "#FFD8A8",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  newBadgeText: {
+    color: "#8A3F00",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

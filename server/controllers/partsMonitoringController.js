@@ -12,7 +12,10 @@ const {
   processDataWithFormulas,
 } = require("../utils/partsMonitoringFormulas");
 const { estimateInspectionSchedule } = require("../utils/inspectionTiming");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
+const {
+  buildPartsMonitoringWorkbook,
+} = require("../services/partsMonitoringExcelService");
 
 const MAJOR_INSPECTION_HOURS = new Set([10, 150, 600, 750, 1200, 1500]);
 const TURNAROUND_TIE_HOURS = 15;
@@ -40,12 +43,24 @@ const DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT = {
 };
 
 const publishPartsMonitoringChanged = (aircraft, action = "updated") => {
-  publishTypedEvent("data-changed", {
-    module: "parts-monitoring",
-    entityType: "parts-monitoring",
-    aircraft,
-    action,
-    changedAt: new Date().toISOString(),
+  publishTypedForRecipients(
+    {
+      recipientRoles: [
+        "superadmin",
+        "maintenance manager",
+        "officer-in-charge",
+      ],
+    },
+    "data-changed",
+    {
+      module: "parts-monitoring",
+      entityType: "parts-monitoring",
+      aircraft,
+      action,
+      changedAt: new Date().toISOString(),
+    },
+  ).catch((error) => {
+    console.error("Failed to publish parts monitoring update:", error);
   });
 };
 
@@ -91,6 +106,22 @@ const parseNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const parseFiniteNumber = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  if (!["number", "string"].includes(typeof value)) {
+    return null;
+  }
+
+  const normalized =
+    typeof value === "string" ? value.replace(/,/g, "").trim() : value;
+  if (normalized === "") return null;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const normalizeCreepDamage = (value) => {
   if (value === null || value === undefined || value === "") {
     return "";
@@ -106,6 +137,104 @@ const normalizeCreepDamage = (value) => {
     : String(Math.round(parsed * 100) / 100);
 };
 
+const hasReferenceValue = (value) =>
+  value !== undefined &&
+  value !== null &&
+  (typeof value !== "string" || value.trim() !== "");
+
+const firstReferenceValue = (...values) => {
+  const value = values.find(hasReferenceValue);
+  return value === undefined ? undefined : value;
+};
+
+const isB412AircraftType = (aircraftType = "") => {
+  const normalized = String(aircraftType || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  return normalized.includes("B412EP") || normalized.includes("BELL412EP");
+};
+
+const getReferenceCell = (referenceCells = {}, address) => {
+  const normalizedAddress = String(address || "").toUpperCase();
+  const key = Object.keys(referenceCells || {}).find(
+    (candidate) => String(candidate).toUpperCase() === normalizedAddress,
+  );
+  return key ? referenceCells[key] : undefined;
+};
+
+const normalizeB412ReferenceData = (
+  referenceData = {},
+  aircraftType = "",
+  { preferAliases = false } = {},
+) => {
+  const refs = { ...(referenceData || {}) };
+  if (!isB412AircraftType(aircraftType)) return refs;
+
+  const referenceCells = { ...(refs.referenceCells || {}) };
+  const resolveAlias = (aliasValue, detailedValue, cellAddress) =>
+    preferAliases
+      ? firstReferenceValue(
+          aliasValue,
+          detailedValue,
+          getReferenceCell(referenceCells, cellAddress),
+        )
+      : firstReferenceValue(
+          detailedValue,
+          getReferenceCell(referenceCells, cellAddress),
+          aliasValue,
+        );
+  const normalized = {
+    ...refs,
+    acftTT: firstReferenceValue(
+      refs.acftTT,
+      getReferenceCell(referenceCells, "L3"),
+    ),
+    landings: firstReferenceValue(
+      refs.landings,
+      getReferenceCell(referenceCells, "J1"),
+    ),
+    eng1TT: resolveAlias(refs.engTT, refs.eng1TT, "L2"),
+    eng1TSO: firstReferenceValue(
+      refs.eng1TSO,
+      getReferenceCell(referenceCells, "J2"),
+    ),
+    eng1Cycles: resolveAlias(refs.n1Cycles, refs.eng1Cycles, "H2"),
+    eng2TT: firstReferenceValue(
+      refs.eng2TT,
+      getReferenceCell(referenceCells, "N2"),
+    ),
+    eng2TSO: firstReferenceValue(
+      refs.eng2TSO,
+      getReferenceCell(referenceCells, "J3"),
+    ),
+    eng2Cycles: resolveAlias(refs.n2Cycles, refs.eng2Cycles, "H3"),
+    usage: firstReferenceValue(
+      refs.usage,
+      getReferenceCell(referenceCells, "N3"),
+    ),
+  };
+
+  normalized.engTT = normalized.eng1TT;
+  normalized.n1Cycles = normalized.eng1Cycles;
+  normalized.n2Cycles = normalized.eng2Cycles;
+
+  const synchronizeCell = (address, value) => {
+    if (hasReferenceValue(value)) referenceCells[address] = value;
+  };
+  synchronizeCell("J1", normalized.landings);
+  synchronizeCell("H2", normalized.eng1Cycles);
+  synchronizeCell("J2", normalized.eng1TSO);
+  synchronizeCell("L2", normalized.eng1TT);
+  synchronizeCell("H3", normalized.eng2Cycles);
+  synchronizeCell("J3", normalized.eng2TSO);
+  synchronizeCell("L3", normalized.acftTT);
+  synchronizeCell("N2", normalized.eng2TT);
+  synchronizeCell("N3", normalized.usage);
+  normalized.referenceCells = referenceCells;
+
+  return normalized;
+};
+
 const serializePartsMonitoringRecord = (record) => {
   if (!record) return record;
   const plainRecord =
@@ -114,6 +243,10 @@ const serializePartsMonitoringRecord = (record) => {
   return {
     ...plainRecord,
     creepDamage: normalizeCreepDamage(plainRecord.creepDamage),
+    referenceData: normalizeB412ReferenceData(
+      plainRecord.referenceData,
+      plainRecord.aircraftType,
+    ),
   };
 };
 
@@ -555,6 +688,9 @@ const normalizeAircraftName = (value = "") =>
     .toUpperCase()
     .replace(/\s+/g, "");
 
+const isAircraftRegistration = (value = "") =>
+  /^RP-C[A-Z0-9-]+$/i.test(normalizeAircraftName(value));
+
 const WORKBOOK_PREVIEW_ROW_LIMIT = 100;
 
 const validateImportedAircraftRecord = async (record = {}) => {
@@ -566,8 +702,8 @@ const validateImportedAircraftRecord = async (record = {}) => {
     errors.push("Aircraft name is required in cell C1.");
   }
 
-  if (aircraft && !/^RP-C[A-Z0-9-]+$/i.test(aircraft)) {
-    warnings.push("Aircraft name does not follow the expected RP-C registration format.");
+  if (aircraft && !isAircraftRegistration(aircraft)) {
+    errors.push("Aircraft name must follow the expected RP-C registration format.");
   }
 
   if (!record.aircraftType) {
@@ -612,11 +748,36 @@ exports.updateAircraftTotals = async (req, res) => {
   try {
     const { aircraft } = req.params;
     const { acftTT, engTT, n1Cycles, n2Cycles, landings } = req.body;
+    const optionalNumericFields = [
+      "gbmTT",
+      "gbmTSO",
+      "gbtTT",
+      "gbtTSO",
+      "gbt42TT",
+      "gbt42TSO",
+      "mrbTT",
+      "trbTT",
+      "eng1TT",
+      "eng1TSO",
+      "eng1Cycles",
+      "eng2TT",
+      "eng2TSO",
+      "eng2Cycles",
+      "usage",
+      "others",
+    ];
 
     if (!aircraft) {
       return res.status(400).json({
         success: false,
         message: "Aircraft is required",
+      });
+    }
+    const normalizedAircraft = normalizeAircraftName(aircraft);
+    if (!isAircraftRegistration(normalizedAircraft)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft must follow the expected RP-C registration format.",
       });
     }
 
@@ -634,36 +795,108 @@ exports.updateAircraftTotals = async (req, res) => {
       });
     }
 
-    // Find existing record or create a new one
-    let partsData = await PartsMonitoring.findOne({ aircraft });
+    const requiredTotals = { acftTT, n1Cycles, n2Cycles, landings };
+    if (engTT !== undefined) {
+      requiredTotals.engTT = engTT;
+    }
+    const invalidRequiredField = Object.entries(requiredTotals).find(
+      ([, value]) => parseFiniteNumber(value) === null,
+    );
+    const invalidOptionalField = optionalNumericFields.find(
+      (field) =>
+        req.body[field] !== undefined &&
+        parseFiniteNumber(req.body[field]) === null,
+    );
+
+    if (invalidRequiredField || invalidOptionalField) {
+      const field = invalidRequiredField?.[0] || invalidOptionalField;
+      return res.status(400).json({
+        success: false,
+        message: `Invalid numeric aircraft total: ${field}`,
+      });
+    }
+
+    const escapedAircraft = normalizedAircraft.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+    const partsData = await PartsMonitoring.findOne({
+      aircraft: { $regex: `^${escapedAircraft}$`, $options: "i" },
+    });
 
     if (!partsData) {
-      // Create minimal record with empty parts array
-      partsData = new PartsMonitoring({
-        aircraft,
-        referenceData: {
-          today: new Date(),
-          acftTT: 0,
-          n1Cycles: 0,
-          n2Cycles: 0,
-          landings: 0,
-        },
-        parts: [],
-        updatedBy: "flight_log_system",
+      return res.status(404).json({
+        success: false,
+        message: `No parts lifespan monitoring record found for ${normalizedAircraft}`,
       });
     }
 
     // Update the reference totals
-    partsData.referenceData.acftTT = acftTT;
-    partsData.referenceData.engTT = engTT ?? partsData.referenceData.engTT ?? acftTT;
-    partsData.referenceData.n1Cycles = n1Cycles;
-    partsData.referenceData.n2Cycles = n2Cycles;
-    partsData.referenceData.landings = landings;
+    partsData.referenceData.acftTT = parseFiniteNumber(acftTT);
+    partsData.referenceData.engTT = parseFiniteNumber(
+      engTT ?? partsData.referenceData.engTT ?? acftTT,
+    );
+    partsData.referenceData.n1Cycles = parseFiniteNumber(n1Cycles);
+    partsData.referenceData.n2Cycles = parseFiniteNumber(n2Cycles);
+    partsData.referenceData.landings = parseFiniteNumber(landings);
+
+    optionalNumericFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        partsData.referenceData[field] = parseFiniteNumber(req.body[field]);
+      }
+    });
+    ["acrfNextInsp", "engNextInsp"].forEach((field) => {
+      if (req.body[field] !== undefined) {
+        partsData.referenceData[field] = String(req.body[field] ?? "").trim();
+      }
+    });
+
+    const isB412 = isB412AircraftType(partsData.aircraftType);
+    const referenceCells = {
+      ...(partsData.referenceData.referenceCells || {}),
+      J1: partsData.referenceData.landings,
+      L3: partsData.referenceData.acftTT,
+    };
+
+    if (isB412) {
+      partsData.referenceData.eng1TT = parseFiniteNumber(
+        req.body.eng1TT ?? partsData.referenceData.engTT,
+      );
+      partsData.referenceData.eng1Cycles = parseFiniteNumber(
+        req.body.eng1Cycles ?? partsData.referenceData.n1Cycles,
+      );
+      partsData.referenceData.eng2Cycles = parseFiniteNumber(
+        req.body.eng2Cycles ?? partsData.referenceData.n2Cycles,
+      );
+      referenceCells.H2 = partsData.referenceData.eng1Cycles;
+      referenceCells.H3 = partsData.referenceData.eng2Cycles;
+      referenceCells.L2 = partsData.referenceData.eng1TT;
+
+      if (partsData.referenceData.eng1TSO !== undefined) {
+        referenceCells.J2 = partsData.referenceData.eng1TSO;
+      }
+      if (partsData.referenceData.eng2TT !== undefined) {
+        referenceCells.N2 = partsData.referenceData.eng2TT;
+      }
+      if (partsData.referenceData.eng2TSO !== undefined) {
+        referenceCells.J3 = partsData.referenceData.eng2TSO;
+      }
+      if (partsData.referenceData.usage !== undefined) {
+        referenceCells.N3 = partsData.referenceData.usage;
+      }
+    } else {
+      referenceCells.H3 = partsData.referenceData.n1Cycles;
+      referenceCells.J3 = partsData.referenceData.n2Cycles;
+      referenceCells.L2 = partsData.referenceData.engTT;
+    }
+
+    partsData.referenceData.referenceCells = referenceCells;
+    partsData.markModified("referenceData.referenceCells");
     partsData.lastUpdated = Date.now();
     partsData.updatedBy = req.body.updatedBy || "flight_log_system";
 
     await partsData.save();
-    publishPartsMonitoringChanged(aircraft, "totals-updated");
+    publishPartsMonitoringChanged(normalizedAircraft, "totals-updated");
 
     res.status(200).json({
       success: true,
@@ -697,14 +930,33 @@ exports.savePartsMonitoring = async (req, res) => {
     if (!aircraft) {
       return res.status(400).json({ success: false, message: "Aircraft is required" });
     }
+    const normalizedAircraft = normalizeAircraftName(aircraft);
+    if (!isAircraftRegistration(normalizedAircraft)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft must follow the expected RP-C registration format.",
+      });
+    }
     if (!parts || !Array.isArray(parts)) {
       return res.status(400).json({ success: false, message: "Parts data is required and must be an array" });
     }
 
-    let existingData = await PartsMonitoring.findOne({ aircraft });
+    const escapedAircraft = normalizedAircraft.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+    let existingData = await PartsMonitoring.findOne({
+      aircraft: { $regex: `^${escapedAircraft}$`, $options: "i" },
+    });
 
     if (existingData) {
-      existingData.referenceData = referenceData || existingData.referenceData;
+      const resolvedAircraftType =
+        aircraftType || existingData.aircraftType || "";
+      existingData.referenceData = referenceData
+        ? normalizeB412ReferenceData(referenceData, resolvedAircraftType, {
+            preferAliases: true,
+          })
+        : existingData.referenceData;
       existingData.parts = parts;
       if (dateManufactured !== undefined) {
         existingData.dateManufactured = dateManufactured || null;
@@ -721,7 +973,7 @@ exports.savePartsMonitoring = async (req, res) => {
       existingData.lastUpdated = Date.now();
       existingData.updatedBy = updatedBy || "system";
       await existingData.save();
-      publishPartsMonitoringChanged(aircraft, "saved");
+      publishPartsMonitoringChanged(normalizedAircraft, "saved");
       res.status(200).json({
         success: true,
         message: "Data updated successfully",
@@ -729,17 +981,21 @@ exports.savePartsMonitoring = async (req, res) => {
       });
     } else {
       const newData = new PartsMonitoring({
-        aircraft,
+        aircraft: normalizedAircraft,
         dateManufactured: dateManufactured || null,
         aircraftType: aircraftType || "",
         creepDamage: normalizeCreepDamage(creepDamage),
         serialNumber: serialNumber || "",
-        referenceData,
+        referenceData: normalizeB412ReferenceData(
+          referenceData,
+          aircraftType,
+          { preferAliases: true },
+        ),
         parts,
         updatedBy: updatedBy || "system",
       });
       await newData.save();
-      publishPartsMonitoringChanged(aircraft, "saved");
+      publishPartsMonitoringChanged(normalizedAircraft, "saved");
       res.status(201).json({
         success: true,
         message: "Data saved successfully",
@@ -950,10 +1206,15 @@ exports.getPartsMonitoring = async (req, res) => {
   try {
     const { aircraft } = req.params;
     console.log("Fetching data for aircraft:", aircraft);
+    const normalizedAircraft = normalizeAircraftName(aircraft);
+    const escapedAircraft = normalizedAircraft.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
 
-    const data = await PartsMonitoring.findOne({ aircraft }).sort({
-      lastUpdated: -1,
-    });
+    const data = await PartsMonitoring.findOne({
+      aircraft: { $regex: `^${escapedAircraft}$`, $options: "i" },
+    }).sort({ lastUpdated: -1 });
 
     if (!data) {
       return res.status(404).json({
@@ -1085,18 +1346,24 @@ exports.getMaintenancePriority = async (req, res) => {
 
     const rankings = partsMonitoringRecords
       .map((record) => {
+        const normalizedReferenceData = normalizeB412ReferenceData(
+          record?.referenceData,
+          record?.aircraftType,
+        );
         const refs = {
+          ...normalizedReferenceData,
+          aircraftType: record?.aircraftType || "",
           today: getToday(),
-          acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+          acftTT: parseNumber(normalizedReferenceData.acftTT) || 0,
           engTT:
-            parseNumber(record?.referenceData?.engTT) ??
-            parseNumber(record?.referenceData?.acftTT) ??
+            parseNumber(normalizedReferenceData.engTT) ??
+            parseNumber(normalizedReferenceData.acftTT) ??
             0,
-          n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
-          n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
-          landings: parseNumber(record?.referenceData?.landings) || 0,
+          n1Cycles: parseNumber(normalizedReferenceData.n1Cycles) || 0,
+          n2Cycles: parseNumber(normalizedReferenceData.n2Cycles) || 0,
+          landings: parseNumber(normalizedReferenceData.landings) || 0,
           referenceCells:
-            record?.referenceData?.referenceCells ||
+            normalizedReferenceData.referenceCells ||
             DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
             {},
         };
@@ -1354,18 +1621,24 @@ exports.getInspectionRemainingHours = async (req, res) => {
     });
 
     const rows = partsMonitoringRecords.flatMap((record) => {
+      const normalizedReferenceData = normalizeB412ReferenceData(
+        record?.referenceData,
+        record?.aircraftType,
+      );
       const refs = {
+        ...normalizedReferenceData,
+        aircraftType: record?.aircraftType || "",
         today: getToday(),
-        acftTT: parseNumber(record?.referenceData?.acftTT) || 0,
+        acftTT: parseNumber(normalizedReferenceData.acftTT) || 0,
         engTT:
-          parseNumber(record?.referenceData?.engTT) ??
-          parseNumber(record?.referenceData?.acftTT) ??
+          parseNumber(normalizedReferenceData.engTT) ??
+          parseNumber(normalizedReferenceData.acftTT) ??
           0,
-        n1Cycles: parseNumber(record?.referenceData?.n1Cycles) || 0,
-        n2Cycles: parseNumber(record?.referenceData?.n2Cycles) || 0,
-        landings: parseNumber(record?.referenceData?.landings) || 0,
+        n1Cycles: parseNumber(normalizedReferenceData.n1Cycles) || 0,
+        n2Cycles: parseNumber(normalizedReferenceData.n2Cycles) || 0,
+        landings: parseNumber(normalizedReferenceData.landings) || 0,
         referenceCells:
-          record?.referenceData?.referenceCells ||
+          normalizedReferenceData.referenceCells ||
           DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
           {},
       };
@@ -1559,12 +1832,8 @@ const getAircraftList = async (req, res) => {
     const aircraft = [
       ...new Set(
         [...partsMonitoringAircraft, ...aircraftTailNumbers]
-          .map((value) =>
-            String(value || "")
-              .trim()
-              .toUpperCase(),
-          )
-          .filter(Boolean),
+          .map(normalizeAircraftName)
+          .filter(isAircraftRegistration),
       ),
     ].sort();
 
@@ -1581,6 +1850,52 @@ const getAircraftList = async (req, res) => {
     });
   }
 };
+
+const exportPartsMonitoringExcel = async (req, res) => {
+  try {
+    const aircraft = normalizeAircraftName(req.params.aircraft);
+    if (!aircraft) {
+      return res.status(400).json({
+        success: false,
+        message: "Aircraft is required",
+      });
+    }
+
+    const record = await PartsMonitoring.findOne({ aircraft }).lean();
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: "No parts lifespan data found for this aircraft",
+      });
+    }
+
+    const workbook = buildPartsMonitoringWorkbook(
+      serializePartsMonitoringRecord(record),
+    );
+    const safeAircraft = String(record.aircraft || aircraft)
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-");
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeAircraft}-Parts-Lifespan-Monitoring.xlsx"`,
+    );
+
+    await workbook.xlsx.write(res);
+    return res.end();
+  } catch (error) {
+    console.error("Parts lifespan Excel export failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export parts lifespan monitoring workbook",
+      error: error.message,
+    });
+  }
+};
 module.exports = {
   getMaintenancePriorityRules: exports.getMaintenancePriorityRules,
   getMaintenancePriority: exports.getMaintenancePriority,
@@ -1593,6 +1908,7 @@ module.exports = {
   deleteAircraftData,
   deletePartsMonitoring: exports.deletePartsMonitoring,
   getAircraftList,
+  exportPartsMonitoringExcel,
   getAllPartsMonitoring: exports.getAllPartsMonitoring,
   getPartsMonitoring: exports.getPartsMonitoring,
 };

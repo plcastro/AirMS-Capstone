@@ -49,15 +49,42 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
-const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
+const TEMP_PASSWORD_VALIDITY_MS = 24 * 60 * 60 * 1000; // 1 day
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years; logout/revocation still ends mobile sessions
 const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const MOBILE_SESSION_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
+const ROLES_REQUIRING_LICENSE = new Set([
+  "maintenance manager",
+  "pilot",
+  "mechanic",
+  "officer-in-charge",
+]);
+
+const parseString = (value) => (typeof value === "string" ? value.trim() : "");
+const requiresLicenseNo = (jobTitle = "") =>
+  ROLES_REQUIRING_LICENSE.has(parseString(jobTitle).toLowerCase());
+const getDuplicateKeyMessage = (error) => {
+  if (error?.code !== 11000) {
+    return null;
+  }
+
+  if (error?.keyPattern?.email) {
+    return "Email already registered";
+  }
+  if (error?.keyPattern?.username) {
+    return "Username already taken";
+  }
+  if (error?.keyPattern?.licenseNo) {
+    return "License no. already in use";
+  }
+
+  return "Duplicate user information";
+};
 
 const hashRefreshToken = (token = "") =>
   crypto.createHash("sha256").update(String(token)).digest("hex");
@@ -66,7 +93,7 @@ const hashTrustedDeviceToken = (token = "") =>
 
 const getRefreshTokenTtlMs = (isPersistent, platform = "") =>
   normalizePlatform(platform) === "MOBILE"
-    ? MOBILE_SESSION_LIMIT_MS
+    ? MOBILE_REFRESH_TOKEN_TTL_MS
     : isPersistent
       ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS
       : REFRESH_TOKEN_TTL_MS;
@@ -168,6 +195,19 @@ const revokeAllUserRefreshTokens = async (userId, reason) => {
       cleanupAt: getRevokedRefreshTokenCleanupDate(),
     },
   );
+};
+
+const invalidateUserSessions = async (userId, reason) => {
+  if (!userId) return;
+
+  const now = new Date();
+  await Promise.all([
+    UserSession.updateMany(
+      { userId, isActive: true },
+      { isActive: false, logoutAt: now, lastActivityAt: now },
+    ),
+    revokeAllUserRefreshTokens(userId, reason),
+  ]);
 };
 
 const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
@@ -515,11 +555,9 @@ const loginUser = async (req, res) => {
     }
 
     if (user.status === "deactivated") {
-      return res
-        .status(403)
-        .json({
-          message: "This account is deactivated. Please contact support",
-        });
+      return res.status(403).json({
+        message: "This account is deactivated. Please contact support",
+      });
     }
 
     // Check lock
@@ -692,6 +730,12 @@ const verifyLoginOtp = async (req, res) => {
     if (!token || !otp) {
       return res.status(400).json({ message: "Token and OTP are required" });
     }
+    const normalizedOtp = String(otp || "").trim();
+    if (!/^\d{6}$/.test(normalizedOtp)) {
+      return res
+        .status(400)
+        .json({ message: "Enter the complete 6-digit OTP" });
+    }
 
     const user = await UserModel.findOne({ loginOtpToken: token }).select(
       "+loginOtp +loginOtpExpires +loginOtpToken",
@@ -706,7 +750,7 @@ const verifyLoginOtp = async (req, res) => {
         .json({ message: "OTP expired. Please log in again." });
     }
 
-    const valid = await bcrypt.compare(String(otp).trim(), user.loginOtp);
+    const valid = await bcrypt.compare(normalizedOtp, user.loginOtp);
     if (!valid) {
       user.loginOtpAttempts = Number(user.loginOtpAttempts || 0) + 1;
       await user.save();
@@ -861,6 +905,12 @@ const refreshToken = async (req, res) => {
       tokenRecord.revokedAt ||
       tokenRecord.expiresAt <= new Date()
     ) {
+      if (tokenRecord?.revokedAt && tokenRecord?.replacedByTokenHash) {
+        return res
+          .status(403)
+          .json({ message: "Refresh token already rotated" });
+      }
+
       await revokeAllUserRefreshTokens(
         payload.id,
         "Refresh token replay/reuse detected during rotation",
@@ -909,15 +959,6 @@ const refreshToken = async (req, res) => {
       req.headers["x-platform"] || activeSession.platform || payload.platform,
     );
     const now = Date.now();
-    const loginAt = new Date(activeSession.loginAt || now).getTime();
-    if (isMobilePlatform(requestPlatform) && now - loginAt > MOBILE_SESSION_LIMIT_MS) {
-      await UserSession.findOneAndUpdate(
-        { userId: user._id, sessionId, isActive: true },
-        { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-      );
-      return res.status(401).json({ message: "Mobile session expired" });
-    }
-
     if (!isMobilePlatform(requestPlatform)) {
       const sessionIdleLimitMs = getSessionIdleLimitMs(requestPlatform);
       const clientActiveAt = Number(req.headers["x-client-active-at"]);
@@ -1304,36 +1345,39 @@ const registerMobilePushDevice = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, jobTitle, access, licenseNo } =
-      req.body;
+    let { firstName, lastName, email, jobTitle, access, licenseNo } = req.body;
 
-    const rolesRequiringLicense = [
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ];
+    firstName = parseString(firstName);
+    lastName = parseString(lastName);
+    email = parseString(email);
+    jobTitle = parseString(jobTitle);
+    access = parseString(access);
+    licenseNo = parseString(licenseNo);
 
     if (!firstName || !lastName || !email || !jobTitle) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    if (!validator.isEmail(email.trim())) {
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const normalizedJobTitle = jobTitle.toLowerCase();
+    const requiresLicense = requiresLicenseNo(jobTitle);
 
-    if (
-      rolesRequiringLicense.includes(normalizedJobTitle) &&
-      (!licenseNo || licenseNo.trim() === "")
-    ) {
+    if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
 
-    const existingEmail = await UserModel.findOne({ email: email.trim() });
+    const existingEmail = await UserModel.findOne({ email });
     if (existingEmail) {
       return res.status(409).json({ message: "Email already registered" });
+    }
+
+    if (requiresLicense) {
+      const existingLicense = await UserModel.findOne({ licenseNo });
+      if (existingLicense) {
+        return res.status(409).json({ message: "License no. already in use" });
+      }
     }
 
     const username = await generateUniqueUsername(firstName, lastName);
@@ -1341,15 +1385,6 @@ const createUser = async (req, res) => {
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
     const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
-
-    await sendActivationCredentialsEmail({
-      to: email,
-      firstName,
-      username,
-      tempPassword,
-      jobTitle,
-      isResend: false,
-    });
 
     let imagePath = "";
     if (req.file) {
@@ -1359,7 +1394,7 @@ const createUser = async (req, res) => {
     const newUser = await UserModel.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      email: email.trim(),
+      email,
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
@@ -1370,9 +1405,16 @@ const createUser = async (req, res) => {
       image: imagePath,
       jobTitle,
       access,
-      licenseNo: rolesRequiringLicense.includes(normalizedJobTitle)
-        ? licenseNo
-        : null,
+      licenseNo: requiresLicense ? licenseNo : undefined,
+    });
+
+    await sendActivationCredentialsEmail({
+      to: email,
+      firstName,
+      username,
+      tempPassword,
+      jobTitle,
+      isResend: false,
     });
 
     const audit = withActorId(
@@ -1385,9 +1427,16 @@ const createUser = async (req, res) => {
     res.status(201).json({
       message: "User created successfully",
       data: newUser,
+      emailSent: true,
+      invitationEmail: email,
     });
   } catch (err) {
     console.error("Error in createUser:", err);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({
       message: "User creation failed (email not sent)",
     });
@@ -1494,9 +1543,6 @@ const updateUser = async (req, res) => {
     let { firstName, lastName, email, username, access, jobTitle, licenseNo } =
       req.body;
 
-    const parseString = (value) =>
-      typeof value === "string" ? value.trim() : "";
-
     firstName = parseString(firstName);
     lastName = parseString(lastName);
     email = parseString(email);
@@ -1525,19 +1571,23 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid access level" });
     }
 
-    const rolesRequiringLicense = new Set([
-      "maintenance manager",
-      "pilot",
-      "mechanic",
-      "officer-in-charge",
-    ]);
-    const requiresLicense = rolesRequiringLicense.has(jobTitle.toLowerCase());
+    const requiresLicense = requiresLicenseNo(jobTitle);
     if (requiresLicense && !licenseNo) {
       return res.status(400).json({ message: "License no. is required" });
     }
 
     const user = await UserModel.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isSelfUpdate = String(req.user?.id || "") === String(user._id);
+    const roleOrAccessChanged =
+      jobTitle !== user.jobTitle || access !== user.access;
+
+    if (isSelfUpdate && roleOrAccessChanged) {
+      return res.status(403).json({
+        message: "You cannot change your own role or access level.",
+      });
+    }
 
     const existingEmail = await UserModel.findOne({
       email,
@@ -1582,21 +1632,43 @@ const updateUser = async (req, res) => {
       changedFields.push("License Number");
     }
 
+    const newImagePath = req.file
+      ? req.file.savedPath || `/uploads/${req.file.filename}`
+      : "";
+    if (newImagePath) {
+      changedFields.push("Profile Image");
+    }
+
     const updateData = {
-      firstName,
-      lastName,
-      email,
-      username,
-      access,
-      jobTitle,
-      licenseNo: requiresLicense ? licenseNo : null,
+      $set: { firstName, lastName, email, username, access, jobTitle },
     };
+
+    if (newImagePath) {
+      updateData.$set.image = newImagePath;
+    }
+
+    if (requiresLicense) {
+      updateData.$set.licenseNo = licenseNo;
+    } else {
+      updateData.$unset = { licenseNo: "" };
+    }
 
     const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
       returnDocument: "after",
       runValidators: true,
     });
+
+    if (newImagePath && user.image && user.image !== newImagePath) {
+      await deleteFile(user.image);
+    }
     // console.log(updatedUser.username);
+
+    if (roleOrAccessChanged) {
+      await invalidateUserSessions(
+        updatedUser._id,
+        "User role/access changed by administrator",
+      );
+    }
 
     if (changedFields.length > 0) {
       const audit = withActorId(
@@ -1622,6 +1694,11 @@ const updateUser = async (req, res) => {
   } catch (err) {
     console.error("Error updating user:", err);
     await auditLog("Failed to update user", null);
+    const duplicateKeyMessage = getDuplicateKeyMessage(err);
+    if (duplicateKeyMessage) {
+      return res.status(409).json({ message: duplicateKeyMessage });
+    }
+
     res.status(500).json({ message: err.message || "Failed to update user" });
   }
 };
@@ -1878,6 +1955,13 @@ const updatePIN = async (req, res) => {
     if (!currentPin || !newPin)
       return res.status(400).json({ message: "PIN is required" });
 
+    currentPin = String(currentPin).trim();
+    newPin = String(newPin).trim();
+
+    if (!/^\d{6}$/.test(currentPin) || !/^\d{6}$/.test(newPin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
+    }
+
     const user = await UserModel.findById(req.params.id).select("+pin");
 
     if (!user.pin) {
@@ -1912,10 +1996,13 @@ const updatePIN = async (req, res) => {
 
 const verifyPIN = async (req, res) => {
   try {
-    const { pin } = req.body;
+    const pin = String(req.body?.pin || "").trim();
 
     if (!pin) {
       return res.status(400).json({ message: "PIN is required" });
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
     }
 
     const user = await UserModel.findById(req.params.id).select("+pin");
@@ -1979,12 +2066,16 @@ const verifyPIN = async (req, res) => {
 
 const activateUser = async (req, res) => {
   try {
-    const { token, newPassword, pin } = req.body;
+    const { token, newPassword } = req.body;
+    const pin = String(req.body?.pin || "").trim();
 
     if (!token || !newPassword || !pin) {
       return res
         .status(400)
         .json({ message: "Token, new password, and PIN is required" });
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be exactly 6 digits." });
     }
 
     let decoded;

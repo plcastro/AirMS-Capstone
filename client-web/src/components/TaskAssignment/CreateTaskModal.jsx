@@ -1,12 +1,33 @@
 import React from "react";
-import { App as AntdApp, Button, Card, Col, DatePicker, Form, Input, Modal, Row, Select, Typography } from "antd";
-import { estimateInspectionSchedule, formatEstimatedDuration } from "../../utils/inspectionTiming";
+import {
+  App as AntdApp,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Typography,
+} from "antd";
+import {
+  estimateInspectionSchedule,
+  formatEstimatedDuration,
+} from "../../utils/inspectionTiming";
 import dayjs from "dayjs";
 
 const { Text, Title } = Typography;
 
 const CUSTOM_INSPECTION_ID = "custom-task";
 const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
+const TASK_MODAL_WIDTH = "min(1280px, calc(100vw - 48px))";
+const TASK_MODAL_BODY_STYLE = {
+  maxHeight: "calc(100vh - 180px)",
+  overflowY: "auto",
+  paddingBottom: 8,
+};
 
 const toUniqueSelectOptions = (items = [], getValue, getLabel = getValue) => {
   const seen = new Set();
@@ -75,23 +96,38 @@ export default function CreateTaskModal({
       onOk={onOk}
       title="Create Task"
       okText="Create"
-      width={960}
+      width={TASK_MODAL_WIDTH}
+      centered
+      zIndex={3000}
+      styles={{
+        body: TASK_MODAL_BODY_STYLE,
+      }}
       confirmLoading={confirmLoading}
       forceRender
     >
       <Form form={form} layout="vertical">
         <Row gutter={[12, 4]}>
           <Col xs={24} md={12}>
-            <Form.Item label="Aircraft" name="aircraft" rules={[{ required: true, message: "Aircraft is required" }]}>
+            <Form.Item
+              label="Aircraft"
+              name="aircraft"
+              rules={[{ required: true, message: "Aircraft is required" }]}
+            >
               <Select
                 showSearch
                 size="large"
-                options={toUniqueSelectOptions(aircraftList, (aircraft) => aircraft)}
+                options={toUniqueSelectOptions(
+                  aircraftList,
+                  (aircraft) => aircraft,
+                )}
               />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item label="Inspection" rules={[{ required: true, message: "Inspection is required" }]}>
+            <Form.Item
+              label="Inspection"
+              rules={[{ required: true, message: "Inspection is required" }]}
+            >
               <Select
                 size="large"
                 value={selectedInspectionId || undefined}
@@ -110,15 +146,20 @@ export default function CreateTaskModal({
                     return;
                   }
 
-                  const selected = inspectionOptions.find((item) => item.id === value);
+                  const selected = inspectionOptions.find(
+                    (item) => item.id === value,
+                  );
                   if (!selected) return;
 
                   try {
                     setCreateLoading(true);
-                    const tasksFromInspection = await fetchInspectionTasks(selected);
+                    const tasksFromInspection =
+                      await fetchInspectionTasks(selected);
                     setChecklistDraftItems(tasksFromInspection);
                   } catch (error) {
-                    messageApi.error(error.message || "Failed to fetch inspection tasks");
+                    messageApi.error(
+                      error.message || "Failed to fetch inspection tasks",
+                    );
                     setChecklistDraftItems([]);
                   } finally {
                     setCreateLoading(false);
@@ -151,7 +192,11 @@ export default function CreateTaskModal({
             </Col>
           )}
           <Col xs={24} md={12}>
-            <Form.Item label="Base" name="base" rules={[{ required: true, message: "Base is required" }]}>
+            <Form.Item
+              label="Base"
+              name="base"
+              rules={[{ required: true, message: "Base is required" }]}
+            >
               <Select
                 aria-label="Base"
                 size="large"
@@ -163,7 +208,11 @@ export default function CreateTaskModal({
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item label="Assign Mechanic" name="assignedTo" rules={[{ required: true, message: "Assignee is required" }]}>
+            <Form.Item
+              label="Assign Mechanic"
+              name="assignedTo"
+              rules={[{ required: true, message: "Assignee is required" }]}
+            >
               <Select
                 size="large"
                 options={toUniqueSelectOptions(
@@ -191,12 +240,15 @@ export default function CreateTaskModal({
             <Form.Item
               label="Start Date/Time"
               name="startDateTime"
-              rules={[{ required: true, message: "Start date/time is required" }]}
+              rules={[
+                { required: true, message: "Start date/time is required" },
+              ]}
             >
               <DatePicker
                 size="large"
                 style={{ width: "100%" }}
                 format="MM/DD/YYYY HH:mm"
+                inputReadOnly
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(false)}
               />
@@ -213,8 +265,13 @@ export default function CreateTaskModal({
                   validator(_, value) {
                     const start = getFieldValue("startDateTime");
                     if (!start || !value) return Promise.resolve();
-                    if (dayjs(value).isAfter(dayjs(start))) return Promise.resolve();
-                    return Promise.reject(new Error("End date/time must be later than start date/time"));
+                    if (dayjs(value).isAfter(dayjs(start)))
+                      return Promise.resolve();
+                    return Promise.reject(
+                      new Error(
+                        "End date/time must be later than start date/time",
+                      ),
+                    );
                   },
                 }),
               ]}
@@ -223,16 +280,24 @@ export default function CreateTaskModal({
                 size="large"
                 style={{ width: "100%" }}
                 format="MM/DD/YYYY HH:mm"
+                inputReadOnly
                 showTime={{ format: "HH:mm" }}
                 onChange={() => setEndDateManuallyAdjusted(true)}
               />
             </Form.Item>
           </Col>
           <Col xs={24}>
-            <Form.Item label="Maintenance Type" name="maintenanceType" initialValue="Corrective Maintenance">
+            <Form.Item
+              label="Maintenance Type"
+              name="maintenanceType"
+              initialValue="Corrective Maintenance"
+            >
               <Select
                 size="large"
-                options={["Corrective Maintenance", "Preventive Maintenance"].map((value) => ({
+                options={[
+                  "Corrective Maintenance",
+                  "Preventive Maintenance",
+                ].map((value) => ({
                   value,
                   label: value,
                 }))}
@@ -241,7 +306,9 @@ export default function CreateTaskModal({
           </Col>
           <Col xs={24}>
             <Text type="secondary">
-              Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)} | {scheduleEstimate.itemCount} checklist item
+              Estimated duration:{" "}
+              {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
+              {scheduleEstimate.itemCount} checklist item
               {scheduleEstimate.itemCount === 1 ? "" : "s"}
               {endDateManuallyAdjusted ? " | End time manually adjusted" : ""}
             </Text>
@@ -251,9 +318,15 @@ export default function CreateTaskModal({
               Checklist
             </Title>
             {checklistDraftItems.map((item, index) => (
-              <Card key={`${item.taskId || "item"}-${index}`} size="small" style={{ marginBottom: 8 }}>
+              <Card
+                key={`${item.taskId || "item"}-${index}`}
+                size="small"
+                style={{ marginBottom: 8 }}
+              >
                 <Text type="secondary">
-                  {[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ")}
+                  {[item.taskId, item.inspectionTypeFull]
+                    .filter(Boolean)
+                    .join(" | ")}
                 </Text>
                 {isCustomTask ? (
                   <>
@@ -263,7 +336,11 @@ export default function CreateTaskModal({
                       placeholder="Checklist item"
                       onChange={(e) =>
                         setChecklistDraftItems((prev) =>
-                          prev.map((entry, idx) => (idx === index ? { ...entry, taskName: e.target.value } : entry)),
+                          prev.map((entry, idx) =>
+                            idx === index
+                              ? { ...entry, taskName: e.target.value }
+                              : entry,
+                          ),
                         )
                       }
                     />
@@ -274,7 +351,11 @@ export default function CreateTaskModal({
                       placeholder="Description / notes"
                       onChange={(e) =>
                         setChecklistDraftItems((prev) =>
-                          prev.map((entry, idx) => (idx === index ? { ...entry, description: e.target.value } : entry)),
+                          prev.map((entry, idx) =>
+                            idx === index
+                              ? { ...entry, description: e.target.value }
+                              : entry,
+                          ),
                         )
                       }
                     />
@@ -282,7 +363,11 @@ export default function CreateTaskModal({
                       danger
                       type="link"
                       style={{ paddingLeft: 0 }}
-                      onClick={() => setChecklistDraftItems((prev) => prev.filter((_, idx) => idx !== index))}
+                      onClick={() =>
+                        setChecklistDraftItems((prev) =>
+                          prev.filter((_, idx) => idx !== index),
+                        )
+                      }
                     >
                       Remove
                     </Button>

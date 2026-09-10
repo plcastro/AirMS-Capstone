@@ -359,6 +359,653 @@ const flightTableTheme = {
   pageBreak: "avoid",
 };
 
+const normalizeFlightAircraftType = (value = "") =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const isB412FlightLogRecord = (record = {}) => {
+  const aircraftType = normalizeFlightAircraftType(
+    record.aircraftType ||
+      record.aircraft?.aircraftType ||
+      record.aircraft?.type,
+  );
+
+  return (
+    aircraftType.includes("B412EP") || aircraftType.includes("BELL412EP")
+  );
+};
+
+const firstFlightValue = (...values) =>
+  values.find(
+    (value) => value !== null && value !== undefined && value !== "",
+  );
+
+const getB412GroupValue = (section, groupKey, valueKey, ...aliases) =>
+  firstFlightValue(
+    section?.[groupKey]?.[valueKey],
+    ...aliases.map((alias) => section?.[alias]),
+  );
+
+const getB412ComponentSection = (b412Data, sectionKey) =>
+  b412Data?.componentData?.[sectionKey] ||
+  b412Data?.componentTimes?.[sectionKey] ||
+  {};
+
+const getB412PassengerValue = (
+  b412Data,
+  record,
+  rowIndex,
+  legIndex,
+) => {
+  const passengerRow = b412Data?.passengerRows?.[rowIndex];
+  const rowLegs = Array.isArray(passengerRow)
+    ? passengerRow
+    : passengerRow?.legs;
+  const legPassengers = record.legs?.[legIndex]?.passengers;
+
+  return flightValue(
+    firstFlightValue(
+      rowLegs?.[legIndex],
+      Array.isArray(legPassengers) ? legPassengers[rowIndex] : undefined,
+      rowIndex === 0 && !Array.isArray(legPassengers)
+        ? legPassengers
+        : undefined,
+    ),
+  );
+};
+
+const getB412OilValue = (row, groupKey, valueKey, ...aliases) =>
+  flightValue(
+    firstFlightValue(
+      row?.[groupKey]?.[valueKey],
+      ...aliases.map((alias) => row?.[alias]),
+    ),
+  );
+
+const normalizeB412Category = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const drawB412FlightHeader = (doc, record, b412Data, logoDataUrl = null) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const serialNumber = flightValue(
+    firstFlightValue(
+      b412Data.serialNumber,
+      b412Data.serialNo,
+      record.serialNumber,
+      record.serialNo,
+    ),
+  );
+  const tailAndSerial = [
+    flightValue(record.rpc || record.aircraftNo),
+    serialNumber,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(30);
+  doc.text("AIRCRAFT FLIGHT LOG", pageWidth / 2, 28, { align: "center" });
+  doc.setFontSize(11);
+  doc.text("ROTARY WINGED AIRCRAFT", pageWidth / 2, 43, {
+    align: "center",
+  });
+  doc.text("TWIN ENGINE", pageWidth / 2, 57, { align: "center" });
+
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 22, 38, 78, 34);
+  } else {
+    doc.setFontSize(18);
+    doc.setTextColor(4, 100, 64);
+    doc.text("NGCP", 24, 64);
+  }
+  doc.setTextColor(0);
+  doc.setLineWidth(0.6);
+  doc.setFontSize(8);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("AIRCRAFT TYPE:", 20, 82);
+  doc.setFont("helvetica", "normal");
+  doc.text(flightValue(record.aircraftType, "BELL 412 EP"), 104, 82);
+  doc.line(102, 86, 222, 86);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("TAIL & SERIAL NO.:", 20, 98);
+  doc.setFont("helvetica", "normal");
+  doc.text(tailAndSerial, 116, 98);
+  doc.line(114, 102, 242, 102);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("CONTROL NO.:", 394, 82);
+  doc.setFont("helvetica", "normal");
+  doc.text(flightValue(record.controlNo || record.control), 478, 82);
+  doc.line(476, 86, 570, 86);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("DATE:", 394, 98);
+  doc.setFont("helvetica", "normal");
+  doc.text(formatFlightLogDate(record.date), 446, 98);
+  doc.line(442, 102, 570, 102);
+};
+
+const drawB412FlightLog = (
+  doc,
+  autoTable,
+  record = {},
+  logoDataUrl = null,
+) => {
+  const b412Data = record.b412Data || {};
+  const legs = fitRows(record.legs || [], 6, () => ({}));
+  const passengerRows = Array.from({ length: 4 }, (_, rowIndex) =>
+    Array.from({ length: 6 }, (_, legIndex) =>
+      getB412PassengerValue(b412Data, record, rowIndex, legIndex),
+    ),
+  );
+  const componentData = b412Data.componentData || {};
+  const componentSections = [
+    ["BRT FORWARD", getB412ComponentSection(b412Data, "broughtForwardData")],
+    ["THIS FLIGHT", getB412ComponentSection(b412Data, "thisFlightData")],
+    ["TO DATE", getB412ComponentSection(b412Data, "toDateData")],
+  ];
+  const fuelRows = fitRows(b412Data.fuelServicing || [], 6, () => ({}));
+  const oilRows = fitRows(b412Data.oilServicing || [], 2, () => ({}));
+  const correctionItems = fitRows(
+    b412Data.correctionItems || [],
+    3,
+    () => ({}),
+  );
+  const correctionCategories = new Set(
+    correctionItems
+      .map((item) => normalizeB412Category(item.category))
+      .filter(Boolean),
+  );
+  const categoryChecked = (...aliases) =>
+    aliases.some((alias) => correctionCategories.has(alias));
+
+  drawB412FlightHeader(doc, record, b412Data, logoDataUrl);
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: 110,
+    head: [
+      [
+        { content: "LEG", rowSpan: 2 },
+        { content: "STATIONS", rowSpan: 2 },
+        { content: "BLOCK TIME", colSpan: 2 },
+        { content: "FLIGHT TIME", colSpan: 2 },
+        { content: "TOTAL TIME", colSpan: 2 },
+      ],
+      ["ON", "OFF", "ON", "OFF", "BLOCK", "FLIGHT"],
+    ],
+    body: legs.map((leg, index) => [
+      FLIGHT_LEG_LABELS[index],
+      getStationText(leg),
+      flightValue(leg.blockTimeOn),
+      flightValue(leg.blockTimeOff),
+      flightValue(leg.flightTimeOn),
+      flightValue(leg.flightTimeOff),
+      flightValue(firstFlightValue(leg.totalBlockTime, leg.totalTimeOn)),
+      flightValue(firstFlightValue(leg.totalFlightTime, leg.totalTimeOff)),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 38, halign: "center", fontStyle: "bold" },
+      1: { cellWidth: 227 },
+      2: { cellWidth: 44, halign: "center" },
+      3: { cellWidth: 44, halign: "center" },
+      4: { cellWidth: 44, halign: "center" },
+      5: { cellWidth: 44, halign: "center" },
+      6: { cellWidth: 59, halign: "center" },
+      7: { cellWidth: 59, halign: "center" },
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    head: [
+      [{ content: "PASSENGERS", colSpan: 6 }],
+      FLIGHT_LEG_LABELS.map((label) => `${label} LEG`),
+    ],
+    body: passengerRows,
+    columnStyles: Object.fromEntries(
+      Array.from({ length: 6 }, (_, index) => [
+        index,
+        { cellWidth: index === 5 ? 94 : 93, halign: "center" },
+      ]),
+    ),
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    head: [
+      [
+        { content: "", rowSpan: 2 },
+        { content: "AIRFRAME", rowSpan: 2 },
+        { content: "M/R GEARBOX", colSpan: 2 },
+        { content: "90 T/R GEARBOX", colSpan: 2 },
+        { content: "42 T/R GEARBOX", colSpan: 2 },
+        { content: "LANDING CYCLE", rowSpan: 2 },
+      ],
+      ["TSN", "TSO", "TSN", "TSO", "TSN", "TSO"],
+    ],
+    body: componentSections.map(([label, section]) => [
+      label,
+      flightValue(section.airframe),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "mrGearbox",
+          "tsn",
+          "mrGearboxTsn",
+          "mrGearboxTSN",
+        ),
+      ),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "mrGearbox",
+          "tso",
+          "mrGearboxTso",
+          "mrGearboxTSO",
+        ),
+      ),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "tr90Gearbox",
+          "tsn",
+          "tr90GearboxTsn",
+          "tr90GearboxTSN",
+        ),
+      ),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "tr90Gearbox",
+          "tso",
+          "tr90GearboxTso",
+          "tr90GearboxTSO",
+        ),
+      ),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "tr42Gearbox",
+          "tsn",
+          "tr42GearboxTsn",
+          "tr42GearboxTSN",
+        ),
+      ),
+      flightValue(
+        getB412GroupValue(
+          section,
+          "tr42Gearbox",
+          "tso",
+          "tr42GearboxTso",
+          "tr42GearboxTSO",
+        ),
+      ),
+      flightValue(section.landingCycle),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 57, fontStyle: "bold" },
+      1: { cellWidth: 66, halign: "center" },
+      2: { cellWidth: 58, halign: "center" },
+      3: { cellWidth: 58, halign: "center" },
+      4: { cellWidth: 58, halign: "center" },
+      5: { cellWidth: 58, halign: "center" },
+      6: { cellWidth: 58, halign: "center" },
+      7: { cellWidth: 58, halign: "center" },
+      8: { cellWidth: 88, halign: "center" },
+    },
+  });
+
+  const airframeDue = firstFlightValue(
+    componentData.airframeNextInspectionDueAt,
+    b412Data.airframeNextInspectionDueAt,
+    componentData.airframeNextInsp,
+  );
+  const engineDue = firstFlightValue(
+    componentData.engineNextInspectionDueAt,
+    b412Data.engineNextInspectionDueAt,
+    componentData.engineNextInsp,
+  );
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 2,
+    body: [
+      [
+        `AIRFRAME NEXT INSPECTION DUE AT: ${flightValue(airframeDue)}`,
+        `ENGINE NEXT INSPECTION DUE AT: ${flightValue(engineDue)}`,
+      ],
+    ],
+    styles: {
+      ...flightTableTheme.styles,
+      fontSize: 6,
+      fontStyle: "bold",
+    },
+    columnStyles: {
+      0: { cellWidth: 279.5 },
+      1: { cellWidth: 279.5 },
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 2,
+    head: [
+      [
+        { content: "", rowSpan: 2 },
+        { content: "ENGINE NO. 1", colSpan: 3 },
+        { content: "ENGINE NO. 2", colSpan: 3 },
+        { content: "SLING", rowSpan: 2 },
+        { content: "OTHERS", rowSpan: 2 },
+      ],
+      ["TSN", "TSO", "CYCLE", "TSN", "TSO", "CYCLE"],
+    ],
+    body: componentSections.map(([label, section]) => [
+      label,
+      flightValue(
+        getB412GroupValue(section, "engine1", "tsn", "engine1Tsn"),
+      ),
+      flightValue(
+        getB412GroupValue(section, "engine1", "tso", "engine1Tso"),
+      ),
+      flightValue(
+        getB412GroupValue(section, "engine1", "cycle", "engine1Cycle"),
+      ),
+      flightValue(
+        getB412GroupValue(section, "engine2", "tsn", "engine2Tsn"),
+      ),
+      flightValue(
+        getB412GroupValue(section, "engine2", "tso", "engine2Tso"),
+      ),
+      flightValue(
+        getB412GroupValue(section, "engine2", "cycle", "engine2Cycle"),
+      ),
+      flightValue(section.sling),
+      flightValue(section.others),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 57, fontStyle: "bold" },
+      1: { cellWidth: 55, halign: "center" },
+      2: { cellWidth: 55, halign: "center" },
+      3: { cellWidth: 55, halign: "center" },
+      4: { cellWidth: 55, halign: "center" },
+      5: { cellWidth: 55, halign: "center" },
+      6: { cellWidth: 55, halign: "center" },
+      7: { cellWidth: 86, halign: "center" },
+      8: { cellWidth: 86, halign: "center" },
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    head: [
+      [{ content: "FUEL SERVICING", colSpan: 9 }],
+      [
+        { content: "LEG", rowSpan: 2 },
+        { content: "CONT. CHECK", rowSpan: 2 },
+        { content: "MAIN TANK", colSpan: 3 },
+        { content: "SUPPLY", colSpan: 2 },
+        { content: "REMARKS", rowSpan: 2 },
+        { content: "REFUELLER NAME & SIGNATURE", rowSpan: 2 },
+      ],
+      ["REM'G", "ADDED", "TOTAL", "SYS 1", "SYS 2"],
+    ],
+    body: fuelRows.map((fuel, index) => [
+      FLIGHT_LEG_LABELS[index],
+      flightValue(fuel.contCheck),
+      flightValue(firstFlightValue(fuel.mainTankRemaining, fuel.mainRemG)),
+      flightValue(firstFlightValue(fuel.mainTankAdded, fuel.mainAdd)),
+      flightValue(firstFlightValue(fuel.mainTankTotal, fuel.mainTotal)),
+      flightValue(firstFlightValue(fuel.supplySystem1, fuel.sys1)),
+      flightValue(firstFlightValue(fuel.supplySystem2, fuel.sys2)),
+      flightValue(fuel.remarks),
+      {
+        content: isDrawableSignature(fuel.signature)
+          ? `\n${flightValue(fuel.refuellerName || fuel.refuelerName)}`
+          : [fuel.signature, fuel.refuellerName || fuel.refuelerName]
+              .filter(Boolean)
+              .join(" / "),
+      },
+    ]),
+    columnStyles: {
+      0: { cellWidth: 35, halign: "center", fontStyle: "bold" },
+      1: { cellWidth: 50, halign: "center" },
+      2: { cellWidth: 55, halign: "center" },
+      3: { cellWidth: 55, halign: "center" },
+      4: { cellWidth: 55, halign: "center" },
+      5: { cellWidth: 55, halign: "center" },
+      6: { cellWidth: 55, halign: "center" },
+      7: { cellWidth: 85 },
+      8: { cellWidth: 114, halign: "center" },
+    },
+    didDrawCell: ({ cell, column, row, section }) => {
+      if (section === "body" && column.index === 8) {
+        drawSignatureInCell(doc, cell, fuelRows[row.index]?.signature, {
+          height: 11,
+          topOffset: 1,
+          horizontalPadding: 8,
+        });
+      }
+    },
+  });
+
+  const oilGroups = [
+    ["engine1", "engine1"],
+    ["engine2", "engine2"],
+    ["mrGearbox", "mrGearbox"],
+    ["reductionGearbox", "reductionGearbox"],
+    ["tr42Gearbox", "gearbox42"],
+    ["tr90Gearbox", "gearbox90"],
+  ];
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    head: [
+      [{ content: "OIL SERVICING", colSpan: 19 }],
+      [
+        { content: "MECHANIC SIGNATURE", rowSpan: 2 },
+        { content: "ENGINE NO. 1", colSpan: 3 },
+        { content: "ENGINE NO. 2", colSpan: 3 },
+        { content: "M/R GEARBOX", colSpan: 3 },
+        { content: "REDUCTION G/B", colSpan: 3 },
+        { content: "42 T/R GEARBOX", colSpan: 3 },
+        { content: "90 T/R GEARBOX", colSpan: 3 },
+      ],
+      Array.from({ length: 6 }, () => ["REM", "ADD", "TOT"]).flat(),
+    ],
+    body: oilRows.map((oil) => [
+      {
+        content: isDrawableSignature(oil.mechanicSignature)
+          ? ""
+          : flightValue(oil.mechanicSignature),
+      },
+      ...oilGroups.flatMap(([groupKey, aliasPrefix]) => [
+        getB412OilValue(
+          oil,
+          groupKey,
+          "remaining",
+          `${aliasPrefix}Rem`,
+        ),
+        getB412OilValue(oil, groupKey, "added", `${aliasPrefix}Add`),
+        getB412OilValue(oil, groupKey, "total", `${aliasPrefix}Tot`),
+      ]),
+    ]),
+    styles: {
+      ...flightTableTheme.styles,
+      fontSize: 4.2,
+      cellPadding: 0.8,
+    },
+    headStyles: {
+      ...flightTableTheme.headStyles,
+      fontSize: 4.2,
+      cellPadding: 0.7,
+    },
+    columnStyles: {
+      0: { cellWidth: 64, halign: "center" },
+      ...Object.fromEntries(
+        Array.from({ length: 18 }, (_, index) => [
+          index + 1,
+          { cellWidth: 27.5, halign: "center" },
+        ]),
+      ),
+    },
+    didDrawCell: ({ cell, column, row, section }) => {
+      if (section === "body" && column.index === 0) {
+        drawSignatureInCell(
+          doc,
+          cell,
+          oilRows[row.index]?.mechanicSignature,
+          {
+            height: 10,
+            topOffset: 1,
+            horizontalPadding: 4,
+          },
+        );
+      }
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    body: [
+      [
+        {
+          content: `RELEASED BY:\n\n${flightValue(record.releasedBy?.name)}${
+            record.releasedBy?.licenseNo || record.releasedBy?.id
+              ? ` / ${record.releasedBy?.licenseNo || record.releasedBy?.id}`
+              : ""
+          }\nENGINEER / CERTIFICATE`,
+        },
+        {
+          content: `ACCEPTED BY:\n\n${flightValue(record.acceptedBy?.name)}${
+            record.acceptedBy?.licenseNo || record.acceptedBy?.id
+              ? ` / ${record.acceptedBy?.licenseNo || record.acceptedBy?.id}`
+              : ""
+          }\nPILOT-IN-COMMAND / CERTIFICATE`,
+        },
+      ],
+    ],
+    styles: {
+      ...flightTableTheme.styles,
+      minCellHeight: 28,
+      halign: "center",
+    },
+    columnStyles: {
+      0: { cellWidth: 279.5 },
+      1: { cellWidth: 279.5 },
+    },
+    didDrawCell: ({ cell, column, section }) => {
+      if (section !== "body") return;
+      const signature =
+        column.index === 0
+          ? record.releasedBy?.signature
+          : record.acceptedBy?.signature;
+      drawSignatureInCell(doc, cell, signature, {
+        height: 16,
+        topOffset: 11,
+        horizontalPadding: 28,
+      });
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    head: [["DISCREPANCY / REMARKS"]],
+    body: [
+      [
+        flightValue(
+          firstFlightValue(
+            b412Data.discrepancyRemarks,
+            b412Data.remarks,
+            record.remarks,
+          ),
+        ),
+      ],
+    ],
+    styles: {
+      ...flightTableTheme.styles,
+      minCellHeight: 24,
+      valign: "top",
+    },
+    columnStyles: { 0: { cellWidth: 559 } },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 3,
+    body: [
+      [
+        `${categoryChecked("discrepancycorrection", "discrepancy") ? "[X]" : "[ ]"} DISCREPANCY CORRECTION`,
+        `${categoryChecked("sbadcompliance", "sbad") ? "[X]" : "[ ]"} SB/AD COMPLIANCE`,
+        `${categoryChecked("inspection") ? "[X]" : "[ ]"} INSPECTION`,
+        `${categoryChecked("others", "other") ? "[X]" : "[ ]"} OTHERS`,
+      ],
+    ],
+    styles: {
+      ...flightTableTheme.styles,
+      fontSize: 5.2,
+      fontStyle: "bold",
+      halign: "center",
+    },
+    columnStyles: {
+      0: { cellWidth: 150 },
+      1: { cellWidth: 145 },
+      2: { cellWidth: 120 },
+      3: { cellWidth: 144 },
+    },
+  });
+
+  autoTable(doc, {
+    ...flightTableTheme,
+    startY: doc.lastAutoTable.finalY + 2,
+    head: [["DATE", "ACFT T/T", "WORK DONE", "NAME / SIGN", "CERT. NO."]],
+    body: correctionItems.map((item) => [
+      formatFlightLogDate(item.date),
+      flightValue(item.aircraftTotalTime || item.aircraftTT),
+      flightValue(item.workDone || item.description),
+      {
+        content: isDrawableSignature(item.nameSign || item.signature)
+          ? ""
+          : flightValue(item.nameSign || item.signature || item.name),
+      },
+      flightValue(item.certificateNo || item.certificateNumber),
+    ]),
+    columnStyles: {
+      0: { cellWidth: 65, halign: "center" },
+      1: { cellWidth: 75, halign: "center" },
+      2: { cellWidth: 260 },
+      3: { cellWidth: 100, halign: "center" },
+      4: { cellWidth: 59, halign: "center" },
+    },
+    didDrawCell: ({ cell, column, row, section }) => {
+      if (section === "body" && column.index === 3) {
+        drawSignatureInCell(
+          doc,
+          cell,
+          correctionItems[row.index]?.nameSign ||
+            correctionItems[row.index]?.signature,
+          {
+            height: 10,
+            topOffset: 1,
+            horizontalPadding: 8,
+          },
+        );
+      }
+    },
+  });
+};
+
 export const exportFlightLogToPDF = async (record = {}, options = {}) => {
   const { setPopup } = options;
   try {
@@ -374,6 +1021,18 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
       logoDataUrl = await loadNgcpLogoDataUrl();
     } catch (imageError) {
       console.warn(imageError);
+    }
+
+    if (isB412FlightLogRecord(record)) {
+      drawB412FlightLog(doc, autoTable, record, logoDataUrl);
+      doc.save(`${fileName}.pdf`);
+      showExportPopup(setPopup, {
+        status: "success",
+        title: "Flight Log Exported!",
+        subTitle: "The flight log PDF has been exported successfully.",
+        fallbackMessage: "Flight log PDF exported successfully!",
+      });
+      return;
     }
 
     drawFlightHeader(doc, record, logoDataUrl);

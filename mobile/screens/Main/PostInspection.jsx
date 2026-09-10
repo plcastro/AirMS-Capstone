@@ -19,12 +19,34 @@ import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
-const getDisplayStatus = (status) =>
-  status === "completed"
+import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  createEmptyB412PostInspectionData,
+  isB412Aircraft,
+} from "../../components/PostInspection/b412PostInspectionData";
+
+const normalizePostInspectionPayload = (inspection = {}) => {
+  if (isB412Aircraft(inspection.aircraftType)) {
+    return {
+      ...inspection,
+      b412Data: createEmptyB412PostInspectionData(inspection.b412Data),
+    };
+  }
+
+  const legacyInspection = { ...inspection };
+  delete legacyInspection.b412Data;
+  return legacyInspection;
+};
+
+const getDisplayStatus = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  return normalizedStatus === "completed"
     ? "completed"
-    : status === "released"
+    : normalizedStatus === "released"
       ? "released"
       : "pending";
+};
 
 export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
@@ -40,7 +62,7 @@ export default function PostInspection({ route }) {
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportPostInspections = canExportModule(
     userRole,
@@ -114,7 +136,8 @@ export default function PostInspection({ route }) {
     fetchAircraftRpcOptions();
   }, []);
 
-  const handleSaveEdit = (updatedInspection) => updatedInspection;
+  const handleSaveEdit = (updatedInspection) =>
+    normalizePostInspectionPayload(updatedInspection);
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
@@ -130,7 +153,7 @@ export default function PostInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
+    { label: "Pending", value: "pending" },
     { label: "Completed", value: "completed" },
   ];
 
@@ -203,9 +226,10 @@ export default function PostInspection({ route }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? selectedAircraft
                   : "Choose Aircraft"}
               </AppText>
               <MaterialCommunityIcons
@@ -230,9 +254,7 @@ export default function PostInspection({ route }) {
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
+                        {aircraft === "all" ? "All Aircraft" : aircraft}
                       </AppText>
                     </TouchableOpacity>
                   ))}
@@ -249,7 +271,7 @@ export default function PostInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>
@@ -349,11 +371,13 @@ export default function PostInspection({ route }) {
               },
             );
 
-            if (!response.ok) {
-              throw new Error("Failed to update post-inspection");
-            }
-
             const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.message || "Failed to update post-inspection",
+              );
+            }
             setInspections((prev) =>
               prev.map((inspection) =>
                 inspection._id === data.data._id ? data.data : inspection,
@@ -362,13 +386,13 @@ export default function PostInspection({ route }) {
             if (options.closeOnSave) {
               setShowEditModal(false);
               setSelectedInspection(null);
-              showToast("Post-inspection updated successfully");
+              showToast("Post-inspection updated");
             } else {
               setSelectedInspection(data.data);
             }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
-            showToast("Failed to update post-inspection");
+            showToast(error.message || "Failed to update post-inspection");
             throw error;
           }
         }}

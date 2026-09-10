@@ -32,6 +32,7 @@ export default function TaskCard({
   } = data;
 
   const deadline = endDateTime || dueDate;
+  const displayStatus = data?.isApproved ? "Approved" : status;
 
   // Progress
   const progress =
@@ -104,9 +105,9 @@ export default function TaskCard({
         <View
           style={{
             backgroundColor:
-              status === "Completed"
+              displayStatus === "Approved" || displayStatus === "Completed"
                 ? "#E8F5E9"
-                : status === "Returned"
+                : displayStatus === "Returned"
                   ? "#FFEBEE"
                   : "#FFF3E0",
             paddingHorizontal: 8,
@@ -119,14 +120,14 @@ export default function TaskCard({
               fontSize: 10,
               fontWeight: "600",
               color:
-                status === "Completed"
+                displayStatus === "Approved" || displayStatus === "Completed"
                   ? "#2E7D32"
-                  : status === "Returned"
+                  : displayStatus === "Returned"
                     ? "#C62828"
                     : "#ED6C02",
             }}
           >
-            {status}
+            {displayStatus}
           </AppText>
         </View>
       </View>
@@ -176,7 +177,7 @@ export default function TaskCard({
       </AppText>
 
       {/* PROGRESS */}
-      {(status === "Ongoing" || status === "Returned") && (
+      {(displayStatus === "Ongoing" || displayStatus === "Returned") && (
         <View style={{ marginTop: 6 }}>
           <View
             style={{

@@ -25,7 +25,16 @@ import {
 } from "../../../utils/auditActions";
 import { matchesSearch } from "../../../utils/search";
 import { ExportOutlined } from "@ant-design/icons";
-import { Input, DatePicker, Space, Grid, message, Select, Card, Button } from "antd";
+import {
+  Input,
+  DatePicker,
+  Space,
+  Grid,
+  message,
+  Select,
+  Card,
+  Button,
+} from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { canExportModule } from "../../../../../shared/exportAccess";
@@ -33,9 +42,12 @@ import {
   drawPdfReportHeader,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const MAX_ACTIVITY_TREND_RANGE_DAYS = 30;
 
 const buildModuleName = (value) =>
   String(value || "Activity Logs")
@@ -68,6 +80,7 @@ export default function UserLogs() {
   const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(7, "days"),
@@ -78,6 +91,13 @@ export default function UserLogs() {
   const [selectedScope, setSelectedScope] = useState("all");
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
   const [exporting, setExporting] = useState(false);
+  const [pendingDateRange, setPendingDateRange] = useState(null);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -147,16 +167,53 @@ export default function UserLogs() {
   };
 
   const handleDateRangeChange = (dates) => {
+    if (dates?.[0] && dates?.[1]) {
+      const selectedDays =
+        Math.abs(
+          dayjs(dates[1])
+            .startOf("day")
+            .diff(dayjs(dates[0]).startOf("day"), "day"),
+        ) + 1;
+
+      if (selectedDays > MAX_ACTIVITY_TREND_RANGE_DAYS) {
+        message.warning(
+          `Activity Trends can show up to ${MAX_ACTIVITY_TREND_RANGE_DAYS} days at a time.`,
+        );
+        setPendingDateRange(null);
+        return;
+      }
+    }
+
     setDateRange(dates);
+    setPendingDateRange(null);
     if (!dates || !dates[0] || !dates[1]) {
       message.info("Date range cleared. Showing all available logs.");
     }
   };
+
+  const handleCalendarChange = (dates) => {
+    setPendingDateRange(dates);
+  };
+
+  const disableDateOutsideTrendRange = (current) => {
+    if (!current) return false;
+
+    const anchorDate = pendingDateRange?.[0] || pendingDateRange?.[1];
+    if (!anchorDate) return false;
+
+    const dayDiff = Math.abs(
+      dayjs(current).startOf("day").diff(dayjs(anchorDate).startOf("day"), "day"),
+    );
+
+    return dayDiff >= MAX_ACTIVITY_TREND_RANGE_DAYS;
+  };
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
 
-    if (searchQuery.trim() !== "") {
-      filtered = filtered.filter((log) => matchesSearch(searchQuery, log));
+    if (debouncedSearchQuery.trim() !== "") {
+      filtered = filtered.filter((log) =>
+        matchesSearch(debouncedSearchQuery, log),
+      );
     }
 
     if (selectedActionType !== "all") {
@@ -176,7 +233,7 @@ export default function UserLogs() {
     return filtered;
   }, [
     allUserLogs,
-    searchQuery,
+    debouncedSearchQuery,
     selectedActionType,
     selectedScope,
     selectedScopeValue,
@@ -187,7 +244,11 @@ export default function UserLogs() {
       const values = Array.from(
         new Set(
           allUserLogs
-            .map((log) => String(log.base || "").trim().toUpperCase())
+            .map((log) =>
+              String(log.base || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ),
       ).sort();
@@ -201,7 +262,11 @@ export default function UserLogs() {
       const values = Array.from(
         new Set(
           allUserLogs
-            .map((log) => String(log.platform || "").trim().toUpperCase())
+            .map((log) =>
+              String(log.platform || "")
+                .trim()
+                .toUpperCase(),
+            )
             .filter(Boolean),
         ),
       ).sort();
@@ -296,10 +361,20 @@ export default function UserLogs() {
       });
       doc.save(fileName);
 
-      message.success("Activity logs exported as PDF.");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Activity Logs Exported!",
+        subTitle: "The activity logs PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Activity logs export failed:", error);
-      message.error(error.message || "Failed to export activity logs.");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Export Failed!",
+        subTitle: error.message || "Failed to export activity logs.",
+      });
     } finally {
       setExporting(false);
     }
@@ -391,7 +466,10 @@ export default function UserLogs() {
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
+          onCalendarChange={handleCalendarChange}
+          disabledDate={disableDateOutsideTrendRange}
           format="MM/DD/YYYY"
+          inputReadOnly
           allowClear
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}
@@ -493,6 +571,13 @@ export default function UserLogs() {
       <div style={{ width: "100%", overflowX: "auto" }}>
         <ActivityLogTable data={filteredUsers} loading={loading} />
       </div>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

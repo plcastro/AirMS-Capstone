@@ -7,6 +7,7 @@ const path = require("path");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
+const { ensureUserIndexes } = require("./utils/userIndexes");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
@@ -25,6 +26,7 @@ const messageRoutes = require("./routes/messageRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
+const reportExportRoutes = require("./routes/reportExportRoute");
 const sendEmail = require("./utils/sendEmail");
 const http = require("http");
 const {
@@ -44,7 +46,6 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8081",
-  "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000",
@@ -137,6 +138,7 @@ app.use(
           "https://airms.online",
           "https://www.airms.online",
           "https://api.airms.online",
+          "https://airms-server.vercel.app",
           "ws:",
           "wss:",
         ],
@@ -171,8 +173,13 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     console.log("Connected to MongoDB");
+    try {
+      await ensureUserIndexes();
+    } catch (error) {
+      console.error("User index maintenance failed:", error);
+    }
     startInvitationLifecycleJob();
     startSessionRetentionJob();
   })
@@ -208,6 +215,14 @@ app.use((req, res, next) => {
       return;
     }
 
+    if (
+      method === "POST" &&
+      String(req.originalUrl || "").split("?")[0] ===
+        "/api/messages/attachments/upload"
+    ) {
+      return;
+    }
+
     publishEvent("airms:data-changed", {
       url: req.originalUrl,
       method,
@@ -238,6 +253,7 @@ app.use("/api/post-flight", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
+app.use("/api/reports", reportExportRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",

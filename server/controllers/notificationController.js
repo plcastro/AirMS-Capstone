@@ -28,7 +28,12 @@ const buildRecipientQuery = (userId, role) => {
     return null;
   }
 
-  return { $or: recipientFilters };
+  return {
+    $and: [
+      { $or: recipientFilters },
+      { excludedUsers: { $ne: userId } },
+    ],
+  };
 };
 
 const getNotifications = async (req, res) => {

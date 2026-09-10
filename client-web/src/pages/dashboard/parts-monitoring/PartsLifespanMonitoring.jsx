@@ -39,7 +39,9 @@ import { confirmAction } from "../../../utils/confirmAction";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { useSearchParams } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import { isB412Aircraft } from "../../../utils/b412FlightLog";
 
 import { rawData as rawData8912 } from "../../../utils/8912RawData";
 import { rawData as rawData7247 } from "../../../utils/7247RawData";
@@ -385,12 +387,15 @@ export default function PartsMonitoring() {
     n1Cycles: 0,
     n2Cycles: 0,
     landings: 0,
+    usage: 0,
+    aircraftType: "",
     referenceCells: {},
   });
   const [rawData, setRawData] = useState([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [mobileActiveTab, setMobileActiveTab] = useState("overview");
   const [mobileStatusFilter, setMobileStatusFilter] = useState("all");
   const [mobileComponentPage, setMobileComponentPage] = useState(0);
@@ -413,6 +418,7 @@ export default function PartsMonitoring() {
     creepDamage: "",
     serialNumber: "",
   });
+  const isB412Monitoring = isB412Aircraft(aircraftDetails.aircraftType);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -488,6 +494,7 @@ export default function PartsMonitoring() {
     try {
       const saveData = {
         aircraft: selectedAircraft,
+        aircraftType: aircraftDetails.aircraftType,
         referenceData: refs,
         parts: rawData,
         updatedBy: "user",
@@ -636,6 +643,7 @@ export default function PartsMonitoring() {
     if (defaultData && defaultRefsValues) {
       setRawData(defaultData);
       setRefs({
+        ...defaultRefsValues,
         today: getToday(),
         acftTT: defaultRefsValues.acftTT,
         engTT: defaultRefsValues.engTT ?? defaultRefsValues.acftTT,
@@ -678,6 +686,8 @@ export default function PartsMonitoring() {
         });
         if (referenceData) {
           setRefs({
+            ...referenceData,
+            aircraftType: aircraftType || "",
             today: getToday(),
             acftTT: referenceData.acftTT,
             engTT: referenceData.engTT ?? referenceData.acftTT,
@@ -729,9 +739,11 @@ export default function PartsMonitoring() {
   }, [rawData, refs, selectedAircraft]);
 
   const filteredData = useMemo(() => {
-    if (!searchText.trim()) return computedData;
-    return computedData.filter((row) => matchesSearch(searchText, row));
-  }, [computedData, searchText]);
+    if (!debouncedSearchText.trim()) return computedData;
+    return computedData.filter((row) =>
+      matchesSearch(debouncedSearchText, row),
+    );
+  }, [computedData, debouncedSearchText]);
 
   const componentsToUpdate = useMemo(
     () =>
@@ -839,7 +851,7 @@ export default function PartsMonitoring() {
   useEffect(() => {
     setMobileComponentPage(0);
     setMobileDetailId(null);
-  }, [mobileStatusFilter, searchText, selectedAircraft]);
+  }, [debouncedSearchText, mobileStatusFilter, selectedAircraft]);
 
   const isCellEditable = (record, dataIndex) => {
     if (record.rowType !== "part") return false;
@@ -1130,12 +1142,13 @@ export default function PartsMonitoring() {
       ? refs.today.toISOString().split("T")[0]
       : "";
   const referenceFields = [
-    ["engTT", "Engine Cycle"],
+    ["engTT", isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"],
     ["today", "Date"],
-    ["n1Cycles", "N1"],
-    ["n2Cycles", "N2"],
+    ["n1Cycles", isB412Monitoring ? "Engine No. 1 Cycle" : "N1"],
+    ["n2Cycles", isB412Monitoring ? "Engine No. 2 Cycle" : "N2"],
     ["acftTT", "Acft. TT"],
     ["landings", "Landings"],
+    ["usage", "Sling"],
   ];
   const filterOptions = [
     ["all", "All", mobileSummary.total, "#26866f"],
@@ -1469,6 +1482,8 @@ export default function PartsMonitoring() {
           title={mobileDetailPart?.componentName || "Component Details"}
           onCancel={() => setMobileDetailId(null)}
           footer={null}
+          centered
+          zIndex={3000}
           className="mobile-component-detail-modal"
           wrapClassName="mobile-component-detail-modal-wrap"
           destroyOnHidden
@@ -1559,6 +1574,8 @@ export default function PartsMonitoring() {
         <Modal
           open={Boolean(importPreview)}
           title="Preview Aircraft Import"
+          centered
+          zIndex={3000}
           onCancel={resetImportPreview}
           onOk={() => setSignatureImportOpen(true)}
           okText="Confirm and Sign"
@@ -1568,7 +1585,6 @@ export default function PartsMonitoring() {
           }}
           confirmLoading={importingAircraft}
           width="94vw"
-          centered
           destroyOnHidden
         >
           {importErrors.map((error) => (
@@ -1740,7 +1756,10 @@ export default function PartsMonitoring() {
               <Row gutter={[12, 12]}>
                 {/* Engine Cycle */}
                 <Col xs={24} sm={12} md={6}>
-                  <Form.Item label="Engine Cycle" style={{ marginBottom: 8 }}>
+                  <Form.Item
+                    label={isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"}
+                    style={{ marginBottom: 8 }}
+                  >
                     <Input
                       size="middle"
                       type="number"
@@ -1778,7 +1797,10 @@ export default function PartsMonitoring() {
 
                 {/* N1 */}
                 <Col xs={24} sm={12} md={6}>
-                  <Form.Item label="N1" style={{ marginBottom: 8 }}>
+                  <Form.Item
+                    label={isB412Monitoring ? "Engine No. 1 Cycle" : "N1"}
+                    style={{ marginBottom: 8 }}
+                  >
                     <Input
                       size="middle"
                       type="number"
@@ -1798,7 +1820,10 @@ export default function PartsMonitoring() {
 
                 {/* N2 */}
                 <Col xs={24} sm={12} md={6}>
-                  <Form.Item label="N2" style={{ marginBottom: 8 }}>
+                  <Form.Item
+                    label={isB412Monitoring ? "Engine No. 2 Cycle" : "N2"}
+                    style={{ marginBottom: 8 }}
+                  >
                     <Input
                       size="middle"
                       type="number"
@@ -1861,6 +1886,16 @@ export default function PartsMonitoring() {
                   <Form.Item label="Sling" style={{ marginBottom: 8 }}>
                     <Input
                       size="middle"
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={refs.usage ?? ""}
+                      onChange={(e) =>
+                        setRefs((prev) => ({
+                          ...prev,
+                          usage: parseFloat(e.target.value) || 0,
+                        }))
+                      }
                       disabled={!selectedAircraft || isOfficerInCharge}
                     />
                   </Form.Item>
@@ -1939,6 +1974,7 @@ export default function PartsMonitoring() {
         confirmLoading={importingAircraft}
         width="92vw"
         centered
+        zIndex={3000}
         destroyOnHidden
       >
         {importErrors.map((error) => (
@@ -2051,7 +2087,11 @@ export default function PartsMonitoring() {
                       ))}
                       <Col xs={24} sm={12} md={6}>
                         <Form.Item label="Sling" style={{ marginBottom: 8 }}>
-                          <Input size="middle" readOnly />
+                          <Input
+                            size="middle"
+                            value={importPreview.referenceData?.usage ?? ""}
+                            readOnly
+                          />
                         </Form.Item>
                       </Col>
                     </Row>

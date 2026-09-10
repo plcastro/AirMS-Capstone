@@ -1,0 +1,477 @@
+{
+  "aircraftType": "B412EP",
+  "title": "Bell 412 Pre Flight Inspection",
+  "footerNote": "Procedures by Flight Manual Preflight Inspection, FAA Approved, revised 16 October 2009, Rev. 29.",
+  "sections": [
+    {
+      "key": "fuselageFront",
+      "title": "FUSELAGE - FRONT",
+      "items": [
+        {
+          "key": "fuselageFront_cabinNose",
+          "title": "Cabin Nose",
+          "description": "Condition; all glass clean; wipers stowed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_remoteHydraulicFilterBypassIndicator",
+          "title": "Remote Hydraulic Filter Bypass Indicator",
+          "description": "Verify normal.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_pitotTubes",
+          "title": "Pitot Tubes",
+          "description": "Unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_staticPorts",
+          "title": "Static Ports (L & R)",
+          "description": "Unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_cabinNoseVentilators",
+          "title": "Cabin Nose Ventilators",
+          "description": "Unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_noseCompartmentDoor",
+          "title": "Nose Compartment Door",
+          "description": "Secure.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_batteryVentAndDrainTubes",
+          "title": "Battery Vent and Drain Tubes",
+          "description": "Unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_searchlightAndLandingLight",
+          "title": "Searchlight and Landing Light",
+          "description": "Stowed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageFront_antennas",
+          "title": "Antennas",
+          "description": "Condition and security.",
+          "page": 1
+        }
+      ]
+    },
+    {
+      "key": "fuselageCabinLeftSide",
+      "title": "FUSELAGE - CABIN LEFT SIDE",
+      "items": [
+        {
+          "key": "fuselageCabinLeftSide_copilotDoor",
+          "title": "Copilot Door",
+          "description": "Condition and operation; glass clean. Check security of emergency release handle.",
+          "page": 1
+        },
+        {
+          "key": "fuselageCabinLeftSide_positionLights",
+          "title": "Position Lights",
+          "description": "Condition.",
+          "page": 1
+        },
+        {
+          "key": "fuselageCabinLeftSide_passengerDoor",
+          "title": "Passenger Door",
+          "description": "Condition and operation; glass clean. Condition of pop-out windows.",
+          "page": 1
+        },
+        {
+          "key": "fuselageCabinLeftSide_landingGear",
+          "title": "Landing Gear",
+          "description": "Condition; handling wheels removed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageCabinLeftSide_passengerStep",
+          "title": "Passenger Step",
+          "description": "Condition and security.",
+          "page": 1
+        }
+      ]
+    },
+    {
+      "key": "fuselageAftLeftSide",
+      "title": "FUSELAGE - AFT LEFT SIDE",
+      "items": [
+        {
+          "key": "fuselageAftLeftSide_no1EngineCompartment",
+          "title": "No. 1 Engine Compartment",
+          "description": "Check.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_no1EngineOilLevel",
+          "title": "No. 1 Engine Oil Level",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level. Filler cap secured.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_n2GovernorSpring",
+          "title": "N₂ Governor Spring",
+          "description": "Check condition.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_engineFireExtinguisher",
+          "title": "Engine Fire Extinguisher",
+          "description": "Check bottle pressure gauge and temperature range.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_combiningGearboxFilter",
+          "title": "Combining Gearbox Filter",
+          "description": "Check bypass indicator retracted.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_oilCoolerBlower",
+          "title": "Oil Cooler Blower",
+          "description": "Unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_avionicsCompartment",
+          "title": "Avionics Compartment",
+          "description": "Security of components; check OVER TRQ warning flag (cat's eye) for indication of overtorque. AFCS computers secured; compartment door secured.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_accessDoorAndEngineCowling",
+          "title": "Access Door and Engine Cowling",
+          "description": "Secured.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_drainLines",
+          "title": "Drain Lines",
+          "description": "Clean and unobstructed.",
+          "page": 1
+        },
+        {
+          "key": "fuselageAftLeftSide_engineExhaustEjectors",
+          "title": "Engine Exhaust Ejectors",
+          "description": "Covers removed; unobstructed.",
+          "page": 1
+        }
+      ]
+    },
+    {
+      "key": "tailboom",
+      "title": "TAILBOOM",
+      "items": [
+        {
+          "key": "tailboom_tailboomAccessCovers",
+          "title": "Tailboom",
+          "description": "Condition; access covers secured.",
+          "page": 1
+        },
+        {
+          "key": "tailboom_tailRotorDriveshaftCovers",
+          "title": "Tail Rotor Driveshaft Covers",
+          "description": "Secured.",
+          "page": 1
+        },
+        {
+          "key": "tailboom_elevatorSpringCondition",
+          "title": "Elevator",
+          "description": "Condition and security; check for spring condition by moving elevator toward the leading-edge-down position.",
+          "cautionBefore": "CAUTION: Do not bend elevator trailing edge tab.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailRotor90Gearbox",
+          "title": "Tail Rotor (90°) Gearbox",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level; check filler cap and chip detector plug for security.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailRotorBlades",
+          "title": "Tail Rotor Blades",
+          "description": "Visually check condition and cleanliness.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailRotor",
+          "title": "Tail Rotor",
+          "description": "Condition and free movement on flapping axis.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailRotorYoke",
+          "title": "Tail Rotor Yoke",
+          "description": "Evidence of static-stop contact damage (deformed static-stop yield indicator).",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailSkid",
+          "title": "Tail Skid",
+          "description": "Condition and security.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_intermediate42Gearbox",
+          "title": "Intermediate (42°) Gearbox",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level. Check filler cap and chip detector plug for security.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_elevatorCondition",
+          "title": "Elevator",
+          "description": "Condition and security.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_tailboomCondition",
+          "title": "Tailboom",
+          "description": "Condition.",
+          "page": 2
+        },
+        {
+          "key": "tailboom_baggageCompartment",
+          "title": "Baggage Compartment",
+          "description": "Cargo secured, smoke detector condition, door secured.",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "key": "fuselageAftRightSide",
+      "title": "FUSELAGE - AFT RIGHT SIDE",
+      "items": [
+        {
+          "key": "fuselageAftRightSide_aftCompartment",
+          "title": "Aft Compartment",
+          "description": "Check unobstructed.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_tailRotorActuator",
+          "title": "Tail Rotor Actuator",
+          "description": "Check.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_engineFireExtinguisher",
+          "title": "Engine Fire Extinguisher",
+          "description": "Check bottle pressure gauge and temperature range.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_combiningGearboxOilLevel",
+          "title": "Combining Gearbox Oil Level",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_oilCoolerBlower",
+          "title": "Oil Cooler Blower",
+          "description": "Unobstructed.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_no2EngineCompartment",
+          "title": "No. 2 Engine Compartment",
+          "description": "Check.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_no2EngineOilLevel",
+          "title": "No. 2 Engine Oil Level",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level. Filler cap closed.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_accessDoorsAndEngineCowling",
+          "title": "Access Doors and Engine Cowling",
+          "description": "Secured.",
+          "page": 2
+        },
+        {
+          "key": "fuselageAftRightSide_fuelFiller",
+          "title": "Fuel Filler",
+          "description": "Visually check quantity; secure cap.",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "key": "fuselageCabinRightSide",
+      "title": "FUSELAGE - CABIN RIGHT SIDE",
+      "items": [
+        {
+          "key": "fuselageCabinRightSide_passengerDoor",
+          "title": "Passenger Door",
+          "description": "Condition and operation; glass clean. Condition of pop-out windows.",
+          "page": 2
+        },
+        {
+          "key": "fuselageCabinRightSide_transmissionOil",
+          "title": "Transmission Oil",
+          "description": "Verify actual presence of oil in sight gauge. Visually check oil level.",
+          "page": 2
+        },
+        {
+          "key": "fuselageCabinRightSide_positionLights",
+          "title": "Position Lights",
+          "description": "Condition.",
+          "page": 2
+        },
+        {
+          "key": "fuselageCabinRightSide_landingGear",
+          "title": "Landing Gear",
+          "description": "Condition; handling wheels removed.",
+          "page": 2
+        },
+        {
+          "key": "fuselageCabinRightSide_passengerStep",
+          "title": "Passenger Step",
+          "description": "Condition and security.",
+          "page": 2
+        },
+        {
+          "key": "fuselageCabinRightSide_pilotDoor",
+          "title": "Pilot Door",
+          "description": "Condition and operation; glass clean. Check security of emergency release handles.",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "key": "cabinTop",
+      "title": "CABIN TOP",
+      "items": [
+        {
+          "key": "cabinTop_hubAndSleeveAssembly",
+          "title": "Hub and Sleeve Assembly",
+          "description": "Check condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_swashplateSupportAssemblyAndCollectiveLever",
+          "title": "Swashplate, Support Assembly, and Collective Lever",
+          "description": "Check condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_mainRotorPitchLinks",
+          "title": "Main Rotor Pitch Links",
+          "description": "Security and condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_mastRetainingNut",
+          "title": "Mast Retaining Nut",
+          "description": "Secured.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_yokeAssembly",
+          "title": "Yoke Assembly",
+          "description": "Condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_pitchHorns",
+          "title": "Pitch Horns",
+          "description": "Security and condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_elastomericBearingsLeadLagDampers",
+          "title": "Elastomeric Bearings, Lead-Lag Dampers",
+          "description": "Check general condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_bladeRetentionBolts",
+          "title": "Blade Retention Bolts",
+          "description": "Security and proper latching.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_droopRestrainers",
+          "title": "Droop Restrainers",
+          "description": "Security and condition. Verify droop-stop clevis in lower position of cam plate.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_simplePendulumAbsorbers",
+          "title": "Simple Pendulum Absorbers",
+          "description": "Security and condition.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_mainDriveshaftAndCoupling",
+          "title": "Main Driveshaft and Coupling",
+          "description": "Condition, security, and grease. Check temp-plates (four places on each coupling) for evidence of elevated temperature indicated by a dot changing color to black.",
+          "cautionAfter": "CAUTION: If any temp-plate is missing or has black dots, maintenance personnel shall assist in determining airworthiness.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_transmissionOilFillerCap",
+          "title": "Transmission Oil Filler Cap",
+          "description": "Secured.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_hydraulicReservoirs1And2",
+          "title": "No. 1 and No. 2 Hydraulic Reservoirs",
+          "description": "Visually check fluid levels; caps secured.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_antennas",
+          "title": "Antennas",
+          "description": "Condition and security.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_combiningGearboxOilFillerCap",
+          "title": "Combining Gearbox Oil Filler Cap",
+          "description": "Secured.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_anticollisionLight",
+          "title": "Anticollision Light",
+          "description": "Condition and security.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_engineAirIntakes1And2",
+          "title": "No. 1 and No. 2 Engine Air Intakes",
+          "description": "Unobstructed; check particle separator door closed.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_engineAndTransmissionCowling",
+          "title": "Engine and Transmission Cowling",
+          "description": "Secured.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_freshAirInletScreen",
+          "title": "Fresh Air Inlet Screen",
+          "description": "Unobstructed.",
+          "page": 3
+        },
+        {
+          "key": "cabinTop_rotorBrakeReservoirCap",
+          "title": "Rotor Brake Reservoir Cap",
+          "description": "Security.",
+          "page": 3
+        }
+      ]
+    }
+  ]
+}

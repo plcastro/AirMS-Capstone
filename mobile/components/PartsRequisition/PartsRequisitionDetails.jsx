@@ -13,6 +13,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { Picker } from "@react-native-picker/picker";
+import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
+
+const REQUEST_ITEMS_PAGE_SIZE = 5;
+
 const getDisplayStatusLabel = (status) => {
   switch (status) {
     case "To Be Ordered":
@@ -142,9 +147,11 @@ export default function PartsRequisitionDetails({
   onMarkRestocked,
   onMarkDelivered,
   onExportExcel,
+  alertConfig = {},
 }) {
   const [availableQtyMap, setAvailableQtyMap] = useState({});
   const [persistedQtyMap, setPersistedQtyMap] = useState({});
+  const [requestItemsPage, setRequestItemsPage] = useState(1);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
 
   useEffect(() => {
@@ -156,10 +163,20 @@ export default function PartsRequisitionDetails({
     });
     setAvailableQtyMap(nextMap);
     setPersistedQtyMap(nextMap);
+    setRequestItemsPage(1);
   }, [request]);
 
   const overallStatusStyle = getOverallStatusStyle(request?.overallStatus);
   const rawItems = request?.rawRecord?.items || [];
+  const requestItems = request?.requestItems || [];
+  const requestItemsPageCount = Math.max(
+    1,
+    Math.ceil(requestItems.length / REQUEST_ITEMS_PAGE_SIZE),
+  );
+  const visibleRequestItems = requestItems.slice(
+    (requestItemsPage - 1) * REQUEST_ITEMS_PAGE_SIZE,
+    requestItemsPage * REQUEST_ITEMS_PAGE_SIZE,
+  );
   const currentStatus = request?.overallStatus;
   const allQuantitiesFilled =
     rawItems.length > 0 &&
@@ -178,6 +195,12 @@ export default function PartsRequisitionDetails({
       (item) =>
         Number(persistedQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
     );
+  const enteredRestockItemsReady =
+    rawItems.length > 0 &&
+    rawItems.every(
+      (item) =>
+        Number(availableQtyMap[item._id] ?? 0) >= Number(item.quantity || 0),
+    );
   const canEditStock =
     showWarehouseActions &&
     ["Parts Requested", "To Be Ordered"].includes(currentStatus);
@@ -192,12 +215,20 @@ export default function PartsRequisitionDetails({
       };
     }
     if (currentStatus === "To Be Ordered") {
-      if (hasUnsavedStockChanges) {
+      if (hasUnsavedStockChanges && !enteredRestockItemsReady) {
         return {
           title: "Save Stock",
           label: "Save Stock",
           disabled: !allQuantitiesFilled,
           onPress: "saveRestock",
+        };
+      }
+      if (hasUnsavedStockChanges && enteredRestockItemsReady) {
+        return {
+          title: "Confirm Restock",
+          label: "Mark as Restocked",
+          disabled: !allQuantitiesFilled,
+          onPress: "markRestocked",
         };
       }
       if (!allRestockItemsReady) {
@@ -249,6 +280,7 @@ export default function PartsRequisitionDetails({
     allQuantitiesFilled,
     allRestockItemsReady,
     currentStatus,
+    enteredRestockItemsReady,
     hasUnsavedStockChanges,
     showWarehouseActions,
   ]);
@@ -312,9 +344,14 @@ export default function PartsRequisitionDetails({
       visible={visible}
       animationType="fade"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={
+        alertConfig.visible
+          ? alertConfig.onCancel || alertConfig.onConfirm
+          : onClose
+      }
     >
-      <SafeAreaView
+      <IosModalSafeAreaProvider>
+        <SafeAreaView
         style={{
           flex: 1,
           backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -508,7 +545,9 @@ export default function PartsRequisitionDetails({
                 marginBottom: 16,
               }}
             >
-              {request.requestItems.map((item, index) => {
+              {visibleRequestItems.map((item, pageIndex) => {
+                const index =
+                  (requestItemsPage - 1) * REQUEST_ITEMS_PAGE_SIZE + pageIndex;
                 const badgeStyle = getTimelineBadgeStyle(item.status);
                 const rawItem = rawItems[index] || {};
 
@@ -517,7 +556,7 @@ export default function PartsRequisitionDetails({
                     key={`${item.itemName}-${index}`}
                     style={{
                       marginBottom:
-                        index < request.requestItems.length - 1 ? 16 : 0,
+                        pageIndex < visibleRequestItems.length - 1 ? 16 : 0,
                     }}
                   >
                     <View style={{ marginBottom: 8 }}>
@@ -638,6 +677,98 @@ export default function PartsRequisitionDetails({
                   </View>
                 );
               })}
+
+              {requestItems.length > REQUEST_ITEMS_PAGE_SIZE && (
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: "#E8E8E8",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 14,
+                    paddingTop: 12,
+                  }}
+                >
+                  <TouchableOpacity
+                    activeOpacity={requestItemsPage > 1 ? 0.8 : 1}
+                    disabled={requestItemsPage <= 1 || Boolean(actionLoadingKey)}
+                    onPress={() =>
+                      setRequestItemsPage((page) => Math.max(1, page - 1))
+                    }
+                    style={{
+                      backgroundColor:
+                        requestItemsPage <= 1 ? "#F1F1F1" : COLORS.white,
+                      borderColor:
+                        requestItemsPage <= 1 ? "#D8D8D8" : COLORS.primaryLight,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        color:
+                          requestItemsPage <= 1
+                            ? "#9E9E9E"
+                            : COLORS.primaryLight,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Previous
+                    </AppText>
+                  </TouchableOpacity>
+
+                  <AppText
+                    style={{
+                      color: COLORS.grayDark,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Page {requestItemsPage} of {requestItemsPageCount}
+                  </AppText>
+
+                  <TouchableOpacity
+                    activeOpacity={
+                      requestItemsPage < requestItemsPageCount ? 0.8 : 1
+                    }
+                    disabled={
+                      requestItemsPage >= requestItemsPageCount ||
+                      Boolean(actionLoadingKey)
+                    }
+                    onPress={() =>
+                      setRequestItemsPage((page) =>
+                        Math.min(requestItemsPageCount, page + 1),
+                      )
+                    }
+                    style={{
+                      backgroundColor:
+                        requestItemsPage >= requestItemsPageCount
+                          ? "#F1F1F1"
+                          : COLORS.primaryLight,
+                      borderRadius: 6,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        color:
+                          requestItemsPage >= requestItemsPageCount
+                            ? "#9E9E9E"
+                            : COLORS.white,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Next
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             <AppText
@@ -908,7 +1039,18 @@ export default function PartsRequisitionDetails({
             )}
           </ScrollView>
         </View>
-      </SafeAreaView>
+        <AlertComp
+          embedded
+          visible={Boolean(alertConfig.visible)}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+          onConfirm={alertConfig.onConfirm}
+          onCancel={alertConfig.onCancel}
+        />
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

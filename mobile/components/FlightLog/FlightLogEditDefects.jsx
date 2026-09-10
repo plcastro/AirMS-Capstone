@@ -10,6 +10,7 @@ import {
 import { styles } from "../../stylesheets/styles";
 //import ApproveMaintenance from "../MaintenanceLog/ApproveMaintenance";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 export default function FlightLogEditDefects({
   visible,
@@ -124,7 +125,7 @@ export default function FlightLogEditDefects({
   return (
     <>
       <Modal transparent visible={visible} animationType="fade">
-        <View style={styles.newEntryOverlay}>
+        <IosModalSafeAreaView style={styles.newEntryOverlay}>
           <View style={[styles.newEntryCard, { maxWidth: 700 }]}>
             <AppText style={styles.newEntryTitle}>Edit Defect Entry</AppText>
 
@@ -225,7 +226,7 @@ export default function FlightLogEditDefects({
               </View>
             </ScrollView>
           </View>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
 
       {/* Save Confirmation */}

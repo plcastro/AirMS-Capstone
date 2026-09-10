@@ -5,14 +5,13 @@ import {
   ArrowLeftOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 
 const { Title, Text } = Typography;
@@ -367,6 +366,7 @@ export default function MaintenanceLog() {
   );
   const [allEntries, setAllEntries] = useState([]);
   const [searchValue, setSearchValue] = useState("");
+  const debouncedSearchValue = useDebouncedValue(searchValue, 300);
   const [loading, setLoading] = useState(true);
   const [viewLevel, setViewLevel] = useState("dashboard");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
@@ -515,9 +515,11 @@ export default function MaintenanceLog() {
   };
 
   const filteredEntries = useMemo(() => {
-    if (!searchValue.trim()) return allEntries;
-    return allEntries.filter((entry) => matchesSearch(searchValue, entry));
-  }, [allEntries, searchValue]);
+    if (!debouncedSearchValue.trim()) return allEntries;
+    return allEntries.filter((entry) =>
+      matchesSearch(debouncedSearchValue, entry),
+    );
+  }, [allEntries, debouncedSearchValue]);
 
   const uniqueAircraft = useMemo(
     () => [
@@ -638,6 +640,10 @@ export default function MaintenanceLog() {
           console.warn(error);
           return null;
         }),
+      ]);
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
       ]);
 
       const doc = new jsPDF("p", "pt", "a4");
@@ -845,7 +851,7 @@ export default function MaintenanceLog() {
           <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
             <Col span={24} style={{ textAlign: "right" }}>
               <Text type="secondary">
-                Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
+                Showing <Text strong>{uniqueAircraft.length}</Text> Aircraft/s
               </Text>
             </Col>
           </Row>

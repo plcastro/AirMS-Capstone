@@ -1,16 +1,18 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "env": {
         "NODE_ENV": "development",
+        "EXPO_PUBLIC_APP_ENV": "development",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
-        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
+        "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
@@ -21,32 +23,17 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
-      "env": {
-        "NODE_ENV": "preview",
-        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
-        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "airms-app-85b0f.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "215064194890",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:215064194890:android:a340cd815b3800fbda9bb3",
-        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
-      },
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "production": {
+      "distribution": "internal",
+      "environment": "preview",
       "env": {
         "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "preview",
         "EAS_BUILD_DISABLE_NPM_CACHE": "1",
-        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64",
-        "EXPO_PUBLIC_BACKEND_URL": "https://api.airms.online",
+        "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
@@ -57,7 +44,35 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "autoIncrement": true,
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EAS_BUILD_DISABLE_NPM_CACHE": "1",
+        "EXPO_PUBLIC_BACKEND_URL": "https://airms-server.vercel.app",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBsjdeEzaguNbTpEqxjrfWMIvzPJp2qjEw",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "airms-app-85b0f.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "airms-app-85b0f",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "airms-app-85b0f.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "215064194890",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:215064194890:android:a340cd815b3800fbda9bb3",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-1LERJ23793"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {}
     }
   }
 }

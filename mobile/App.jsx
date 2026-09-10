@@ -1,5 +1,6 @@
 import React, { useContext, useEffect } from "react";
 import AppText from "./components/common/AppText";
+import ToastHost from "./components/common/ToastHost";
 import {
   Platform,
   Image,
@@ -31,6 +32,7 @@ import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
 import { navigationRef } from "./utilities/navigationRef";
 import { getUserImageUri, getUserInitials } from "./utilities/avatar";
+import { resolveUserRole } from "../shared/navigationAccess";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -113,7 +115,7 @@ const Screens = {
 function DrawerNav({ navigation }) {
   const { user, loading } = useContext(AuthContext);
   const { scale } = useFontScale();
-  const normalizedRole = user?.jobTitle?.toLowerCase() || "";
+  const normalizedRole = resolveUserRole(user);
   const canAccessFlightAndPreInspection = [
     "maintenance manager",
     "pilot",
@@ -307,7 +309,7 @@ function DrawerNav({ navigation }) {
         <Drawer.Screen
           name="Activity Logs"
           component={Screens.ActivityLogs}
-          options={navLabel}
+          options={{ ...navLabel, swipeEnabled: false }}
         />
       )}
 
@@ -468,10 +470,7 @@ function StackNavWrapper() {
 function AppShell({ linking }) {
   return (
     <View style={{ flex: 1 }}>
-      <NavigationContainer
-        linking={linking}
-        ref={navigationRef}
-      >
+      <NavigationContainer linking={linking} ref={navigationRef}>
         <StackNavWrapper />
       </NavigationContainer>
     </View>
@@ -518,6 +517,7 @@ function AppProviders() {
     <NotificationProvider>
       <PaperProvider theme={theme}>
         <AppShell linking={linking} />
+        <ToastHost />
       </PaperProvider>
     </NotificationProvider>
   );

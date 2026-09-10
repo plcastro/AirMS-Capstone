@@ -266,8 +266,8 @@ export default function FlightLogModalDestinations({
                 {renderInput(legIdx, "Block Time (OFF)", "blockTimeOff")}
                 {renderInput(legIdx, "Flight Time (ON)", "flightTimeOn")}
                 {renderInput(legIdx, "Flight Time (OFF)", "flightTimeOff")}
-                {renderInput(legIdx, "Total Time (ON)", "totalTimeOn")}
-                {renderInput(legIdx, "Total Time (OFF)", "totalTimeOff")}
+                {renderInput(legIdx, "Total Time (BLOCK)", "totalTimeOn")}
+                {renderInput(legIdx, "Total Time (FLIGHT)", "totalTimeOff")}
               </View>
 
               <View style={{ marginTop: 10 }}>

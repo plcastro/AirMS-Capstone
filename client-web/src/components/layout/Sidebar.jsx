@@ -354,8 +354,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
 
   useEffect(() => {
     const pathname = normalizePathname(location.pathname);
-    const key =
-      routeToKey[pathname] || (role === "superadmin" ? "2" : "11");
+    const key = routeToKey[pathname] || (role === "superadmin" ? "2" : "11");
     setCurrent(key);
   }, [location.pathname, routeToKey, role]);
 
@@ -502,7 +501,7 @@ const Sidebar = ({ collapsed, onNavigate }) => {
         title="Confirm Logout"
         open={open}
         centered
-        zIndex={2100}
+        zIndex={9999}
         onOk={handleOk}
         okText={"Yes, logout"}
         confirmLoading={confirmLoading}

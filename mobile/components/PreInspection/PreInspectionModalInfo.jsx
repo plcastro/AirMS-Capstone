@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import { View, TouchableOpacity, ScrollView } from "react-native";
@@ -6,6 +6,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { BASE_OPTIONS } from "../UserManagement/constants";
+import { isB412Aircraft } from "./b412PreInspectionData";
 
 export default function PreInspectionModalInfo({
   formData,
@@ -15,6 +16,9 @@ export default function PreInspectionModalInfo({
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
+  const aircraftTypeRequestRef = useRef(0);
+  const fobRequestRef = useRef(0);
+  const isB412 = isB412Aircraft(formData.aircraftType);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -61,6 +65,8 @@ export default function PreInspectionModalInfo({
   };
 
   const resolveAircraftTypeByRpc = async (rpc) => {
+    const requestId = ++aircraftTypeRequestRef.current;
+
     try {
       if (!rpc) return;
       const response = await fetch(
@@ -69,6 +75,8 @@ export default function PreInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== aircraftTypeRequestRef.current) return;
+
       const resolvedType = data?.data?.aircraftType || "";
       if (resolvedType && resolvedType !== formData.aircraftType) {
         updateForm("aircraftType", resolvedType);
@@ -117,6 +125,8 @@ export default function PreInspectionModalInfo({
   };
 
   const resolveFobByRpc = async (rpc, { force = false } = {}) => {
+    const requestId = ++fobRequestRef.current;
+
     try {
       if (!rpc || (!force && String(formData.fob || "").trim())) return;
 
@@ -126,6 +136,8 @@ export default function PreInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== fobRequestRef.current) return;
+
       const flightLogs = Array.isArray(data?.data) ? data.data : [];
       const fob = getLatestFlightLogFuelOnBoard(flightLogs);
 
@@ -381,7 +393,11 @@ export default function PreInspectionModalInfo({
           <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
-            Rotary Winged Aircraft - Single Engine
+            {isB412
+              ? "Rotary Winged Aircraft - Twin Engine"
+              : formData.aircraftType
+                ? "Rotary Winged Aircraft - Single Engine"
+                : "Aircraft Information"}
           </AppText>
         </View>
 

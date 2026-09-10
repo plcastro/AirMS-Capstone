@@ -5,6 +5,7 @@ const LinkingConfig = {
     "https://airms.online",
     "https://www.airms.online",
     "http://10.0.2.2:8000",
+    "https://airms-server.vercel.app",
   ],
   config: {
     screens: {

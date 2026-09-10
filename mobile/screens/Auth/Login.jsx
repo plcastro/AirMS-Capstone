@@ -9,7 +9,11 @@ import {
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureGetItem } from "../../utilities/secureStorage";
+import {
+  secureDeleteItem,
+  secureGetItem,
+  secureSetItem,
+} from "../../utilities/secureStorage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +23,7 @@ import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { COLORS } from "../../stylesheets/colors";
 import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
@@ -33,9 +38,13 @@ const BASE_OPTIONS = [
 ];
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
+
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
 
 export default function Login() {
   const nav = useNavigation();
@@ -61,10 +70,11 @@ export default function Login() {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
+          const savedPassword = await secureGetItem(REMEMBERED_PASSWORD_KEY);
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: "",
+            password: savedPassword || "",
           });
           setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
         }
@@ -82,10 +92,10 @@ export default function Login() {
   const validate = () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
-      return setMessage("Please enter your username/email and password");
+      return setMessage("Username/email and password are required");
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
-    if (!password.trim()) return setMessage("Please enter your password");
+    if (!password.trim()) return setMessage("Password is required");
     if (!selectedBase) {
       return setMessage("Please select where you are logging in from");
     }
@@ -99,8 +109,9 @@ export default function Login() {
 
     try {
       const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
-      const trustedDeviceToken =
-        trustedDeviceKey ? await secureGetItem(trustedDeviceKey) : "";
+      const trustedDeviceToken = trustedDeviceKey
+        ? await secureGetItem(trustedDeviceKey)
+        : "";
 
       const parseResponse = async (res) => {
         const text = await res.text();
@@ -144,6 +155,15 @@ export default function Login() {
       }
 
       if (data.requireLoginOtp && data.verification?.token) {
+        if (rememberMe) {
+          await secureSetItem(
+            REMEMBERED_PASSWORD_KEY,
+            formData.password.trim(),
+          );
+        } else {
+          await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
+        }
+
         nav.replace("otpScreen", {
           mode: "login-2fa",
           token: data.verification.token,
@@ -164,7 +184,7 @@ export default function Login() {
       }
 
       if (user?.status === "deactivated") {
-        setMessage("This account is deactivated. Please contact support");
+        setMessage("This account is deactivated. Please contact AirMS support");
         return;
       }
 
@@ -178,9 +198,11 @@ export default function Login() {
           formData.identifier.trim(),
         );
         await AsyncStorage.setItem("rememberedBase", selectedBase);
+        await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
         await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       // security redirect
@@ -217,7 +239,7 @@ export default function Login() {
       nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Login error. Try again later.");
+      setMessage("Login error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -325,22 +347,24 @@ export default function Login() {
 
             {showBaseDropdown && (
               <View style={loginDropdownStyles.menu}>
-                {BASE_OPTIONS.map((option, index) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      loginDropdownStyles.item,
-                      index < BASE_OPTIONS.length - 1
-                        ? loginDropdownStyles.itemBordered
-                        : null,
-                    ]}
-                    onPress={() => selectBase(option.value)}
-                  >
-                    <AppText style={loginDropdownStyles.itemText}>
-                      {option.label}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
+                <ScrollView nestedScrollEnabled>
+                  {BASE_OPTIONS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        loginDropdownStyles.item,
+                        index < BASE_OPTIONS.length - 1
+                          ? loginDropdownStyles.itemBordered
+                          : null,
+                      ]}
+                      onPress={() => selectBase(option.value)}
+                    >
+                      <AppText style={loginDropdownStyles.itemText}>
+                        {option.label}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>
@@ -414,7 +438,7 @@ const loginDropdownStyles = StyleSheet.create({
   button: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: COLORS.grayMedium,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -432,7 +456,7 @@ const loginDropdownStyles = StyleSheet.create({
   menu: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: COLORS.grayMedium,
     borderRadius: 8,
     marginTop: 6,
     overflow: "hidden",
@@ -444,7 +468,7 @@ const loginDropdownStyles = StyleSheet.create({
   },
   itemBordered: {
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
+    borderBottomColor: COLORS.grayMedium,
   },
   itemText: {
     color: "#111827",

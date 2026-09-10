@@ -15,6 +15,7 @@ import { styles } from "../../stylesheets/styles";
 import CheckBox from "../CheckBox";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 export default function TaskChecklist({
   visible,
@@ -261,7 +262,7 @@ export default function TaskChecklist({
         transparent={true}
         onRequestClose={onClose}
       >
-        <View style={styles.modalOverlay}>
+        <IosModalSafeAreaView style={styles.modalOverlay}>
           <View
             style={{
               maxWidth: "95%",
@@ -659,7 +660,7 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
 
       <ReviewTask

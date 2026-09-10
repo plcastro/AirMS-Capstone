@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import { View, TouchableOpacity, ScrollView } from "react-native";
@@ -12,11 +12,16 @@ export default function FlightLogModalInfo({
   updateForm,
   isEditable = true,
   isRPCEditable = true,
+  isActive = true,
   onAircraftDataLoaded,
+  isB412 = false,
+  serialNumber = "",
+  onUpdateSerialNumber,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+  const aircraftDetailRequestRef = useRef(0);
   const canEditRPC = isEditable && isRPCEditable;
   const normalizeRpc = (value = "") =>
     String(value || "")
@@ -81,7 +86,24 @@ export default function FlightLogModalInfo({
 
   useEffect(() => {
     fetchAircraftOptions();
+
+    return () => {
+      aircraftDetailRequestRef.current += 1;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!normalizeRpc(formData.rpc)) {
+      aircraftDetailRequestRef.current += 1;
+    }
+  }, [formData.rpc]);
+
+  useEffect(() => {
+    if (!isActive) {
+      aircraftDetailRequestRef.current += 1;
+      setShowRPCDropdown(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
@@ -260,15 +282,31 @@ export default function FlightLogModalInfo({
                   opacity: disabled ? 0.55 : 1,
                 }}
                 onPress={() => {
+                  if (
+                    normalizeRpc(formData.rpc) === normalizeRpc(rpc) &&
+                    String(formData.aircraftType || "").trim()
+                  ) {
+                    setShowRPCDropdown(false);
+                    return;
+                  }
+
                   updateForm("rpc", rpc);
+                  updateForm("aircraftType", "");
+                  onAircraftDataLoaded?.(null);
                   setShowRPCDropdown(false);
+                  const requestToken = aircraftDetailRequestRef.current + 1;
+                  aircraftDetailRequestRef.current = requestToken;
 
                   const fetchAircraftType = async () => {
                     try {
                       const response = await fetch(
-                        `${API_BASE}/api/parts-monitoring/${rpc}`,
+                        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
                       );
                       const data = await response.json();
+
+                      if (requestToken !== aircraftDetailRequestRef.current) {
+                        return;
+                      }
 
                       if (response.ok) {
                         updateForm("aircraftType", data.data.aircraftType);
@@ -276,7 +314,12 @@ export default function FlightLogModalInfo({
                         console.log(data.data);
                       }
                     } catch (error) {
+                      if (requestToken !== aircraftDetailRequestRef.current) {
+                        return;
+                      }
+
                       console.error("Error fetching aircraft type:", error);
+                      onAircraftDataLoaded?.(null);
                     }
                   };
 
@@ -342,7 +385,11 @@ export default function FlightLogModalInfo({
           <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
-            Rotary Winged Aircraft - Single Engine
+            {isB412
+              ? "Rotary Winged Aircraft - Twin Engine"
+              : formData.aircraftType
+                ? "Rotary Winged Aircraft - Single Engine"
+                : "Rotary Winged Aircraft"}
           </AppText>
         </View>
 
@@ -374,6 +421,34 @@ export default function FlightLogModalInfo({
             </AppText>
             {renderAircraftType()}
           </View>
+
+          {isB412 && (
+            <View style={{ marginBottom: 16 }}>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  color: COLORS.black,
+                  marginBottom: 6,
+                  fontWeight: "500",
+                }}
+              >
+                Serial No.:
+              </AppText>
+              <AppInput
+                style={{
+                  backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+                  borderRadius: 6,
+                  height: 42,
+                  paddingHorizontal: 12,
+                  fontSize: 12,
+                  color: isEditable ? COLORS.black : COLORS.grayDark,
+                }}
+                value={serialNumber}
+                onChangeText={onUpdateSerialNumber}
+                editable={isEditable}
+              />
+            </View>
+          )}
 
           <View style={{ marginBottom: 16 }}>
             <AppText

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import {
   Button,
+  Calendar,
   Card,
   Checkbox,
   Col,
@@ -43,6 +44,7 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
@@ -51,6 +53,35 @@ const MINIMUM_TASK_MINUTES = 60;
 const BASE_TASK_MINUTES = 10;
 const CONTEXT_SWITCH_MINUTES_PER_ITEM = 2;
 const DEFAULT_ITEM_MINUTES = 12;
+const TASK_MODAL_WIDTH = "min(1280px, calc(100vw - 48px))";
+const TASK_MODAL_BODY_STYLE = {
+  maxHeight: "calc(100vh - 180px)",
+  overflowY: "auto",
+  paddingBottom: 8,
+};
+const TASK_DETAIL_MODAL_WIDTH = "min(1180px, calc(100vw - 48px))";
+const TASK_CALENDAR_STORAGE_KEY = "airms.taskCalendar.enabled";
+const TASK_CALENDAR_ENV_ENABLED =
+  import.meta.env.VITE_TASK_CALENDAR_ENABLED === "true";
+const MECHANIC_CALENDAR_COLORS = [
+  { bg: "#e6f4ff", border: "#91caff", text: "#0958d9" },
+  { bg: "#f6ffed", border: "#b7eb8f", text: "#237804" },
+  { bg: "#fff7e6", border: "#ffd591", text: "#ad6800" },
+  { bg: "#fff0f6", border: "#ffadd2", text: "#c41d7f" },
+  { bg: "#f9f0ff", border: "#d3adf7", text: "#531dab" },
+  { bg: "#e6fffb", border: "#87e8de", text: "#006d75" },
+  { bg: "#fff1f0", border: "#ffa39e", text: "#cf1322" },
+  { bg: "#f0f5ff", border: "#adc6ff", text: "#1d39c4" },
+];
+
+const getTaskCalendarFeatureFlag = () => {
+  if (typeof window === "undefined") return TASK_CALENDAR_ENV_ENABLED;
+
+  const storedValue = window.localStorage.getItem(TASK_CALENDAR_STORAGE_KEY);
+  if (storedValue === "true") return true;
+  if (storedValue === "false") return false;
+  return TASK_CALENDAR_ENV_ENABLED;
+};
 
 const normalizeStatus = (value) =>
   String(value || "")
@@ -59,6 +90,35 @@ const normalizeStatus = (value) =>
 const isTurnedIn = (task) => normalizeStatus(task?.status) === "turned in";
 const isReviewed = (task) =>
   task?.isApproved || normalizeStatus(task?.status) === "approved";
+const isForReview = (task) =>
+  !isReviewed(task) &&
+  (isTurnedIn(task) || normalizeStatus(task?.status) === "completed");
+const getDisplayStatus = (task) => (isReviewed(task) ? "Approved" : task?.status);
+const getTaskDate = (task, key) => {
+  const value = task?.[key];
+  const date = value ? dayjs(value) : null;
+  return date?.isValid() ? date : null;
+};
+const isTaskOnCalendarDate = (task, date) => {
+  const start =
+    getTaskDate(task, "startDateTime") || getTaskDate(task, "dueDate");
+  const end =
+    getTaskDate(task, "endDateTime") || getTaskDate(task, "dueDate") || start;
+  if (!start) return false;
+
+  return (
+    !start.isAfter(date.endOf("day")) && !end.isBefore(date.startOf("day"))
+  );
+};
+const getStableColorIndex = (value = "") => {
+  const text = String(value || "unassigned");
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash =
+      (hash * 31 + text.charCodeAt(index)) % MECHANIC_CALENDAR_COLORS.length;
+  }
+  return hash;
+};
 
 const addMinutesToDate = (date, minutes) => {
   const safeDate = date instanceof Date ? date : new Date(date);
@@ -182,13 +242,17 @@ const getScheduleDraftDates = (dueDate) => {
 };
 
 const findInspectionOptionForDraft = (inspectionOptions = [], draft = {}) => {
-  const draftName = String(draft.inspectionName || "").trim().toLowerCase();
+  const draftName = String(draft.inspectionName || "")
+    .trim()
+    .toLowerCase();
   const draftModel = String(draft.aircraftModel || "")
     .replace(/\s+/g, "")
     .toLowerCase();
 
   return inspectionOptions.find((inspection) => {
-    const optionName = String(inspection.name || "").trim().toLowerCase();
+    const optionName = String(inspection.name || "")
+      .trim()
+      .toLowerCase();
     const optionModel = String(inspection.aircraftModel || "")
       .replace(/\s+/g, "")
       .toLowerCase();
@@ -225,7 +289,9 @@ const createCustomChecklistItem = (index = 0) => ({
 const getChecklistItemKey = (item = {}) =>
   [
     String(item.taskId || "").trim(),
-    String(item.taskName || "").trim().toLowerCase(),
+    String(item.taskName || "")
+      .trim()
+      .toLowerCase(),
     String(item.inspectionTypeFull || item.inspectionName || "")
       .trim()
       .toLowerCase(),
@@ -261,7 +327,11 @@ const normalizeChecklistItems = (
       };
     });
 
-const buildChecklistState = (items = [], previousItems = [], previousState = []) => {
+const buildChecklistState = (
+  items = [],
+  previousItems = [],
+  previousState = [],
+) => {
   const previousByKey = new Map();
   previousItems.forEach((item, index) => {
     const key = getChecklistItemKey(item);
@@ -319,7 +389,9 @@ export default function TaskAssignment() {
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [activeTab, setActiveTab] = useState("assigned");
+  const [taskCalendarEnabled] = useState(getTaskCalendarFeatureFlag);
   const [selectedTask, setSelectedTask] = useState(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -465,6 +537,12 @@ export default function TaskAssignment() {
     setActiveTab(nextTab);
   }, [isManager]);
 
+  useEffect(() => {
+    if (!taskCalendarEnabled && activeTab === "calendar") {
+      setActiveTab(isManager ? "assigned" : "upcoming");
+    }
+  }, [activeTab, isManager, taskCalendarEnabled]);
+
   const mechanics = useMemo(
     () =>
       users
@@ -475,25 +553,22 @@ export default function TaskAssignment() {
         )
         .map((item) => {
           const id = item._id || item.id;
+          const activeTaskCount = tasks.filter(
+            (task) =>
+              String(task.assignedTo || "") === String(id) &&
+              ACTIVE_OPEN.has(normalizeStatus(task.status)),
+          ).length;
           return {
             ...item,
             id,
             name:
               item.name ||
               `${item.firstName || ""} ${item.lastName || ""}`.trim(),
-            isBusy: tasks.some(
-              (task) =>
-                String(task.assignedTo || "") === String(id) &&
-                ACTIVE_OPEN.has(normalizeStatus(task.status)),
-            ),
+            activeTaskCount,
+            isBusy: activeTaskCount > 0,
           };
         }),
     [tasks, users],
-  );
-
-  const availableMechanics = useMemo(
-    () => mechanics.filter((item) => !item.isBusy),
-    [mechanics],
   );
 
   const getTaskAssigneeId = useCallback((task = {}) => {
@@ -525,18 +600,45 @@ export default function TaskAssignment() {
     [getTaskAssigneeId, mechanics],
   );
 
+  const getMechanicActiveTaskCount = useCallback(
+    (mechanicId, excludedTask = null) => {
+      const excludedTaskId = excludedTask?.id || excludedTask?._id || "";
+      return tasks.filter(
+        (task) =>
+          String(task.assignedTo || "") === String(mechanicId) &&
+          String(task.id || task._id || "") !== String(excludedTaskId) &&
+          ACTIVE_OPEN.has(normalizeStatus(task.status)),
+      ).length;
+    },
+    [tasks],
+  );
+
+  const getTaskMechanicColor = useCallback(
+    (task = {}) => {
+      const colorKey =
+        getTaskAssigneeId(task) || getTaskAssigneeName(task) || "unassigned";
+      return MECHANIC_CALENDAR_COLORS[getStableColorIndex(colorKey)];
+    },
+    [getTaskAssigneeId, getTaskAssigneeName],
+  );
+
   const mechanicSelectOptions = useMemo(() => {
-    const source = editingTask ? mechanics : availableMechanics;
     const seen = new Set();
-    const options = source.reduce((list, item) => {
+    const options = mechanics.reduce((list, item) => {
       if (!item.id) return list;
       const key = String(item.id);
       if (seen.has(key)) return list;
       seen.add(key);
       list.push({
         value: item.id,
-        label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-        disabled: !editingTask && item.isBusy,
+        label: `${item.name}${
+          item.activeTaskCount
+            ? ` (${item.activeTaskCount} active task${
+                item.activeTaskCount === 1 ? "" : "s"
+              })`
+            : ""
+        }`,
+        disabled: false,
       });
       return list;
     }, []);
@@ -557,13 +659,7 @@ export default function TaskAssignment() {
     }
 
     return options;
-  }, [
-    availableMechanics,
-    editingTask,
-    getTaskAssigneeId,
-    getTaskAssigneeName,
-    mechanics,
-  ]);
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics]);
 
   const aircraftSelectOptions = useMemo(
     () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
@@ -589,8 +685,10 @@ export default function TaskAssignment() {
     () =>
       isManager
         ? tasks
-        : tasks.filter((task) => String(task.assignedTo) === String(user?.id)),
-    [isManager, tasks, user?.id],
+        : tasks.filter(
+            (task) => String(getTaskAssigneeId(task)) === String(user?.id),
+          ),
+    [getTaskAssigneeId, isManager, tasks, user?.id],
   );
 
   const filteredByTab = useMemo(() => {
@@ -606,10 +704,7 @@ export default function TaskAssignment() {
       if (activeTab === "assigned")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
       if (activeTab === "for_review")
-        return (
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved)
-        );
+        return isForReview(task);
       if (activeTab === "reviewed") return isReviewed(task);
       if (activeTab === "ongoing")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
@@ -628,8 +723,22 @@ export default function TaskAssignment() {
   }, [activeTab, isManager, myTasks, selectedAircraft]);
 
   const displayedTasks = useMemo(() => {
-    return filteredByTab.filter((task) => matchesSearch(query, task));
-  }, [filteredByTab, query]);
+    return filteredByTab.filter((task) => matchesSearch(debouncedQuery, task));
+  }, [debouncedQuery, filteredByTab]);
+
+  const calendarTasks = useMemo(() => {
+    return myTasks.filter((task) => {
+      if (
+        !isManager &&
+        selectedAircraft !== "all" &&
+        task.aircraft !== selectedAircraft
+      ) {
+        return false;
+      }
+
+      return matchesSearch(debouncedQuery, task);
+    });
+  }, [debouncedQuery, isManager, myTasks, selectedAircraft]);
 
   const counts = useMemo(
     () => ({
@@ -637,9 +746,7 @@ export default function TaskAssignment() {
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
       forReview: myTasks.filter(
-        (task) =>
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved),
+        (task) => isForReview(task),
       ).length,
       reviewed: myTasks.filter((task) => isReviewed(task)).length,
       ongoing: myTasks.filter((task) =>
@@ -1010,19 +1117,41 @@ export default function TaskAssignment() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
+      const selectedMechanic = mechanics.find(
+        (item) => String(item.id) === String(values.assignedTo),
+      );
+      const selectedMechanicActiveTaskCount = getMechanicActiveTaskCount(
+        values.assignedTo,
+        editingTask,
+      );
+      const mechanicName = selectedMechanic?.name || "Selected mechanic";
       const confirmed = await confirmAction({
-        title: editingTask ? "Save Task" : "Create Task",
-        content: editingTask
-          ? "Save changes to this task assignment?"
-          : "Create this task assignment?",
-        okText: editingTask ? "Save" : "Create",
+        title:
+          selectedMechanicActiveTaskCount > 0
+            ? "Mechanic Has Active Tasks"
+            : editingTask
+              ? "Save Task"
+              : "Create Task",
+        content:
+          selectedMechanicActiveTaskCount > 0
+            ? `${mechanicName} already has ${selectedMechanicActiveTaskCount} active task${
+                selectedMechanicActiveTaskCount === 1 ? "" : "s"
+              }. Continue assigning this task?`
+            : `${mechanicName} has no active tasks. ${
+                editingTask
+                  ? "Save changes to this task assignment?"
+                  : "Create this task assignment?"
+              }`,
+        okText:
+          selectedMechanicActiveTaskCount > 0
+            ? "Assign Anyway"
+            : editingTask
+              ? "Save"
+              : "Create",
         modal,
       });
       if (!confirmed) return;
 
-      const selectedMechanic = mechanics.find(
-        (item) => String(item.id) === String(values.assignedTo),
-      );
       const selectedInspection = inspectionOptions.find(
         (item) => String(item.id) === String(values.inspectionType),
       );
@@ -1064,6 +1193,7 @@ export default function TaskAssignment() {
           editingTask?.checklistState,
         ),
         confirmAction: true,
+        confirmBusyMechanic: selectedMechanicActiveTaskCount > 0,
       };
 
       const url = editingTask
@@ -1208,17 +1338,100 @@ export default function TaskAssignment() {
     if (confirmed) setSignatureState({ open: true, mode: "approve" });
   };
 
-  const tabs = isManager
-    ? [
-        { key: "assigned", label: `Assigned (${counts.assigned})` },
-        { key: "for_review", label: `For Review (${counts.forReview})` },
-        { key: "reviewed", label: `Reviewed (${counts.reviewed})` },
-      ]
-    : [
-        { key: "upcoming", label: `Upcoming (${counts.upcoming})` },
-        { key: "past_due", label: `Past Due (${counts.pastDue})` },
-        { key: "completed", label: `Completed (${counts.completed})` },
-      ];
+  const tabs = [
+    ...(isManager
+      ? [
+          { key: "assigned", label: `Assigned (${counts.assigned})` },
+          { key: "for_review", label: `For Review (${counts.forReview})` },
+          { key: "reviewed", label: `Reviewed (${counts.reviewed})` },
+        ]
+      : [
+          { key: "upcoming", label: `Upcoming (${counts.upcoming})` },
+          { key: "past_due", label: `Past Due (${counts.pastDue})` },
+          { key: "completed", label: `Completed (${counts.completed})` },
+        ]),
+    ...(taskCalendarEnabled
+      ? [{ key: "calendar", label: `Calendar (${calendarTasks.length})` }]
+      : []),
+  ];
+
+  const renderTaskCalendarDate = (date) => {
+    const allTasksForDate = calendarTasks.filter((task) =>
+      isTaskOnCalendarDate(task, date),
+    );
+    const tasksForDate = allTasksForDate.slice(0, 4);
+
+    if (!tasksForDate.length) return null;
+
+    return (
+      <Space orientation="vertical" size={2} style={{ width: "100%" }}>
+        {tasksForDate.map((task) => {
+          const mechanicColor = getTaskMechanicColor(task);
+          const mechanicName = getTaskAssigneeName(task);
+          const taskLabel = `${task.aircraft ? `${task.aircraft} - ` : ""}${
+            task.title || task.maintenanceType || "Task"
+          }`;
+
+          return (
+            <button
+              key={`${task._id || task.id}-${date.format("YYYY-MM-DD")}`}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedTask(task);
+                setChecklistOpen(true);
+              }}
+              style={{
+                width: "100%",
+                border: `1px solid ${mechanicColor.border}`,
+                borderRadius: 6,
+                background: mechanicColor.bg,
+                padding: "2px 6px",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              <Text
+                style={{
+                  display: "block",
+                  maxWidth: "100%",
+                  color: mechanicColor.text,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: 1.4,
+                }}
+                ellipsis={{
+                  tooltip: `${taskLabel} | ${mechanicName}`,
+                }}
+              >
+                {taskLabel}
+              </Text>
+              {isManager && (
+                <Text
+                  style={{
+                    display: "block",
+                    maxWidth: "100%",
+                    color: mechanicColor.text,
+                    fontSize: 11,
+                    lineHeight: 1.3,
+                    opacity: 0.78,
+                  }}
+                  ellipsis={{ tooltip: mechanicName }}
+                >
+                  {mechanicName}
+                </Text>
+              )}
+            </button>
+          );
+        })}
+        {allTasksForDate.length > tasksForDate.length && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            +{allTasksForDate.length - tasksForDate.length} more
+          </Text>
+        )}
+      </Space>
+    );
+  };
 
   return (
     <div style={{ padding: 20 }}>
@@ -1231,6 +1444,7 @@ export default function TaskAssignment() {
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
               size="large"
+              allowClear
             />
           </Col>
           {isManager && (
@@ -1270,106 +1484,123 @@ export default function TaskAssignment() {
         />
       </Card>
 
-      <ResponsiveTable
-        style={{ marginTop: 12 }}
-        loading={loading}
-        size={"small"}
-        rowKey={(record, index) =>
-          `${record._id || record.id || "task"}-${index}`
-        }
-        dataSource={displayedTasks}
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: "max-content" }}
-        mobileBreakpoint="sm"
-        mobilePrimaryColumn="title"
-        mobileSecondaryColumn="id"
-        mobileMetaLimit={5}
-        onRow={(record) => ({
-          onClick: () => {
-            setSelectedTask(record);
-            setChecklistOpen(true);
-          },
-        })}
-        columns={[
-          { title: "Task ID", dataIndex: "id" },
-          { title: "Title", dataIndex: "title" },
-          { title: "Aircraft", dataIndex: "aircraft" },
-          { title: "Assigned To", dataIndex: "assignedToName" },
-          {
-            title: "Progress",
-            render: (_, record) => {
-              const { done, total } = getChecklistCounts(record);
-              return total ? (
-                <Progress
-                  percent={Math.round((done / total) * 100)}
-                  size="small"
-                />
-              ) : (
-                "-"
-              );
+      {activeTab === "calendar" && taskCalendarEnabled ? (
+        <Card
+          style={{ marginTop: 12 }}
+          loading={loading}
+          styles={{ body: { padding: 12 } }}
+        >
+          <Calendar
+            cellRender={(date, info) =>
+              info.type === "date"
+                ? renderTaskCalendarDate(date)
+                : info.originNode
+            }
+          />
+        </Card>
+      ) : (
+        <ResponsiveTable
+          style={{ marginTop: 12 }}
+          loading={loading}
+          size={"small"}
+          rowKey={(record, index) =>
+            `${record._id || record.id || "task"}-${index}`
+          }
+          dataSource={displayedTasks}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: "max-content" }}
+          mobileBreakpoint="sm"
+          mobilePrimaryColumn="title"
+          mobileSecondaryColumn="id"
+          mobileMetaLimit={5}
+          onRow={(record) => ({
+            onClick: () => {
+              setSelectedTask(record);
+              setChecklistOpen(true);
             },
-          },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => renderStatusTag(value, "Pending"),
-          },
-          {
-            title: "Due",
-            render: (_, record) => (
-              <DateTimeCell
-                value={record.endDateTime || record.dueDate}
-                fallback="Not set"
-              />
-            ),
-          },
-          ...(isManager
-            ? [
-                {
-                  title: "Actions",
-                  render: (_, record) => {
-                    const status = normalizeStatus(record.status);
-                    const canEditDelete =
-                      activeTab === "assigned" &&
-                      (isSuperadmin || status === "pending");
-                    if (!canEditDelete) return null;
-                    return (
-                      <Space
-                        size={12}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <Tooltip title="Edit">
-                          <Button
-                            size="small"
-                            aria-label="Edit"
-                            icon={<EditOutlined />}
-                            onClick={() => openEditTask(record)}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <Popconfirm
-                            title="Delete task?"
-                            description="This task assignment will be removed permanently."
-                            okText="Delete"
-                            okButtonProps={{ danger: true }}
-                            onConfirm={() => deleteTask(record)}
-                          >
+          })}
+          columns={[
+            { title: "Task ID", dataIndex: "id" },
+            { title: "Title", dataIndex: "title" },
+            { title: "Aircraft", dataIndex: "aircraft" },
+            { title: "Assigned To", dataIndex: "assignedToName" },
+            {
+              title: "Progress",
+              render: (_, record) => {
+                const { done, total } = getChecklistCounts(record);
+                return total ? (
+                  <Progress
+                    percent={Math.round((done / total) * 100)}
+                    size="small"
+                  />
+                ) : (
+                  "-"
+                );
+              },
+            },
+            {
+              title: "Status",
+              dataIndex: "status",
+              render: (_, record) =>
+                renderStatusTag(getDisplayStatus(record), "Pending"),
+            },
+            {
+              title: "Due",
+              render: (_, record) => (
+                <DateTimeCell
+                  value={record.endDateTime || record.dueDate}
+                  fallback="Not set"
+                />
+              ),
+            },
+            ...(isManager
+              ? [
+                  {
+                    title: "Actions",
+                    render: (_, record) => {
+                      const status = normalizeStatus(record.status);
+                      const canEditDelete =
+                        activeTab === "assigned" &&
+                        (isSuperadmin || status === "pending");
+                      if (!canEditDelete) return null;
+                      return (
+                        <Space
+                          size={12}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Tooltip title="Edit">
                             <Button
                               size="small"
-                              danger
-                              aria-label="Delete"
-                              icon={<DeleteOutlined />}
+                              aria-label="Edit"
+                              icon={<EditOutlined />}
+                              onClick={() => openEditTask(record)}
                             />
-                          </Popconfirm>
-                        </Tooltip>
-                      </Space>
-                    );
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <Popconfirm
+                              title="Delete task?"
+                              description="This task assignment will be removed permanently."
+                              okText="Delete"
+                              okButtonProps={{ danger: true }}
+                              onConfirm={() => deleteTask(record)}
+                            >
+                              <Button
+                                size="small"
+                                danger
+                                aria-label="Delete"
+                                icon={<DeleteOutlined />}
+                              />
+                            </Popconfirm>
+                          </Tooltip>
+                        </Space>
+                      );
+                    },
                   },
-                },
-              ]
-            : []),
-        ]}
-      />
+                ]
+              : []),
+          ]}
+        />
+      )}
 
       <Modal
         open={createOpen}
@@ -1377,10 +1608,15 @@ export default function TaskAssignment() {
           setCreateOpen(false);
           setEditingTask(null);
         }}
+        zIndex={3000}
         onOk={handleCreate}
         title={editingTask ? "Edit Task" : "Task"}
         okText={editingTask ? "Save" : "Add Task"}
-        width={960}
+        width={TASK_MODAL_WIDTH}
+        centered
+        styles={{
+          body: TASK_MODAL_BODY_STYLE,
+        }}
       >
         <Form form={form} layout="vertical">
           <Space orientation="vertical" size={6} style={{ width: "100%" }}>
@@ -1478,6 +1714,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1508,6 +1745,7 @@ export default function TaskAssignment() {
                     size="large"
                     style={{ width: "100%" }}
                     format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1582,7 +1820,7 @@ export default function TaskAssignment() {
                           const item = watchedChecklistItems?.[index] || {};
                           const { key: fieldKey, ...fieldProps } = field;
                           return (
-                            <Col xs={24} lg={12} key={fieldKey}>
+                            <Col xs={24} key={fieldKey}>
                               <Card
                                 size="small"
                                 styles={{
@@ -1724,7 +1962,9 @@ export default function TaskAssignment() {
         open={checklistOpen}
         onCancel={() => setChecklistOpen(false)}
         title={selectedTask?.title || "Task Checklist"}
-        width={900}
+        width={TASK_DETAIL_MODAL_WIDTH}
+        centered
+        zIndex={3000}
         footer={null}
       >
         {selectedTask && (
@@ -1754,13 +1994,14 @@ export default function TaskAssignment() {
                       }}
                     >
                       <div>
-                        <Text strong>{selectedTask.aircraft || "Aircraft"}</Text>
+                        <Text strong>
+                          {selectedTask.aircraft || "Aircraft"}
+                        </Text>
                         <div>
                           <Text type="secondary">
                             Due:{" "}
                             {formatDisplayDateTime(
-                              selectedTask.endDateTime ||
-                                selectedTask.dueDate,
+                              selectedTask.endDateTime || selectedTask.dueDate,
                             )}
                           </Text>
                         </div>
@@ -1768,13 +2009,15 @@ export default function TaskAssignment() {
                       <Text
                         strong
                         style={{
-                          background: done === total && total ? "#e8f5e9" : "#eef6ff",
+                          background:
+                            done === total && total ? "#e8f5e9" : "#eef6ff",
                           border:
                             done === total && total
                               ? "1px solid #b7eb8f"
                               : "1px solid #cfe3ff",
                           borderRadius: 999,
-                          color: done === total && total ? "#2e7d32" : "#1554ad",
+                          color:
+                            done === total && total ? "#2e7d32" : "#1554ad",
                           padding: "3px 10px",
                         }}
                       >
@@ -1934,28 +2177,19 @@ export default function TaskAssignment() {
                             </div>
                             {!!getChecklistMeta(item) && (
                               <div>
-                                <Text
-                                  type="secondary"
-                                  style={{ fontSize: 12 }}
-                                >
+                                <Text type="secondary" style={{ fontSize: 12 }}>
                                   {getChecklistMeta(item)}
                                 </Text>
                               </div>
                             )}
                             <div style={{ marginTop: 2 }}>
-                              <Text
-                                strong
-                                style={{ overflowWrap: "anywhere" }}
-                              >
+                              <Text strong style={{ overflowWrap: "anywhere" }}>
                                 {item.taskName || "Checklist item"}
                               </Text>
                             </div>
                             {!!item.documentation && (
                               <div style={{ marginTop: 2 }}>
-                                <Text
-                                  type="secondary"
-                                  style={{ fontSize: 12 }}
-                                >
+                                <Text type="secondary" style={{ fontSize: 12 }}>
                                   Reference: {item.documentation}
                                 </Text>
                               </div>
@@ -1970,10 +2204,7 @@ export default function TaskAssignment() {
                                   padding: "5px 8px",
                                 }}
                               >
-                                <Text
-                                  type="secondary"
-                                  style={{ fontSize: 12 }}
-                                >
+                                <Text type="secondary" style={{ fontSize: 12 }}>
                                   {item.description}
                                 </Text>
                               </div>
@@ -2095,6 +2326,8 @@ export default function TaskAssignment() {
         open={reviewOpen}
         title="Return Task"
         okText="Return"
+        centered
+        zIndex={3000}
         onOk={submitReturn}
         onCancel={() => setReviewOpen(false)}
         width={720}

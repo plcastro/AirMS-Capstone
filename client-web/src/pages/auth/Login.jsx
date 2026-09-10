@@ -1,4 +1,4 @@
-import { useContext, useRef } from "react";
+import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
@@ -34,7 +34,6 @@ const getTrustedDeviceStorageKey = (account) => {
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
-  const pendingDashboardPathRef = useRef("");
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
@@ -234,23 +233,19 @@ const Login = () => {
         break;
     }
 
-    pendingDashboardPathRef.current = dashboardPath;
-    setPopup({
-      open: true,
-      status: "success",
-      title: "Login Successful",
-      subTitle: "You have been logged in successfully.",
+    navigate(dashboardPath, {
+      state: {
+        resultPopup: {
+          status: "success",
+          title: "Login Successful",
+          subTitle: "You have been logged in successfully.",
+        },
+      },
     });
   };
 
   const handlePopupClose = () => {
     setPopup((prev) => ({ ...prev, open: false }));
-
-    if (pendingDashboardPathRef.current) {
-      const dashboardPath = pendingDashboardPathRef.current;
-      pendingDashboardPathRef.current = "";
-      navigate(dashboardPath);
-    }
   };
   return (
     <>
@@ -309,7 +304,7 @@ const Login = () => {
               id="base"
               aria-label="Logging in from"
               size="large"
-              placeholder="Select base"
+              placeholder={<span style={{ color: "#595959" }}>Select base</span>}
               required
               value={formData.base || undefined}
               onChange={(value) =>
@@ -360,7 +355,7 @@ const Login = () => {
             {loading ? "PLEASE WAIT..." : "LOGIN"}
           </Button>
           <Text
-            type="secondary"
+            className="auth-terms-copy"
             style={{
               display: "block",
               marginTop: 16,

@@ -62,6 +62,11 @@ const SecuritySetup = () => {
     setFieldError("");
   };
 
+  const normalizePinInput = (value) =>
+    String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
   const validateAndSubmit = async () => {
     // Password checks
     if (!passwordRequirements.minLength) {
@@ -229,7 +234,7 @@ const SecuritySetup = () => {
               inputMode="numeric"
               maxLength={6}
               onChange={(e) =>
-                changeHandler("pin", e.target.value.replace(/\D/g, ""))
+                changeHandler("pin", normalizePinInput(e.target.value))
               }
               placeholder="Enter 6-digit PIN"
             />
@@ -241,7 +246,7 @@ const SecuritySetup = () => {
               maxLength={6}
               inputMode="numeric"
               onChange={(e) =>
-                changeHandler("confirmPin", e.target.value.replace(/\D/g, ""))
+                changeHandler("confirmPin", normalizePinInput(e.target.value))
               }
               placeholder="Confirm 6-digit PIN"
             />

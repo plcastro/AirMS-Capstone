@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -15,10 +15,12 @@ import {
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { AuthContext } from "../../../context/AuthContext";
 import ResultPopup from "../../../components/common/ResultPopup";
 import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Title, Text } = Typography;
 
@@ -52,6 +54,33 @@ const formatDueSummary = (record) => {
   return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
+const normalizeSortValue = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  return String(value);
+};
+
+const compareText = (left, right) =>
+  normalizeSortValue(left).localeCompare(normalizeSortValue(right), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+const compareNumber = (left, right) =>
+  Number(left ?? Number.POSITIVE_INFINITY) -
+  Number(right ?? Number.POSITIVE_INFINITY);
+
+const getRemainingSortValue = (record) => {
+  if (record.dueByHours !== null && record.dueByHours !== undefined) {
+    return Number(record.dueByHours);
+  }
+
+  if (record.dueByDays !== null && record.dueByDays !== undefined) {
+    return Number(record.dueByDays) * 24;
+  }
+
+  return Number.POSITIVE_INFINITY;
+};
+
 const formatDueBasis = (basis) => {
   switch (basis) {
     case "hours-and-calendar":
@@ -66,7 +95,9 @@ const formatDueBasis = (basis) => {
 };
 
 export default function MaintenancePriority() {
+  const { getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
   const [priorityData, setPriorityData] = useState([]);
@@ -174,6 +205,12 @@ export default function MaintenancePriority() {
     if (!confirmed) return;
 
     setRules(draftRules);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Applied!",
+      subTitle: "Maintenance priority rules have been applied successfully.",
+    });
     await fetchPriorityData(draftRules);
   };
 
@@ -192,9 +229,14 @@ export default function MaintenancePriority() {
         {
           method: "PUT",
           headers: {
+            ...(await getAuthHeader()),
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify(draftRules),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
@@ -225,8 +267,7 @@ export default function MaintenancePriority() {
         open: true,
         status: "error",
         title: "Operation failed!",
-        subTitle:
-          error.message || "Failed to save maintenance priority rules",
+        subTitle: error.message || "Failed to save maintenance priority rules",
       });
     } finally {
       setSavingRules(false);
@@ -244,13 +285,21 @@ export default function MaintenancePriority() {
 
     setDraftRules(DEFAULT_RULES);
     setRules(DEFAULT_RULES);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Reset!",
+      subTitle: "Maintenance priority rules have been reset to default values.",
+    });
     await fetchPriorityData(DEFAULT_RULES);
   };
 
   const filteredData = useMemo(() => {
-    if (!searchText.trim()) return priorityData;
-    return priorityData.filter((item) => matchesSearch(searchText, item));
-  }, [priorityData, searchText]);
+    if (!debouncedSearchText.trim()) return priorityData;
+    return priorityData.filter((item) =>
+      matchesSearch(debouncedSearchText, item),
+    );
+  }, [debouncedSearchText, priorityData]);
 
   const stats = useMemo(() => {
     const criticalCount = priorityData.filter(
@@ -288,29 +337,42 @@ export default function MaintenancePriority() {
       dataIndex: "rank",
       key: "rank",
       width: 50,
+      sorter: (left, right) => compareNumber(left.rank, right.rank),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
       width: 100,
+      sorter: (left, right) => compareText(left.aircraft, right.aircraft),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
       width: 100,
+      sorter: (left, right) =>
+        compareText(left.aircraftModel, right.aircraftModel),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
       width: 120,
+      sorter: (left, right) =>
+        compareText(left.nextInspection, right.nextInspection),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Remaining",
       key: "dueSoonest",
       width: 120,
+      sorter: (left, right) =>
+        getRemainingSortValue(left) - getRemainingSortValue(right),
+      sortDirections: ["ascend", "descend"],
       render: (_, record) => formatDueSummary(record),
     },
     {
@@ -495,8 +557,8 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24}>
-              <Space wrap>
+            <Col xs={24} style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Space wrap style={{ justifyContent: "flex-end" }}>
                 <Button type="primary" onClick={applyRules} loading={loading}>
                   Apply Rules
                 </Button>

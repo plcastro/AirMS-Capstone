@@ -1,14 +1,10 @@
 {
   "expo": {
     "name": "AirMS",
-    "slug": "airMS",
+    "slug": "AirMS",
     "owner": "pcastro17",
     "scheme": "airms",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
@@ -20,14 +16,28 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arckexe.airms"
+      "bundleIdentifier": "com.arckexe.airms",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "icon": "./assets/AirMS_ios_icon.png",
+      "entitlements": {
+        "aps-environment": "development"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
     },
     "android": {
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
       ],
       "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
@@ -42,6 +52,7 @@
     },
     "plugins": [
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-community/datetimepicker",
       "expo-font",
       [
@@ -51,12 +62,33 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing"
+      [
+        "expo-file-system",
+        {
+          "supportsOpeningDocumentsInPlace": true,
+          "enableFileSharing": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
         "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f3f4990e-6447-461d-a182-38fdf0bd06ca"
     }
   }
 }

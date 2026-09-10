@@ -67,6 +67,12 @@ export const normalizeRole = (value) =>
     .trim()
     .toLowerCase();
 
+export const resolveUserRole = (user, fallback = "") => {
+  const jobTitle = normalizeRole(user?.jobTitle);
+  if (jobTitle) return jobTitle;
+  return normalizeRole(user?.access || fallback);
+};
+
 export const hasNavAccess = (role, accessKey) => {
   if (!accessKey) return true;
   const roles = NAV_ACCESS[accessKey] || [];

@@ -5,7 +5,7 @@ const {
   getRequestContext,
   markAuditLogged,
 } = require("../middleware/requestContext");
-const { publishTypedEvent } = require("../utils/realtimeEvents");
+const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 
 const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
 const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
@@ -120,10 +120,16 @@ const auditLog = async (
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
     });
-    publishTypedEvent("logs:new", {
-      logId: String(newLog._id),
-      at: newLog.dateTime || new Date().toISOString(),
-      action: sanitizedAction,
+    publishTypedForRecipients(
+      { recipientRoles: ["superadmin"], excludedUsers: userId ? [userId] : [] },
+      "logs:new",
+      {
+        logId: String(newLog._id),
+        at: newLog.dateTime || new Date().toISOString(),
+        action: sanitizedAction,
+      },
+    ).catch((error) => {
+      console.error("Failed to publish audit log event:", error);
     });
 
     return newLog;
@@ -188,7 +194,7 @@ const getAllUserLogs = async (req, res) => {
     const { startDate, endDate, search = "", page = 1, limit = 20 } = req.query;
 
     const safePage = Math.max(parseInt(page, 10) || 1, 1);
-    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 1000);
     const skip = (safePage - 1) * safeLimit;
 
     const filter = {};
@@ -254,9 +260,7 @@ const getAllUserLogs = async (req, res) => {
       const platform = isKnownPlatform(log.platform)
         ? log.platform
         : session?.platform || null;
-      const base = isKnownBase(log.base)
-        ? log.base
-        : session?.base || null;
+      const base = isKnownBase(log.base) ? log.base : session?.base || null;
 
       return {
         _id: log._id,

@@ -36,6 +36,9 @@ import {
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { matchesSearch } from "../../utilities/search";
+import { exportPartsLifespanMonitoringExcel } from "../../utilities/documentExport";
+import { resolveUserRole } from "../../../shared/navigationAccess";
+import { isB412Aircraft } from "../../components/FlightLog/b412FlightLogData";
 
 const referenceFields = [
   ["engTT", "Engine Cycle"],
@@ -44,6 +47,7 @@ const referenceFields = [
   ["n2Cycles", "N2"],
   ["acftTT", "Acft. TT"],
   ["landings", "Landings"],
+  ["usage", "Sling"],
 ];
 
 const previewColumns = [
@@ -107,6 +111,7 @@ const parsePickerDate = (value) => {
 };
 
 const normalizeRef = (referenceData = {}) => ({
+  ...referenceData,
   today: referenceData.today
     ? new Date(referenceData.today).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10),
@@ -137,7 +142,7 @@ const getPartStatus = (part = {}) => {
 export default function PartsLifespanMonitoring() {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
-  const normalizedRole = String(user?.jobTitle || "").toLowerCase().trim();
+  const normalizedRole = resolveUserRole(user);
   const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
@@ -146,6 +151,7 @@ export default function PartsLifespanMonitoring() {
   const [loadingAircraft, setLoadingAircraft] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [pendingImportAsset, setPendingImportAsset] = useState(null);
@@ -156,6 +162,14 @@ export default function PartsLifespanMonitoring() {
   const [parts, setParts] = useState([]);
   const [refs, setRefs] = useState(normalizeRef());
   const [aircraftDetails, setAircraftDetails] = useState({});
+  const isB412Monitoring = isB412Aircraft(aircraftDetails.aircraftType);
+  const getReferenceFieldLabel = (key, fallback) => {
+    if (!isB412Monitoring) return fallback;
+    if (key === "engTT") return "Engine No. 1 TSN";
+    if (key === "n1Cycles") return "Engine No. 1 Cycle";
+    if (key === "n2Cycles") return "Engine No. 2 Cycle";
+    return fallback;
+  };
   const [activeTab, setActiveTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState("all");
   const [componentPage, setComponentPage] = useState(0);
@@ -182,6 +196,7 @@ export default function PartsLifespanMonitoring() {
 
   const loadAircraftData = useCallback(async (aircraft) => {
     if (!aircraft) {
+      setRefs(normalizeRef());
       setParts([]);
       setAircraftDetails({});
       return;
@@ -199,7 +214,10 @@ export default function PartsLifespanMonitoring() {
       }
 
       const data = result.data;
-      setRefs(normalizeRef(data.referenceData));
+      setRefs({
+        ...normalizeRef(data.referenceData),
+        aircraftType: data.aircraftType || "",
+      });
       setParts(Array.isArray(data.parts) ? data.parts : []);
       setAircraftDetails({
         dateManufactured: data.dateManufactured,
@@ -332,6 +350,13 @@ export default function PartsLifespanMonitoring() {
     setDatePickerTarget(target);
   };
 
+  const closePartEditor = () => {
+    setDatePickerTarget((currentTarget) =>
+      currentTarget?.type === "part" ? null : currentTarget,
+    );
+    setSelectedPartIndex(null);
+  };
+
   const handleDatePickerChange = (event, selectedDate) => {
     const target = datePickerTarget;
     setDatePickerTarget(null);
@@ -371,6 +396,7 @@ export default function PartsLifespanMonitoring() {
         }),
         body: JSON.stringify({
           aircraft: selectedAircraft,
+          aircraftType: aircraftDetails.aircraftType,
           referenceData: {
             ...refs,
             today: new Date(refs.today),
@@ -406,6 +432,19 @@ export default function PartsLifespanMonitoring() {
   const selectAircraft = (aircraft) => {
     setSelectedAircraft(aircraft);
     setShowAircraftDropdown(false);
+  };
+
+  const exportAircraftWorkbook = async () => {
+    if (!selectedAircraft || loading || exporting || parts.length === 0) return;
+
+    try {
+      setExporting(true);
+      await exportPartsLifespanMonitoringExcel(selectedAircraft);
+    } catch {
+      // The export utility reports the actionable error to the user.
+    } finally {
+      setExporting(false);
+    }
   };
 
   const appendWorkbookToForm = (formData, asset) => {
@@ -518,7 +557,7 @@ export default function PartsLifespanMonitoring() {
   return (
     <ModuleContainer>
       <InfoCard title="Parts Lifespan Monitoring" subtitle="Aircraft component status">
-        <View style={{ marginTop: 10 }}>
+        <View style={{ marginTop: 10, zIndex: showAircraftDropdown ? 1000 : 1 }}>
           <TouchableOpacity
             style={[
               styles.unifiedFilterButton,
@@ -528,6 +567,12 @@ export default function PartsLifespanMonitoring() {
             disabled={loadingAircraft}
             onPress={() => setShowAircraftDropdown((open) => !open)}
           >
+            <MaterialCommunityIcons
+              name="tune"
+              size={16}
+              color={COLORS.primaryLight}
+              style={{ marginRight: 6 }}
+            />
             <AppText
               style={[
                 styles.unifiedFilterButtonText,
@@ -539,7 +584,7 @@ export default function PartsLifespanMonitoring() {
                 ? "Loading aircraft..."
                 : selectedAircraft
                   ? `RP/C: ${selectedAircraft}`
-                  : "Choose Aircraft"}
+                  : "Choose an aircraft"}
             </AppText>
             <MaterialCommunityIcons
               name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
@@ -551,6 +596,19 @@ export default function PartsLifespanMonitoring() {
           {showAircraftDropdown && (
             <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
               <ScrollView nestedScrollEnabled>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !selectedAircraft }}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    styles.unifiedDropdownItemBordered,
+                  ]}
+                  onPress={() => selectAircraft("")}
+                >
+                  <AppText style={styles.unifiedDropdownItemText}>
+                    Choose an aircraft
+                  </AppText>
+                </TouchableOpacity>
                 {aircraftOptions.length === 0 ? (
                   <View style={styles.unifiedDropdownItem}>
                     <AppText style={styles.unifiedDropdownItemText}>
@@ -567,6 +625,10 @@ export default function PartsLifespanMonitoring() {
                           ? styles.unifiedDropdownItemBordered
                           : null,
                       ]}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        selected: selectedAircraft === aircraft,
+                      }}
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
@@ -599,6 +661,32 @@ export default function PartsLifespanMonitoring() {
             </AppText>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[
+            moduleStyles.button,
+            { marginTop: 12 },
+            !selectedAircraft || loading || exporting || parts.length === 0
+              ? { backgroundColor: COLORS.grayMedium }
+              : null,
+          ]}
+          onPress={exportAircraftWorkbook}
+          disabled={
+            !selectedAircraft || loading || exporting || parts.length === 0
+          }
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <MaterialCommunityIcons
+              name="file-export-outline"
+              size={18}
+              color={COLORS.white}
+            />
+          )}
+          <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+            {exporting ? "Exporting..." : "Export"}
+          </AppText>
+        </TouchableOpacity>
       </InfoCard>
 
       {!!selectedAircraft && (
@@ -683,7 +771,9 @@ export default function PartsLifespanMonitoring() {
           <View style={styles.inputGrid}>
             {referenceFields.map(([key, label]) => (
               <View key={key} style={styles.inputCell}>
-                <AppText style={moduleStyles.label}>{label}</AppText>
+                <AppText style={moduleStyles.label}>
+                  {getReferenceFieldLabel(key, label)}
+                </AppText>
                 {key === "today" ? (
                   <TouchableOpacity
                     disabled={!canEditParts}
@@ -866,13 +956,9 @@ export default function PartsLifespanMonitoring() {
         </>
       )}
 
-      {datePickerTarget && (
+      {datePickerTarget?.type === "ref" && (
         <DateTimePicker
-          value={parsePickerDate(
-            datePickerTarget.type === "ref"
-              ? refs[datePickerTarget.key]
-              : parts[datePickerTarget.sourceIndex]?.[datePickerTarget.field],
-          )}
+          value={parsePickerDate(refs[datePickerTarget.key])}
           mode="date"
           display="default"
           onChange={handleDatePickerChange}
@@ -882,7 +968,7 @@ export default function PartsLifespanMonitoring() {
         visible={Boolean(selectedPart)}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedPartIndex(null)}
+        onRequestClose={closePartEditor}
       >
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
@@ -966,6 +1052,18 @@ export default function PartsLifespanMonitoring() {
                       </TouchableOpacity>
                     </View>
                   </View>
+                  {datePickerTarget?.type === "part" && (
+                    <DateTimePicker
+                      value={parsePickerDate(
+                        parts[datePickerTarget.sourceIndex]?.[
+                          datePickerTarget.field
+                        ],
+                      )}
+                      mode="date"
+                      display="default"
+                      onChange={handleDatePickerChange}
+                    />
+                  )}
                 </ScrollView>
                 <View
                   style={[
@@ -975,7 +1073,7 @@ export default function PartsLifespanMonitoring() {
                 >
                   <TouchableOpacity
                     style={[moduleStyles.button, styles.sheetButton, { backgroundColor: COLORS.grayMedium }]}
-                    onPress={() => setSelectedPartIndex(null)}
+                    onPress={closePartEditor}
                   >
                     <AppText style={moduleStyles.buttonText}>Close</AppText>
                   </TouchableOpacity>
@@ -1114,7 +1212,10 @@ export default function PartsLifespanMonitoring() {
                           }
                         />
                       ))}
-                      <FieldRow label="Sling" value="" />
+                      <FieldRow
+                        label="Sling"
+                        value={importPreview.referenceData?.usage ?? "N/A"}
+                      />
                     </View>
                   </View>
                   <SectionTitle
@@ -1258,13 +1359,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 48,
+    height: 48,
   },
   unifiedFilterButtonDisabled: {
     backgroundColor: COLORS.grayLight,
@@ -1276,13 +1376,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
-    marginTop: 6,
+    borderRadius: 10,
     overflow: "hidden",
     zIndex: 1000,
+    elevation: 5,
   },
   unifiedDropdownItem: {
     paddingHorizontal: 12,

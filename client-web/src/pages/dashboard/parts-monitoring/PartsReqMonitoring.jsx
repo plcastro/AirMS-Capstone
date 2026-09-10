@@ -35,9 +35,14 @@ import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+const WRS_UOM_OPTIONS = ["SET", "ST", "UNT", "PC"].map((unit) => ({
+  label: unit,
+  value: unit,
+}));
 
 const normalizeStatus = (value) => {
   const raw = String(value || "")
@@ -124,6 +129,7 @@ export default function PartsReqMonitoring() {
   const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [dateSortOrder, setDateSortOrder] = useState("newest");
   const [loading, setLoading] = useState(false);
@@ -251,8 +257,10 @@ export default function PartsReqMonitoring() {
   const filteredRequisitions = useMemo(() => {
     let data = warehouseRequisitions;
 
-    if (searchText.trim()) {
-      data = data.filter((record) => matchesSearch(searchText, record));
+    if (debouncedSearchText.trim()) {
+      data = data.filter((record) =>
+        matchesSearch(debouncedSearchText, record),
+      );
     }
 
     if (selectedStatus !== "all") {
@@ -287,7 +295,7 @@ export default function PartsReqMonitoring() {
   }, [
     dateSortOrder,
     isWarehouseStaff,
-    searchText,
+    debouncedSearchText,
     selectedStatus,
     warehouseRequisitions,
   ]);
@@ -394,7 +402,7 @@ export default function PartsReqMonitoring() {
   const openAddRequisitionModal = () => {
     entryForm.setFieldsValue({
       aircraft: undefined,
-      items: [{ particular: "", quantity: null, unit: "pcs", purpose: "" }],
+      items: [{ particular: "", quantity: null, unit: "PC", purpose: "" }],
     });
     setIsEntryModalOpen(true);
   };
@@ -409,7 +417,7 @@ export default function PartsReqMonitoring() {
       itemNo: index + 1,
       particular: String(item.particular || "").trim(),
       quantity: Number(item.quantity) || 0,
-      unitOfMeasure: item.unit || "pcs",
+      unitOfMeasure: item.unit || "PC",
       purpose: String(item.purpose || "").trim(),
       availableQty: 0,
       stockStatus: "Parts Requested",
@@ -604,7 +612,7 @@ export default function PartsReqMonitoring() {
               onClick={handleExportMonitoringReport}
               style={{ width: screens.xs ? "100%" : undefined }}
             >
-              Export PDF Report
+              Export Report (PDF)
             </Button>
           </Col>
         )}
@@ -702,6 +710,8 @@ export default function PartsReqMonitoring() {
         confirmLoading={isSubmittingEntry}
         okText="Submit"
         width={900}
+        centered
+        zIndex={3000}
         destroyOnHidden
       >
         <Form form={entryForm} layout="vertical">
@@ -760,17 +770,10 @@ export default function PartsReqMonitoring() {
                           {...restField}
                           label="Unit"
                           name={[name, "unit"]}
-                          initialValue="pcs"
+                          initialValue="PC"
                           style={{ marginBottom: 8 }}
                         >
-                          <Select
-                            options={[
-                              { label: "pcs", value: "pcs" },
-                              { label: "kg", value: "kg" },
-                              { label: "ft", value: "ft" },
-                              { label: "L", value: "L" },
-                            ]}
-                          />
+                          <Select options={WRS_UOM_OPTIONS} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={6}>
@@ -803,7 +806,7 @@ export default function PartsReqMonitoring() {
                     add({
                       particular: "",
                       quantity: null,
-                      unit: "pcs",
+                      unit: "PC",
                       purpose: "",
                     })
                   }

@@ -19,13 +19,38 @@ import PostInspectionModalEngine from "./PostInspectionModalEngine";
 import PostInspectionModalMainRotor from "./PostInspectionModalMainRotor";
 import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior";
 import PostInspectionModalNotes from "./PostInspectionModalNotes";
+import PostInspectionB412Checklist from "./PostInspectionB412Checklist";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import {
   areAllPostInspectionChecksComplete,
   getDefaultPostInspectionFormData,
 } from "./PostInspectionForms";
+import {
+  B412_POST_INSPECTION_SECTIONS,
+  createEmptyB412PostInspectionData,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PostInspectionData";
 import { showToast } from "../../utilities/toast";
+
+const BASIC_INFORMATION_TAB = {
+  key: "basic",
+  label: "Basic Information",
+};
+
+const NOTES_TAB = { key: "notes", label: "Notes" };
+
+const LEGACY_POST_INSPECTION_TABS = [
+  BASIC_INFORMATION_TAB,
+  { key: "station1", label: "Station 1" },
+  { key: "station2", label: "Station 2" },
+  { key: "engine", label: "Engine" },
+  { key: "main-rotor", label: "Main Rotor" },
+  { key: "cabin-interior", label: "Cabin Interior" },
+  NOTES_TAB,
+];
 
 export default function PostInspectionEditEntry({
   visible,
@@ -47,31 +72,49 @@ export default function PostInspectionEditEntry({
     closeOnFinish: false,
   });
 
-  const isPilot = userRole === "pilot";
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isPilot = normalizedRole === "pilot";
   const canReleasePostInspection =
-    ["mechanic", "maintenance manager", "superadmin"].includes(userRole);
-  const tabs = [
-    "Basic Information",
-    "Station 1",
-    "Station 2",
-    "Engine",
-    "Main Rotor",
-    "Cabin Interior",
-    "Notes",
-  ];
-  const totalPages = tabs.length;
-  const isLastPage = currentPage === totalPages - 1;
-
+    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
   const [formData, setFormData] = useState(
     getDefaultPostInspectionFormData(userRole),
   );
+  const hasAircraftType = Boolean(String(formData.aircraftType || "").trim());
+  const isB412 = hasAircraftType && isB412Aircraft(formData.aircraftType);
+  const isAS350 = hasAircraftType && isAS350Aircraft(formData.aircraftType);
+  const tabs = isB412
+    ? [
+        BASIC_INFORMATION_TAB,
+        ...B412_POST_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412:${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+        NOTES_TAB,
+      ]
+    : isAS350
+      ? LEGACY_POST_INSPECTION_TABS
+      : [BASIC_INFORMATION_TAB];
+  const totalPages = tabs.length;
+  const isLastPage = currentPage === totalPages - 1;
 
   useEffect(() => {
     if (visible && inspectionData) {
-      setFormData({
+      const nextFormData = {
         ...getDefaultPostInspectionFormData(userRole),
         ...inspectionData,
-      });
+      };
+
+      setFormData(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PostInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : nextFormData,
+      );
     }
   }, [visible, inspectionData, userRole]);
 
@@ -90,8 +133,43 @@ export default function PostInspectionEditEntry({
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(0);
+    }
+  }, [currentPage, totalPages]);
+
   const updateForm = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === "rpc" && value !== prev.rpc) {
+        const defaults = getDefaultPostInspectionFormData(userRole);
+        const clearedLegacyChecks = Object.fromEntries(
+          Object.entries(defaults).filter(
+            ([, defaultValue]) => typeof defaultValue === "boolean",
+          ),
+        );
+
+        return {
+          ...prev,
+          ...clearedLegacyChecks,
+          rpc: value,
+          aircraftType: "",
+          b412Data: undefined,
+        };
+      }
+
+      if (field === "aircraftType") {
+        return {
+          ...prev,
+          aircraftType: value,
+          b412Data: isB412Aircraft(value)
+            ? createEmptyB412PostInspectionData(prev.b412Data)
+            : undefined,
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const persistInspection = async (nextFormData, options) => {
@@ -100,7 +178,17 @@ export default function PostInspectionEditEntry({
     }
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData, options);
+      await onSave(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PostInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : { ...nextFormData, b412Data: undefined },
+        options,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -160,23 +248,43 @@ export default function PostInspectionEditEntry({
 
   const hasReleaseSignature = Boolean(formData.releasedBy?.name);
   const hasAcceptSignature = Boolean(formData.acceptedBy?.name);
+  const isCompletedInspection =
+    String(formData.status || "").trim().toLowerCase() === "completed";
+  const isViewOnly = readOnly || isCompletedInspection;
   const isFormEditable =
-    !readOnly && !isPilot && !hasReleaseSignature && !hasAcceptSignature;
+    !isViewOnly &&
+    !isPilot &&
+    !hasReleaseSignature &&
+    !hasAcceptSignature;
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
-    switch (currentTab) {
-      case "Basic Information":
+    if (currentTab?.b412SectionKey) {
+      return (
+        <PostInspectionB412Checklist
+          value={formData.b412Data}
+          onChange={(b412Data) => updateForm("b412Data", b412Data)}
+          isEditable={isFormEditable}
+          sectionKey={currentTab.b412SectionKey}
+        />
+      );
+    }
+
+    switch (currentTab?.key) {
+      case "basic":
         return (
           <PostInspectionModalInfo
             formData={formData}
             updateForm={updateForm}
-            isEditable={false}
+            isEditable={isFormEditable}
+            isAircraftEditable={
+              isFormEditable && !formData.linkedFromPreFlight
+            }
             rpcOptions={rpcOptions}
           />
         );
-      case "Station 1":
+      case "station1":
         return (
           <PostInspectionModalStation1
             formData={formData}
@@ -184,7 +292,7 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Station 2":
+      case "station2":
         return (
           <PostInspectionModalStation2
             formData={formData}
@@ -192,7 +300,7 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Engine":
+      case "engine":
         return (
           <PostInspectionModalEngine
             formData={formData}
@@ -200,7 +308,7 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Main Rotor":
+      case "main-rotor":
         return (
           <PostInspectionModalMainRotor
             formData={formData}
@@ -208,7 +316,7 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Cabin Interior":
+      case "cabin-interior":
         return (
           <PostInspectionModalCabinInterior
             formData={formData}
@@ -216,7 +324,7 @@ export default function PostInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Notes":
+      case "notes":
         return (
           <PostInspectionModalNotes
             formData={formData}
@@ -243,7 +351,7 @@ export default function PostInspectionEditEntry({
 
   const showReleaseButton =
     canReleasePostInspection &&
-    !readOnly &&
+    !isViewOnly &&
     !hasReleaseSignature &&
     formData.status === "pending" &&
     !isSubmitting;
@@ -252,7 +360,8 @@ export default function PostInspectionEditEntry({
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
@@ -267,7 +376,7 @@ export default function PostInspectionEditEntry({
           >
             <View>
               <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                {readOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
+                {isViewOnly ? "View Entry" : "Edit Entry"} - Post-Inspection
               </AppText>
               <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
                 Select Section
@@ -297,7 +406,7 @@ export default function PostInspectionEditEntry({
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
-                key={index}
+                key={tab.key}
                 onPress={() => setCurrentPage(index)}
                 style={{
                   paddingVertical: 8,
@@ -320,7 +429,7 @@ export default function PostInspectionEditEntry({
                       currentPage === index ? COLORS.white : COLORS.grayDark,
                   }}
                 >
-                  {tab}
+                  {tab.label}
                 </AppText>
               </TouchableOpacity>
             ))}
@@ -424,7 +533,7 @@ export default function PostInspectionEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "superadmin"].includes((userRole || "").toLowerCase())
+                      {["maintenance manager", "superadmin"].includes(normalizedRole)
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </AppText>
@@ -648,7 +757,8 @@ export default function PostInspectionEditEntry({
             }
           }}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

@@ -32,15 +32,111 @@ import {
   UserOutlined,
   ArrowLeftOutlined,
 } from "@ant-design/icons";
+import { upload } from "@vercel/blob/client";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { subscribeRealtime } from "../../../utils/realtimeSocket";
 import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 import "./Messaging.css";
 
 const { Text } = Typography;
 const { TextArea } = Input;
 const LIVE_SYNC_INTERVAL_MS = 1000;
+const MAX_MESSAGE_ATTACHMENTS = 5;
+const MAX_MESSAGE_ATTACHMENT_MB = 10;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
+const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
+  "application/msword",
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/csv",
+  "text/plain",
+]);
+const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
+  csv: "text/csv",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+const getFilenameExtension = (filename = "") => {
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
+  return match?.[1] || "";
+};
+
+const getAttachmentMimeType = (file) => {
+  const declaredType = String(file?.type || "").toLowerCase();
+  if (declaredType && declaredType !== "application/octet-stream") {
+    return declaredType;
+  }
+
+  return (
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
+  );
+};
+
+const getAttachmentValidationError = (file) => {
+  if (Number(file?.size || 0) > MAX_MESSAGE_ATTACHMENT_BYTES) {
+    return `${file.name || "Attachment"} is larger than ${MAX_MESSAGE_ATTACHMENT_MB} MB.`;
+  }
+
+  const mimeType = getAttachmentMimeType(file);
+  if (
+    !mimeType.startsWith("image/") &&
+    !ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES.has(mimeType)
+  ) {
+    return `${file.name || "Attachment"} is not a supported file type.`;
+  }
+
+  return "";
+};
+
+const sanitizeAttachmentPathnamePart = (filename = "attachment") =>
+  String(filename)
+    .replace(/[^\w.\-() ]+/g, "_")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "attachment";
+
+const buildAttachmentPathname = (userId, file, index) =>
+  `messages/${userId}/${Date.now()}-${index}-${sanitizeAttachmentPathnamePart(file.name)}`;
+
+const isLocalApiBase = (() => {
+  try {
+    return ["localhost", "127.0.0.1", "10.0.2.2"].includes(
+      new URL(API_BASE).hostname,
+    );
+  } catch {
+    return false;
+  }
+})();
+
+const isPrivateMessageAttachment = (url) =>
+  String(url || "").startsWith("messages/");
+
+const getAttachmentCacheKey = (messageId, attachmentIndex, url) =>
+  `${messageId}:${attachmentIndex}:${url}`;
+
+const getUploadErrorMessage = (error) => {
+  if (
+    error?.status === 413 ||
+    /too large|maximum size|exceeds.*size/i.test(error?.message || "")
+  ) {
+    return `Each attachment must be ${MAX_MESSAGE_ATTACHMENT_MB} MB or smaller.`;
+  }
+
+  return error?.message || "Failed to upload attachment. Please try again.";
+};
 
 const getDisplayFullName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
@@ -58,9 +154,15 @@ const getEntityId = (value) => value?._id || value?.id || value;
 
 const getAttachmentUrl = (url) => {
   if (!url) return "";
-  return String(url).startsWith("http") || String(url).startsWith("blob:")
-    ? url
-    : `${API_BASE}${url}`;
+  const value = String(url);
+  if (
+    value.startsWith("http") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+  return `${API_BASE}${value.startsWith("/") ? "" : "/"}${value}`;
 };
 
 const getAttachmentLabel = (attachments = []) => {
@@ -71,11 +173,6 @@ const getAttachmentLabel = (attachments = []) => {
     ? `${prefix}: ${attachment.name} +${attachments.length - 1}`
     : `${prefix}: ${attachment.name}`;
 };
-
-const getConversationTitle = (conversation) =>
-  conversation.type === "group"
-    ? conversation.group?.name || "Group chat"
-    : getDisplayFullName(conversation.user);
 
 const formatConversationTime = (value) => {
   if (!value) return "";
@@ -137,9 +234,11 @@ export default function Messaging() {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState({});
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -147,13 +246,16 @@ export default function Messaging() {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupActionLoadingId, setGroupActionLoadingId] = useState("");
   const [mobileView, setMobileView] = useState("list");
+  const [imagePreview, setImagePreview] = useState(null);
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
   const threadContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
+  const attachmentUrlCacheRef = useRef(new Map());
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -175,7 +277,11 @@ export default function Messaging() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.message || "Request failed");
+        const error = new Error(
+          data.message || `Request failed (${response.status})`,
+        );
+        error.status = response.status;
+        throw error;
       }
 
       return data;
@@ -270,6 +376,57 @@ export default function Messaging() {
   }, [messages]);
 
   useEffect(() => {
+    const refreshBeforeMs = 30 * 1000;
+
+    messages.forEach((message) => {
+      if (String(message?._id || "").startsWith("temp-")) return;
+
+      (message.attachments || []).forEach((attachment, attachmentIndex) => {
+        if (!isPrivateMessageAttachment(attachment?.url)) return;
+
+        const cacheKey = getAttachmentCacheKey(
+          message._id,
+          attachmentIndex,
+          attachment.url,
+        );
+        const cached = attachmentUrlCacheRef.current.get(cacheKey);
+        if (
+          cached?.pending ||
+          cached?.retryAt > Date.now() ||
+          (cached?.url && cached.expiresAt > Date.now() + refreshBeforeMs)
+        ) {
+          return;
+        }
+
+        attachmentUrlCacheRef.current.set(cacheKey, { pending: true });
+        authFetch(
+          `${API_BASE}/api/messages/${message._id}/attachments/${attachmentIndex}`,
+        )
+          .then((data) => {
+            if (!data?.data?.url) return;
+            const expiresAt = data.data.expiresAt
+              ? new Date(data.data.expiresAt).getTime()
+              : Number.MAX_SAFE_INTEGER;
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              url: data.data.url,
+              expiresAt,
+            });
+            setResolvedAttachmentUrls((current) => ({
+              ...current,
+              [cacheKey]: data.data.url,
+            }));
+          })
+          .catch((error) => {
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              retryAt: Date.now() + 30 * 1000,
+            });
+            console.error("Failed to open message attachment:", error);
+          });
+      });
+    });
+  }, [authFetch, messages]);
+
+  useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
 
@@ -303,6 +460,25 @@ export default function Messaging() {
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
       if (payload.event === "chat:conversation") {
+        const group = payload.data?.group;
+        const removedConversationId = payload.data?.removedConversationId;
+        const currentSelected = selectedConversationRef.current;
+
+        if (
+          currentSelected?.type === "group" &&
+          String(currentSelected.id) === String(removedConversationId) &&
+          (!group ||
+            !(group.members || []).some(
+              (member) => String(getEntityId(member)) === String(currentUserId),
+            ))
+        ) {
+          setSelectedConversation(null);
+          setMessages([]);
+          setMembersModalOpen(false);
+          if (isMobile) {
+            setMobileView("list");
+          }
+        }
         fetchConversations();
         return;
       }
@@ -376,7 +552,13 @@ export default function Messaging() {
     return () => {
       unsubscribeRealtime();
     };
-  }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
+  }, [
+    currentUserId,
+    fetchConversations,
+    fetchThread,
+    isMobile,
+    notifyIncomingChat,
+  ]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -428,8 +610,8 @@ export default function Messaging() {
         ).getTime();
         return secondTime - firstTime;
       });
-    return merged.filter((item) => matchesSearch(searchText, item));
-  }, [conversations, searchText, users]);
+    return merged.filter((item) => matchesSearch(debouncedSearchText, item));
+  }, [conversations, debouncedSearchText, users]);
 
   const selectedConversationDetails = useMemo(() => {
     if (!selectedConversation) return null;
@@ -502,15 +684,23 @@ export default function Messaging() {
     }
   };
 
-
   const handleSend = async () => {
     const body = draft.trim();
     if (!selectedConversation?.id || (!body && attachments.length === 0))
       return;
 
+    const attachmentsToSend = [...attachments];
+    const invalidAttachment = attachmentsToSend.find((file) =>
+      getAttachmentValidationError(file),
+    );
+    if (invalidAttachment) {
+      antdMessage.error(getAttachmentValidationError(invalidAttachment));
+      return;
+    }
+
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
-    const pendingAttachments = attachments.map((file) => ({
+    const pendingAttachments = attachmentsToSend.map((file) => ({
       url: file.previewUrl || "",
       name: file.name,
       mimeType: file.type,
@@ -533,20 +723,58 @@ export default function Messaging() {
 
     try {
       setSending(true);
-      const formData = new FormData();
-      formData.append(
-        isGroup ? "conversationId" : "recipientId",
-        selectedConversation.id,
-      );
-      formData.append("body", body);
-      attachments.forEach((file) => {
-        formData.append("attachments", file);
-      });
+      let data;
 
-      const data = await authFetch(`${API_BASE}/api/messages`, {
-        method: "POST",
-        body: formData,
-      });
+      if (isLocalApiBase && attachmentsToSend.length > 0) {
+        const formData = new FormData();
+        formData.append(
+          isGroup ? "conversationId" : "recipientId",
+          selectedConversation.id,
+        );
+        formData.append("body", body);
+        attachmentsToSend.forEach((file) => {
+          formData.append("attachments", file);
+        });
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const authHeaders = await getAuthHeader();
+        const uploadedAttachments = await Promise.all(
+          attachmentsToSend.map(async (file, index) => {
+            const mimeType = getAttachmentMimeType(file);
+            const blob = await upload(
+              buildAttachmentPathname(currentUserId, file, index),
+              file,
+              {
+                access: "public",
+                handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
+                headers: authHeaders,
+                contentType: mimeType,
+              },
+            );
+
+            return {
+              pathname: blob.pathname,
+              name: file.name,
+              mimeType: blob.contentType || mimeType,
+              size: file.size,
+            };
+          }),
+        );
+
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            [isGroup ? "conversationId" : "recipientId"]:
+              selectedConversation.id,
+            body,
+            attachments: uploadedAttachments,
+          }),
+        });
+      }
 
       setMessages((current) =>
         current
@@ -564,6 +792,9 @@ export default function Messaging() {
               withSentStatus(data.data),
             ],
       );
+      attachmentsToSend.forEach((file) => {
+        if (file.previewUrl) URL.revokeObjectURL(file.previewUrl);
+      });
       fetchConversations();
     } catch (error) {
       setMessages((current) =>
@@ -571,7 +802,11 @@ export default function Messaging() {
           item._id === tempId ? { ...item, deliveryStatus: "failed" } : item,
         ),
       );
-      antdMessage.error(error.message || "Failed to send message");
+      setDraft((current) => current || body);
+      setAttachments((current) =>
+        current.length > 0 ? current : attachmentsToSend,
+      );
+      antdMessage.error(getUploadErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -581,8 +816,24 @@ export default function Messaging() {
     const selectedFiles = Array.from(event.target.files || []);
     if (selectedFiles.length === 0) return;
 
+    const validFiles = selectedFiles.filter((file) => {
+      const validationError = getAttachmentValidationError(file);
+      if (validationError) antdMessage.error(validationError);
+      return !validationError;
+    });
+
+    const availableSlots = Math.max(
+      0,
+      MAX_MESSAGE_ATTACHMENTS - attachments.length,
+    );
+    if (validFiles.length > availableSlots) {
+      antdMessage.warning(
+        `You can attach up to ${MAX_MESSAGE_ATTACHMENTS} files per message.`,
+      );
+    }
+
     setAttachments((current) =>
-      [...current, ...selectedFiles].slice(0, 5).map((file) => {
+      [...current, ...validFiles.slice(0, availableSlots)].map((file) => {
         if (file.previewUrl || !file.type?.startsWith("image/")) return file;
         return Object.assign(file, { previewUrl: URL.createObjectURL(file) });
       }),
@@ -602,20 +853,31 @@ export default function Messaging() {
   };
 
   const renderAttachments = (message) =>
-    (message.attachments || []).map((attachment) => {
-      const url = getAttachmentUrl(attachment.url);
+    (message.attachments || []).map((attachment, attachmentIndex) => {
+      const cacheKey = getAttachmentCacheKey(
+        message._id,
+        attachmentIndex,
+        attachment.url,
+      );
+      const url = isPrivateMessageAttachment(attachment.url)
+        ? resolvedAttachmentUrls[cacheKey] || ""
+        : getAttachmentUrl(attachment.url);
       const isImage =
         attachment.kind === "image" ||
         attachment.mimeType?.startsWith("image/");
 
       if (isImage && url) {
         return (
-          <a
+          <button
             key={`${message._id}-${attachment.url}-${attachment.name}`}
-            href={url}
-            target="_blank"
-            rel="noreferrer"
+            type="button"
             className="message-attachment-image-link"
+            onClick={() =>
+              setImagePreview({
+                url,
+                name: attachment.name || "Attachment",
+              })
+            }
           >
             <img
               src={url}
@@ -625,7 +887,7 @@ export default function Messaging() {
             <span className="message-attachment-image-name">
               {attachment.name || "Attachment"}
             </span>
-          </a>
+          </button>
         );
       }
 
@@ -678,6 +940,75 @@ export default function Messaging() {
     } finally {
       setCreatingGroup(false);
     }
+  };
+
+  const leaveGroup = async () => {
+    const conversationId = selectedConversationDetails?.id;
+    if (!conversationId || selectedConversationDetails?.type !== "group") {
+      return;
+    }
+
+    try {
+      setGroupActionLoadingId("leave");
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/me`,
+        { method: "DELETE" },
+      );
+      setMembersModalOpen(false);
+      setSelectedConversation(null);
+      setMessages([]);
+      if (isMobile) {
+        setMobileView("list");
+      }
+      await fetchConversations();
+      antdMessage.success("You left the group chat.");
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to leave group chat");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmLeaveGroup = () => {
+    Modal.confirm({
+      title: "Leave group chat?",
+      content: `You will stop receiving messages from ${selectedConversationDetails?.title || "this group"}.`,
+      okText: "Leave",
+      okButtonProps: { danger: true },
+      onOk: leaveGroup,
+      zIndex: 3200,
+    });
+  };
+
+  const removeGroupMember = async (member) => {
+    const conversationId = selectedConversationDetails?.id;
+    const memberId = getEntityId(member);
+    if (!conversationId || !memberId) return;
+
+    try {
+      setGroupActionLoadingId(String(memberId));
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/${memberId}`,
+        { method: "DELETE" },
+      );
+      await fetchConversations();
+      antdMessage.success(`${getDisplayFullName(member)} removed.`);
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to remove group member");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmRemoveGroupMember = (member) => {
+    Modal.confirm({
+      title: "Remove member?",
+      content: `Remove ${getDisplayFullName(member)} from ${selectedConversationDetails?.title || "this group"}?`,
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: () => removeGroupMember(member),
+      zIndex: 3200,
+    });
   };
 
   useEffect(() => {
@@ -1053,6 +1384,8 @@ export default function Messaging() {
         okText="Create"
         confirmLoading={creatingGroup}
         width={isMobile ? "96vw" : 520}
+        centered
+        zIndex={3000}
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Input
@@ -1086,37 +1419,90 @@ export default function Messaging() {
         open={membersModalOpen}
         onCancel={() => setMembersModalOpen(false)}
         footer={null}
+        centered
+        zIndex={3000}
         width={isMobile ? "96vw" : 520}
       >
         {selectedGroupMembers.length === 0 ? (
           <Empty description="No members" />
         ) : (
           <Space orientation="vertical" size={10} style={{ width: "100%" }}>
-            {selectedGroupMembers.map((member) => (
-              <div
-                key={String(getEntityId(member))}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 0",
-                }}
-              >
-                <Avatar
-                  alt={getDisplayFullName(member) || "Group member avatar"}
-                  src={getImageUrl(member.image)}
-                  icon={<UserOutlined />}
-                />
-                <div>
-                  <Text strong>{getDisplayFullName(member)}</Text>
-                  <div>
-                    <Text type="secondary">{member.jobTitle || "User"}</Text>
+            {selectedGroupMembers.map((member) => {
+              const memberId = String(getEntityId(member));
+              const isCurrentUser = memberId === String(currentUserId);
+              const canRemoveMembers =
+                String(selectedConversationDetails?.group?.createdBy) ===
+                String(currentUserId);
+              const canRemoveMember = canRemoveMembers && !isCurrentUser;
+
+              return (
+                <div
+                  key={memberId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "12px 0",
+                  }}
+                >
+                  <Avatar
+                    alt={getDisplayFullName(member) || "Group member avatar"}
+                    src={getImageUrl(member.image)}
+                    icon={<UserOutlined />}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text strong ellipsis>
+                      {getDisplayFullName(member)}
+                    </Text>
+                    <div>
+                      <Text type="secondary">{member.jobTitle || "User"}</Text>
+                    </div>
                   </div>
+                  {canRemoveMember ? (
+                    <Button
+                      danger
+                      size="small"
+                      loading={groupActionLoadingId === memberId}
+                      disabled={Boolean(groupActionLoadingId)}
+                      onClick={() => confirmRemoveGroupMember(member)}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            <Button
+              danger
+              block
+              loading={groupActionLoadingId === "leave"}
+              disabled={Boolean(groupActionLoadingId)}
+              onClick={confirmLeaveGroup}
+              style={{ marginTop: 8 }}
+            >
+              Leave group
+            </Button>
           </Space>
         )}
+      </Modal>
+
+      <Modal
+        title={imagePreview?.name || "Attachment"}
+        open={Boolean(imagePreview)}
+        onCancel={() => setImagePreview(null)}
+        footer={null}
+        centered
+        width="min(96vw, 980px)"
+        zIndex={3100}
+        className="message-image-preview-modal"
+      >
+        {imagePreview?.url ? (
+          <img
+            src={imagePreview.url}
+            alt={imagePreview.name || "Attachment"}
+            className="message-image-preview"
+          />
+        ) : null}
       </Modal>
     </div>
   );

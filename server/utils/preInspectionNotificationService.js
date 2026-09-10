@@ -5,12 +5,15 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_MECHANIC = "mechanic";
-const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
 const uniqueStrings = (values = []) => [
-  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => String(value)),
+  ),
 ];
 
 const uniqueRoles = (roles = []) => [
@@ -72,7 +75,7 @@ const getRecipientsForStatus = (status, creatorUserId, mechanicRoles) => {
   switch (status) {
     case "released":
       return {
-        recipientRoles: [ROLE_PILOT],
+        recipientRoles: [],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
       };
     case "completed":
@@ -95,6 +98,7 @@ const createNotification = async ({
   inspection,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   metadata = {},
 }) => {
   const normalizedRoles = uniqueRoles(recipientRoles);
@@ -112,6 +116,7 @@ const createNotification = async ({
     entityId: inspection._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers: uniqueStrings(excludedUsers),
     metadata: {
       rpc: inspection.rpc,
       status: inspection.status,
@@ -125,6 +130,7 @@ const createNotification = async ({
     body: description,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers,
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
@@ -141,6 +147,7 @@ const createNotification = async ({
 const createPreInspectionNotifications = async ({
   previousInspection,
   inspection,
+  actorUserId = null,
 }) => {
   if (!inspection?._id) {
     return;
@@ -160,6 +167,7 @@ const createPreInspectionNotifications = async ({
           "A new pre-flight inspection needs mechanic review and release.",
         inspection,
         recipientRoles: mechanicRoles,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-pending-release" },
       });
       return;
@@ -170,8 +178,8 @@ const createPreInspectionNotifications = async ({
         title: `Pre-inspection for ${inspection.rpc} was released`,
         description: "The pre-flight inspection is ready for pilot acceptance.",
         inspection,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-released" },
       });
       return;
@@ -184,6 +192,7 @@ const createPreInspectionNotifications = async ({
         inspection,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
         recipientUsers: involvedUserIds,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-completed" },
       });
       return;
@@ -202,6 +211,7 @@ const createPreInspectionNotifications = async ({
       description: "The pre-flight inspection details were updated.",
       inspection,
       ...recipients,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "updated" },
     });
     return;
@@ -214,8 +224,8 @@ const createPreInspectionNotifications = async ({
         description:
           "This pre-flight inspection was released and is waiting for pilot acceptance.",
         inspection,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "released" },
       });
       break;
@@ -227,6 +237,7 @@ const createPreInspectionNotifications = async ({
         inspection,
         recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
         recipientUsers: involvedUserIds,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "completed" },
       });
       break;

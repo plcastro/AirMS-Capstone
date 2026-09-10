@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { issueSignedToken, presignUrl } = require("@vercel/blob");
 const Conversation = require("../models/conversationModel");
 const Message = require("../models/messageModel");
 const NotificationModel = require("../models/notificationModel");
@@ -7,6 +8,7 @@ const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
 const { publishTypedForUsers } = require("../utils/realtimeEvents");
 const { sendPushNotificationToUsers } = require("../utils/mobilePushService");
+const { getMessageBlobToken } = require("../middleware/messageUpload");
 
 const getUserId = (req) => req.user?.id;
 
@@ -186,10 +188,6 @@ const createChatNotifications = async ({
       conversationId: conversationId ? String(conversationId) : null,
       conversationName: conversationName || null,
     },
-  });
-
-  sendToUsers(recipients, "notification:new", {
-    notificationId: String(notification._id),
   });
 
   await sendPushNotificationToUsers({
@@ -490,6 +488,88 @@ const validateBody = (body) => {
   return { value: trimmedBody };
 };
 
+const getMessageAttachmentUrl = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { messageId, attachmentIndex } = req.params;
+    const index = Number(attachmentIndex);
+
+    if (
+      !mongoose.Types.ObjectId.isValid(messageId) ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return res.status(400).json({ message: "Invalid attachment" });
+    }
+
+    const message = await Message.findById(messageId)
+      .select("sender recipient conversation attachments")
+      .lean();
+    if (!message) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    let canAccess =
+      isSameId(message.sender, userId) || isSameId(message.recipient, userId);
+
+    if (!canAccess && message.conversation) {
+      canAccess = Boolean(
+        await Conversation.exists({
+          _id: message.conversation,
+          members: userId,
+        }),
+      );
+    }
+
+    if (!canAccess) {
+      return res.status(403).json({ message: "Attachment access denied" });
+    }
+
+    const attachment = message.attachments?.[index];
+    const pathname = String(attachment?.url || "").trim();
+    if (!pathname) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    if (/^https?:\/\//i.test(pathname) || pathname.startsWith("/uploads/")) {
+      return res.status(200).json({ data: { url: pathname, expiresAt: null } });
+    }
+
+    const token = getMessageBlobToken();
+    if (!token) {
+      return res.status(503).json({
+        message: "Message attachment storage is not configured",
+      });
+    }
+
+    const validUntil = Date.now() + 5 * 60 * 1000;
+    const signedToken = await issueSignedToken({
+      pathname,
+      operations: ["get"],
+      validUntil,
+      token,
+    });
+    const { presignedUrl } = await presignUrl(signedToken, {
+      pathname,
+      operation: "get",
+      validUntil,
+      access: "public",
+    });
+
+    return res.status(200).json({
+      data: {
+        url: presignedUrl,
+        expiresAt: new Date(validUntil).toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to prepare message attachment download:", error);
+    return res.status(500).json({
+      message: "Failed to open attachment",
+    });
+  }
+};
+
 const sendMessage = async (req, res) => {
   try {
     const senderId = getUserId(req);
@@ -556,7 +636,9 @@ const sendMessage = async (req, res) => {
           messageBody: bodyState.value,
           messageId: message._id,
           senderUserId: senderId,
-          recipientUserIds: [recipientId],
+          recipientUserIds: recipientMemberIds,
+          conversationId,
+          conversationName: conversation.name,
           isGroup: true,
         });
       } catch (error) {
@@ -712,11 +794,154 @@ const createGroupConversation = async (req, res) => {
   }
 };
 
+const populateGroupConversation = (conversationId) =>
+  Conversation.findById(conversationId)
+    .populate(
+      "members",
+      "firstName lastName username jobTitle image isOnline platform",
+    )
+    .lean();
+
+const sendGroupConversationUpdate = async (conversationId, userIds = []) => {
+  const populatedConversation = await populateGroupConversation(conversationId);
+  const recipients = [
+    ...new Set([
+      ...userIds.map(String).filter(Boolean),
+      ...(populatedConversation?.members || []).map((member) =>
+        String(getEntityId(member)),
+      ),
+    ]),
+  ];
+
+  sendToUsers(recipients, "chat:conversation", {
+    type: "group",
+    group: populatedConversation ? mapGroup(populatedConversation) : null,
+    removedConversationId: String(conversationId),
+  });
+  publishTypedForUsers(recipients, "notification:new", {
+    module: "messages",
+    conversationId: String(conversationId),
+  });
+
+  return populatedConversation;
+};
+
+const removeGroupMember = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { conversationId, memberId } = req.params;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
+      !mongoose.Types.ObjectId.isValid(memberId)
+    ) {
+      return res.status(400).json({ message: "Invalid group member" });
+    }
+
+    if (isSameId(userId, memberId)) {
+      return res.status(400).json({ message: "Use leave group instead" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      members: userId,
+    }).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Group conversation not found" });
+    }
+
+    if (!isSameId(conversation.createdBy, userId)) {
+      return res
+        .status(403)
+        .json({ message: "Only the group creator can remove members" });
+    }
+
+    if (!conversation.members.some((member) => isSameId(member, memberId))) {
+      return res.status(404).json({ message: "Member not found in group" });
+    }
+
+    await Conversation.updateOne(
+      { _id: conversationId },
+      { $pull: { members: memberId } },
+    );
+
+    const updatedConversation = await sendGroupConversationUpdate(
+      conversationId,
+      [memberId],
+    );
+
+    auditLog(`Group chat member removed: ${conversation.name}`, userId).catch(
+      (error) => {
+        console.error("Group member removal audit failed:", error);
+      },
+    );
+
+    return res.status(200).json({
+      data: updatedConversation
+        ? { type: "group", group: mapGroup(updatedConversation) }
+        : null,
+    });
+  } catch (error) {
+    console.error("Failed to remove group member:", error);
+    return res.status(500).json({ message: "Failed to remove group member" });
+  }
+};
+
+const leaveGroupConversation = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: "Invalid group conversation" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      members: userId,
+    }).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Group conversation not found" });
+    }
+
+    const remainingMembers = conversation.members.filter(
+      (member) => !isSameId(member, userId),
+    );
+
+    if (remainingMembers.length === 0) {
+      await Conversation.deleteOne({ _id: conversationId });
+      await sendGroupConversationUpdate(conversationId, [userId]);
+    } else {
+      const update = { $pull: { members: userId } };
+      if (isSameId(conversation.createdBy, userId)) {
+        update.$set = { createdBy: remainingMembers[0] };
+      }
+
+      await Conversation.updateOne({ _id: conversationId }, update);
+      await sendGroupConversationUpdate(conversationId, [userId]);
+    }
+
+    auditLog(`Group chat left: ${conversation.name}`, userId).catch((error) => {
+      console.error("Group leave audit failed:", error);
+    });
+
+    return res.status(200).json({ message: "Left group chat" });
+  } catch (error) {
+    console.error("Failed to leave group conversation:", error);
+    return res.status(500).json({ message: "Failed to leave group chat" });
+  }
+};
+
 module.exports = {
   getMessageUsers,
   getConversations,
   getMessageSummary,
   createGroupConversation,
+  removeGroupMember,
+  leaveGroupConversation,
   getThread,
+  getMessageAttachmentUrl,
   sendMessage,
 };

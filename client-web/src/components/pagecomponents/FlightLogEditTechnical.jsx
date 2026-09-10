@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import FlightLogApprove from "./FlightLogApprove";
-import { Modal } from "antd";
+import { Button, Modal } from "antd";
 
 export default function FlightLogVerifyTechnical({
   visible,
@@ -353,9 +353,9 @@ export default function FlightLogVerifyTechnical({
       {/* Main Modal */}
       <div className="modal-overlay">
         <div className="modal-card">
-          <button className="close-btn" onClick={onClose}>
+          <Button className="close-btn" onClick={onClose}>
             ✕
-          </button>
+          </Button>
           <h2 className="modal-title">Verify Technical Log</h2>
 
           {/* Render form fields */}
@@ -373,32 +373,32 @@ export default function FlightLogVerifyTechnical({
           {/* Approve / Cancel buttons */}
           {currentPage === pages.length - 1 && (
             <div className="button-group">
-              <button className="primary-btn" onClick={handleApprove}>
+              <Button className="primary-btn" onClick={handleApprove}>
                 Approve
-              </button>
-              <button className="secondary-btn" onClick={handleDiscard}>
+              </Button>
+              <Button className="secondary-btn" onClick={handleDiscard}>
                 Cancel
-              </button>
+              </Button>
             </div>
           )}
 
           {/* Page navigation */}
           <div className="page-nav">
-            <button
+            <Button
               onClick={() => setCurrentPage(Math.max(currentPage - 1, 0))}
               disabled={currentPage === 0}
             >
               Previous
-            </button>
+            </Button>
             <span>{currentPage + 1}</span>
-            <button
+            <Button
               onClick={() =>
                 setCurrentPage(Math.min(currentPage + 1, pages.length - 1))
               }
               disabled={currentPage === pages.length - 1}
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -410,15 +410,15 @@ export default function FlightLogVerifyTechnical({
             <h3>APPROVE LOG</h3>
             <p>Are you sure you want to approve this log?</p>
             <div className="button-group">
-              <button className="primary-btn" onClick={handleConfirmApprove}>
+              <Button className="primary-btn" onClick={handleConfirmApprove}>
                 YES
-              </button>
-              <button
+              </Button>
+              <Button
                 className="secondary-btn"
                 onClick={() => setShowApproveConfirm(false)}
               >
                 CANCEL
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -439,15 +439,15 @@ export default function FlightLogVerifyTechnical({
             <h3>CONFIRM LOG</h3>
             <p>Are you sure you want to confirm this log?</p>
             <div className="button-group">
-              <button className="primary-btn" onClick={handleFinalConfirm}>
+              <Button className="primary-btn" onClick={handleFinalConfirm}>
                 CONFIRM
-              </button>
-              <button
+              </Button>
+              <Button
                 className="secondary-btn"
                 onClick={() => setShowFinalConfirm(false)}
               >
                 CANCEL
-              </button>
+              </Button>
             </div>
           </div>
         </div>

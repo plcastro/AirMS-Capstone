@@ -1,4 +1,12 @@
-import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useState,
+  useContext,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { Layout, Button, theme, Grid, Row, Badge, notification } from "antd";
 import {
   MenuFoldOutlined,
@@ -9,14 +17,17 @@ import Sidebar from "./Sidebar";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
+import { debounce } from "../../utils/debounce";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
-import ResultPopup from "../common/ResultPopup";
 import { hasNavAccess } from "../../../../shared/navigationAccess";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
+const PushNotificationsCard = lazy(
+  () => import("../common/PushNotificationsCard"),
+);
+const ResultPopup = lazy(() => import("../common/ResultPopup"));
 const WEB_SETTINGS_KEY = "webProfileSettings";
 const MODULE_NAMES = {
   messages: "Messages",
@@ -432,13 +443,18 @@ const DashboardLayout = () => {
     };
 
     loadSeenAircraftFhWarnings();
+    const scheduleSyncNotifications = debounce(syncNotifications, 500);
+    const scheduleAircraftFhDueWarnings = debounce(
+      checkAircraftFhDueWarnings,
+      800,
+    );
 
-    setTimeout(syncNotifications, 500);
-    setTimeout(checkAircraftFhDueWarnings, 800);
+    scheduleSyncNotifications();
+    scheduleAircraftFhDueWarnings();
 
     const handleWebSettingsUpdated = () => {
       loadSeenAircraftFhWarnings();
-      checkAircraftFhDueWarnings();
+      scheduleAircraftFhDueWarnings();
     };
     const handleAircraftFhNotificationsUpdated = () => {
       syncUnreadBadge();
@@ -478,7 +494,7 @@ const DashboardLayout = () => {
           setUnreadCount((current) => current + 1);
         }
 
-        syncNotifications();
+        scheduleSyncNotifications();
         return;
       }
 
@@ -489,14 +505,14 @@ const DashboardLayout = () => {
         nextEvent === "chat:conversation" ||
         nextEvent === "logs:new"
       ) {
-        setTimeout(syncNotifications, 500);
+        scheduleSyncNotifications();
         if (
           nextEvent === "data-changed" &&
           (!payload?.data?.module ||
             payload.data.module === "parts-monitoring" ||
             payload.data.module === "parts-lifespan-monitoring")
         ) {
-          checkAircraftFhDueWarnings();
+          scheduleAircraftFhDueWarnings();
         }
       }
     });
@@ -512,6 +528,8 @@ const DashboardLayout = () => {
         handleAircraftFhNotificationsUpdated,
       );
       unsubscribeRealtime();
+      scheduleSyncNotifications.cancel();
+      scheduleAircraftFhDueWarnings.cancel();
     };
   }, [user?.id, canReceiveAircraftFhDueAlerts, getAuthHeader, api, nav]);
 
@@ -652,17 +670,25 @@ const DashboardLayout = () => {
             <Outlet />
           </Content>
         </Layout>
-        <PushNotificationsCard
-          open={notificationsOpen}
-          onClose={() => setNotificationsOpen(false)}
-        />
-        <ResultPopup
-          open={resultPopup.open}
-          status={resultPopup.status}
-          title={resultPopup.title}
-          subTitle={resultPopup.subTitle}
-          onClose={() => setResultPopup((prev) => ({ ...prev, open: false }))}
-        />
+        <Suspense fallback={null}>
+          {notificationsOpen && (
+            <PushNotificationsCard
+              open={notificationsOpen}
+              onClose={() => setNotificationsOpen(false)}
+            />
+          )}
+          {resultPopup.open && (
+            <ResultPopup
+              open={resultPopup.open}
+              status={resultPopup.status}
+              title={resultPopup.title}
+              subTitle={resultPopup.subTitle}
+              onClose={() =>
+                setResultPopup((prev) => ({ ...prev, open: false }))
+              }
+            />
+          )}
+        </Suspense>
       </Layout>
     </>
   );

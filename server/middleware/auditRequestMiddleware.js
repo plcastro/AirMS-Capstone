@@ -8,6 +8,8 @@ const SENSITIVE_READ_PATTERNS = [
   /^\/api\/admin-security-alerts\/?$/,
   /^\/api\/admin-security-alerts\/(stats|unacknowledged-count)$/,
   /^\/api\/inspections\/(pre|post)\/[^/]+\/export-(document|pdf)$/,
+  /^\/api\/parts-monitoring\/[^/]+\/export-excel$/,
+  /^\/api\/parts-requisition\/[^/]+\/export-excel$/,
 ];
 
 const routeLabels = [
@@ -247,6 +249,18 @@ const routeLabels = [
     pattern: /^\/api\/inspections\/post\/[^/]+\/export-pdf$/,
     action: "Post-inspection PDF exported",
   },
+  {
+    pattern: /^\/api\/reports\/export-excel$/,
+    action: "Reports and analytics Excel exported",
+  },
+  {
+    pattern: /^\/api\/parts-monitoring\/[^/]+\/export-excel$/,
+    action: "Parts lifespan workbook exported",
+  },
+  {
+    pattern: /^\/api\/parts-requisition\/[^/]+\/export-excel$/,
+    action: "Parts requisition workbook exported",
+  },
   { pattern: /^\/api\/ai-insights\/rules$/, action: "AI manual rules updated" },
   {
     pattern: /^\/api\/ai-insights\/rectification-task$/,
@@ -295,6 +309,12 @@ const describeRoute = (req) => {
 const shouldAuditRequest = (req) => {
   const method = String(req.method || "").toUpperCase();
   const path = stripQuery(req.originalUrl);
+
+  // This endpoint only issues a short-lived, scoped Blob upload token. The
+  // actual message creation remains audited by POST /api/messages.
+  if (method === "POST" && path === "/api/messages/attachments/upload") {
+    return false;
+  }
 
   if (
     !AUDITED_METHODS.has(method) &&

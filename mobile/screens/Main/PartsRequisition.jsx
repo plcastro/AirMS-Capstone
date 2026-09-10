@@ -28,8 +28,10 @@ import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { API_BASE } from "../../utilities/API_BASE";
 import { exportPartsRequisitionExcel } from "../../utilities/documentExport";
+import { exportReportPdf } from "../../utilities/reportExport";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 const formatDate = (dateValue) => {
   const parsedDate = new Date(dateValue);
 
@@ -73,14 +75,28 @@ const getRequisitionTimestamp = (record = {}) => {
 };
 
 const normalizeOverallStatus = (status) => {
-  switch (status) {
-    case "Pending":
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  switch (normalizedStatus) {
+    case "parts requested":
+    case "pending":
       return "Parts Requested";
-    case "Completed":
+    case "availability checked":
+      return "Availability Checked";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+      return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+    case "completed":
       return "Delivered";
-    case "Rejected":
+    case "cancelled":
+    case "canceled":
+    case "rejected":
       return "Cancelled";
-    case "In Progress":
+    case "in progress":
       return "Ordered";
     default:
       return status || "Parts Requested";
@@ -88,9 +104,27 @@ const normalizeOverallStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  switch (status) {
-    case "Ready for Pickup":
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  switch (normalizedStatus) {
+    case "parts requested":
+      return "Parts Requested";
+    case "out of stock":
+      return "Out of Stock";
+    case "in stock":
+      return "In Stock";
+    case "to be ordered":
+      return "To Be Ordered";
+    case "ordered":
+    case "ready for pickup":
       return "Ordered";
+    case "approved":
+      return "Approved";
+    case "delivered":
+      return "Delivered";
+    case "cancelled":
+    case "canceled":
+      return "Cancelled";
     default:
       return status || "Parts Requested";
   }
@@ -348,6 +382,62 @@ const resolveTabForRequest = (request, isManager) => {
   return "Pending";
 };
 
+const canManagerActOnRequest = (request) =>
+  ["Availability Checked", "Ordered"].includes(request?.rawStatus);
+
+const buildPartsRequisitionReportSections = (items = [], selectedTab = "All") => {
+  const statusCounts = items.reduce((counts, item) => {
+    const label = getDisplayStatusLabel(item.rawStatus || item.status || "N/A");
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+
+  return [
+    {
+      title: "Summary",
+      columns: ["Metric", "Value"],
+      rows: [
+        ["Filter", selectedTab],
+        ["Total Requisitions", items.length],
+        [
+          "Total Items",
+          items.reduce((sum, item) => sum + Number(item.totalItems || 0), 0),
+        ],
+        [
+          "Total Quantity",
+          items.reduce((sum, item) => sum + Number(item.totalQuantity || 0), 0),
+        ],
+      ],
+    },
+    {
+      title: "Status Distribution",
+      columns: ["Status", "Count"],
+      rows: Object.entries(statusCounts),
+    },
+    {
+      title: "Requisitions",
+      columns: [
+        "WRS No.",
+        "Aircraft",
+        "Requester",
+        "Date Requested",
+        "Status",
+        "Items",
+        "Total Qty",
+      ],
+      rows: items.map((item) => [
+        item.slipNo || "N/A",
+        item.aircraft || "N/A",
+        item.requestedBy || "N/A",
+        item.dateRequested || "N/A",
+        getDisplayStatusLabel(item.rawStatus || item.status || "N/A"),
+        item.totalItems || 0,
+        item.totalQuantity || 0,
+      ]),
+    },
+  ];
+};
+
 export default function PartsRequisition({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -364,6 +454,7 @@ export default function PartsRequisition({ route, navigation }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const hasLoadedRef = useRef(false);
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
@@ -375,7 +466,7 @@ export default function PartsRequisition({ route, navigation }) {
     onCancel: null,
   });
 
-  const userRole = user?.jobTitle?.toLowerCase();
+  const userRole = resolveUserRole(user);
   const getCurrentUserTitle = useCallback(
     (fallback = "User") => user?.jobTitle || user?.access || fallback,
     [user?.access, user?.jobTitle],
@@ -600,7 +691,7 @@ export default function PartsRequisition({ route, navigation }) {
 
       if (isManager) {
         if (selectedTab === "For Review") {
-          return item.rawStatus === "Availability Checked";
+          return canManagerActOnRequest(item);
         }
         if (selectedTab === "To Be Restocked") {
           return item.rawStatus === "To Be Ordered";
@@ -666,9 +757,7 @@ export default function PartsRequisition({ route, navigation }) {
   const tabCounts = useMemo(
     () => ({
       All: mappedRequisitions.length,
-      "For Review": mappedRequisitions.filter((item) =>
-        ["Availability Checked"].includes(item.rawStatus),
-      ).length,
+      "For Review": mappedRequisitions.filter(canManagerActOnRequest).length,
       Pending: mappedRequisitions.filter(
         (item) =>
           !["Approved", "Delivered", "Cancelled"].includes(item.rawStatus),
@@ -856,6 +945,36 @@ export default function PartsRequisition({ route, navigation }) {
         await handleCancelRequest(item);
       },
     });
+  };
+
+  const handleExportMonitoringReport = async () => {
+    if (!isWarehouse || exportingReport) return;
+
+    if (filteredRequisitions.length === 0) {
+      showToast("No requisition data available for the report.");
+      return;
+    }
+
+    setExportingReport(true);
+    try {
+      const exportDate = new Date();
+      const dateStamp = `${exportDate.getFullYear()}-${String(
+        exportDate.getMonth() + 1,
+      ).padStart(2, "0")}-${String(exportDate.getDate()).padStart(2, "0")}`;
+      await exportReportPdf({
+        title: "Parts Requisition Monitoring Report",
+        fileName: `Parts-Requisition-Monitoring-Report-${dateStamp}.pdf`,
+        sections: buildPartsRequisitionReportSections(
+          filteredRequisitions,
+          selectedTab,
+        ),
+      });
+    } catch (error) {
+      console.error("Parts requisition PDF export failed:", error);
+      showToast(error.message || "Failed to export parts requisition report.");
+    } finally {
+      setExportingReport(false);
+    }
   };
 
   const handleSubmitNewEntry = async ({ aircraft, items }) => {
@@ -1080,7 +1199,7 @@ export default function PartsRequisition({ route, navigation }) {
         warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
-      "Stock quantities saved.",
+      "Remaining items are still to be restocked.",
       { closeDetails: false },
     );
   };
@@ -1089,15 +1208,7 @@ export default function PartsRequisition({ route, navigation }) {
     const hasInsufficientStock = updatedItems.some(
       (item) => Number(item.availableQty) < Number(item.quantity),
     );
-
-    if (hasInsufficientStock) {
-      showAlert({
-        title: "Insufficient Stock",
-        message:
-          "All available quantities must meet the requested quantities before this requisition can be marked as restocked.",
-      });
-      return false;
-    }
+    const nextStatus = hasInsufficientStock ? "To Be Ordered" : "Ordered";
 
     const confirmed = await confirmWithAlert({
       title: "Mark as Restocked",
@@ -1109,13 +1220,15 @@ export default function PartsRequisition({ route, navigation }) {
     return submitRequisitionUpdate(
       request.id,
       {
-        status: "Ordered",
+        status: nextStatus,
         dateOrdered: new Date().toISOString(),
         warehouseBy: getCurrentUserName("Warehouse Staff"),
         warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
         items: updatedItems,
       },
-      "Requisition marked as restocked.",
+      nextStatus === "Ordered"
+        ? "Requisition marked as restocked."
+        : "Remaining items are still to be restocked.",
     );
   };
 
@@ -1151,6 +1264,16 @@ export default function PartsRequisition({ route, navigation }) {
     setShowTabDropdown(false);
   };
 
+  const toggleDateSortDropdown = () => {
+    setShowDateSortDropdown((open) => !open);
+    setShowTabDropdown(false);
+  };
+
+  const toggleTabDropdown = () => {
+    setShowTabDropdown((open) => !open);
+    setShowDateSortDropdown(false);
+  };
+
   const initialEditItems = editingRequest
     ? editingRequest.requestDetails.rawRecord.items.map((item) => ({
         id: item._id,
@@ -1169,7 +1292,7 @@ export default function PartsRequisition({ route, navigation }) {
     detailRequestItems.every((item) => isItemAvailableForApproval(item.status));
   const canOrder =
     isManager &&
-    selectedTab === "For Review" &&
+    selectedRequest?.rawStatus === "Availability Checked" &&
     selectedRequest?.hasWarehouseAssessment &&
     ["Parts Requested", "Availability Checked"].includes(
       selectedRequest?.rawStatus,
@@ -1177,7 +1300,8 @@ export default function PartsRequisition({ route, navigation }) {
     hasMissingItems;
   const canApprove =
     isManager &&
-    selectedTab === "For Review" &&
+    (selectedRequest?.rawStatus === "Ordered" ||
+      selectedRequest?.rawStatus === "Availability Checked") &&
     selectedRequest?.hasWarehouseAssessment &&
     !["Approved", "Delivered", "Cancelled"].includes(
       selectedRequest?.rawStatus,
@@ -1237,59 +1361,119 @@ export default function PartsRequisition({ route, navigation }) {
               </AppText>
             </TouchableOpacity>
           )}
-        </View>
 
-        <View style={styles.filterControlsRow}>
-          <View style={styles.filterControlColumn}>
-          <TouchableOpacity
-            style={styles.unifiedFilterButton}
-            activeOpacity={0.82}
-            onPress={() => setShowDateSortDropdown((open) => !open)}
-          >
-            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-              {dateSortOrder === "oldest"
-                ? "Date: Oldest First"
-                : "Date: Newest First"}
-            </AppText>
-            <MaterialCommunityIcons
-              name={showDateSortDropdown ? "chevron-up" : "chevron-down"}
-              size={22}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
-
-          {showDateSortDropdown && (
-            <View style={styles.unifiedDropdownMenu}>
-              {[
-                ["newest", "Newest First"],
-                ["oldest", "Oldest First"],
-              ].map(([value, label], index) => (
-                <TouchableOpacity
-                  key={value}
-                  style={[
-                    styles.unifiedDropdownItem,
-                    index === 0 ? styles.unifiedDropdownItemBordered : null,
-                  ]}
-                  onPress={() => {
-                    setDateSortOrder(value);
-                    setShowDateSortDropdown(false);
-                  }}
-                >
-                  <AppText style={styles.unifiedDropdownItemText}>
-                    {label}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </View>
+          {isWarehouse && (
+            <TouchableOpacity
+              style={{
+                backgroundColor:
+                  exportingReport || filteredRequisitions.length === 0
+                    ? COLORS.grayMedium
+                    : COLORS.primaryLight,
+                borderRadius: 10,
+                height: 48,
+                paddingHorizontal: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              activeOpacity={
+                exportingReport || filteredRequisitions.length === 0 ? 1 : 0.8
+              }
+              disabled={exportingReport || filteredRequisitions.length === 0}
+              onPress={handleExportMonitoringReport}
+            >
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={20}
+                color={COLORS.white}
+              />
+              <AppText
+                style={{
+                  color: COLORS.white,
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginLeft: 6,
+                }}
+              >
+                {exportingReport ? "Exporting" : "PDF"}
+              </AppText>
+            </TouchableOpacity>
           )}
         </View>
 
-          <View style={styles.filterControlColumn}>
+        <View style={styles.filterControlsRow}>
+          <View
+            style={[
+              styles.filterControlColumn,
+              showDateSortDropdown ? styles.filterControlColumnOpen : null,
+            ]}
+          >
             <TouchableOpacity
               style={styles.unifiedFilterButton}
               activeOpacity={0.82}
-              onPress={() => setShowTabDropdown((open) => !open)}
+              onPress={toggleDateSortDropdown}
             >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+                {dateSortOrder === "oldest"
+                  ? "Date: Oldest First"
+                  : "Date: Newest First"}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showDateSortDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+
+            {showDateSortDropdown && (
+              <View style={styles.unifiedDropdownMenu}>
+                {[
+                  ["newest", "Newest First"],
+                  ["oldest", "Oldest First"],
+                ].map(([value, label], index) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index === 0 ? styles.unifiedDropdownItemBordered : null,
+                    ]}
+                    onPress={() => {
+                      setDateSortOrder(value);
+                      setShowDateSortDropdown(false);
+                    }}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {label}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View
+            style={[
+              styles.filterControlColumn,
+              showTabDropdown ? styles.filterControlColumnOpen : null,
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.unifiedFilterButton}
+              activeOpacity={0.82}
+              onPress={toggleTabDropdown}
+            >
+              <MaterialCommunityIcons
+                name="tune"
+                size={16}
+                color={COLORS.primaryLight}
+                style={{ marginRight: 6 }}
+              />
               <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {selectedTab} ({tabCounts[selectedTab] || 0})
               </AppText>
@@ -1361,6 +1545,7 @@ export default function PartsRequisition({ route, navigation }) {
           initialItems={initialEditItems}
           title={editingRequest ? "Edit Request" : "New Entry"}
           submitLabel={editingRequest ? "Save Changes" : "Submit"}
+          alertConfig={alertConfig}
         />
       )}
 
@@ -1368,7 +1553,7 @@ export default function PartsRequisition({ route, navigation }) {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showManagerActions={isManager && selectedTab === "For Review"}
+        showManagerActions={isManager && canManagerActOnRequest(selectedRequest)}
         showWarehouseActions={isWarehouse}
         canOrder={canOrder}
         canApprove={canApprove}
@@ -1382,10 +1567,13 @@ export default function PartsRequisition({ route, navigation }) {
         onMarkRestocked={handleMarkRestocked}
         onMarkDelivered={handleMarkDelivered}
         onExportExcel={isWarehouse ? exportPartsRequisitionExcel : null}
+        alertConfig={alertConfig}
       />
 
       <AlertComp
-        visible={alertConfig.visible}
+        visible={
+          alertConfig.visible && !showNewEntryModal && !showDetailsModal
+        }
         title={alertConfig.title}
         message={alertConfig.message}
         confirmText={alertConfig.confirmText}
@@ -1400,25 +1588,29 @@ export default function PartsRequisition({ route, navigation }) {
 const styles = StyleSheet.create({
   filterControlsRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
     marginBottom: 20,
     alignItems: "flex-start",
+    zIndex: 20,
   },
   filterControlColumn: {
     flex: 1,
     minWidth: 0,
   },
+  filterControlColumnOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
   unifiedFilterButton: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 48,
+    height: 48,
   },
   unifiedFilterButtonText: {
     flex: 1,
@@ -1428,13 +1620,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
-    borderRadius: 8,
-    marginTop: 6,
+    borderRadius: 10,
     overflow: "hidden",
     zIndex: 1000,
+    elevation: 5,
   },
   unifiedDropdownItem: {
     paddingHorizontal: 12,

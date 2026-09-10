@@ -1,13 +1,21 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App as AntdApp } from "antd";
 import "./index.css";
 import App from "./App";
 
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+
+  if (sessionStorage.getItem("airms-preload-reloaded") === "true") {
+    return;
+  }
+
+  sessionStorage.setItem("airms-preload-reloaded", "true");
+  window.location.reload();
+});
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <AntdApp>
-      <App />
-    </AntdApp>
+    <App />
   </StrictMode>,
 );

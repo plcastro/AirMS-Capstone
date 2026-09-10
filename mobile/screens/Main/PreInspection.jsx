@@ -15,16 +15,44 @@ import { styles } from "../../stylesheets/styles";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  createEmptyB412PreInspectionData,
+  isB412Aircraft,
+} from "../../components/PreInspection/b412PreInspectionData";
 
-const getDisplayStatus = (status) =>
-  status === "completed"
+const getDisplayStatus = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+
+  return normalizedStatus === "completed"
     ? "completed"
-    : status === "released"
+    : normalizedStatus === "released"
       ? "released"
       : "pending";
+};
 
 const isCompletedInspection = (inspection) =>
   String(inspection?.status || "").toLowerCase() === "completed";
+
+const normalizePreInspectionPayload = (inspection = {}) => {
+  if (isB412Aircraft(inspection.aircraftType)) {
+    return {
+      ...inspection,
+      b412Data: createEmptyB412PreInspectionData(inspection.b412Data),
+    };
+  }
+
+  const { b412Data, ...legacyInspection } = inspection;
+  return legacyInspection;
+};
+
+const readJsonResponse = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
 
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
@@ -41,7 +69,7 @@ export default function PreInspection({ route }) {
   const [inspections, setInspections] = useState([]);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportPreInspections = canExportModule(userRole, "preInspection");
 
@@ -113,10 +141,15 @@ export default function PreInspection({ route }) {
   }, []);
 
   const handleSaveNewEntry = (newEntry) => {
-    return newEntry;
+    const createdBy =
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      newEntry.createdBy;
+
+    return normalizePreInspectionPayload({ ...newEntry, createdBy });
   };
 
-  const handleSaveEdit = (updatedInspection) => updatedInspection;
+  const handleSaveEdit = (updatedInspection) =>
+    normalizePreInspectionPayload(updatedInspection);
 
   const handleSearchChange = (text) => {
     setSearchQuery(text);
@@ -222,9 +255,10 @@ export default function PreInspection({ route }) {
                         : COLORS.grayDark,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
+                  ? selectedAircraft
                   : "Choose Aircraft"}
               </AppText>
               <MaterialCommunityIcons
@@ -249,9 +283,7 @@ export default function PreInspection({ route }) {
                       onPress={() => selectAircraft(aircraft)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
+                        {aircraft === "all" ? "All Aircraft" : aircraft}
                       </AppText>
                     </TouchableOpacity>
                   ))}
@@ -268,7 +300,7 @@ export default function PreInspection({ route }) {
                 setShowAircraftDropdown(false);
               }}
             >
-              <AppText style={styles.unifiedFilterButtonText}>
+              <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
                 {statusOptions.find((option) => option.value === selectedStatus)
                   ?.label || "Status"}
               </AppText>
@@ -381,17 +413,18 @@ export default function PreInspection({ route }) {
               },
             );
 
+            const data = await readJsonResponse(response);
             if (!response.ok) {
-              throw new Error("Failed to create pre-flight inspection");
+              throw new Error(
+                data?.message || "Failed to create pre-flight inspection",
+              );
             }
 
-            const data = await response.json();
             setInspections((prev) => [data.data, ...prev]);
             setShowNewEntryModal(false);
             showToast("Pre-inspection created successfully");
           } catch (error) {
             console.error("Error creating pre-flight inspection:", error);
-            showToast("Failed to create pre-flight inspection");
             throw error;
           }
         }}
@@ -431,11 +464,13 @@ export default function PreInspection({ route }) {
               },
             );
 
+            const data = await readJsonResponse(response);
             if (!response.ok) {
-              throw new Error("Failed to update pre-flight inspection");
+              throw new Error(
+                data?.message || "Failed to update pre-flight inspection",
+              );
             }
 
-            const data = await response.json();
             setInspections((prev) =>
               prev.map((inspection) =>
                 inspection._id === data.data._id ? data.data : inspection,
@@ -446,7 +481,6 @@ export default function PreInspection({ route }) {
             showToast("Pre-inspection updated successfully");
           } catch (error) {
             console.error("Error updating pre-flight inspection:", error);
-            showToast("Failed to update pre-flight inspection");
             throw error;
           }
         }}

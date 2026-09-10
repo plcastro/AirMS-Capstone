@@ -101,8 +101,13 @@ export default function UpdateSecurity() {
     });
   }, [newPin, confirmPin]);
 
-  const isValidPinReset =
-    /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinReset = /^\d{6}$/.test(newPin) && newPin === confirmPin;
+  const isValidPinUpdate = /^\d{6}$/.test(currentPin) && isValidPinReset;
+  const isValidOtp = /^\d{6}$/.test(otp);
+  const normalizeOtpInput = (value) =>
+    (Array.isArray(value) ? value.join("") : String(value || ""))
+      .replace(/\D/g, "")
+      .slice(0, 6);
 
   const resetAll = () => {
     setCurrentPassword("");
@@ -185,6 +190,17 @@ export default function UpdateSecurity() {
   };
 
   const savePin = async () => {
+    if (!isValidPinUpdate) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Invalid PIN",
+        subTitle:
+          "Current PIN must be 6 digits, and New PIN and Confirm PIN must match.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/update-pin/${userId}`, {
         method: "PUT",
@@ -262,6 +278,16 @@ export default function UpdateSecurity() {
     }
   };
   const verifyOtp = async () => {
+    if (!isValidOtp) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Incomplete OTP",
+        subTitle: "Please enter the complete 6-digit OTP.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/verify-pin-otp`, {
         method: "POST",
@@ -307,6 +333,16 @@ export default function UpdateSecurity() {
     }
   };
   const resetForgottenPin = async () => {
+    if (!isValidPinReset) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Invalid PIN",
+        subTitle: "New PIN and Confirm PIN must match and be exactly 6 digits.",
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/user/reset-pin`, {
         method: "POST",
@@ -473,7 +509,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={currentPin}
-                onChange={(val) => setCurrentPin(val)}
+                onInput={(val) => setCurrentPin(normalizeOtpInput(val))}
+                onChange={(val) => setCurrentPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -500,7 +537,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
-                onChange={(val) => setNewPin(val)}
+                onInput={(val) => setNewPin(normalizeOtpInput(val))}
+                onChange={(val) => setNewPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -512,7 +550,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
-                onChange={(val) => setConfirmPin(val)}
+                onInput={(val) => setConfirmPin(normalizeOtpInput(val))}
+                onChange={(val) => setConfirmPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -549,7 +588,7 @@ export default function UpdateSecurity() {
                 <Button
                   type="primary"
                   onClick={savePin}
-                  disabled={!isValidPinReset}
+                  disabled={!isValidPinUpdate}
                 >
                   Save PIN
                 </Button>
@@ -595,14 +634,20 @@ export default function UpdateSecurity() {
 
         {forgotPinMode && otpSent && !otpVerified && (
           <>
-            <Form.Item label="OTP" required>
+            <Form.Item
+              label="OTP"
+              required
+              extra="Please enter the One-Time Password sent to your email."
+            >
               <Input.OTP
                 key={`otp-${otpInputResetKey}`}
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={otp}
-                onChange={(val) => setOtp(val)}
+                onInput={(val) => setOtp(normalizeOtpInput(val))}
+                onChange={(val) => setOtp(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
+                style={{ width: "100%" }}
               />
             </Form.Item>
 
@@ -617,7 +662,11 @@ export default function UpdateSecurity() {
                 </Button>
               </Col>
               <Col>
-                <Button type="primary" onClick={verifyOtp} disabled={!otp}>
+                <Button
+                  type="primary"
+                  onClick={verifyOtp}
+                  disabled={!isValidOtp}
+                >
                   Verify OTP
                 </Button>
               </Col>
@@ -633,7 +682,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={newPin}
-                onChange={(val) => setNewPin(val)}
+                onInput={(val) => setNewPin(normalizeOtpInput(val))}
+                onChange={(val) => setNewPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />
@@ -645,7 +695,8 @@ export default function UpdateSecurity() {
                 length={6}
                 formatter={(str) => str.replace(/\D/g, "")}
                 value={confirmPin}
-                onChange={(val) => setConfirmPin(val)}
+                onInput={(val) => setConfirmPin(normalizeOtpInput(val))}
+                onChange={(val) => setConfirmPin(normalizeOtpInput(val))}
                 type={showPinValues ? "text" : "password"}
                 allowClear
               />

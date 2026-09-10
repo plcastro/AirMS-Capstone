@@ -7,6 +7,9 @@ const Docxtemplater = require("docxtemplater");
 const sharp = require("sharp");
 const PDFDocument = require("pdfkit");
 const UserModel = require("../models/userModel");
+const POST_INSPECTION_PDF_GROUPS = require("./postInspectionPdfCatalog");
+const B412_PRE_INSPECTION_CHECKLIST = require("../../shared/b412PreInspectionChecklist.json");
+const B412_POST_INSPECTION_CHECKLIST = require("../../shared/b412PostInspectionChecklist.json");
 
 const TEMPLATES_DIR = path.join(__dirname, "../templates");
 const EXPORT_TMP_DIR = path.join(__dirname, "../tmp/inspection-exports");
@@ -1322,6 +1325,418 @@ const drawSignature = (doc, signatureBuffer, x, y, width = 78, height = 28) => {
   }
 };
 
+const normalizeAircraftType = (value = "") =>
+  String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const isB412PreInspection = (inspection = {}) => {
+  const aircraftType = normalizeAircraftType(inspection.aircraftType);
+  return aircraftType.includes("B412EP") || aircraftType.includes("BELL412EP");
+};
+
+const getSignatureInitials = (signature = {}) => {
+  const explicitInitials = String(signature.initials || "").trim();
+  if (explicitInitials) return explicitInitials.toUpperCase();
+
+  return String(signature.name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+};
+
+const getB412PreInspectionChecks = (inspection = {}) =>
+  inspection.b412Data?.checks && typeof inspection.b412Data.checks === "object"
+    ? inspection.b412Data.checks
+    : {};
+
+const getB412PreInspectionPdfDirect = async (inspection = {}) => {
+  inspection = await withResolvedSignatureLicenses(inspection);
+  const releasedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.releasedBy),
+  );
+  const acceptedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.acceptedBy),
+  );
+  const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
+  const checks = getB412PreInspectionChecks(inspection);
+  const releasedInitials = getSignatureInitials(inspection.releasedBy);
+  const sections = Array.isArray(B412_PRE_INSPECTION_CHECKLIST.sections)
+    ? B412_PRE_INSPECTION_CHECKLIST.sections
+    : [];
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 0 });
+    const chunks = [];
+    const openPdfImage = (buffer) => {
+      if (!buffer) return null;
+      try {
+        return doc.openImage(buffer);
+      } catch {
+        return null;
+      }
+    };
+    const ngcpLogoImage = openPdfImage(ngcpLogo);
+    const releasedSignatureImage = openPdfImage(releasedSignature);
+    const acceptedSignatureImage = openPdfImage(acceptedSignature);
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const left = 42;
+    const right = 570;
+    const itemX = left;
+    const itemWidth = 176;
+    const dashX = 223;
+    const descriptionX = 236;
+    const descriptionWidth = 205;
+    const statusX = 452;
+    const statusWidth = 48;
+    const initialX = 518;
+    const initialWidth = 52;
+
+    const drawHeader = ({ showMetadata = true } = {}) => {
+      drawNgcpLogo(doc, ngcpLogoImage, left, 28, 96, 42);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(17)
+        .fillColor("#111827")
+        .text(
+          B412_PRE_INSPECTION_CHECKLIST.title ||
+            "Bell 412 Pre Flight Inspection",
+          205,
+          45,
+          { width: 365, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 232, 68, 535, 68);
+
+      if (!showMetadata) return 132;
+
+      doc.font("Helvetica-Bold").fontSize(10).fillColor("#111827");
+      doc.text("RP-C", left, 102, { lineBreak: false });
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .text(inspection.rpc || "", 82, 102, {
+          width: 112,
+          align: "center",
+          lineBreak: false,
+        });
+      drawPdfLine(doc, 82, 115, 194, 115);
+
+      doc.font("Helvetica-Bold").fontSize(10).text("Date", 460, 102, {
+        lineBreak: false,
+      });
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .text(
+          formatInspectionDate(
+            inspection.date ||
+              inspection.inspectionDate ||
+              inspection.createdAt,
+          ),
+          500,
+          102,
+          { width: 70, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 500, 115, right, 115);
+
+      doc.font("Helvetica").fontSize(7.5).text("STATUS", statusX, 133, {
+        width: statusWidth,
+        align: "center",
+        lineBreak: false,
+      });
+      doc.text("INITIAL", initialX, 133, {
+        width: initialWidth,
+        align: "center",
+        lineBreak: false,
+      });
+      drawPdfLine(doc, statusX, 147, statusX + statusWidth, 147);
+      drawPdfLine(doc, initialX, 147, initialX + initialWidth, 147);
+      return 164;
+    };
+
+    const drawSectionHeading = (title, y, isContinuation = false) => {
+      const displayTitle = `${title}${isContinuation ? " (CONTINUED)" : ""}`;
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .fillColor("#111827")
+        .text(displayTitle, left, y, { lineBreak: false });
+      drawPdfLine(
+        doc,
+        left,
+        y + 12,
+        Math.min(left + doc.widthOfString(displayTitle), descriptionX + 10),
+        y + 12,
+      );
+      return y + 18;
+    };
+
+    const drawCaution = (text, y) => {
+      const cautionText = String(text || "").trim();
+      if (!cautionText) return y;
+
+      doc.font("Helvetica-Bold").fontSize(6.8);
+      const textHeight = doc.heightOfString(cautionText, {
+        width: right - left - 16,
+        align: "center",
+        lineGap: 0,
+      });
+      const height = Math.max(20, textHeight + 8);
+      doc
+        .roundedRect(left, y, right - left, height, 4)
+        .lineWidth(0.8)
+        .strokeColor("#d9480f")
+        .stroke();
+      doc
+        .fillColor("#b9380a")
+        .text(cautionText, left + 8, y + (height - textHeight) / 2, {
+          width: right - left - 16,
+          align: "center",
+          lineGap: 0,
+        });
+      doc.strokeColor("#111827").fillColor("#111827").lineWidth(0.5);
+      return y + height + 5;
+    };
+
+    const drawChecklistItem = (item, number, y) => {
+      const title = `${number}. ${item.title || ""}`;
+      const description = String(item.description || "");
+      doc.font("Helvetica").fontSize(7.2);
+      const measurableTitle = title.replace(/\u2082/g, "2");
+      const titleHeight = doc.heightOfString(measurableTitle, {
+        width: itemWidth,
+        lineGap: 0,
+      });
+      const descriptionHeight = doc.heightOfString(description, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      const rowHeight = Math.max(10.5, titleHeight, descriptionHeight) + 2;
+      const lineY = y + rowHeight - 2;
+
+      doc.fillColor("#111827");
+      const subscriptIndex = title.indexOf("\u2082");
+      if (subscriptIndex >= 0) {
+        const titlePrefix = title.slice(0, subscriptIndex);
+        const titleSuffix = title.slice(subscriptIndex + 1);
+        const prefixWidth = doc.widthOfString(titlePrefix);
+        doc.text(titlePrefix, itemX, y, { lineBreak: false });
+        doc
+          .fontSize(5)
+          .text("2", itemX + prefixWidth, y + 3, { lineBreak: false });
+        doc.fontSize(7.2).text(titleSuffix, itemX + prefixWidth + 3.1, y, {
+          lineBreak: false,
+        });
+      } else {
+        doc.text(title, itemX, y, {
+          width: itemWidth,
+          lineGap: 0,
+        });
+      }
+      doc.text("-", dashX, y, { lineBreak: false });
+      doc.text(description, descriptionX, y, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      drawPdfLine(doc, statusX, lineY, statusX + statusWidth, lineY);
+      drawPdfLine(doc, initialX, lineY, initialX + initialWidth, lineY);
+
+      if (checks[item.key] === true) {
+        if (checkImage) {
+          doc.image(checkImage, statusX + 18, lineY - 12, {
+            fit: [12, 12],
+          });
+        } else {
+          doc
+            .save()
+            .strokeColor("#166534")
+            .lineWidth(1.35)
+            .moveTo(statusX + 17, lineY - 6)
+            .lineTo(statusX + 21, lineY - 2)
+            .lineTo(statusX + 29, lineY - 11)
+            .stroke()
+            .restore();
+        }
+        if (releasedSignatureImage) {
+          drawSignature(
+            doc,
+            releasedSignatureImage,
+            initialX + 3,
+            lineY - 14,
+            initialWidth - 6,
+            14,
+          );
+        } else if (releasedInitials) {
+          doc
+            .font("Helvetica-Oblique")
+            .fontSize(6.8)
+            .fillColor("#166534")
+            .text(releasedInitials, initialX, lineY - 9, {
+              width: initialWidth,
+              align: "center",
+              lineBreak: false,
+            });
+        }
+      }
+
+      doc.fillColor("#111827").strokeColor("#111827");
+      return y + rowHeight + 1;
+    };
+
+    const drawChecklistPage = (pageNumber) => {
+      let y = drawHeader();
+
+      sections.forEach((section) => {
+        const allItems = Array.isArray(section.items) ? section.items : [];
+        const pageItems = allItems.filter(
+          (item) => Number(item.page) === pageNumber,
+        );
+        if (!pageItems.length) return;
+
+        const firstItemIndex = allItems.indexOf(pageItems[0]);
+        y = drawSectionHeading(section.title || "", y, firstItemIndex > 0);
+        pageItems.forEach((item) => {
+          if (item.cautionBefore) y = drawCaution(item.cautionBefore, y);
+          const itemNumber = allItems.indexOf(item) + 1;
+          y = drawChecklistItem(item, itemNumber, y);
+          if (item.cautionAfter) y = drawCaution(item.cautionAfter, y + 1);
+        });
+        y += 5;
+      });
+    };
+
+    const drawFooterPage = () => {
+      drawHeader({ showMetadata: false });
+
+      const fobY = 158;
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .fillColor("#111827")
+        .text("F.O.B.", left, fobY, { lineBreak: false });
+      doc
+        .font("Helvetica")
+        .fontSize(8.5)
+        .text(normalizeFob(inspection.fob), 84, fobY, {
+          width: 96,
+          align: "center",
+          lineBreak: false,
+        });
+      drawPdfLine(doc, 74, fobY + 14, 212, fobY + 14);
+
+      const signY = 210;
+      doc.font("Helvetica").fontSize(9).text("Released by:", left, signY);
+      doc.text("Accepted by:", 362, signY);
+      drawSignature(doc, releasedSignatureImage, 72, signY + 15, 112, 38);
+      drawSignature(doc, acceptedSignatureImage, 392, signY + 15, 112, 38);
+
+      doc
+        .font("Helvetica")
+        .fontSize(7.5)
+        .text(inspection.releasedBy?.name || "", left, signY + 57, {
+          width: 208,
+          align: "center",
+          lineBreak: false,
+        });
+      doc.text(inspection.acceptedBy?.name || "", 362, signY + 57, {
+        width: 208,
+        align: "center",
+        lineBreak: false,
+      });
+      drawPdfLine(doc, left, signY + 72, 250, signY + 72);
+      drawPdfLine(doc, 362, signY + 72, right, signY + 72);
+
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(9.5)
+        .text(
+          getSignatureTitle(inspection.releasedBy, "Mechanic"),
+          left,
+          signY + 78,
+          {
+            width: 208,
+            align: "center",
+            lineBreak: false,
+          },
+        );
+      doc.text(
+        getSignatureTitle(inspection.acceptedBy, "Pilot"),
+        362,
+        signY + 78,
+        {
+          width: 208,
+          align: "center",
+          lineBreak: false,
+        },
+      );
+
+      const licenseY = signY + 116;
+      doc
+        .font("Helvetica")
+        .fontSize(7.5)
+        .text(
+          inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
+          left,
+          licenseY,
+          { width: 208, align: "center", lineBreak: false },
+        );
+      doc.text(
+        inspection.acceptedBy?.licenseNo || inspection.acceptedBy?.id || "",
+        362,
+        licenseY,
+        { width: 208, align: "center", lineBreak: false },
+      );
+      drawPdfLine(doc, left, licenseY + 15, 250, licenseY + 15);
+      drawPdfLine(doc, 362, licenseY + 15, right, licenseY + 15);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(9.5)
+        .text("A&P License No.", left, licenseY + 21, {
+          width: 208,
+          align: "center",
+          lineBreak: false,
+        });
+      doc.text("CHPL No.", 362, licenseY + 21, {
+        width: 208,
+        align: "center",
+        lineBreak: false,
+      });
+
+      doc
+        .font("Helvetica")
+        .fontSize(6.5)
+        .fillColor("#4b5563")
+        .text(
+          B412_PRE_INSPECTION_CHECKLIST.footerNote || "",
+          left,
+          licenseY + 58,
+          {
+            width: right - left,
+            align: "center",
+            lineBreak: false,
+          },
+        );
+    };
+
+    drawChecklistPage(1);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    drawChecklistPage(2);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    drawChecklistPage(3);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    drawFooterPage();
+    doc.end();
+  });
+};
+
 const getPreInspectionPdfDirect = async (inspection = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
@@ -1516,16 +1931,9 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
 };
 
 const getPreInspectionPdf = (inspection) =>
-  getPreInspectionPdfDirect(inspection);
-
-const POST_INSPECTION_PDF_SECTIONS = [
-  ["station1_", "STATION 1"],
-  ["station2_", "STATION 2"],
-  ["engine_", "ENGINE AND ENGINE BAY"],
-  ["station3_", "STATION 3"],
-  ["mainRotor_", "MAIN ROTOR HEAD"],
-  ["cabin_", "CABIN INTERIOR"],
-];
+  isB412PreInspection(inspection)
+    ? getB412PreInspectionPdfDirect(inspection)
+    : getPreInspectionPdfDirect(inspection);
 
 const getPostInspectionPdfDirect = async (inspection = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
@@ -1538,38 +1946,51 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 36 });
     const chunks = [];
-    const left = 42;
-    const right = doc.page.width - 42;
-    const statusX = right - 126;
-    const initialX = right - 58;
-    const itemWidth = statusX - left - 12;
+    const itemX = 42;
+    const contentRight = doc.page.width - 42;
+    const statusX = contentRight - 126;
+    const initialX = contentRight - 58;
+    const descriptionX = 245;
+    const itemWidth = descriptionX - itemX - 28;
+    const descriptionWidth = statusX - descriptionX - 4;
+    let currentGroupTitle = "";
+
+    const openImage = (buffer) => {
+      if (!buffer) return null;
+      try {
+        return doc.openImage(buffer);
+      } catch {
+        return null;
+      }
+    };
+    const releasedSignatureImage = openImage(releasedSignature);
+    const checkImageAsset = openImage(checkImage);
+    const ngcpLogoImage = openImage(ngcpLogo);
 
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
     const drawHeader = () => {
-      drawNgcpLogo(doc, ngcpLogo, left, 32, 96, 42);
+      drawNgcpLogo(doc, ngcpLogoImage, 42, 34, 96, 42);
       doc
         .font("Helvetica-Bold")
-        .fontSize(17)
-        .text("AS 350 B3e POST-FLIGHT INSPECTION", 182, 51, {
-          width: 388,
-          align: "center",
+        .fontSize(18)
+        .text("AS 350 B3e 360\u00B0 POST-FLIGHT INSPECTION", 182, 54, {
           lineBreak: false,
         });
-      drawPdfLine(doc, 182, 74, right, 74);
+      drawPdfLine(doc, 182, 76, 525, 76);
 
-      doc.fontSize(11).text("RP-C", left, 100);
+      doc.fontSize(12).text("RP-C", itemX, 118);
       doc
         .font("Helvetica")
         .fontSize(9)
-        .text(inspection.rpc || "", 82, 101, {
+        .text(inspection.rpc || "", 82, 119, {
           width: 104,
           lineBreak: false,
         });
-      drawPdfLine(doc, 82, 114, 186, 114);
-      doc.font("Helvetica-Bold").fontSize(11).text("Date", 470, 100);
+      drawPdfLine(doc, 82, 132, 186, 132);
+      doc.font("Helvetica-Bold").fontSize(12).text("Date", 470, 118);
       doc
         .font("Helvetica")
         .fontSize(9)
@@ -1580,85 +2001,128 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
               inspection.createdAt,
           ),
           505,
-          101,
+          119,
           { width: 66, align: "center", lineBreak: false },
         );
-      drawPdfLine(doc, 505, 114, 571, 114);
+      drawPdfLine(doc, 505, 132, 571, 132);
 
-      doc.font("Helvetica-Bold").fontSize(8).text("INSPECTION ITEM", left, 130);
-      doc.text("STATUS", statusX, 130, { width: 48, align: "center" });
-      doc.text("INITIAL", initialX, 130, { width: 52, align: "center" });
-      drawPdfLine(doc, left, 143, right, 143);
-      doc.y = 149;
+      doc.font("Helvetica").fontSize(9).text("Status", statusX, 150);
+      drawPdfLine(doc, statusX, 164, statusX + 40, 164);
+      doc.text("Initial", initialX, 150);
+      drawPdfLine(doc, initialX, 164, initialX + 38, 164);
+      doc.y = 150;
     };
 
-    const ensureSpace = (height) => {
-      if (doc.y + height <= doc.page.height - 52) return;
+    const drawGroupHeading = (title) => {
+      doc.font("Helvetica").fontSize(9).moveDown(1.15);
+      const y = doc.y;
+      const heading = title.toUpperCase();
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(12)
+        .text(heading, itemX, y, { lineBreak: false });
+      drawPdfLine(
+        doc,
+        itemX,
+        y + 14,
+        itemX + doc.widthOfString(heading),
+        y + 14,
+      );
+      doc.y = y + 19;
+    };
+
+    const ensureSpace = (height, repeatGroup = false) => {
+      if (doc.y + height <= doc.page.height - 52) return false;
       doc.addPage();
       drawHeader();
+      if (repeatGroup && currentGroupTitle) {
+        drawGroupHeading(currentGroupTitle);
+      }
+      return true;
+    };
+
+    const getRowHeight = (title, description, number) => {
+      doc.font("Helvetica").fontSize(8.7);
+      const titleHeight = doc.heightOfString(`${number}. ${title}`, {
+        width: itemWidth,
+        lineGap: 0,
+      });
+      const descriptionHeight = doc.heightOfString(description, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      return (
+        Math.max(11, Math.ceil(titleHeight), Math.ceil(descriptionHeight)) + 1
+      );
+    };
+
+    const drawChecklistItem = (key, title, description, number) => {
+      const rowHeight = getRowHeight(title, description, number);
+      ensureSpace(rowHeight, true);
+      const y = doc.y;
+      const lineY = y + rowHeight - 1;
+
+      doc.font("Helvetica").fontSize(8.7).fillColor("#000");
+      doc.text(`${number}. ${title}`, itemX, y, {
+        width: itemWidth,
+        height: rowHeight,
+        lineGap: 0,
+      });
+      doc.text("-", descriptionX - 22, y, { lineBreak: false });
+      doc.text(description, descriptionX, y, {
+        width: descriptionWidth,
+        height: rowHeight,
+        lineGap: 0,
+      });
+      drawPdfLine(doc, statusX, lineY, statusX + 48, lineY);
+      drawPdfLine(doc, initialX, lineY, initialX + 52, lineY);
+
+      if (inspection[key] === true) {
+        if (checkImageAsset) {
+          doc.image(checkImageAsset, statusX + 18, lineY - 12, {
+            fit: [12, 12],
+          });
+        }
+        drawSignature(
+          doc,
+          releasedSignatureImage,
+          initialX + 2,
+          lineY - 18,
+          48,
+          18,
+        );
+      }
+
+      doc.y = y + rowHeight;
+    };
+
+    const drawGroup = (group) => {
+      currentGroupTitle = group.title;
+      const firstItem = group.items[0];
+      const firstRowHeight = firstItem
+        ? getRowHeight(firstItem[1], firstItem[2], 1)
+        : 0;
+      ensureSpace(32 + firstRowHeight);
+      drawGroupHeading(group.title);
+      group.items.forEach(([key, title, description], index) =>
+        drawChecklistItem(key, title, description, index + 1),
+      );
     };
 
     drawHeader();
+    POST_INSPECTION_PDF_GROUPS.forEach(drawGroup);
 
-    POST_INSPECTION_PDF_SECTIONS.forEach(([prefix, title]) => {
-      const items = Object.entries(inspection).filter(
-        ([key, value]) => key.startsWith(prefix) && typeof value === "boolean",
-      );
-      if (!items.length) return;
-
-      ensureSpace(30);
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(10)
-        .text(title, left, doc.y + 4);
-      doc.y += 19;
-
-      items.forEach(([key, checked], index) => {
-        const label = formatFieldLabel(key.slice(prefix.length));
-        doc.font("Helvetica").fontSize(8);
-        const textHeight = Math.max(
-          11,
-          doc.heightOfString(`${index + 1}. ${label}`, {
-            width: itemWidth,
-          }),
-        );
-        const rowHeight = textHeight + 5;
-        ensureSpace(rowHeight);
-        const y = doc.y;
-
-        doc.text(`${index + 1}. ${label}`, left, y, { width: itemWidth });
-        drawPdfLine(
-          doc,
-          statusX,
-          y + rowHeight - 3,
-          statusX + 48,
-          y + rowHeight - 3,
-        );
-        drawPdfLine(
-          doc,
-          initialX,
-          y + rowHeight - 3,
-          initialX + 52,
-          y + rowHeight - 3,
-        );
-        if (checked && checkImage) {
-          doc.image(checkImage, statusX + 18, y - 1, { fit: [12, 12] });
-          drawSignature(doc, releasedSignature, initialX + 2, y - 5, 48, 16);
-        }
-        doc.y = y + rowHeight;
-      });
-    });
-
-    ensureSpace(145);
+    currentGroupTitle = "";
+    ensureSpace(158);
     const signY = doc.y + 24;
-    doc.font("Helvetica").fontSize(10).text("Released by:", left, signY);
-    drawSignature(doc, releasedSignature, 72, signY + 12, 105, 38);
+    doc.font("Helvetica").fontSize(10).text("Released by:", itemX, signY);
+    drawSignature(doc, releasedSignatureImage, 72, signY + 12, 105, 38);
     doc.fontSize(9).text(inspection.releasedBy?.name || "", 62, signY + 52, {
       width: 170,
       align: "center",
       lineBreak: false,
     });
-    drawPdfLine(doc, left, signY + 68, 250, signY + 68);
+    drawPdfLine(doc, itemX, signY + 68, 250, signY + 68);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
@@ -1677,7 +2141,7 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
         signY + 101,
         { width: 170, align: "center", lineBreak: false },
       );
-    drawPdfLine(doc, left, signY + 115, 250, signY + 115);
+    drawPdfLine(doc, itemX, signY + 115, 250, signY + 115);
     doc
       .font("Helvetica-Bold")
       .fontSize(11)
@@ -1687,8 +2151,373 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
   });
 };
 
+const isB412PostInspection = (inspection = {}) =>
+  isB412PreInspection(inspection);
+
+const getB412PostInspectionChecks = (inspection = {}) =>
+  inspection.b412Data?.checks && typeof inspection.b412Data.checks === "object"
+    ? inspection.b412Data.checks
+    : {};
+
+const getB412PostInspectionPdfDirect = async (inspection = {}) => {
+  inspection = await withResolvedSignatureLicenses(inspection);
+  const releasedSignature = await normalizePngForPdf(
+    signatureImageBuffer(inspection.releasedBy),
+  );
+  const checkImage = await normalizePngForPdf(CHECK_IMAGE_BUFFER);
+  const ngcpLogo = await getNgcpLogoBuffer();
+  const checks = getB412PostInspectionChecks(inspection);
+  const releasedInitials = getSignatureInitials(inspection.releasedBy);
+  const sections = Array.isArray(B412_POST_INSPECTION_CHECKLIST.sections)
+    ? B412_POST_INSPECTION_CHECKLIST.sections
+    : [];
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 0 });
+    const chunks = [];
+    const openPdfImage = (buffer) => {
+      if (!buffer) return null;
+      try {
+        return doc.openImage(buffer);
+      } catch {
+        return null;
+      }
+    };
+    const ngcpLogoImage = openPdfImage(ngcpLogo);
+    const releasedSignatureImage = openPdfImage(releasedSignature);
+
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const left = 42;
+    const right = 570;
+    const itemX = left;
+    const itemWidth = 176;
+    const dashX = 223;
+    const descriptionX = 236;
+    const descriptionWidth = 205;
+    const statusX = 452;
+    const statusWidth = 48;
+    const initialX = 518;
+    const initialWidth = 52;
+
+    const drawFirstPageHeader = () => {
+      drawNgcpLogo(doc, ngcpLogoImage, left, 28, 96, 42);
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(11.5)
+        .fillColor("#111827")
+        .text(
+          B412_POST_INSPECTION_CHECKLIST.title ||
+            "FORM BELL412 POST-FLIGHT INSPECTION FOR BELL412EP",
+          164,
+          47,
+          { width: 406, align: "center", lineBreak: false },
+        );
+
+      doc.font("Helvetica-Bold").fontSize(10).fillColor("#111827");
+      doc.text("DATE:", left, 94, { lineBreak: false });
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text(
+          formatInspectionDate(
+            inspection.date ||
+              inspection.inspectionDate ||
+              inspection.createdAt,
+          ),
+          88,
+          94,
+          { width: 96, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 88, 107, 184, 107);
+
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text(B412_POST_INSPECTION_CHECKLIST.scopeTitle || "EXTERIOR :", left, 122, {
+          lineBreak: false,
+        });
+
+      doc.font("Helvetica").fontSize(7.5).text("STATUS", statusX, 133, {
+        width: statusWidth,
+        align: "center",
+        lineBreak: false,
+      });
+      doc.text("INITIAL", initialX, 133, {
+        width: initialWidth,
+        align: "center",
+        lineBreak: false,
+      });
+      drawPdfLine(doc, statusX, 147, statusX + statusWidth, 147);
+      drawPdfLine(doc, initialX, 147, initialX + initialWidth, 147);
+      return 160;
+    };
+
+    const drawSectionHeading = (title, sectionNumber, y) => {
+      const displayTitle = `${sectionNumber}. ${title}`;
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(9.5)
+        .fillColor("#111827")
+        .text(displayTitle, left, y, { lineBreak: false });
+      return y + 17;
+    };
+
+    const drawCaution = (text, y, variant) => {
+      const cautionText = String(text || "").trim();
+      if (!cautionText) return y;
+
+      if (variant === "after") {
+        const body = cautionText.replace(/^CAUTION:\s*/i, "").toUpperCase();
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(8.5)
+          .fillColor("#111827")
+          .text("CAUTION", left, y, {
+            width: right - left,
+            align: "center",
+            underline: true,
+            lineBreak: false,
+          });
+        doc.font("Helvetica-Oblique").fontSize(8).text(body, left + 74, y + 14, {
+          width: right - left - 148,
+          align: "center",
+          lineGap: 1,
+        });
+        const bodyHeight = doc.heightOfString(body, {
+          width: right - left - 148,
+          align: "center",
+          lineGap: 1,
+        });
+        return y + 18 + bodyHeight;
+      }
+
+      doc
+        .font("Helvetica")
+        .fontSize(8.5)
+        .fillColor("#111827")
+        .text(cautionText, left, y, {
+          width: right - left,
+          lineBreak: false,
+        });
+      return y + 16;
+    };
+
+    const drawChecklistItem = (item, y) => {
+      const title = String(item.title || "");
+      const description = String(item.description || "");
+      doc.font("Helvetica").fontSize(8.2);
+      const measurableTitle = title.replace(/\u2082/g, "2");
+      const titleHeight = doc.heightOfString(measurableTitle, {
+        width: itemWidth,
+        lineGap: 0,
+      });
+      const descriptionHeight = doc.heightOfString(description, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      const rowHeight = Math.max(12, titleHeight, descriptionHeight) + 3;
+      const lineY = y + rowHeight - 2;
+
+      doc.fillColor("#111827");
+      const subscriptIndex = title.indexOf("\u2082");
+      if (subscriptIndex >= 0) {
+        const titlePrefix = title.slice(0, subscriptIndex);
+        const titleSuffix = title.slice(subscriptIndex + 1);
+        const prefixWidth = doc.widthOfString(titlePrefix);
+        doc.text(titlePrefix, itemX, y, { lineBreak: false });
+        doc
+          .fontSize(5.8)
+          .text("2", itemX + prefixWidth, y + 3, { lineBreak: false });
+        doc.fontSize(8.2).text(titleSuffix, itemX + prefixWidth + 3.4, y, {
+          lineBreak: false,
+        });
+      } else {
+        doc.text(title, itemX, y, {
+          width: itemWidth,
+          lineGap: 0,
+        });
+      }
+      doc.text("-", dashX, y, { lineBreak: false });
+      doc.text(description, descriptionX, y, {
+        width: descriptionWidth,
+        lineGap: 0,
+      });
+      drawPdfLine(doc, statusX, lineY, statusX + statusWidth, lineY);
+      drawPdfLine(doc, initialX, lineY, initialX + initialWidth, lineY);
+
+      if (checks[item.key] === true) {
+        if (checkImage) {
+          doc.image(checkImage, statusX + 18, lineY - 12, {
+            fit: [12, 12],
+          });
+        } else {
+          doc
+            .save()
+            .strokeColor("#166534")
+            .lineWidth(1.35)
+            .moveTo(statusX + 17, lineY - 6)
+            .lineTo(statusX + 21, lineY - 2)
+            .lineTo(statusX + 29, lineY - 11)
+            .stroke()
+            .restore();
+        }
+        if (releasedSignatureImage) {
+          drawSignature(
+            doc,
+            releasedSignatureImage,
+            initialX + 3,
+            lineY - 14,
+            initialWidth - 6,
+            14,
+          );
+        } else if (releasedInitials) {
+          doc
+            .font("Helvetica-Oblique")
+            .fontSize(7.2)
+            .fillColor("#166534")
+            .text(releasedInitials, initialX, lineY - 9, {
+              width: initialWidth,
+              align: "center",
+              lineBreak: false,
+            });
+        }
+      }
+
+      doc.fillColor("#111827").strokeColor("#111827");
+      return y + rowHeight + 1;
+    };
+
+    const drawChecklistPage = (pageNumber) => {
+      let y = pageNumber === 1 ? drawFirstPageHeader() : 48;
+
+      sections.forEach((section, sectionIndex) => {
+        const allItems = Array.isArray(section.items) ? section.items : [];
+        const pageItems = allItems.filter(
+          (item) => Number(item.page) === pageNumber,
+        );
+        if (!pageItems.length) return;
+
+        const firstItemIndex = allItems.indexOf(pageItems[0]);
+        if (firstItemIndex === 0) {
+          y = drawSectionHeading(section.title || "", sectionIndex + 1, y);
+        }
+        pageItems.forEach((item) => {
+          if (item.cautionBefore) {
+            y = drawCaution(item.cautionBefore, y, "before");
+          }
+          y = drawChecklistItem(item, y);
+          if (item.cautionAfter) {
+            y = drawCaution(item.cautionAfter, y + 3, "after");
+          }
+        });
+        y += 5;
+      });
+
+      return y;
+    };
+
+    const drawCheckedByFooter = (startY) => {
+      const footerY = Math.max(startY + 22, 315);
+      const signatureLineY = footerY + 55;
+      const releaseDate = formatInspectionDate(
+        inspection.releasedBy?.timestamp ||
+          inspection.updatedAt ||
+          inspection.date ||
+          inspection.inspectionDate,
+      );
+
+      doc
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .fillColor("#111827")
+        .text("Checked by:", left, footerY, { lineBreak: false });
+
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text("Mechanic:", left, signatureLineY - 16, {
+          lineBreak: false,
+        });
+      drawSignature(
+        doc,
+        releasedSignatureImage,
+        112,
+        signatureLineY - 31,
+        108,
+        28,
+      );
+      drawPdfLine(doc, 104, signatureLineY, 306, signatureLineY);
+      doc
+        .fontSize(7.5)
+        .text(inspection.releasedBy?.name || "", 104, signatureLineY + 4, {
+          width: 202,
+          align: "center",
+          lineBreak: false,
+        });
+
+      doc
+        .fontSize(9)
+        .text("Date:", 350, signatureLineY - 16, { lineBreak: false });
+      doc.fontSize(8).text(releaseDate, 394, signatureLineY - 15, {
+        width: 176,
+        align: "center",
+        lineBreak: false,
+      });
+      drawPdfLine(doc, 394, signatureLineY, right, signatureLineY);
+
+      const licenseY = signatureLineY + 52;
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text("A&P License No.", left, licenseY - 15, {
+          lineBreak: false,
+        });
+      doc
+        .fontSize(8)
+        .text(
+          inspection.releasedBy?.licenseNo || inspection.releasedBy?.id || "",
+          145,
+          licenseY - 14,
+          { width: 161, align: "center", lineBreak: false },
+        );
+      drawPdfLine(doc, 145, licenseY, 306, licenseY);
+
+      doc
+        .font("Helvetica")
+        .fontSize(6.5)
+        .fillColor("#4b5563")
+        .text(
+          B412_POST_INSPECTION_CHECKLIST.footerNote ||
+            "Procedures by Flight Manual Postflight Inspection, FAA Approved, revised 16 October 2009, Rev. 29.",
+          left,
+          licenseY + 45,
+          {
+            width: right - left,
+            align: "center",
+            lineBreak: false,
+          },
+        );
+    };
+
+    drawChecklistPage(1);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    drawChecklistPage(2);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    drawChecklistPage(3);
+    doc.addPage({ size: "LETTER", margin: 0 });
+    const finalChecklistY = drawChecklistPage(4);
+    drawCheckedByFooter(finalChecklistY);
+    doc.end();
+  });
+};
+
 const getPostInspectionPdf = (inspection) =>
-  getPostInspectionPdfDirect(inspection);
+  isB412PostInspection(inspection)
+    ? getB412PostInspectionPdfDirect(inspection)
+    : getPostInspectionPdfDirect(inspection);
 
 module.exports = {
   loadTemplate,
