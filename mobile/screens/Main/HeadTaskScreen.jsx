@@ -319,17 +319,11 @@ export default function HeadTaskScreen({
       (employee) => String(employee.id) === String(newTask.assignedTo),
     );
     const activeTaskCount = selectedMechanic?.activeTaskCount || 0;
-    const mechanicName = selectedMechanic?.name || "Selected mechanic";
 
     const confirmed = await confirmWithAlert({
-      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Create Task",
-      message:
-        activeTaskCount > 0
-          ? `${mechanicName} already has ${activeTaskCount} active task${
-              activeTaskCount === 1 ? "" : "s"
-            }. Continue assigning this task?`
-          : `${mechanicName} has no active tasks. Submit this new task assignment?`,
-      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Create",
+      title: "Create Task",
+      message: "Submit this new task assignment?",
+      confirmText: "Create",
     });
     if (!confirmed) return;
 
@@ -370,9 +364,6 @@ export default function HeadTaskScreen({
   };
 
   const handleEditTask = async (updatedTask) => {
-    const selectedMechanic = mechanicOptions.find(
-      (employee) => String(employee.id) === String(updatedTask.assignedTo),
-    );
     const activeTaskCount = tasks.filter(
       (task) =>
         String(getTaskAssigneeId(task)) === String(updatedTask.assignedTo) &&
@@ -380,17 +371,11 @@ export default function HeadTaskScreen({
           String(updatedTask.id || updatedTask._id || "") &&
         OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
     ).length;
-    const mechanicName = selectedMechanic?.name || "Selected mechanic";
 
     const confirmed = await confirmWithAlert({
-      title: activeTaskCount > 0 ? "Mechanic Has Active Tasks" : "Update Task",
-      message:
-        activeTaskCount > 0
-          ? `${mechanicName} already has ${activeTaskCount} active task${
-              activeTaskCount === 1 ? "" : "s"
-            }. Continue assigning this task?`
-          : `${mechanicName} has no active tasks. Save changes to this task?`,
-      confirmText: activeTaskCount > 0 ? "Assign Anyway" : "Save",
+      title: "Update Task",
+      message: "Save changes to this task?",
+      confirmText: "Save",
     });
     if (!confirmed) return;
 

@@ -1478,20 +1478,6 @@ export default function AddTask({
                   {addTaskWarning}
                 </AppText>
               ) : null}
-              {selectedEmployeeRecord?.activeTaskCount > 0 ? (
-                <AppText
-                  style={{
-                    color: COLORS.warning || "#ad6800",
-                    marginBottom: 8,
-                    fontSize: 12,
-                  }}
-                >
-                  {selectedEmployeeRecord.name} has{" "}
-                  {selectedEmployeeRecord.activeTaskCount} active task
-                  {selectedEmployeeRecord.activeTaskCount === 1 ? "" : "s"}.
-                  You will be asked to confirm before assigning.
-                </AppText>
-              ) : null}
             </ScrollView>
 
             <View
