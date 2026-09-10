@@ -246,6 +246,7 @@ export default function Messaging() {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupActionLoadingId, setGroupActionLoadingId] = useState("");
   const [mobileView, setMobileView] = useState("list");
   const [imagePreview, setImagePreview] = useState(null);
   const selectedConversationRef = useRef(null);
@@ -459,6 +460,25 @@ export default function Messaging() {
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
       if (payload.event === "chat:conversation") {
+        const group = payload.data?.group;
+        const removedConversationId = payload.data?.removedConversationId;
+        const currentSelected = selectedConversationRef.current;
+
+        if (
+          currentSelected?.type === "group" &&
+          String(currentSelected.id) === String(removedConversationId) &&
+          (!group ||
+            !(group.members || []).some(
+              (member) => String(getEntityId(member)) === String(currentUserId),
+            ))
+        ) {
+          setSelectedConversation(null);
+          setMessages([]);
+          setMembersModalOpen(false);
+          if (isMobile) {
+            setMobileView("list");
+          }
+        }
         fetchConversations();
         return;
       }
@@ -532,7 +552,13 @@ export default function Messaging() {
     return () => {
       unsubscribeRealtime();
     };
-  }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
+  }, [
+    currentUserId,
+    fetchConversations,
+    fetchThread,
+    isMobile,
+    notifyIncomingChat,
+  ]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -914,6 +940,75 @@ export default function Messaging() {
     } finally {
       setCreatingGroup(false);
     }
+  };
+
+  const leaveGroup = async () => {
+    const conversationId = selectedConversationDetails?.id;
+    if (!conversationId || selectedConversationDetails?.type !== "group") {
+      return;
+    }
+
+    try {
+      setGroupActionLoadingId("leave");
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/me`,
+        { method: "DELETE" },
+      );
+      setMembersModalOpen(false);
+      setSelectedConversation(null);
+      setMessages([]);
+      if (isMobile) {
+        setMobileView("list");
+      }
+      await fetchConversations();
+      antdMessage.success("You left the group chat.");
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to leave group chat");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmLeaveGroup = () => {
+    Modal.confirm({
+      title: "Leave group chat?",
+      content: `You will stop receiving messages from ${selectedConversationDetails?.title || "this group"}.`,
+      okText: "Leave",
+      okButtonProps: { danger: true },
+      onOk: leaveGroup,
+      zIndex: 3200,
+    });
+  };
+
+  const removeGroupMember = async (member) => {
+    const conversationId = selectedConversationDetails?.id;
+    const memberId = getEntityId(member);
+    if (!conversationId || !memberId) return;
+
+    try {
+      setGroupActionLoadingId(String(memberId));
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/${memberId}`,
+        { method: "DELETE" },
+      );
+      await fetchConversations();
+      antdMessage.success(`${getDisplayFullName(member)} removed.`);
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to remove group member");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmRemoveGroupMember = (member) => {
+    Modal.confirm({
+      title: "Remove member?",
+      content: `Remove ${getDisplayFullName(member)} from ${selectedConversationDetails?.title || "this group"}?`,
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: () => removeGroupMember(member),
+      zIndex: 3200,
+    });
   };
 
   useEffect(() => {
@@ -1332,29 +1427,61 @@ export default function Messaging() {
           <Empty description="No members" />
         ) : (
           <Space orientation="vertical" size={10} style={{ width: "100%" }}>
-            {selectedGroupMembers.map((member) => (
-              <div
-                key={String(getEntityId(member))}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 0",
-                }}
-              >
-                <Avatar
-                  alt={getDisplayFullName(member) || "Group member avatar"}
-                  src={getImageUrl(member.image)}
-                  icon={<UserOutlined />}
-                />
-                <div>
-                  <Text strong>{getDisplayFullName(member)}</Text>
-                  <div>
-                    <Text type="secondary">{member.jobTitle || "User"}</Text>
+            {selectedGroupMembers.map((member) => {
+              const memberId = String(getEntityId(member));
+              const isCurrentUser = memberId === String(currentUserId);
+              const canRemoveMembers =
+                String(selectedConversationDetails?.group?.createdBy) ===
+                String(currentUserId);
+              const canRemoveMember = canRemoveMembers && !isCurrentUser;
+
+              return (
+                <div
+                  key={memberId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "12px 0",
+                  }}
+                >
+                  <Avatar
+                    alt={getDisplayFullName(member) || "Group member avatar"}
+                    src={getImageUrl(member.image)}
+                    icon={<UserOutlined />}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text strong ellipsis>
+                      {getDisplayFullName(member)}
+                    </Text>
+                    <div>
+                      <Text type="secondary">{member.jobTitle || "User"}</Text>
+                    </div>
                   </div>
+                  {canRemoveMember ? (
+                    <Button
+                      danger
+                      size="small"
+                      loading={groupActionLoadingId === memberId}
+                      disabled={Boolean(groupActionLoadingId)}
+                      onClick={() => confirmRemoveGroupMember(member)}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            <Button
+              danger
+              block
+              loading={groupActionLoadingId === "leave"}
+              disabled={Boolean(groupActionLoadingId)}
+              onClick={confirmLeaveGroup}
+              style={{ marginTop: 8 }}
+            >
+              Leave group
+            </Button>
           </Space>
         )}
       </Modal>

@@ -14,6 +14,8 @@ const {
   getConversations,
   getMessageSummary,
   createGroupConversation,
+  removeGroupMember,
+  leaveGroupConversation,
   getThread,
   sendMessage,
   getMessageAttachmentUrl,
@@ -25,6 +27,16 @@ router.get("/users", getMessageUsers);
 router.get("/conversations", getConversations);
 router.get("/summary", getMessageSummary);
 router.post("/groups", touchSessionActivity, createGroupConversation);
+router.delete(
+  "/groups/:conversationId/members/me",
+  touchSessionActivity,
+  leaveGroupConversation,
+);
+router.delete(
+  "/groups/:conversationId/members/:memberId",
+  touchSessionActivity,
+  removeGroupMember,
+);
 router.post(
   "/attachments/upload",
   touchSessionActivity,
