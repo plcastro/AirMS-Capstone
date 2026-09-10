@@ -23,6 +23,10 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
+        const stations =
+          Array.isArray(leg.stations) && leg.stations.length
+            ? leg.stations
+            : [{ from: "", to: "" }];
         return (
           <div key={legIdx} className="fl-card" style={{ marginBottom: 16 }}>
             <div className="fl-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -41,11 +45,11 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
               <div className="fl-field-row">
                 <span className="fl-label">Station: *</span>
                 <div style={{ flex: 1 }}>
-                  {leg.stations.map((station, stIdx) => (
+                  {stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">
                       <Input
                         className="fl-input"
-                        value={station.from}
+                        value={station?.from || ""}
                         onChange={(e) => updateStation(legIdx, stIdx, "from", e.target.value)}
                         placeholder="From"
                         disabled={!isEditable}
@@ -56,7 +60,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                       <span className="fl-station-sep">-</span>
                       <Input
                         className="fl-input"
-                        value={station.to}
+                        value={station?.to || ""}
                         onChange={(e) => updateStation(legIdx, stIdx, "to", e.target.value)}
                         placeholder="To"
                         disabled={!isEditable}
@@ -64,7 +68,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                         aria-required="true"
                         style={{ flex: 1 }}
                       />
-                      {isEditable && leg.stations.length > 1 && (
+                      {isEditable && stations.length > 1 && (
                         <Button
                           size="small"
                           danger

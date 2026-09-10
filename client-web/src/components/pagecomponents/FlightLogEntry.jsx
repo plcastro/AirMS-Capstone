@@ -105,10 +105,29 @@ const emptyLeg = () => ({
   date: "",
   passengers: "",
 });
+
+const normalizeStandardLegs = (legs = []) => {
+  const sourceLegs = Array.isArray(legs) && legs.length ? legs : [emptyLeg()];
+
+  return sourceLegs.map((leg = {}) => ({
+    ...emptyLeg(),
+    ...leg,
+    stations:
+      Array.isArray(leg.stations) && leg.stations.length
+        ? leg.stations.map((station = {}) => ({
+            from: station?.from || "",
+            to: station?.to || "",
+          }))
+        : [{ from: "", to: "" }],
+  }));
+};
+
 const syncServicingToLegs = (fd) => {
-  const n = fd.legs?.length || 1;
+  const legs = normalizeStandardLegs(fd.legs);
+  const n = legs.length;
   return {
     ...fd,
+    legs,
     fuelServicing: Array.from(
       { length: n },
       (_, i) => fd.fuelServicing?.[i] || emptyFuelItem(),

@@ -220,7 +220,7 @@ export default function FlightLogModalInfo({
     autoResolveRpc.current = rpc;
     const requestId = rpcRequestId.current + 1;
     rpcRequestId.current = requestId;
-    let isActive = true;
+    let isRequestActive = true;
 
     const resolveExistingAircraft = async () => {
       try {
@@ -229,7 +229,7 @@ export default function FlightLogModalInfo({
         );
         const payload = await response.json();
 
-        if (!isActive || requestId !== rpcRequestId.current) return;
+        if (!isRequestActive || requestId !== rpcRequestId.current) return;
 
         const callbacks = callbacksRef.current;
         if (response.ok && payload?.data) {
@@ -240,7 +240,7 @@ export default function FlightLogModalInfo({
           callbacks.onAircraftDataLoaded?.(null);
         }
       } catch (error) {
-        if (!isActive || requestId !== rpcRequestId.current) return;
+        if (!isRequestActive || requestId !== rpcRequestId.current) return;
         console.error("Error resolving existing aircraft type:", error);
         const callbacks = callbacksRef.current;
         callbacks.updateForm("aircraftType", "");
@@ -251,7 +251,7 @@ export default function FlightLogModalInfo({
     resolveExistingAircraft();
 
     return () => {
-      isActive = false;
+      isRequestActive = false;
       if (autoResolveRpc.current === rpc) {
         autoResolveRpc.current = "";
       }

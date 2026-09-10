@@ -16,6 +16,7 @@ export default function FlightLogSignatureModal({
   onClose,
   onSave,
   aircraftRPC,
+  useNativeModal,
 }) {
   const aircraftLabel = formatAircraftRpc(aircraftRPC);
 
@@ -27,6 +28,7 @@ export default function FlightLogSignatureModal({
       confirmDescription="Enter your 6-digit PIN to confirm this flight log signature."
       onClose={onClose}
       onSave={onSave}
+      useNativeModal={useNativeModal}
     />
   );
 }

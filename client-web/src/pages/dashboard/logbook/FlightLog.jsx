@@ -1025,6 +1025,8 @@ export default function FlightLog() {
   }, [fetchAircraftFilterOptions]);
 
   useEffect(() => {
+    if (typeof EventSource === "undefined") return undefined;
+
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
     const onDataChanged = () => {
       fetchFlightLogs({ silent: true });

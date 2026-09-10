@@ -45,8 +45,7 @@ const { TextArea } = Input;
 const LIVE_SYNC_INTERVAL_MS = 1000;
 const MAX_MESSAGE_ATTACHMENTS = 5;
 const MAX_MESSAGE_ATTACHMENT_MB = 10;
-const MAX_MESSAGE_ATTACHMENT_BYTES =
-  MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
 const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
 const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
   "application/msword",
@@ -68,7 +67,9 @@ const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
 };
 
 const getFilenameExtension = (filename = "") => {
-  const match = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
   return match?.[1] || "";
 };
 
@@ -79,9 +80,8 @@ const getAttachmentMimeType = (file) => {
   }
 
   return (
-    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[
-      getFilenameExtension(file?.name)
-    ] || declaredType
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
   );
 };
 
@@ -246,7 +246,9 @@ export default function Messaging() {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupActionLoadingId, setGroupActionLoadingId] = useState("");
   const [mobileView, setMobileView] = useState("list");
+  const [imagePreview, setImagePreview] = useState(null);
   const selectedConversationRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const threadBottomRef = useRef(null);
@@ -458,6 +460,25 @@ export default function Messaging() {
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
       if (payload.event === "chat:conversation") {
+        const group = payload.data?.group;
+        const removedConversationId = payload.data?.removedConversationId;
+        const currentSelected = selectedConversationRef.current;
+
+        if (
+          currentSelected?.type === "group" &&
+          String(currentSelected.id) === String(removedConversationId) &&
+          (!group ||
+            !(group.members || []).some(
+              (member) => String(getEntityId(member)) === String(currentUserId),
+            ))
+        ) {
+          setSelectedConversation(null);
+          setMessages([]);
+          setMembersModalOpen(false);
+          if (isMobile) {
+            setMobileView("list");
+          }
+        }
         fetchConversations();
         return;
       }
@@ -531,7 +552,13 @@ export default function Messaging() {
     return () => {
       unsubscribeRealtime();
     };
-  }, [currentUserId, fetchConversations, fetchThread, notifyIncomingChat]);
+  }, [
+    currentUserId,
+    fetchConversations,
+    fetchThread,
+    isMobile,
+    notifyIncomingChat,
+  ]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -721,7 +748,7 @@ export default function Messaging() {
               buildAttachmentPathname(currentUserId, file, index),
               file,
               {
-                access: "private",
+                access: "public",
                 handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
                 headers: authHeaders,
                 contentType: mimeType,
@@ -841,12 +868,16 @@ export default function Messaging() {
 
       if (isImage && url) {
         return (
-          <a
+          <button
             key={`${message._id}-${attachment.url}-${attachment.name}`}
-            href={url}
-            target="_blank"
-            rel="noreferrer"
+            type="button"
             className="message-attachment-image-link"
+            onClick={() =>
+              setImagePreview({
+                url,
+                name: attachment.name || "Attachment",
+              })
+            }
           >
             <img
               src={url}
@@ -856,7 +887,7 @@ export default function Messaging() {
             <span className="message-attachment-image-name">
               {attachment.name || "Attachment"}
             </span>
-          </a>
+          </button>
         );
       }
 
@@ -909,6 +940,75 @@ export default function Messaging() {
     } finally {
       setCreatingGroup(false);
     }
+  };
+
+  const leaveGroup = async () => {
+    const conversationId = selectedConversationDetails?.id;
+    if (!conversationId || selectedConversationDetails?.type !== "group") {
+      return;
+    }
+
+    try {
+      setGroupActionLoadingId("leave");
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/me`,
+        { method: "DELETE" },
+      );
+      setMembersModalOpen(false);
+      setSelectedConversation(null);
+      setMessages([]);
+      if (isMobile) {
+        setMobileView("list");
+      }
+      await fetchConversations();
+      antdMessage.success("You left the group chat.");
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to leave group chat");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmLeaveGroup = () => {
+    Modal.confirm({
+      title: "Leave group chat?",
+      content: `You will stop receiving messages from ${selectedConversationDetails?.title || "this group"}.`,
+      okText: "Leave",
+      okButtonProps: { danger: true },
+      onOk: leaveGroup,
+      zIndex: 3200,
+    });
+  };
+
+  const removeGroupMember = async (member) => {
+    const conversationId = selectedConversationDetails?.id;
+    const memberId = getEntityId(member);
+    if (!conversationId || !memberId) return;
+
+    try {
+      setGroupActionLoadingId(String(memberId));
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/${memberId}`,
+        { method: "DELETE" },
+      );
+      await fetchConversations();
+      antdMessage.success(`${getDisplayFullName(member)} removed.`);
+    } catch (error) {
+      antdMessage.error(error.message || "Failed to remove group member");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmRemoveGroupMember = (member) => {
+    Modal.confirm({
+      title: "Remove member?",
+      content: `Remove ${getDisplayFullName(member)} from ${selectedConversationDetails?.title || "this group"}?`,
+      okText: "Remove",
+      okButtonProps: { danger: true },
+      onOk: () => removeGroupMember(member),
+      zIndex: 3200,
+    });
   };
 
   useEffect(() => {
@@ -1327,31 +1427,82 @@ export default function Messaging() {
           <Empty description="No members" />
         ) : (
           <Space orientation="vertical" size={10} style={{ width: "100%" }}>
-            {selectedGroupMembers.map((member) => (
-              <div
-                key={String(getEntityId(member))}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 0",
-                }}
-              >
-                <Avatar
-                  alt={getDisplayFullName(member) || "Group member avatar"}
-                  src={getImageUrl(member.image)}
-                  icon={<UserOutlined />}
-                />
-                <div>
-                  <Text strong>{getDisplayFullName(member)}</Text>
-                  <div>
-                    <Text type="secondary">{member.jobTitle || "User"}</Text>
+            {selectedGroupMembers.map((member) => {
+              const memberId = String(getEntityId(member));
+              const isCurrentUser = memberId === String(currentUserId);
+              const canRemoveMembers =
+                String(selectedConversationDetails?.group?.createdBy) ===
+                String(currentUserId);
+              const canRemoveMember = canRemoveMembers && !isCurrentUser;
+
+              return (
+                <div
+                  key={memberId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "12px 0",
+                  }}
+                >
+                  <Avatar
+                    alt={getDisplayFullName(member) || "Group member avatar"}
+                    src={getImageUrl(member.image)}
+                    icon={<UserOutlined />}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text strong ellipsis>
+                      {getDisplayFullName(member)}
+                    </Text>
+                    <div>
+                      <Text type="secondary">{member.jobTitle || "User"}</Text>
+                    </div>
                   </div>
+                  {canRemoveMember ? (
+                    <Button
+                      danger
+                      size="small"
+                      loading={groupActionLoadingId === memberId}
+                      disabled={Boolean(groupActionLoadingId)}
+                      onClick={() => confirmRemoveGroupMember(member)}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            <Button
+              danger
+              block
+              loading={groupActionLoadingId === "leave"}
+              disabled={Boolean(groupActionLoadingId)}
+              onClick={confirmLeaveGroup}
+              style={{ marginTop: 8 }}
+            >
+              Leave group
+            </Button>
           </Space>
         )}
+      </Modal>
+
+      <Modal
+        title={imagePreview?.name || "Attachment"}
+        open={Boolean(imagePreview)}
+        onCancel={() => setImagePreview(null)}
+        footer={null}
+        centered
+        width="min(96vw, 980px)"
+        zIndex={3100}
+        className="message-image-preview-modal"
+      >
+        {imagePreview?.url ? (
+          <img
+            src={imagePreview.url}
+            alt={imagePreview.name || "Attachment"}
+            className="message-image-preview"
+          />
+        ) : null}
       </Modal>
     </div>
   );

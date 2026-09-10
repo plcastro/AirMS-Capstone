@@ -3,7 +3,11 @@ import { Alert, Button, Input, Modal, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-import { ClearOutlined } from "@ant-design/icons";
+import {
+  ClearOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
 const { Text } = Typography;
 
 export default function PinVerifiedSignatureModal({
@@ -21,6 +25,7 @@ export default function PinVerifiedSignatureModal({
   const [step, setStep] = useState("signature");
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -28,6 +33,7 @@ export default function PinVerifiedSignatureModal({
     setStep("signature");
     setSignature("");
     setPin("");
+    setShowPin(false);
     setSaving(false);
     setErrorMessage("");
     signatureRef.current?.clear();
@@ -178,20 +184,38 @@ export default function PinVerifiedSignatureModal({
       ) : (
         <>
           <p>{confirmDescription}</p>
-          <Input.OTP
-            length={6}
-            type="password"
-            formatter={(value) => value.replace(/\D/g, "")}
-            value={pin}
-            onInput={(value) => {
-              setPin(normalizePinInput(value));
-              setErrorMessage("");
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
             }}
-            onChange={(value) => {
-              setPin(normalizePinInput(value));
-              setErrorMessage("");
-            }}
-          />
+          >
+            <Input.OTP
+              length={6}
+              mask={showPin ? false : "\u2022"}
+              formatter={(value) => value.replace(/\D/g, "")}
+              value={pin}
+              autoComplete="off"
+              inputMode="numeric"
+              onInput={(value) => {
+                setPin(normalizePinInput(value));
+                setErrorMessage("");
+              }}
+              onChange={(value) => {
+                setPin(normalizePinInput(value));
+                setErrorMessage("");
+              }}
+              style={{ flex: 1 }}
+            />
+            <Button
+              aria-label={showPin ? "Hide PIN" : "Show PIN"}
+              icon={showPin ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+              onClick={() => setShowPin((current) => !current)}
+              style={{ flex: "0 0 36px" }}
+            />
+          </div>
           <div style={{ marginTop: 16 }}>
             <Text type="secondary">Signature to be applied:</Text>
             <div className="fl-sig-box" style={{ marginTop: 6 }}>

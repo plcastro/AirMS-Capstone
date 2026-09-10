@@ -121,6 +121,7 @@ export default function FlightLogCards({
   return (
     <>
       {logs.map((log) => {
+        const controlNumber = log.controlNo || log.control || log.controlNumber;
         const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
         const exportLoading = exportingLogId === logKey;
@@ -224,7 +225,7 @@ export default function FlightLogCards({
                 </AppText>
                 <AppText style={{ fontSize: 11, color: "#444" }}>
                   <AppText style={{ color: "#777" }}>Control:</AppText>{" "}
-                  {log.control || "N/A"}
+                  {controlNumber || "N/A"}
                 </AppText>
               </View>
 

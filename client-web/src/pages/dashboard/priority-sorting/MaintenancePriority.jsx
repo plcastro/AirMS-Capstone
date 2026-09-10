@@ -54,6 +54,33 @@ const formatDueSummary = (record) => {
   return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
+const normalizeSortValue = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  return String(value);
+};
+
+const compareText = (left, right) =>
+  normalizeSortValue(left).localeCompare(normalizeSortValue(right), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+const compareNumber = (left, right) =>
+  Number(left ?? Number.POSITIVE_INFINITY) -
+  Number(right ?? Number.POSITIVE_INFINITY);
+
+const getRemainingSortValue = (record) => {
+  if (record.dueByHours !== null && record.dueByHours !== undefined) {
+    return Number(record.dueByHours);
+  }
+
+  if (record.dueByDays !== null && record.dueByDays !== undefined) {
+    return Number(record.dueByDays) * 24;
+  }
+
+  return Number.POSITIVE_INFINITY;
+};
+
 const formatDueBasis = (basis) => {
   switch (basis) {
     case "hours-and-calendar":
@@ -310,29 +337,42 @@ export default function MaintenancePriority() {
       dataIndex: "rank",
       key: "rank",
       width: 50,
+      sorter: (left, right) => compareNumber(left.rank, right.rank),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
       width: 100,
+      sorter: (left, right) => compareText(left.aircraft, right.aircraft),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
       width: 100,
+      sorter: (left, right) =>
+        compareText(left.aircraftModel, right.aircraftModel),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
       width: 120,
+      sorter: (left, right) =>
+        compareText(left.nextInspection, right.nextInspection),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Remaining",
       key: "dueSoonest",
       width: 120,
+      sorter: (left, right) =>
+        getRemainingSortValue(left) - getRemainingSortValue(right),
+      sortDirections: ["ascend", "descend"],
       render: (_, record) => formatDueSummary(record),
     },
     {
