@@ -314,19 +314,10 @@ export default function PostInspection() {
 
     const station1 = byPrefix("station1_");
     const station2 = byPrefix("station2_");
-    const engine = booleanFields.filter(
-      (field) =>
-        field.startsWith("station3_") ||
-        field.startsWith("engine_") ||
-        field.includes("gimbal") ||
-        field.includes("hydraulic"),
-    );
+    const engine = byPrefix("engine_");
     const mainRotor = booleanFields.filter(
       (field) =>
-        field.startsWith("mainRotor_") ||
-        field.includes("rotor") ||
-        field.includes("swash") ||
-        field.includes("pitchChange"),
+        field.startsWith("station3_") || field.startsWith("mainRotor_"),
     );
     const cabin = booleanFields.filter(
       (field) =>
@@ -354,15 +345,29 @@ export default function PostInspection() {
     };
   }, [booleanFields]);
 
-  const formatFieldLabel = (field = "") =>
-    String(field)
-      .replace(/^station\d+_/, "")
-      .replace(/^mainRotor_/, "")
-      .replace(/^cabin_/, "")
-      .replace(/^interior_/, "")
-      .replace(/^engine_/, "")
+  const formatChecklistText = (value = "") =>
+    String(value)
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .replace(/_/g, " ")
+      .replace(/\b(mgb|oat|elt|gpu|rh|lh|vemd|scu)\b/gi, (word) =>
+        word.toUpperCase(),
+      )
       .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const getChecklistFieldMeta = (field = "") => {
+    const normalizedField = String(field).replace(
+      /^(?:station\d+|mainRotor|cabin|interior|engine)_/,
+      "",
+    );
+    const fieldParts = normalizedField.split("_");
+    const description =
+      fieldParts.length > 1 ? fieldParts.pop() : "checked";
+
+    return {
+      title: formatChecklistText(fieldParts.join("_")),
+      description: formatChecklistText(description),
+    };
+  };
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
@@ -726,57 +731,79 @@ export default function PostInspection() {
                   key: tab.key,
                   label: tab.label,
                   children: (
-                    <Space
-                      orientation="vertical"
-                      size={12}
-                      style={{ width: "100%" }}
-                    >
-                      {fields.length ? (
-                        <>
+                    <Card
+                      size="small"
+                      title={tab.label}
+                      extra={
+                        fields.length ? (
                           <Checkbox
                             checked={allFieldsChecked}
                             indeterminate={partiallyChecked}
                             disabled={recordReadOnly}
-                            onChange={(e) =>
+                            onChange={(event) =>
                               setEditing((prev) => {
-                                const checked = e.target.checked;
-                                return fields.reduce(
-                                  (next, field) => ({
-                                    ...next,
-                                    [field]: checked,
-                                  }),
-                                  { ...prev },
-                                );
+                                const checked = event.target.checked;
+                                const next = { ...prev };
+
+                                fields.forEach((field) => {
+                                  next[field] = checked;
+                                });
+
+                                return next;
                               })
                             }
                           >
-                            Select All {tab.label}
+                            Select All
                           </Checkbox>
-                          <Row gutter={[8, 8]}>
-                            {fields.map((field) => (
-                              <Col xs={24} md={12} lg={8} key={field}>
-                                <Checkbox
-                                  checked={Boolean(editing[field])}
-                                  disabled={recordReadOnly}
-                                  onChange={(e) =>
-                                    setEditing((prev) => ({
-                                      ...prev,
-                                      [field]: e.target.checked,
-                                    }))
-                                  }
+                        ) : null
+                      }
+                      styles={{
+                        header: { backgroundColor: "#0A7D37", color: "#fff" },
+                      }}
+                    >
+                      {fields.length ? (
+                        <Row gutter={[12, 12]}>
+                          {fields.map((field) => {
+                            const fieldMeta = getChecklistFieldMeta(field);
+
+                            return (
+                              <Col xs={24} md={12} key={field}>
+                                <Card
+                                  size="small"
+                                  style={{ height: "100%" }}
+                                  styles={{ body: { padding: 10 } }}
                                 >
-                                  {formatFieldLabel(field)}
-                                </Checkbox>
+                                  <Space
+                                    orientation="vertical"
+                                    size={6}
+                                    style={{ width: "100%" }}
+                                  >
+                                    <Text strong>{fieldMeta.title}</Text>
+                                    <Text>{fieldMeta.description}</Text>
+                                    <Checkbox
+                                      checked={Boolean(editing[field])}
+                                      disabled={recordReadOnly}
+                                      onChange={(event) =>
+                                        setEditing((prev) => ({
+                                          ...prev,
+                                          [field]: event.target.checked,
+                                        }))
+                                      }
+                                    >
+                                      Checked
+                                    </Checkbox>
+                                  </Space>
+                                </Card>
                               </Col>
-                            ))}
-                          </Row>
-                        </>
+                            );
+                          })}
+                        </Row>
                       ) : (
                         <Text type="secondary">
                           No checklist items in this section.
                         </Text>
                       )}
-                    </Space>
+                    </Card>
                   ),
                 };
               })}
