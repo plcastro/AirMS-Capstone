@@ -3,7 +3,6 @@ import AppText from "../common/AppText";
 import {
   Modal,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   View
 } from "react-native";
@@ -17,14 +16,7 @@ export default function GroupMembersModal({
   selectedGroupMembers,
   renderAvatar,
   getDisplayName,
-  currentUserId,
-  onLeaveGroup,
-  onRemoveGroupMember,
-  groupActionLoadingId,
 }) {
-  const creatorId = selectedConversationDetails?.group?.createdBy;
-  const canRemoveMembers = String(creatorId) === String(currentUserId);
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.35)" }}>
@@ -51,9 +43,6 @@ export default function GroupMembersModal({
             <ScrollView style={{ maxHeight: 320 }}>
               {selectedGroupMembers.map((member) => {
                 const memberId = String(member._id || member.id);
-                const isCurrentUser = memberId === String(currentUserId);
-                const canRemoveMember = canRemoveMembers && !isCurrentUser;
-                const actionLoading = groupActionLoadingId === memberId;
 
                 return (
                   <View
@@ -69,59 +58,11 @@ export default function GroupMembersModal({
                         {member.jobTitle || "User"}
                       </AppText>
                     </View>
-                    {canRemoveMember && (
-                      <TouchableOpacity
-                        onPress={() => onRemoveGroupMember?.(member)}
-                        disabled={Boolean(groupActionLoadingId)}
-                        style={{
-                          minWidth: 82,
-                          height: 34,
-                          paddingHorizontal: 10,
-                          borderRadius: 17,
-                          borderWidth: 1,
-                          borderColor: COLORS.dangerBorder,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          opacity: groupActionLoadingId ? 0.7 : 1,
-                        }}
-                      >
-                        {actionLoading ? (
-                          <ActivityIndicator size="small" color={COLORS.dangerBorder} />
-                        ) : (
-                          <AppText style={{ color: COLORS.dangerBorder, fontSize: 12, fontWeight: "800" }}>
-                            Remove
-                          </AppText>
-                        )}
-                      </TouchableOpacity>
-                    )}
                   </View>
                 );
               })}
             </ScrollView>
           )}
-
-          <TouchableOpacity
-            onPress={onLeaveGroup}
-            disabled={Boolean(groupActionLoadingId)}
-            style={{
-              height: 42,
-              marginTop: 14,
-              borderRadius: 21,
-              borderWidth: 1,
-              borderColor: COLORS.dangerBorder,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: groupActionLoadingId ? 0.7 : 1,
-            }}
-          >
-            {groupActionLoadingId === "leave" ? (
-              <ActivityIndicator size="small" color={COLORS.dangerBorder} />
-            ) : (
-              <AppText style={{ color: COLORS.dangerBorder, fontSize: 13, fontWeight: "900" }}>
-                Leave group
-              </AppText>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>

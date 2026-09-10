@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   BackHandler,
   Platform,
@@ -245,7 +244,6 @@ export default function Messaging({ navigation, route }) {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
-  const [groupActionLoadingId, setGroupActionLoadingId] = useState("");
   const scrollRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -1055,76 +1053,6 @@ export default function Messaging({ navigation, route }) {
     }
   };
 
-  const handleLeaveGroup = async () => {
-    const conversationId = selectedConversationDetails?.id;
-    if (!conversationId || selectedConversationDetails?.type !== "group") {
-      return;
-    }
-
-    try {
-      setGroupActionLoadingId("leave");
-      await authFetch(
-        `${API_BASE}/api/messages/groups/${conversationId}/members/me`,
-        { method: "DELETE" },
-      );
-      setMembersModalOpen(false);
-      setSelectedConversation(null);
-      setMessages([]);
-      await fetchConversations();
-      showToast("You left the group chat.");
-    } catch (error) {
-      showToast(error.message || "Failed to leave group chat");
-    } finally {
-      setGroupActionLoadingId("");
-    }
-  };
-
-  const confirmLeaveGroup = () => {
-    Alert.alert(
-      "Leave group chat?",
-      `You will stop receiving messages from ${selectedConversationDetails?.title || "this group"}.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Leave", style: "destructive", onPress: handleLeaveGroup },
-      ],
-    );
-  };
-
-  const handleRemoveGroupMember = async (member) => {
-    const conversationId = selectedConversationDetails?.id;
-    const memberId = getEntityId(member);
-    if (!conversationId || !memberId) return;
-
-    try {
-      setGroupActionLoadingId(String(memberId));
-      await authFetch(
-        `${API_BASE}/api/messages/groups/${conversationId}/members/${memberId}`,
-        { method: "DELETE" },
-      );
-      await fetchConversations();
-      showToast(`${getDisplayName(member)} removed from group chat.`);
-    } catch (error) {
-      showToast(error.message || "Failed to remove group member");
-    } finally {
-      setGroupActionLoadingId("");
-    }
-  };
-
-  const confirmRemoveGroupMember = (member) => {
-    Alert.alert(
-      "Remove member?",
-      `Remove ${getDisplayName(member)} from ${selectedConversationDetails?.title || "this group"}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => handleRemoveGroupMember(member),
-        },
-      ],
-    );
-  };
-
   const toggleGroupMember = (memberId) => {
     setGroupMemberIds((current) =>
       current.includes(memberId)
@@ -1201,9 +1129,6 @@ export default function Messaging({ navigation, route }) {
       renderAvatar={renderAvatar}
       getDisplayName={getDisplayName}
       currentUserId={currentUserId}
-      onLeaveGroup={confirmLeaveGroup}
-      onRemoveGroupMember={confirmRemoveGroupMember}
-      groupActionLoadingId={groupActionLoadingId}
     />
   );
 }
