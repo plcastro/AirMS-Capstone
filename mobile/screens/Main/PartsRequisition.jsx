@@ -1313,7 +1313,7 @@ export default function PartsRequisition({ route, navigation }) {
       selectedRequest.rawStatus,
     )
       ? "Restocked"
-      : "Send to Ordering";
+      : "Order";
 
   return (
     <View
