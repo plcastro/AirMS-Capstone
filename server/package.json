@@ -4,7 +4,8 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/cleanupAircraftData.test.js",
+    "cleanup:aircraft": "node scripts/cleanupAircraftData.js",
     "start": "nodemon server.js",
     "seed:manual-rules": "node scripts/seedManualRules.js",
     "seed:manual-procedures": "node scripts/seedManualProcedures.js",
@@ -29,6 +30,7 @@
     "firebase-admin": "^13.10.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "jszip": "^3.10.1",
     "mongodb": "^7.1.0",
     "mongoose": "^9.2.4",
     "multer": "^2.1.1",
