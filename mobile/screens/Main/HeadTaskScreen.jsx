@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useCallback, useContext, useState, useEffect } from "react";
 import AppText from "../../components/common/AppText";
 import {
   View,
@@ -6,6 +6,7 @@ import {
   Dimensions,
   RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -20,6 +21,11 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
+import {
+  getTaskIdentifier,
+  isSameTask,
+  sortTasksByCreatedDesc,
+} from "../../utilities/tasks";
 const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
@@ -94,6 +100,21 @@ export default function HeadTaskScreen({
       });
     });
 
+  const parseJsonSafely = async (response) => {
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", text);
+      throw new Error("Server returned an invalid response");
+    }
+  };
+
   const isEmployeeBusy = (employeeId) =>
     tasks.some((task) => {
       const status = String(task?.status || "")
@@ -133,8 +154,8 @@ export default function HeadTaskScreen({
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        setTasks(data.data || []);
+        const data = await parseJsonSafely(response);
+        setTasks(sortTasksByCreatedDesc(data?.data || []));
       } else {
         console.error("Failed to fetch tasks");
         showToast("Failed to fetch tasks");
@@ -151,6 +172,12 @@ export default function HeadTaskScreen({
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTasks({ silent: true });
+    }, []),
+  );
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return undefined;
@@ -187,6 +214,14 @@ export default function HeadTaskScreen({
       }
     }
   }, [targetTaskId, targetNotificationStatus, tasks]);
+
+  useEffect(() => {
+    if (!selectedTask) return;
+    const refreshedTask = tasks.find((task) => isSameTask(task, selectedTask));
+    if (refreshedTask && refreshedTask !== selectedTask) {
+      setSelectedTask(refreshedTask);
+    }
+  }, [selectedTask, tasks]);
 
   // Fetch assignable employees from the users collection
   useEffect(() => {
@@ -314,16 +349,19 @@ export default function HeadTaskScreen({
         }),
       });
       if (response.ok) {
-        const data = await response.json();
-        console.log("Task added:", data.data);
-        setTasks([...tasks, data.data]);
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || newTask;
+        console.log("Task added:", savedTask);
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc([...currentTasks, savedTask].filter(Boolean)),
+        );
         setAddModalVisible(false);
         showToast("Task created successfully.");
         await fetchTasks({ silent: true });
       } else {
-        const errorData = await response.json();
+        const errorData = await parseJsonSafely(response).catch(() => null);
         console.error("Failed to add task:", errorData);
-        showToast("Failed to add task");
+        showToast(errorData?.message || "Failed to add task");
       }
     } catch (error) {
       console.error("Error adding task:", error);
@@ -358,7 +396,8 @@ export default function HeadTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${updatedTask.id}`, {
+      const taskId = getTaskIdentifier(updatedTask);
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -372,16 +411,22 @@ export default function HeadTaskScreen({
         }),
       });
       if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === updatedTask.id ? data.data : t,
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((task) =>
+              isSameTask(task, updatedTask) ? savedTask : task,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
+        setSelectedTask(savedTask);
         setEditModalVisible(false);
         showToast("Task updated successfully.");
         await fetchTasks({ silent: true });
       } else {
-        showToast("Failed to update task");
+        const errorData = await parseJsonSafely(response).catch(() => null);
+        showToast(errorData?.message || "Failed to update task");
       }
     } catch (error) {
       console.error("Error updating task:", error);
@@ -400,8 +445,13 @@ export default function HeadTaskScreen({
         },
       });
       if (response.ok) {
-        const updatedTasks = tasks.filter((t) => t.id !== taskId);
-        setTasks(updatedTasks);
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.filter(
+              (task) => String(getTaskIdentifier(task)) !== String(taskId),
+            ),
+          ),
+        );
         showToast("Task deleted successfully.");
         await fetchTasks({ silent: true });
       } else {
@@ -421,7 +471,7 @@ export default function HeadTaskScreen({
   const confirmDeleteTask = async () => {
     if (!taskPendingDelete) return;
 
-    const taskId = taskPendingDelete.id || taskPendingDelete._id;
+    const taskId = getTaskIdentifier(taskPendingDelete);
     setDeleteConfirmVisible(false);
     setTaskPendingDelete(null);
     await handleDeleteTask(taskId);
@@ -453,7 +503,8 @@ export default function HeadTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const taskId = getTaskIdentifier(task);
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -466,15 +517,20 @@ export default function HeadTaskScreen({
         }),
       });
       if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((existingTask) =>
+              isSameTask(existingTask, task) ? savedTask : existingTask,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
+        setSelectedTask(savedTask);
         showToast("Task approved successfully.");
         await fetchTasks({ silent: true });
       } else {
-        const data = await response.json().catch(() => ({}));
+        const data = await parseJsonSafely(response).catch(() => ({}));
         throw new Error(data.message || "Failed to approve task");
       }
     } catch (error) {
@@ -518,7 +574,8 @@ export default function HeadTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const taskId = getTaskIdentifier(task);
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -531,11 +588,16 @@ export default function HeadTaskScreen({
         }),
       });
       if (response.ok) {
-        const data = await response.json();
-        const updatedTasks = tasks.map((t) =>
-          t.id === task.id ? data.data : t,
+        const data = await parseJsonSafely(response);
+        const savedTask = data?.data || updatedTask;
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((existingTask) =>
+              isSameTask(existingTask, task) ? savedTask : existingTask,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
+        setSelectedTask(savedTask);
         showToast("Task returned successfully.");
         await fetchTasks({ silent: true });
       } else {
@@ -646,7 +708,7 @@ export default function HeadTaskScreen({
       <View style={styles.taskTable}>
         <FlatList
           data={filteredTasks}
-          keyExtractor={(item) => item.id || item._id}
+          keyExtractor={(item) => String(getTaskIdentifier(item))}
           renderItem={renderTask}
           contentContainerStyle={{ paddingBottom: 110 }}
           refreshControl={

@@ -11,11 +11,12 @@ export default function InlineDropdown({
   open,
   onToggle,
   onChange,
+  menuMaxHeight = 220,
 }) {
   const selected = options.find((option) => String(option.value) === String(value));
 
   return (
-    <View style={{ zIndex: open ? 1000 : 1 }}>
+    <View style={{ position: "relative", zIndex: open ? 1000 : 1 }}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -32,7 +33,15 @@ export default function InlineDropdown({
           justifyContent: "space-between",
         }}
       >
-        <AppText style={{ color: selected ? COLORS.black : COLORS.grayDark, fontSize: 12, flex: 1 }}>
+        <AppText
+          numberOfLines={1}
+          style={{
+            color: selected ? COLORS.black : COLORS.grayDark,
+            fontSize: 12,
+            flex: 1,
+            marginRight: 6,
+          }}
+        >
           {selected?.label || placeholder}
         </AppText>
         <MaterialCommunityIcons
@@ -46,13 +55,18 @@ export default function InlineDropdown({
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
           style={{
-            maxHeight: 220,
-            marginTop: 4,
+            position: "absolute",
+            top: 52,
+            left: 0,
+            right: 0,
+            maxHeight: menuMaxHeight,
             borderWidth: 1,
             borderColor: COLORS.border || "#d1d5db",
             borderRadius: 8,
             backgroundColor: COLORS.white,
             overflow: "hidden",
+            elevation: 12,
+            zIndex: 1000,
           }}
           contentContainerStyle={{ flexGrow: 0 }}
         >

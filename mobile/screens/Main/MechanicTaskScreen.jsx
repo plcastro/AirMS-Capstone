@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useCallback, useState, useEffect, useContext } from "react";
 import { View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -11,6 +12,12 @@ import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import InlineDropdown from "../../components/common/InlineDropdown";
+import {
+  getTaskIdentifier,
+  isSameTask,
+  sortTasksByCreatedDesc,
+  toValidTaskDate,
+} from "../../utilities/tasks";
 
 const getTaskAssigneeId = (task = {}) => {
   const assignee = task.assignedTo;
@@ -84,16 +91,15 @@ export default function MechanicTaskScreen({
     }
   };
 
-  const isSameTask = (left, right) =>
-    String(left?.id || left?._id || "") ===
-    String(right?.id || right?._id || "");
-
   const ensureEndAfterStart = (task, startDate) => {
-    const nextStart =
-      startDate instanceof Date ? startDate : new Date(startDate);
+    const nextStart = toValidTaskDate(startDate, new Date());
     const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
 
-    if (currentEnd && currentEnd > nextStart) {
+    if (
+      currentEnd &&
+      !Number.isNaN(currentEnd.getTime()) &&
+      currentEnd > nextStart
+    ) {
       return task.endDateTime;
     }
 
@@ -116,7 +122,7 @@ export default function MechanicTaskScreen({
         const assignedTasks = (data?.data || []).filter(
           (task) => String(getTaskAssigneeId(task)) === String(currentUserId),
         );
-        setTasks(assignedTasks || []);
+        setTasks(sortTasksByCreatedDesc(assignedTasks || []));
       } else {
         console.error("Failed to fetch tasks, status:", response.status);
         const errorText = await response.text();
@@ -137,6 +143,14 @@ export default function MechanicTaskScreen({
       fetchTasks();
     }
   }, [currentUserId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        fetchTasks({ silent: true });
+      }
+    }, [currentUserId]),
+  );
 
   useEffect(() => {
     if (!currentUserId || typeof EventSource === "undefined") {
@@ -175,6 +189,14 @@ export default function MechanicTaskScreen({
       }
     }
   }, [targetTaskId, targetNotificationStatus, tasks]);
+
+  useEffect(() => {
+    if (!selectedTask) return;
+    const refreshedTask = tasks.find((task) => isSameTask(task, selectedTask));
+    if (refreshedTask && refreshedTask !== selectedTask) {
+      setSelectedTask(refreshedTask);
+    }
+  }, [selectedTask, tasks]);
 
   // Fetch aircraft options
   useEffect(() => {
@@ -239,7 +261,8 @@ export default function MechanicTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const taskId = getTaskIdentifier(task);
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -254,10 +277,13 @@ export default function MechanicTaskScreen({
       if (response.ok) {
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
-        const updatedTasks = tasks.map((t) =>
-          isSameTask(t, task) ? savedTask : t,
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((existingTask) =>
+              isSameTask(existingTask, task) ? savedTask : existingTask,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
         setSelectedTask({
           ...savedTask,
           findings: savedTask.findings || "",
@@ -265,7 +291,8 @@ export default function MechanicTaskScreen({
         showToast("Task started successfully.");
         await fetchTasks({ silent: true });
       } else {
-        showToast("Failed to start task");
+        const errorData = await parseJsonSafely(response).catch(() => null);
+        showToast(errorData?.message || "Failed to start task");
       }
     } catch (error) {
       console.error("Error starting task:", error);
@@ -293,7 +320,8 @@ export default function MechanicTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const taskId = getTaskIdentifier(task);
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -308,10 +336,13 @@ export default function MechanicTaskScreen({
       if (response.ok) {
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
-        const updatedTasks = tasks.map((t) =>
-          isSameTask(t, task) ? savedTask : t,
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((existingTask) =>
+              isSameTask(existingTask, task) ? savedTask : existingTask,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
         setSelectedTask((prev) => ({
           ...(prev || {}),
           ...savedTask,
@@ -355,7 +386,8 @@ export default function MechanicTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const sendUpdate = (confirmBusyMechanic = false) => fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const taskId = getTaskIdentifier(task);
+      const sendUpdate = (confirmBusyMechanic = false) => fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -391,10 +423,13 @@ export default function MechanicTaskScreen({
       if (response.ok) {
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
-        const updatedTasks = tasks.map((t) =>
-          isSameTask(t, task) ? savedTask : t,
+        setTasks((currentTasks) =>
+          sortTasksByCreatedDesc(
+            currentTasks.map((existingTask) =>
+              isSameTask(existingTask, task) ? savedTask : existingTask,
+            ),
+          ),
         );
-        setTasks(updatedTasks);
         setSelectedTask(savedTask);
         showToast(
           options.undo
@@ -434,7 +469,7 @@ export default function MechanicTaskScreen({
           containerStyle={{ flex: 0.58, height: 48, marginBottom: 0 }}
         />
 
-        <View style={{ flex: 0.42 }}>
+        <View style={{ width: 150, maxWidth: "42%" }}>
           <InlineDropdown
             value={selectedAircraft}
             open={aircraftDropdownOpen}
@@ -444,6 +479,7 @@ export default function MechanicTaskScreen({
               setAircraftDropdownOpen(false);
             }}
             options={aircraftOptions.map((aircraft) => ({ label: aircraft.name, value: aircraft.id }))}
+            menuMaxHeight={180}
           />
         </View>
       </View>
