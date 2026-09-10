@@ -829,7 +829,9 @@ export default function AddTask({
       setEndDateManuallyAdjusted(true);
     }
 
-    closePicker();
+    if (Platform.OS === "android") {
+      closePicker();
+    }
 
     if (Platform.OS === "android") {
       setAndroidPickerMode("date");
@@ -1070,7 +1072,7 @@ export default function AddTask({
   return (
     <>
       <Modal
-        visible={visible}
+        visible={visible && !showDiscardAlert}
         animationType="fade"
         transparent
         onRequestClose={handleCloseWithWarning}
@@ -1285,13 +1287,20 @@ export default function AddTask({
               </TouchableOpacity>
 
               {showStartPicker && (
-                <DateTimePicker
-                  value={startDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onStartChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={startDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onStartChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowStartPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText
@@ -1337,13 +1346,20 @@ export default function AddTask({
               </AppText>
 
               {showEndPicker && (
-                <DateTimePicker
-                  value={endDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onEndChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={endDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onEndChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowEndPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText

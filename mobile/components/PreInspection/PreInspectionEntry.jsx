@@ -522,6 +522,7 @@ export default function PreInspectionEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
         </SafeAreaView>
       </IosModalSafeAreaProvider>

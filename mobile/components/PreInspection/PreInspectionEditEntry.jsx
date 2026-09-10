@@ -737,6 +737,7 @@ export default function PreInspectionEditEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
 
         <PreInspectionSignatureModal
@@ -746,6 +747,7 @@ export default function PreInspectionEditEntry({
           onSave={handleAccept}
           aircraftRPC={formData.rpc}
           actionLabel="accept"
+          useNativeModal={false}
         />
         </SafeAreaView>
       </IosModalSafeAreaProvider>

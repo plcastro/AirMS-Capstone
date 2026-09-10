@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
-import {
-  View,
-} from "react-native";
+import { View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
-import { Picker } from "@react-native-picker/picker";
 import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
@@ -13,6 +10,7 @@ import { showToast } from "../../utilities/toast";
 import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
+import InlineDropdown from "../../components/common/InlineDropdown";
 
 const getTaskAssigneeId = (task = {}) => {
   const assignee = task.assignedTo;
@@ -29,6 +27,7 @@ export default function MechanicTaskScreen({
   const { user } = useContext(AuthContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
+  const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -356,7 +355,7 @@ export default function MechanicTaskScreen({
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id}`, {
+      const sendUpdate = (confirmBusyMechanic = false) => fetch(`${API_BASE}/api/tasks/${task.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -366,8 +365,29 @@ export default function MechanicTaskScreen({
         body: JSON.stringify({
           ...updatedTask,
           confirmAction: true,
+          confirmBusyMechanic,
         }),
       });
+      let response = await sendUpdate(false);
+      if (!response.ok) {
+        const errorData = await parseJsonSafely(response).catch(() => null);
+        if (
+          options.undo &&
+          response.status === 409 &&
+          errorData?.code === "MECHANIC_ACTIVE_WORKLOAD_CONFIRMATION_REQUIRED"
+        ) {
+          const retryConfirmed = await confirmWithAlert({
+            title: "Active Workload",
+            message: `${errorData.message} Continue undoing the turn-in?`,
+            confirmText: "Continue",
+          });
+          if (!retryConfirmed) return;
+          response = await sendUpdate(true);
+        } else {
+          showToast(errorData?.message || "Failed to turn in task");
+          return;
+        }
+      }
       if (response.ok) {
         const data = await parseJsonSafely(response);
         const savedTask = data?.data || updatedTask;
@@ -414,42 +434,17 @@ export default function MechanicTaskScreen({
           containerStyle={{ flex: 0.58, height: 48, marginBottom: 0 }}
         />
 
-        <View
-          style={{
-            flex: 0.42,
-            minHeight: 48,
-            backgroundColor: "#fff",
-            borderWidth: 1,
-            borderColor: "#d1d5db",
-            borderRadius: 10,
-            overflow: "hidden",
-            justifyContent: "center",
-          }}
-        >
-          <Picker
-            selectedValue={selectedAircraft}
-            onValueChange={(itemValue) => setSelectedAircraft(itemValue)}
-            style={[
-              styles.filterPicker,
-              {
-                height: 50,
-                width: "100%",
-                color: "#333",
-                fontSize: 12,
-                marginTop: -4,
-              },
-            ]}
-            dropdownIconColor="#666"
-            mode="dropdown"
-          >
-            {aircraftOptions.map((aircraft) => (
-              <Picker.Item
-                key={aircraft.id}
-                label={aircraft.name}
-                value={aircraft.id}
-              />
-            ))}
-          </Picker>
+        <View style={{ flex: 0.42 }}>
+          <InlineDropdown
+            value={selectedAircraft}
+            open={aircraftDropdownOpen}
+            onToggle={() => setAircraftDropdownOpen((current) => !current)}
+            onChange={(value) => {
+              setSelectedAircraft(value);
+              setAircraftDropdownOpen(false);
+            }}
+            options={aircraftOptions.map((aircraft) => ({ label: aircraft.name, value: aircraft.id }))}
+          />
         </View>
       </View>
       <View style={styles.maintenanceSearchDivider} />
@@ -462,7 +457,7 @@ export default function MechanicTaskScreen({
       />
 
       <TaskChecklist
-        visible={modalVisible}
+        visible={modalVisible && !alertConfig.visible}
         onClose={() => setModalVisible(false)}
         task={selectedTask}
         onStartTask={handleStartTask}

@@ -666,7 +666,7 @@ export default function HeadTaskScreen({
 
       {/* Modals */}
       <TaskChecklist
-        visible={checklistVisible}
+        visible={checklistVisible && !alertConfig.visible}
         onClose={() => setChecklistVisible(false)}
         task={selectedTask}
         isHeadView={true}
@@ -675,7 +675,7 @@ export default function HeadTaskScreen({
       />
 
       <AddTask
-        visible={addModalVisible}
+        visible={addModalVisible && !alertConfig.visible}
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={mechanicOptions}
@@ -683,7 +683,7 @@ export default function HeadTaskScreen({
       />
 
       <EditTask
-        visible={editModalVisible}
+        visible={editModalVisible && !alertConfig.visible}
         onClose={() => setEditModalVisible(false)}
         task={selectedTask}
         onSave={handleEditTask}

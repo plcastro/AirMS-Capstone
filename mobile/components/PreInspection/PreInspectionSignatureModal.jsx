@@ -33,6 +33,7 @@ export default function PreInspectionSignatureModal({
   onSave,
   aircraftRPC,
   actionLabel = "sign",
+  useNativeModal = true,
 }) {
   const { user } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -40,6 +41,7 @@ export default function PreInspectionSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pinError, setPinError] = useState("");
   const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
 
   const reset = () => {
@@ -47,6 +49,7 @@ export default function PreInspectionSignatureModal({
     setSignature("");
     setPin("");
     setSubmitting(false);
+    setPinError("");
     setAdvanceAfterSignature(false);
   };
 
@@ -104,16 +107,17 @@ export default function PreInspectionSignatureModal({
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      showToast("Enter your 6-digit PIN to confirm this signature.");
+      setPinError("Enter your 6-digit PIN to confirm this signature.");
       return;
     }
 
     if (!getUserIdentifier(user)) {
-      showToast("Your profile has no license number. Contact an administrator before signing.");
+      setPinError("Your profile has no license number. Contact an administrator before signing.");
       return;
     }
 
     try {
+      setPinError("");
       setSubmitting(true);
       await verifyPin();
       await onSave({
@@ -127,19 +131,13 @@ export default function PreInspectionSignatureModal({
       reset();
       onClose();
     } catch (error) {
-      showToast(error.message || "Could not verify your PIN.");
+      setPinError(error.message || "Could not verify your PIN.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={handleClose}
-    >
+  const content = (
       <View
         style={{
           flex: 1,
@@ -220,7 +218,10 @@ export default function PreInspectionSignatureModal({
             <>
               <CodeInputField
                 code={pin}
-                setCode={setPin}
+                setCode={(value) => {
+                  setPin(value);
+                  setPinError("");
+                }}
                 maxLength={6}
                 secure
                 containerStyle={{
@@ -230,6 +231,11 @@ export default function PreInspectionSignatureModal({
                 }}
                 inputContainerStyle={{ width: "100%" }}
               />
+              {!!pinError && (
+                <AppText accessibilityRole="alert" style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}>
+                  {pinError}
+                </AppText>
+              )}
               {!!signature && (
                 <View
                   style={{
@@ -324,6 +330,20 @@ export default function PreInspectionSignatureModal({
           </View>
         </View>
       </View>
+  );
+
+  if (!useNativeModal) {
+    if (!visible) return null;
+    return (
+      <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, elevation: 1000 }}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+      {content}
     </Modal>
   );
 }

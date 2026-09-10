@@ -32,6 +32,7 @@ export default function PinVerifiedSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pinError, setPinError] = useState("");
   const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
 
   const reset = () => {
@@ -39,6 +40,7 @@ export default function PinVerifiedSignatureModal({
     setSignature("");
     setPin("");
     setSubmitting(false);
+    setPinError("");
     setAdvanceAfterSignature(false);
   };
 
@@ -96,11 +98,12 @@ export default function PinVerifiedSignatureModal({
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      showToast("Enter your 6-digit PIN to confirm this signature.");
+      setPinError("Enter your 6-digit PIN to confirm this signature.");
       return;
     }
 
     try {
+      setPinError("");
       setSubmitting(true);
       await verifyPin();
       const saveResult = await onSave?.(signature);
@@ -110,7 +113,7 @@ export default function PinVerifiedSignatureModal({
       reset();
       onClose?.();
     } catch (error) {
-      showToast(error.message || "Could not verify your PIN.");
+      setPinError(error.message || "Could not verify your PIN.");
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +199,10 @@ export default function PinVerifiedSignatureModal({
             <>
               <CodeInputField
                 code={pin}
-                setCode={setPin}
+                setCode={(value) => {
+                  setPin(value);
+                  setPinError("");
+                }}
                 maxLength={6}
                 secure
                 containerStyle={{
@@ -206,6 +212,14 @@ export default function PinVerifiedSignatureModal({
                 }}
                 inputContainerStyle={{ width: "100%" }}
               />
+              {!!pinError && (
+                <AppText
+                  accessibilityRole="alert"
+                  style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}
+                >
+                  {pinError}
+                </AppText>
+              )}
               {!!signature && (
                 <View
                   style={{

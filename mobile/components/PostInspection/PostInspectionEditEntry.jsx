@@ -742,6 +742,7 @@ export default function PostInspectionEditEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
 
         <AlertComp
