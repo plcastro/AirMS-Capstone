@@ -24,6 +24,7 @@ export default function PinVerifiedSignatureModal({
   onClose,
   onSave,
   saveLabel = "Sign and Confirm",
+  useNativeModal = true,
 }) {
   const { user } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -102,7 +103,10 @@ export default function PinVerifiedSignatureModal({
     try {
       setSubmitting(true);
       await verifyPin();
-      await onSave?.(signature);
+      const saveResult = await onSave?.(signature);
+      if (saveResult === false) {
+        return;
+      }
       reset();
       onClose?.();
     } catch (error) {
@@ -112,13 +116,7 @@ export default function PinVerifiedSignatureModal({
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
-    >
+  const content = (
       <View
         style={{
           flex: 1,
@@ -302,6 +300,36 @@ export default function PinVerifiedSignatureModal({
           </View>
         </View>
       </View>
+  );
+
+  if (!useNativeModal) {
+    if (!visible) return null;
+
+    return (
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 1000,
+          elevation: 1000,
+        }}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleClose}
+    >
+      {content}
     </Modal>
   );
 }

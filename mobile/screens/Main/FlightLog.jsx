@@ -584,9 +584,11 @@ export default function FlightLog({ route, navigation }) {
           ? "Flight log released successfully."
           : "Flight log accepted successfully.",
       );
+      return true;
     } catch (error) {
       console.error("Signed flight log workflow failed:", error);
       showToast(error.message || "Flight log workflow failed.");
+      return false;
     }
   };
 
