@@ -681,7 +681,7 @@ export default function FlightLogEntry({
   const handleRelease = async (signature) => {
     if (!isAircraftSelected) {
       showToast("Select an aircraft and wait for its type to load");
-      return;
+      return false;
     }
 
     const updatedFormData = {
@@ -693,7 +693,6 @@ export default function FlightLogEntry({
         : formData.broughtForwardLocked,
     };
 
-    setShowReleaseModal(false);
     const saved = onSave
       ? await onSave(buildFlightLogPayload(updatedFormData), {
           closeOnSave: false,
@@ -702,9 +701,10 @@ export default function FlightLogEntry({
       : false;
 
     if (!saved) {
-      return;
+      return false;
     }
 
+    setShowReleaseModal(false);
     setFormData(updatedFormData);
     setFeedbackAlert({
       visible: true,
@@ -712,6 +712,7 @@ export default function FlightLogEntry({
       message: "Flight log has been released",
       closeOnFinish: true,
     });
+    return true;
   };
 
   const handleSave = () => {
@@ -1102,6 +1103,7 @@ export default function FlightLogEntry({
           onClose={() => setShowReleaseModal(false)}
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
+          useNativeModal={false}
         />
 
         <AlertComp

@@ -594,10 +594,11 @@ export default function FlightLogEditEntry({
         : formData.broughtForwardLocked,
     };
     const saved = await persistLog(updated, false);
+    if (!saved) return false;
     setShowReleaseModal(false);
-    if (!saved) return;
     setFormData(updated);
     showFeedbackAlert("Flight log has been released");
+    return true;
   };
 
   const handleAccept = async (signature) => {
@@ -614,10 +615,11 @@ export default function FlightLogEditEntry({
       status: "accepted",
     };
     const saved = await persistLog(updated, false);
+    if (!saved) return false;
     setShowAcceptModal(false);
-    if (!saved) return;
     setFormData(updated);
     showFeedbackAlert("Flight log has been accepted");
+    return true;
   };
 
   const handleNotifyMechanic = async () => {
@@ -1451,39 +1453,41 @@ export default function FlightLogEditEntry({
             </AppText>
           </TouchableOpacity>
         </View>
+
+        <FlightLogSignatureModal
+          visible={showReleaseModal}
+          title="Release Signature"
+          onClose={() => setShowReleaseModal(false)}
+          onSave={handleRelease}
+          aircraftRPC={formData.rpc}
+          useNativeModal={false}
+        />
+
+        <FlightLogSignatureModal
+          visible={showAcceptModal}
+          title="Accept Signature"
+          onClose={() => setShowAcceptModal(false)}
+          onSave={handleAccept}
+          aircraftRPC={formData.rpc}
+          useNativeModal={false}
+        />
+
+        <AlertComp
+          visible={feedbackAlert.visible}
+          title={feedbackAlert.title}
+          message={feedbackAlert.message}
+          duration={1400}
+          onFinish={() => {
+            const shouldClose = feedbackAlert.closeOnFinish;
+            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+            if (shouldClose) {
+              onClose();
+            }
+          }}
+        />
           </SafeAreaView>
         </IosModalSafeAreaProvider>
       </Modal>
-
-      <FlightLogSignatureModal
-        visible={showReleaseModal}
-        title="Release Signature"
-        onClose={() => setShowReleaseModal(false)}
-        onSave={handleRelease}
-        aircraftRPC={formData.rpc}
-      />
-
-      <FlightLogSignatureModal
-        visible={showAcceptModal}
-        title="Accept Signature"
-        onClose={() => setShowAcceptModal(false)}
-        onSave={handleAccept}
-        aircraftRPC={formData.rpc}
-      />
-
-      <AlertComp
-        visible={feedbackAlert.visible}
-        title={feedbackAlert.title}
-        message={feedbackAlert.message}
-        duration={1400}
-        onFinish={() => {
-          const shouldClose = feedbackAlert.closeOnFinish;
-          setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-          if (shouldClose) {
-            onClose();
-          }
-        }}
-      />
     </>
   );
 }

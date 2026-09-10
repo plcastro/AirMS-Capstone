@@ -8,16 +8,18 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   BackHandler,
   Platform,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { upload } from "@vercel/blob/client";
+
 import * as DocumentPicker from "expo-document-picker";
 import { File as ExpoFile } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import { upload } from "@vercel/blob/client";
 import { useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -32,8 +34,7 @@ const LIVE_SYNC_INTERVAL_MS = 1000;
 const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
 const MAX_MESSAGE_ATTACHMENTS = 5;
 const MAX_MESSAGE_ATTACHMENT_MB = 10;
-const MAX_MESSAGE_ATTACHMENT_BYTES =
-  MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
 const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
 const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
   "application/msword",
@@ -57,7 +58,9 @@ const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
 const ignoreBackgroundMessagingError = () => {};
 
 const getFilenameExtension = (filename = "") => {
-  const match = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/);
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
   return match?.[1] || "";
 };
 
@@ -68,9 +71,8 @@ const getAttachmentMimeType = (file) => {
   }
 
   return (
-    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[
-      getFilenameExtension(file?.name)
-    ] || declaredType
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
   );
 };
 
@@ -243,6 +245,7 @@ export default function Messaging({ navigation, route }) {
   const [groupName, setGroupName] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupActionLoadingId, setGroupActionLoadingId] = useState("");
   const scrollRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -357,14 +360,11 @@ export default function Messaging({ navigation, route }) {
     await fetchConversations();
   }, [fetchConversations, fetchThread]);
 
-  const notifyIncomingChat = useCallback(
-    (messagePayload) => {
-      const messageId = String(messagePayload?._id || "");
-      if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
-      notifiedMessageIdsRef.current.add(messageId);
-    },
-    [],
-  );
+  const notifyIncomingChat = useCallback((messagePayload) => {
+    const messageId = String(messagePayload?._id || "");
+    if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
+    notifiedMessageIdsRef.current.add(messageId);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -446,11 +446,7 @@ export default function Messaging({ navigation, route }) {
   const getDisplayAttachmentUrl = useCallback(
     (url, messageId, attachmentIndex) => {
       if (!isPrivateMessageAttachment(url)) return getAttachmentUrl(url);
-      const cacheKey = getAttachmentCacheKey(
-        messageId,
-        attachmentIndex,
-        url,
-      );
+      const cacheKey = getAttachmentCacheKey(messageId, attachmentIndex, url);
       return resolvedAttachmentUrls[cacheKey] || "";
     },
     [resolvedAttachmentUrls],
@@ -526,6 +522,21 @@ export default function Messaging({ navigation, route }) {
           const payload = JSON.parse(event.data);
 
           if (payload.event === "chat:conversation") {
+            const group = payload.data?.group;
+            const removedConversationId = payload.data?.removedConversationId;
+            const currentSelected = selectedConversationRef.current;
+
+            if (
+              currentSelected?.type === "group" &&
+              String(currentSelected.id) === String(removedConversationId) &&
+              (!group ||
+                !(group.members || []).some((member) =>
+                  String(getEntityId(member)) === String(currentUserId),
+                ))
+            ) {
+              setSelectedConversation(null);
+              setMessages([]);
+            }
             fetchConversations();
             return;
           }
@@ -624,7 +635,13 @@ export default function Messaging({ navigation, route }) {
       }
       wsRef.current?.close?.();
     };
-  }, [currentUserId, fetchConversations, fetchThread, getToken, notifyIncomingChat]);
+  }, [
+    currentUserId,
+    fetchConversations,
+    fetchThread,
+    getToken,
+    notifyIncomingChat,
+  ]);
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -766,7 +783,6 @@ export default function Messaging({ navigation, route }) {
     setMessages([]);
   };
 
-
   const handleSend = async () => {
     const body = draft.trim();
     if (!selectedConversation?.id || (!body && attachments.length === 0)) {
@@ -811,18 +827,22 @@ export default function Messaging({ navigation, route }) {
 
       if (isLocalApiBase && attachmentsToSend.length > 0) {
         const formData = new FormData();
+
         formData.append(
           isGroup ? "conversationId" : "recipientId",
           selectedConversation.id,
         );
+
         formData.append("body", body);
+
         attachmentsToSend.forEach((file) => {
           formData.append("attachments", {
             uri: file.uri,
             name: file.name,
-            type: file.type || "application/octet-stream",
+            type: getAttachmentMimeType(file) || "application/octet-stream",
           });
         });
+
         data = await authFetch(`${API_BASE}/api/messages`, {
           method: "POST",
           body: formData,
@@ -850,7 +870,7 @@ export default function Messaging({ navigation, route }) {
             buildAttachmentPathname(currentUserId, file, index),
             uploadBody,
             {
-              access: "private",
+              access: "public",
               handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
               headers: { Authorization: `Bearer ${token}` },
               contentType: mimeType,
@@ -1035,6 +1055,76 @@ export default function Messaging({ navigation, route }) {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    const conversationId = selectedConversationDetails?.id;
+    if (!conversationId || selectedConversationDetails?.type !== "group") {
+      return;
+    }
+
+    try {
+      setGroupActionLoadingId("leave");
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/me`,
+        { method: "DELETE" },
+      );
+      setMembersModalOpen(false);
+      setSelectedConversation(null);
+      setMessages([]);
+      await fetchConversations();
+      showToast("You left the group chat.");
+    } catch (error) {
+      showToast(error.message || "Failed to leave group chat");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmLeaveGroup = () => {
+    Alert.alert(
+      "Leave group chat?",
+      `You will stop receiving messages from ${selectedConversationDetails?.title || "this group"}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Leave", style: "destructive", onPress: handleLeaveGroup },
+      ],
+    );
+  };
+
+  const handleRemoveGroupMember = async (member) => {
+    const conversationId = selectedConversationDetails?.id;
+    const memberId = getEntityId(member);
+    if (!conversationId || !memberId) return;
+
+    try {
+      setGroupActionLoadingId(String(memberId));
+      await authFetch(
+        `${API_BASE}/api/messages/groups/${conversationId}/members/${memberId}`,
+        { method: "DELETE" },
+      );
+      await fetchConversations();
+      showToast(`${getDisplayName(member)} removed from group chat.`);
+    } catch (error) {
+      showToast(error.message || "Failed to remove group member");
+    } finally {
+      setGroupActionLoadingId("");
+    }
+  };
+
+  const confirmRemoveGroupMember = (member) => {
+    Alert.alert(
+      "Remove member?",
+      `Remove ${getDisplayName(member)} from ${selectedConversationDetails?.title || "this group"}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => handleRemoveGroupMember(member),
+        },
+      ],
+    );
+  };
+
   const toggleGroupMember = (memberId) => {
     setGroupMemberIds((current) =>
       current.includes(memberId)
@@ -1110,6 +1200,10 @@ export default function Messaging({ navigation, route }) {
       selectedGroupMembers={selectedGroupMembers}
       renderAvatar={renderAvatar}
       getDisplayName={getDisplayName}
+      currentUserId={currentUserId}
+      onLeaveGroup={confirmLeaveGroup}
+      onRemoveGroupMember={confirmRemoveGroupMember}
+      groupActionLoadingId={groupActionLoadingId}
     />
   );
 }

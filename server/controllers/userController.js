@@ -49,7 +49,7 @@ const withActorId = (req, action, fallbackId = null) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
-const TEMP_PASSWORD_VALIDITY_MS = 60 * 60 * 1000; // 1 hour
+const TEMP_PASSWORD_VALIDITY_MS = 24 * 60 * 60 * 1000; // 1 day
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (non-persistent)
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years; logout/revocation still ends mobile sessions
@@ -555,11 +555,9 @@ const loginUser = async (req, res) => {
     }
 
     if (user.status === "deactivated") {
-      return res
-        .status(403)
-        .json({
-          message: "This account is deactivated. Please contact support",
-        });
+      return res.status(403).json({
+        message: "This account is deactivated. Please contact support",
+      });
     }
 
     // Check lock
@@ -908,7 +906,9 @@ const refreshToken = async (req, res) => {
       tokenRecord.expiresAt <= new Date()
     ) {
       if (tokenRecord?.revokedAt && tokenRecord?.replacedByTokenHash) {
-        return res.status(403).json({ message: "Refresh token already rotated" });
+        return res
+          .status(403)
+          .json({ message: "Refresh token already rotated" });
       }
 
       await revokeAllUserRefreshTokens(

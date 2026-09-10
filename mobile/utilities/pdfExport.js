@@ -809,9 +809,13 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
         <style>
           @page { size: A4 portrait; margin: 12pt 18pt; }
           * { box-sizing: border-box; }
+          html {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body {
             font-family: Arial, Helvetica, sans-serif;
-            color: #111;
+            color: #000;
             margin: 0;
             font-size: 5.2pt;
             line-height: 1.04;
@@ -836,7 +840,7 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
             gap: 4pt; font-size: 7.4pt; font-weight: 800;
           }
           .field .line {
-            display: inline-block; min-width: 106pt; border-bottom: .6pt solid #111;
+            display: inline-block; min-width: 106pt; border-bottom: 1px solid #000;
             padding: 0 3pt 1pt; font-weight: 400;
           }
           .aircraft-type { left: 25pt; top: 67pt; }
@@ -850,7 +854,7 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
           table + table, .due-row + table, .signature + table,
           .checks + table { margin-top: 2.2pt; }
           th, td {
-            border: .45pt solid #111; padding: 1.05pt; height: 8pt;
+            border: 1px solid #000; padding: 1.05pt; height: 8pt;
             vertical-align: middle; overflow-wrap: anywhere;
           }
           th { background: #e5e5e5; text-align: center; font-weight: 800; }
@@ -885,19 +889,19 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
           .work-table col:nth-child(5) { width: 59pt; }
           .due-row {
             display: grid; grid-template-columns: 1fr 1fr;
-            border-left: .45pt solid #111; border-right: .45pt solid #111;
+            border-left: 1px solid #000; border-right: 1px solid #000;
             margin-top: 2.2pt; font-weight: 800;
           }
           .due-row div { min-height: 12pt; padding: 2pt 4pt; }
           .signature {
             display: grid; grid-template-columns: 1fr 1fr;
-            border: .45pt solid #111; margin-top: 2.2pt;
+            border: 1px solid #000; margin-top: 2.2pt;
           }
           .signature > div {
             min-height: 26pt; padding: 2pt; text-align: center; font-weight: 800;
           }
           .signature .name {
-            margin: 4pt 34pt 1pt; border-bottom: .45pt solid #111;
+            margin: 4pt 34pt 1pt; border-bottom: 1px solid #000;
             min-height: 9pt; font-weight: 400;
           }
           .signature-image {
@@ -908,12 +912,12 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
           .name-sign { text-align: center; }
           .checks {
             display: grid; grid-template-columns: repeat(4, 1fr);
-            border: .45pt solid #111; padding: 2pt; margin-top: 2.2pt;
+            border: 1px solid #000; padding: 2pt; margin-top: 2.2pt;
             font-weight: 800;
           }
           .box {
             display: inline-flex; width: 8pt; height: 8pt;
-            border: .45pt solid #111; margin-right: 3pt;
+            border: 1px solid #000; margin-right: 3pt;
             vertical-align: -1pt; align-items: center; justify-content: center;
             font-size: 5.5pt;
           }
@@ -1174,9 +1178,13 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
         <style>
           @page { size: A4 portrait; margin: 14pt 18pt; }
           * { box-sizing: border-box; }
+          html {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           body {
             font-family: Arial, Helvetica, sans-serif;
-            color: #111;
+            color: #000;
             margin: 0;
             font-size: 5.5pt;
             line-height: 1.05;
@@ -1228,7 +1236,7 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           .field .line {
             display: inline-block;
             min-width: 104pt;
-            border-bottom: .6pt solid #111;
+            border-bottom: 1px solid #000;
             padding: 0 4pt 1pt;
             font-weight: 400;
           }
@@ -1284,7 +1292,7 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           .work-table col:nth-child(4) { width: 96pt; }
           .work-table col:nth-child(5) { width: 58pt; }
           th, td {
-            border: .45pt solid #111;
+            border: 1px solid #000;
             padding: 1.2pt;
             height: 8.4pt;
             vertical-align: middle;
@@ -1306,8 +1314,8 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           .due-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            border-left: .45pt solid #111;
-            border-right: .45pt solid #111;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
             margin-top: 3pt;
             font-weight: 800;
           }
@@ -1318,9 +1326,9 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           .signature {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            border-left: .45pt solid #111;
-            border-right: .45pt solid #111;
-            border-bottom: .45pt solid #111;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
             margin-top: 3pt;
           }
           .signature > div {
@@ -1331,7 +1339,7 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           }
           .signature .name {
             margin: 8pt 42pt 2pt;
-            border-bottom: .45pt solid #111;
+            border-bottom: 1px solid #000;
             min-height: 9pt;
             font-weight: 400;
           }
@@ -1353,9 +1361,9 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
           .checks {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            border-left: .45pt solid #111;
-            border-right: .45pt solid #111;
-            border-bottom: .45pt solid #111;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
             padding: 3pt 2pt;
             margin-top: 3pt;
             font-weight: 800;
@@ -1364,7 +1372,7 @@ const buildFlightLogHtml = (log = {}, logoDataUri = "") => {
             display: inline-block;
             width: 8pt;
             height: 8pt;
-            border: .45pt solid #111;
+            border: 1px solid #000;
             margin-right: 4pt;
             vertical-align: -1pt;
           }

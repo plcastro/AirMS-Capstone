@@ -255,6 +255,7 @@ const prepareTaskUpdate = (existingTask, payload = {}) => {
   }
 
   if (nextStatus === "Approved" || sanitizedPayload.isApproved === true) {
+    nextTask.status = "Approved";
     nextTask.reviewedAt =
       nextTask.reviewedAt ||
       nowIso;

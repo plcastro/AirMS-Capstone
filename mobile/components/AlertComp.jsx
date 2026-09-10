@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import AppText from "./common/AppText";
 import {
   View,
@@ -20,16 +20,22 @@ export default function AlertComp({
   cancelText = "Cancel",
   embedded = false,
 }) {
+  const onFinishRef = useRef(onFinish);
+
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
   // Auto-close alert (used for success alerts)
   useEffect(() => {
     if (!duration || !visible) return;
 
     const timer = setTimeout(() => {
-      onFinish?.();
+      onFinishRef.current?.();
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [visible, duration, onFinish]);
+  }, [visible, duration]);
 
   if (!visible) return null;
 
