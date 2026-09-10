@@ -209,7 +209,7 @@ export default function HeadTaskScreen({
     if (match) {
       setSelectedTask(match);
       setChecklistVisible(true);
-      if (targetNotificationStatus === "Turned in") {
+      if (["Completed", "Turned in"].includes(targetNotificationStatus)) {
         setActiveTab("For Review");
       }
     }
@@ -468,7 +468,7 @@ export default function HeadTaskScreen({
       message: "Confirm approval and submit this task review?",
       confirmText: "Approve",
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
     const now = new Date().toISOString();
     const approverName =
@@ -514,6 +514,7 @@ export default function HeadTaskScreen({
         setSelectedTask(savedTask);
         showToast("Task approved successfully.");
         await fetchTasks({ silent: true });
+        return true;
       } else {
         const data = await parseJsonSafely(response).catch(() => ({}));
         throw new Error(data.message || "Failed to approve task");
@@ -530,7 +531,7 @@ export default function HeadTaskScreen({
       message: "Return this task to the mechanic for revision?",
       confirmText: "Return",
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
     const now = new Date().toISOString();
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
@@ -585,12 +586,15 @@ export default function HeadTaskScreen({
         setSelectedTask(savedTask);
         showToast("Task returned successfully.");
         await fetchTasks({ silent: true });
+        return true;
       } else {
         showToast("Failed to return task");
+        return false;
       }
     } catch (error) {
       console.error("Error returning task:", error);
       showToast("Failed to return task");
+      return false;
     }
   };
 

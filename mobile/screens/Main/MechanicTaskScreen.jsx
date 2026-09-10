@@ -184,7 +184,7 @@ export default function MechanicTaskScreen({
     if (match) {
       setSelectedTask(match);
       setModalVisible(true);
-      if (targetNotificationStatus === "Turned in") {
+      if (["Completed", "Turned in"].includes(targetNotificationStatus)) {
         setSelectedAircraft(match.aircraft || "all");
       }
     }
@@ -243,13 +243,6 @@ export default function MechanicTaskScreen({
   };
 
   const handleStartTask = async (task) => {
-    const confirmed = await confirmWithAlert({
-      title: "Start Task",
-      message: "Start this task now?",
-      confirmText: "Start",
-    });
-    if (!confirmed) return;
-
     const now = new Date();
 
     const updatedTask = {
@@ -366,7 +359,7 @@ export default function MechanicTaskScreen({
         : "Submit this task for review?",
       confirmText: options.undo ? "Undo" : "Turn In",
     });
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
     const now = new Date().toISOString();
 
@@ -380,14 +373,14 @@ export default function MechanicTaskScreen({
       updatedTask.status = options.newStatus || "Ongoing";
       updatedTask.completedAt = null;
     } else {
-      updatedTask.status = "Turned in";
+      updatedTask.status = "Completed";
       updatedTask.completedAt = now;
     }
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const taskId = getTaskIdentifier(task);
-      const sendUpdate = (confirmBusyMechanic = false) => fetch(`${API_BASE}/api/tasks/${taskId}`, {
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -397,28 +390,13 @@ export default function MechanicTaskScreen({
         body: JSON.stringify({
           ...updatedTask,
           confirmAction: true,
-          confirmBusyMechanic,
+          confirmBusyMechanic: Boolean(options.undo),
         }),
       });
-      let response = await sendUpdate(false);
       if (!response.ok) {
         const errorData = await parseJsonSafely(response).catch(() => null);
-        if (
-          options.undo &&
-          response.status === 409 &&
-          errorData?.code === "MECHANIC_ACTIVE_WORKLOAD_CONFIRMATION_REQUIRED"
-        ) {
-          const retryConfirmed = await confirmWithAlert({
-            title: "Active Workload",
-            message: `${errorData.message} Continue undoing the turn-in?`,
-            confirmText: "Continue",
-          });
-          if (!retryConfirmed) return;
-          response = await sendUpdate(true);
-        } else {
-          showToast(errorData?.message || "Failed to turn in task");
-          return;
-        }
+        showToast(errorData?.message || "Failed to turn in task");
+        return false;
       }
       if (response.ok) {
         const data = await parseJsonSafely(response);
@@ -437,12 +415,15 @@ export default function MechanicTaskScreen({
             : "Task turned in successfully.",
         );
         await fetchTasks({ silent: true });
+        return true;
       } else {
         showToast("Failed to turn in task");
+        return false;
       }
     } catch (error) {
       console.error("Error turning in task:", error);
       showToast("Failed to turn in task");
+      return false;
     }
   };
 
