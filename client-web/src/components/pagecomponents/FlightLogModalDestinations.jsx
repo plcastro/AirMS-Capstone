@@ -13,7 +13,12 @@ const getOrdinalSuffix = (n) => {
 
 const REQUIRED_LEG_FIELDS = new Set(["date"]);
 
-export default function FlightLogModalDestinations({ formData, handlers, isEditable = true }) {
+export default function FlightLogModalDestinations({
+  formData,
+  handlers,
+  isEditable = true,
+  maxLegs,
+}) {
   const { updateLeg, addLeg, removeLeg, addStation, removeStation, updateStation } = handlers;
   const legs = formData.legs || [];
 
@@ -143,7 +148,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
         );
       })}
 
-      {isEditable && (
+      {isEditable && (!Number.isFinite(maxLegs) || legs.length < maxLegs) && (
         <Button className="fl-add-btn" icon={<PlusOutlined />} onClick={addLeg} block>
           Add Leg
         </Button>

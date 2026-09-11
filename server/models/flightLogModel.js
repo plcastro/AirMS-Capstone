@@ -286,7 +286,8 @@ const flightLogSchema = new mongoose.Schema(
     // Component Times
     componentData: componentTimesSchema,
 
-    // Bell 412 EP-specific form data. Undefined for legacy/AS350 records.
+    // Bell 412 EP-specific form and export data. Top-level legs remain dynamic
+    // while this shape retains the fields required by the B412 output.
     b412Data: { type: b412FlightLogDataSchema, default: undefined },
 
     // Status and Tracking

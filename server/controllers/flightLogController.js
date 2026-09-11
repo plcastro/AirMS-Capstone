@@ -3,6 +3,17 @@ const { auditLog } = require("./logsController");
 const {
   createFlightLogNotifications,
 } = require("../utils/flightLogNotificationService");
+const {
+  canEditFlightLogRequest,
+  getTrustedFlightLogRole,
+  hasCompleteFlightLogLegs,
+  isB412AircraftType,
+  isMechanicFlightLogRequest,
+  isPilotFlightLogRequest,
+  isRestrictedPilotFlightLogRequest,
+  mergePilotB412Update,
+  pickFlightLogPayloadForRequest,
+} = require("../utils/flightLogPayload");
 const getAuditActorId = (req, fallbackId = null) => req.user?.id || fallbackId;
 const withActorId = (req, action, fallbackId = null) => {
   const actorId = getAuditActorId(req, fallbackId);
@@ -29,14 +40,6 @@ const isReleasedFlightLogStatus = (status = "") =>
       .toLowerCase(),
   );
 
-const isB412AircraftType = (aircraftType = "") => {
-  const normalized = String(aircraftType || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-
-  return normalized.includes("B412EP") || normalized.includes("BELL412EP");
-};
-
 const ONGOING_FLIGHT_LOG_STATUSES = [
   "pending_release",
   "pending_acceptance",
@@ -50,55 +53,6 @@ const escapeRegex = (value = "") =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeAircraftRpc = (value = "") => String(value || "").trim();
-
-const normalizeRole = (value = "") =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, " ");
-
-const isPilotFlightLogRequest = (req, payload = {}) =>
-  normalizeRole(
-    req.user?.jobTitle ||
-      req.user?.access ||
-      req.user?.role ||
-      payload.createdBy,
-  ) === "pilot";
-
-const isFlightLogLegStarted = (leg = {}) =>
-  Boolean(String(leg.date || "").trim()) ||
-  (Array.isArray(leg.stations) &&
-    leg.stations.some(
-      (station) =>
-        String(station?.from || "").trim() ||
-        String(station?.to || "").trim(),
-    ));
-
-const hasCompleteFlightLogLegs = (legs, { allowUnused = false } = {}) => {
-  if (!Array.isArray(legs)) return false;
-
-  const relevantLegs = allowUnused
-    ? legs.filter(isFlightLogLegStarted)
-    : legs;
-
-  return (
-    relevantLegs.length > 0 &&
-    relevantLegs.every((leg) => {
-      const hasValidDate =
-        Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
-      const hasCompleteRoute =
-        Array.isArray(leg?.stations) &&
-        leg.stations.length > 0 &&
-        leg.stations.every(
-          (station) =>
-            String(station?.from || "").trim() &&
-            String(station?.to || "").trim(),
-        );
-
-      return hasValidDate && hasCompleteRoute;
-    })
-  );
-};
 
 const findOngoingFlightLogForAircraft = async (rpc, excludedId = null) => {
   const normalizedRpc = normalizeAircraftRpc(rpc);
@@ -153,47 +107,6 @@ const hasDestinationInfo = (flightLog = {}) =>
       ),
   );
 
-// Only model-backed flight-log fields may enter create/update operations.
-// Mongoose remains strict for nested objects, including the B412-specific
-// subdocument, while this top-level allowlist also prevents update operators
-// or unrelated request properties from being forwarded to MongoDB.
-const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
-  "aircraftType",
-  "rpc",
-  "date",
-  "controlNo",
-  "sling",
-  "remarks",
-  "legs",
-  "fuelServicing",
-  "oilServicing",
-  "workItems",
-  "componentData",
-  "componentTimes",
-  "b412Data",
-  "createdBy",
-  "createdByName",
-  "createdByUserId",
-  "status",
-  "notifiedForCompletion",
-  "broughtForwardLocked",
-  "releasedBy",
-  "acceptedBy",
-  "dateAdded",
-]);
-
-const pickFlightLogPayload = (body = {}) => {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(body).filter(([field]) =>
-      ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS.has(field),
-    ),
-  );
-};
-
 const getB412PayloadShapeError = (b412Data) => {
   if (b412Data === undefined || b412Data === null) {
     return null;
@@ -238,13 +151,23 @@ const getB412PayloadShapeError = (b412Data) => {
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
 // @access  Private (pilot or mechanic)
-// In flightlogController.js - remove all req.user references
 const createFlightLog = async (req, res) => {
   try {
+    if (!canEditFlightLogRequest(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Your role has read-only access to flight logs",
+      });
+    }
+
     console.log("=== CREATE FLIGHT LOG CALLED ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
 
-    const flightLogData = pickFlightLogPayload(req.body);
+    const flightLogData = pickFlightLogPayloadForRequest(
+      req,
+      req.body,
+      "create",
+    );
 
     const b412PayloadError = getB412PayloadShapeError(flightLogData.b412Data);
     if (b412PayloadError) {
@@ -266,10 +189,8 @@ const createFlightLog = async (req, res) => {
     }
 
     if (
-      isPilotFlightLogRequest(req, flightLogData) &&
-      !hasCompleteFlightLogLegs(flightLogData.legs, {
-        allowUnused: isB412AircraftType(flightLogData.aircraftType),
-      })
+      isRestrictedPilotFlightLogRequest(req) &&
+      !hasCompleteFlightLogLegs(flightLogData.legs)
     ) {
       return res.status(400).json({
         success: false,
@@ -289,7 +210,15 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    // Keep the frontend workflow status when it is valid.
+    if (isRestrictedPilotFlightLogRequest(req)) {
+      flightLogData.createdBy = getTrustedFlightLogRole(req);
+      if (req.user?.id) {
+        flightLogData.createdByUserId = req.user.id;
+      }
+    }
+
+    // Keep the frontend workflow status when it is valid for non-pilot roles.
+    // Pilot-supplied status is filtered above, so their log starts pending.
     flightLogData.status = [
       "pending_release",
       "pending_acceptance",
@@ -581,8 +510,19 @@ const getFlightLogsByAircraft = async (req, res) => {
 // @access  Private
 const updateFlightLog = async (req, res) => {
   try {
+    if (!canEditFlightLogRequest(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Your role has read-only access to flight logs",
+      });
+    }
+
     const { id } = req.params;
-    const updates = pickFlightLogPayload(req.body);
+    const updates = pickFlightLogPayloadForRequest(
+      req,
+      req.body,
+      "update",
+    );
 
     const b412PayloadError = getB412PayloadShapeError(updates.b412Data);
     if (b412PayloadError) {
@@ -605,6 +545,31 @@ const updateFlightLog = async (req, res) => {
         success: false,
         message: "Completed flight logs cannot be edited",
       });
+    }
+
+    if (
+      isRestrictedPilotFlightLogRequest(req) &&
+      Object.prototype.hasOwnProperty.call(updates, "legs") &&
+      !hasCompleteFlightLogLegs(updates.legs)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Each leg must include complete station route and date",
+      });
+    }
+
+    if (
+      isRestrictedPilotFlightLogRequest(req) &&
+      Object.prototype.hasOwnProperty.call(updates, "b412Data")
+    ) {
+      if (isB412AircraftType(existingFlightLog.aircraftType)) {
+        updates.b412Data = mergePilotB412Update(
+          existingFlightLog.b412Data,
+          updates.b412Data,
+        );
+      } else {
+        delete updates.b412Data;
+      }
     }
 
     if (isReleasedFlightLogStatus(existingFlightLog.status)) {
@@ -692,11 +657,17 @@ const updateFlightLog = async (req, res) => {
 // @desc    Release flight log (mechanic releases to pilot)
 // @route   PUT /api/flight-logs/:id/release
 // @access  Private (mechanic)
-// Remove role checks from other functions or simplify them
 const releaseFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, signature } = req.body;
+
+    if (!isMechanicFlightLogRequest(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only mechanics can release flight logs",
+      });
+    }
 
     const flightLog = await FlightLog.findById(id);
 
@@ -717,9 +688,6 @@ const releaseFlightLog = async (req, res) => {
 
     // Release the flight log
     const previousFlightLog = toComparableFlightLog(flightLog);
-    if (isB412AircraftType(flightLog.aircraftType)) {
-      flightLog.broughtForwardLocked = true;
-    }
     flightLog.release(name, signature);
     await flightLog.save();
     await createFlightLogNotifications({
@@ -751,10 +719,10 @@ const releaseFlightLog = async (req, res) => {
 const acceptFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, signature, userRole } = req.body; // Get userRole from body
+    const { name, signature } = req.body;
 
-    // Check if user is authorized (Pilot)
-    if (userRole !== "pilot") {
+    // Authorization is derived from the verified token, never request data.
+    if (!isPilotFlightLogRequest(req)) {
       return res.status(403).json({
         success: false,
         message: "Only pilots can accept flight logs",
@@ -814,10 +782,17 @@ const acceptFlightLog = async (req, res) => {
 
 // @desc    Complete flight log
 // @route   PUT /api/flight-logs/:id/complete
-// @access  Private
+// @access  Private (mechanic)
 const completeFlightLog = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!isMechanicFlightLogRequest(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only mechanics can complete flight logs",
+      });
+    }
 
     const flightLog = await FlightLog.findById(id);
 

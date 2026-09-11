@@ -15,8 +15,6 @@ export default function FlightLogModalInfo({
   isActive = true,
   onAircraftDataLoaded,
   isB412 = false,
-  serialNumber = "",
-  onUpdateSerialNumber,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -421,34 +419,6 @@ export default function FlightLogModalInfo({
             </AppText>
             {renderAircraftType()}
           </View>
-
-          {isB412 && (
-            <View style={{ marginBottom: 16 }}>
-              <AppText
-                style={{
-                  fontSize: 12,
-                  color: COLORS.black,
-                  marginBottom: 6,
-                  fontWeight: "500",
-                }}
-              >
-                Serial No.:
-              </AppText>
-              <AppInput
-                style={{
-                  backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-                  borderRadius: 6,
-                  height: 42,
-                  paddingHorizontal: 12,
-                  fontSize: 12,
-                  color: isEditable ? COLORS.black : COLORS.grayDark,
-                }}
-                value={serialNumber}
-                onChangeText={onUpdateSerialNumber}
-                editable={isEditable}
-              />
-            </View>
-          )}
 
           <View style={{ marginBottom: 16 }}>
             <AppText

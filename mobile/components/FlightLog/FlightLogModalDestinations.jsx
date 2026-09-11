@@ -14,6 +14,7 @@ export default function FlightLogModalDestinations({
   onUpdateLeg,
   isEditable = true,
   userRole,
+  maxLegs,
 }) {
   const [stations, setStations] = useState(legData.stations || [{ from: "", to: "" }]);
   const [legs, setLegs] = useState(legData.legs || [{
@@ -84,6 +85,7 @@ export default function FlightLogModalDestinations({
 
   const addLeg = () => {
     if (!isEditable) return;
+    if (Number.isFinite(maxLegs) && legs.length >= maxLegs) return;
     const newLeg = {
       stations: [{ from: "", to: "" }],
       blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
@@ -279,7 +281,7 @@ export default function FlightLogModalDestinations({
         );
       })}
 
-      {isEditable && (
+      {isEditable && (!Number.isFinite(maxLegs) || legs.length < maxLegs) && (
         <TouchableOpacity
           onPress={addLeg}
           style={{

@@ -11,8 +11,6 @@ export default function FlightLogModalInfo({
   isRPCEditable = true,
   isActive = true,
   onAircraftDataLoaded,
-  serialNumber = "",
-  onUpdateSerialNumber,
 }) {
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
@@ -20,13 +18,13 @@ export default function FlightLogModalInfo({
   const autoResolveRpc = useRef("");
   const isActiveRef = useRef(isActive);
   const callbacksRef = useRef({ updateForm, onAircraftDataLoaded });
-  isActiveRef.current = isActive;
 
   useEffect(() => {
     callbacksRef.current = { updateForm, onAircraftDataLoaded };
   }, [updateForm, onAircraftDataLoaded]);
 
   useEffect(() => {
+    isActiveRef.current = isActive;
     if (!isActive) {
       rpcRequestId.current += 1;
       autoResolveRpc.current = "";
@@ -288,21 +286,6 @@ export default function FlightLogModalInfo({
             <span className="fl-label">Aircraft Type:</span>
             <Input className="fl-input" value={aircraftTypeLabel} disabled />
           </div>
-
-          {isB412 && (
-            <div className="fl-field-row">
-              <span className="fl-label">Serial Number:</span>
-              <Input
-                className="fl-input"
-                value={serialNumber}
-                onChange={(event) =>
-                  onUpdateSerialNumber?.(event.target.value)
-                }
-                placeholder="Enter aircraft serial number"
-                disabled={!isEditable}
-              />
-            </div>
-          )}
 
           <div className="fl-field-row">
             <span className="fl-label">Date: *</span>

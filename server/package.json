@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node tests/cleanupAircraftData.test.js",
+    "test": "node tests/run.js",
     "cleanup:aircraft": "node scripts/cleanupAircraftData.js",
     "start": "nodemon server.js",
     "seed:manual-rules": "node scripts/seedManualRules.js",

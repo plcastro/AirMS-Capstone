@@ -382,6 +382,18 @@ const firstFlightValue = (...values) =>
     (value) => value !== null && value !== undefined && value !== "",
   );
 
+const hasPopulatedStandardFlightValue = (value) => {
+  if (value === null || value === undefined || value === "") return false;
+  // Legacy B412 records may contain numeric zeroes in an otherwise unused
+  // top-level component mirror. User-entered form values are stored as strings.
+  return !(typeof value === "number" && value === 0);
+};
+
+const standardFlightValue = (standardValue, ...legacyValues) =>
+  hasPopulatedStandardFlightValue(standardValue)
+    ? standardValue
+    : firstFlightValue(...legacyValues);
+
 const getB412GroupValue = (section, groupKey, valueKey, ...aliases) =>
   firstFlightValue(
     section?.[groupKey]?.[valueKey],
@@ -405,15 +417,18 @@ const getB412PassengerValue = (
     : passengerRow?.legs;
   const legPassengers = record.legs?.[legIndex]?.passengers;
 
-  return flightValue(
-    firstFlightValue(
-      rowLegs?.[legIndex],
-      Array.isArray(legPassengers) ? legPassengers[rowIndex] : undefined,
-      rowIndex === 0 && !Array.isArray(legPassengers)
-        ? legPassengers
-        : undefined,
-    ),
-  );
+  if (Array.isArray(legPassengers)) {
+    if (hasPopulatedStandardFlightValue(legPassengers[rowIndex])) {
+      return flightValue(legPassengers[rowIndex]);
+    }
+  } else if (
+    rowIndex === 0 &&
+    hasPopulatedStandardFlightValue(legPassengers)
+  ) {
+    return flightValue(legPassengers);
+  }
+
+  return flightValue(firstFlightValue(rowLegs?.[legIndex]));
 };
 
 const getB412OilValue = (row, groupKey, valueKey, ...aliases) =>
@@ -429,14 +444,235 @@ const normalizeB412Category = (value = "") =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
+const mergeB412ComponentForExport = (
+  standardSection = {},
+  legacySection = {},
+) => ({
+  ...legacySection,
+  airframe: standardFlightValue(
+    standardSection.airframe,
+    legacySection.airframe,
+  ),
+  mrGearbox: {
+    ...(legacySection.mrGearbox || {}),
+    tsn: standardFlightValue(
+      standardSection.gearBoxMain,
+      legacySection.mrGearbox?.tsn,
+      legacySection.mrGearboxTsn,
+      legacySection.mrGearboxTSN,
+    ),
+  },
+  tr90Gearbox: {
+    ...(legacySection.tr90Gearbox || {}),
+    tsn: standardFlightValue(
+      standardSection.gearBoxTail,
+      legacySection.tr90Gearbox?.tsn,
+      legacySection.tr90GearboxTsn,
+      legacySection.tr90GearboxTSN,
+    ),
+  },
+  landingCycle: standardFlightValue(
+    standardSection.landingCycle,
+    legacySection.landingCycle,
+  ),
+  engine1: {
+    ...(legacySection.engine1 || {}),
+    tsn: standardFlightValue(
+      standardSection.engine,
+      legacySection.engine1?.tsn,
+      legacySection.engine1Tsn,
+    ),
+    cycle: standardFlightValue(
+      standardSection.cycleN1,
+      legacySection.engine1?.cycle,
+      legacySection.engine1Cycle,
+    ),
+  },
+  engine2: {
+    ...(legacySection.engine2 || {}),
+    cycle: standardFlightValue(
+      standardSection.cycleN2,
+      legacySection.engine2?.cycle,
+      legacySection.engine2Cycle,
+    ),
+  },
+  sling: standardFlightValue(
+    standardSection.usage,
+    legacySection.sling,
+  ),
+});
+
+const mergeB412FuelForExport = (standardRow = {}, legacyRow = {}) => ({
+  ...legacyRow,
+  contCheck: standardFlightValue(standardRow.contCheck, legacyRow.contCheck),
+  mainTankRemaining: standardFlightValue(
+    standardRow.mainRemG,
+    legacyRow.mainTankRemaining,
+    legacyRow.mainRemG,
+  ),
+  mainTankAdded: standardFlightValue(
+    standardRow.mainAdd,
+    legacyRow.mainTankAdded,
+    legacyRow.mainAdd,
+  ),
+  mainTankTotal: standardFlightValue(
+    standardRow.mainTotal,
+    legacyRow.mainTankTotal,
+    legacyRow.mainTotal,
+  ),
+  refuellerName: standardFlightValue(
+    standardRow.refuelerName,
+    legacyRow.refuellerName,
+    legacyRow.refuelerName,
+  ),
+  signature: standardFlightValue(
+    standardRow.signature,
+    legacyRow.signature,
+  ),
+});
+
+const mergeB412OilForExport = (standardRow = {}, legacyRow = {}) => ({
+  ...legacyRow,
+  mechanicSignature: standardFlightValue(
+    standardRow.signature,
+    legacyRow.mechanicSignature,
+    legacyRow.signature,
+  ),
+  engine1: {
+    ...(legacyRow.engine1 || {}),
+    remaining: standardFlightValue(
+      standardRow.engineRem,
+      legacyRow.engine1?.remaining,
+      legacyRow.engine1Rem,
+    ),
+    added: standardFlightValue(
+      standardRow.engineAdd,
+      legacyRow.engine1?.added,
+      legacyRow.engine1Add,
+    ),
+    total: standardFlightValue(
+      standardRow.engineTot,
+      legacyRow.engine1?.total,
+      legacyRow.engine1Tot,
+    ),
+  },
+  mrGearbox: {
+    ...(legacyRow.mrGearbox || {}),
+    remaining: standardFlightValue(
+      standardRow.mrGboxRem,
+      legacyRow.mrGearbox?.remaining,
+      legacyRow.mrGearboxRem,
+    ),
+    added: standardFlightValue(
+      standardRow.mrGboxAdd,
+      legacyRow.mrGearbox?.added,
+      legacyRow.mrGearboxAdd,
+    ),
+    total: standardFlightValue(
+      standardRow.mrGboxTot,
+      legacyRow.mrGearbox?.total,
+      legacyRow.mrGearboxTot,
+    ),
+  },
+  tr90Gearbox: {
+    ...(legacyRow.tr90Gearbox || {}),
+    remaining: standardFlightValue(
+      standardRow.trGboxRem,
+      legacyRow.tr90Gearbox?.remaining,
+      legacyRow.gearbox90Rem,
+    ),
+    added: standardFlightValue(
+      standardRow.trGboxAdd,
+      legacyRow.tr90Gearbox?.added,
+      legacyRow.gearbox90Add,
+    ),
+    total: standardFlightValue(
+      standardRow.trGboxTot,
+      legacyRow.tr90Gearbox?.total,
+      legacyRow.gearbox90Tot,
+    ),
+  },
+});
+
+const mergeB412CorrectionForExport = (standardItem = {}, legacyItem = {}) => {
+  const selectedWorkTypes = Array.isArray(standardItem.selectedWorkTypes)
+    ? standardItem.selectedWorkTypes.filter(hasPopulatedStandardFlightValue)
+    : [];
+  const standardNameOrSignature = hasPopulatedStandardFlightValue(
+    standardItem.signature,
+  )
+    ? standardItem.signature
+    : standardItem.name;
+
+  return {
+    ...legacyItem,
+    selectedWorkTypes,
+    category: standardFlightValue(
+      selectedWorkTypes[0],
+      legacyItem.category,
+    ),
+    date: standardFlightValue(standardItem.date, legacyItem.date),
+    aircraftTotalTime: standardFlightValue(
+      standardItem.aircraft,
+      legacyItem.aircraftTotalTime,
+      legacyItem.aircraftTT,
+    ),
+    workDone: standardFlightValue(
+      standardItem.workDone,
+      standardItem.description,
+      legacyItem.workDone,
+      legacyItem.description,
+    ),
+    nameSign: standardFlightValue(
+      standardNameOrSignature,
+      legacyItem.nameSign,
+      legacyItem.signature,
+      legacyItem.name,
+    ),
+    certificateNo: standardFlightValue(
+      standardItem.certificateNumber,
+      legacyItem.certificateNo,
+      legacyItem.certificateNumber,
+    ),
+  };
+};
+
+const alignStandardWorkItemsToB412Rows = (workItems, rowCount = 3) => {
+  const alignedRows = Array(rowCount).fill(undefined);
+  const usedRows = new Set();
+
+  (Array.isArray(workItems) ? workItems : [])
+    .slice(0, rowCount)
+    .forEach((item, index) => {
+      const legacyIndexMatch = String(item?.id || "").match(
+        /^legacy-b412-work-(\d+)$/,
+      );
+      const requestedIndex = legacyIndexMatch
+        ? Number(legacyIndexMatch[1]) - 1
+        : index;
+      const targetIndex =
+        requestedIndex >= 0 &&
+        requestedIndex < rowCount &&
+        !usedRows.has(requestedIndex)
+          ? requestedIndex
+          : alignedRows.findIndex((_, rowIndex) => !usedRows.has(rowIndex));
+
+      if (targetIndex < 0) return;
+      alignedRows[targetIndex] = item;
+      usedRows.add(targetIndex);
+    });
+
+  return alignedRows;
+};
+
 const drawB412FlightHeader = (doc, record, b412Data, logoDataUrl = null) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const serialNumber = flightValue(
     firstFlightValue(
-      b412Data.serialNumber,
-      b412Data.serialNo,
       record.serialNumber,
       record.serialNo,
+      b412Data.serialNumber,
+      b412Data.serialNo,
     ),
   );
   const tailAndSerial = [
@@ -506,21 +742,77 @@ const drawB412FlightLog = (
     ),
   );
   const componentData = b412Data.componentData || {};
+  const standardComponentData = record.componentData || {};
   const componentSections = [
-    ["BRT FORWARD", getB412ComponentSection(b412Data, "broughtForwardData")],
-    ["THIS FLIGHT", getB412ComponentSection(b412Data, "thisFlightData")],
-    ["TO DATE", getB412ComponentSection(b412Data, "toDateData")],
+    [
+      "BRT FORWARD",
+      mergeB412ComponentForExport(
+        standardComponentData.broughtForwardData,
+        getB412ComponentSection(b412Data, "broughtForwardData"),
+      ),
+    ],
+    [
+      "THIS FLIGHT",
+      mergeB412ComponentForExport(
+        standardComponentData.thisFlightData,
+        getB412ComponentSection(b412Data, "thisFlightData"),
+      ),
+    ],
+    [
+      "TO DATE",
+      mergeB412ComponentForExport(
+        standardComponentData.toDateData,
+        getB412ComponentSection(b412Data, "toDateData"),
+      ),
+    ],
   ];
-  const fuelRows = fitRows(b412Data.fuelServicing || [], 6, () => ({}));
-  const oilRows = fitRows(b412Data.oilServicing || [], 2, () => ({}));
-  const correctionItems = fitRows(
+  const legacyFuelRows = fitRows(
+    b412Data.fuelServicing || [],
+    6,
+    () => ({}),
+  );
+  const standardFuelRows = fitRows(
+    record.fuelServicing || [],
+    6,
+    () => ({}),
+  );
+  const fuelRows = legacyFuelRows.map((legacyRow, index) =>
+    mergeB412FuelForExport(standardFuelRows[index], legacyRow),
+  );
+  const legacyOilRows = fitRows(
+    b412Data.oilServicing || [],
+    2,
+    () => ({}),
+  );
+  const standardOilRows = fitRows(
+    record.oilServicing || [],
+    2,
+    () => ({}),
+  );
+  const oilRows = legacyOilRows.map((legacyRow, index) =>
+    mergeB412OilForExport(standardOilRows[index], legacyRow),
+  );
+  const legacyCorrectionItems = fitRows(
     b412Data.correctionItems || [],
     3,
     () => ({}),
   );
+  const standardWorkItems = alignStandardWorkItemsToB412Rows(
+    record.workItems,
+    3,
+  );
+  const correctionItems = legacyCorrectionItems.map((legacyItem, index) =>
+    mergeB412CorrectionForExport(standardWorkItems[index], legacyItem),
+  );
   const correctionCategories = new Set(
     correctionItems
-      .map((item) => normalizeB412Category(item.category))
+      .flatMap((item) => [
+        item.category,
+        ...(Array.isArray(item.selectedWorkTypes)
+          ? item.selectedWorkTypes
+          : []),
+      ])
+      .map(normalizeB412Category)
       .filter(Boolean),
   );
   const categoryChecked = (...aliases) =>
@@ -665,12 +957,18 @@ const drawB412FlightLog = (
     },
   });
 
-  const airframeDue = firstFlightValue(
+  const airframeDue = standardFlightValue(
+    standardComponentData.thisFlightData?.airframeNextInsp,
+    standardComponentData.broughtForwardData?.airframeNextInsp,
+    standardComponentData.toDateData?.airframeNextInsp,
     componentData.airframeNextInspectionDueAt,
     b412Data.airframeNextInspectionDueAt,
     componentData.airframeNextInsp,
   );
-  const engineDue = firstFlightValue(
+  const engineDue = standardFlightValue(
+    standardComponentData.thisFlightData?.engineNextInsp,
+    standardComponentData.broughtForwardData?.engineNextInsp,
+    standardComponentData.toDateData?.engineNextInsp,
     componentData.engineNextInspectionDueAt,
     b412Data.engineNextInspectionDueAt,
     componentData.engineNextInsp,
@@ -926,9 +1224,9 @@ const drawB412FlightLog = (
       [
         flightValue(
           firstFlightValue(
+            record.remarks,
             b412Data.discrepancyRemarks,
             b412Data.remarks,
-            record.remarks,
           ),
         ),
       ],
