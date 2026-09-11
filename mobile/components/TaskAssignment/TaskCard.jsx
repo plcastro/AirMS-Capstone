@@ -233,7 +233,10 @@ export default function TaskCard({
           <ActionIconButton
             icon="pencil"
             tooltip="Edit"
-            onPress={() => onEditTask?.(data)}
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onEditTask?.(data);
+            }}
             color="#777"
             size={32}
             iconSize={21}
@@ -241,7 +244,10 @@ export default function TaskCard({
           <ActionIconButton
             icon="delete"
             tooltip="Delete"
-            onPress={() => onDeleteTask?.(data)}
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onDeleteTask?.(data);
+            }}
             color="#F45B5B"
             size={32}
             iconSize={21}

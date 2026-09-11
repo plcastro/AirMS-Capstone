@@ -97,8 +97,10 @@ export default function TaskChecklist({
   const handleTurnIn = async (options = {}) => {
     if (isHeadView) return;
 
+    let completed = false;
+
     if (options.undo) {
-      await onTurnIn?.(task, checklistState, findings, {
+      completed = await onTurnIn?.(task, checklistState, findings, {
         undo: true,
         newStatus: "Ongoing",
       });
@@ -108,22 +110,32 @@ export default function TaskChecklist({
         return;
       }
 
-      await onTurnIn?.(task, checklistState, findings);
+      completed = await onTurnIn?.(task, checklistState, findings);
     }
 
-    onClose();
+    if (completed !== false) {
+      onClose();
+    }
   };
 
   const handleReturnConfirm = async ({ note, signature, itemsToUncheck }) => {
-    await onReturn?.(task, { comments: note, signature, itemsToUncheck });
+    const completed = await onReturn?.(task, {
+      comments: note,
+      signature,
+      itemsToUncheck,
+    });
+    if (completed === false) return false;
     setShowReviewModal(false);
     onClose();
+    return true;
   };
 
   const handleApproveConfirm = async ({ signature }) => {
-    await onApprove?.(task, { signature });
+    const completed = await onApprove?.(task, { signature });
+    if (completed === false) return false;
     setShowReviewModal(false);
     onClose();
+    return true;
   };
 
   const handleReviewCancel = () => {
@@ -147,7 +159,7 @@ export default function TaskChecklist({
     : [];
 
   const isReturned = task.status === "Returned";
-  const isTurnedIn = task.status === "Turned in";
+  const isTurnedIn = task.status === "Turned in" || task.status === "Completed";
   const isCompleted =
     task.status === "Completed" ||
     task.status === "Turned in" ||
@@ -641,14 +653,14 @@ export default function TaskChecklist({
 
                   {!isStarted ? (
                     <Button
-                      label="Start Task"
+                      label="Start"
                       onPress={handleStartTask}
                       buttonStyle={[styles.primaryAlertBtn, { width: 100 }]}
                       buttonTextStyle={styles.primaryBtnTxt}
                     />
                   ) : (
                     <Button
-                      label={allCheckboxesChecked ? "Turn in" : "Save"}
+                      label={allCheckboxesChecked ? "Turn In" : "Save"}
                       onPress={
                         allCheckboxesChecked ? () => handleTurnIn() : handleSave
                       }

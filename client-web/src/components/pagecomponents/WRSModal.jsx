@@ -350,9 +350,7 @@ export default function WRSModal({
           description: hasItemsStillOutOfStock
             ? "Some items are not enough in stock. Send this requisition to ordering."
             : "All requested quantities are available. You can approve this requisition.",
-          buttonText: hasItemsStillOutOfStock
-            ? "Mark To Be Ordered"
-            : "Approve",
+          buttonText: hasItemsStillOutOfStock ? "Order" : "Approve",
           disabled: false,
         };
       }
@@ -681,7 +679,6 @@ export default function WRSModal({
           items: savedItems,
         },
         "Remaining items are still to be restocked.",
-        false,
       );
       setPersistedQtyMap({ ...availQtyMap });
       return;

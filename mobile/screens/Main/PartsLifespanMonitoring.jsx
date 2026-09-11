@@ -151,6 +151,7 @@ export default function PartsLifespanMonitoring() {
   const [loadingAircraft, setLoadingAircraft] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [partEditorMessage, setPartEditorMessage] = useState("");
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -355,6 +356,7 @@ export default function PartsLifespanMonitoring() {
       currentTarget?.type === "part" ? null : currentTarget,
     );
     setSelectedPartIndex(null);
+    setPartEditorMessage("");
   };
 
   const handleDatePickerChange = (event, selectedDate) => {
@@ -389,6 +391,7 @@ export default function PartsLifespanMonitoring() {
 
     try {
       setSaving(true);
+      setPartEditorMessage("");
       const response = await fetch(`${API_BASE}/api/parts-monitoring/save`, {
         method: "POST",
         headers: await getAuthHeaders({
@@ -412,7 +415,7 @@ export default function PartsLifespanMonitoring() {
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to save data");
       }
-      showToast("Parts lifespan data saved.");
+      setPartEditorMessage("Parts lifespan data saved.");
     } catch (error) {
       console.error("Parts lifespan save failed:", error);
       showToast(error.message || "Failed to save data.");
@@ -1094,13 +1097,18 @@ export default function PartsLifespanMonitoring() {
                     </TouchableOpacity>
                   )}
                 </View>
+                {!!partEditorMessage && (
+                  <AppText accessibilityRole="alert" style={{ color: COLORS.successBorder || "#2E7D32", textAlign: "center", fontWeight: "600", paddingBottom: Math.max(insets.bottom + 8, 16) }}>
+                    {partEditorMessage}
+                  </AppText>
+                )}
               </>
             )}
           </View>
         </View>
       </Modal>
       <Modal
-        visible={Boolean(importPreview)}
+        visible={Boolean(importPreview) && !signatureImportVisible}
         transparent
         animationType="fade"
         onRequestClose={resetImportPreview}

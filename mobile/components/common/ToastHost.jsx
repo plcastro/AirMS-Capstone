@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Portal, Snackbar } from "react-native-paper";
 import { subscribeToToast } from "../../utilities/toast";
 
 const TOAST_DURATION_MS = 2000;
 
-export default function ToastHost() {
+export default function ToastHost({ embedded = false }) {
   const [messages, setMessages] = useState([]);
   const nextMessageId = useRef(0);
 
@@ -28,8 +29,8 @@ export default function ToastHost() {
 
   const currentMessage = messages[0];
 
-  return (
-    <Portal>
+  const toastContent = (
+    <View pointerEvents="box-none" style={styles.toastLayer}>
       <Snackbar
         key={currentMessage?.id || "empty"}
         visible={Boolean(currentMessage)}
@@ -38,6 +39,20 @@ export default function ToastHost() {
       >
         {currentMessage?.text || ""}
       </Snackbar>
-    </Portal>
+    </View>
   );
+
+  if (embedded) {
+    return toastContent;
+  }
+
+  return <Portal>{toastContent}</Portal>;
 }
+
+const styles = StyleSheet.create({
+  toastLayer: {
+    ...StyleSheet.absoluteFillObject,
+    elevation: 1000,
+    zIndex: 1000,
+  },
+});

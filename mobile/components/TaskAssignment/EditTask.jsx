@@ -18,6 +18,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import { toValidTaskDate } from "../../utilities/tasks";
 
 const { width } = Dimensions.get("window");
 
@@ -33,7 +34,7 @@ export default function EditTask({
   onClose,
   onSave,
   task,
-  employees,
+  employees = [],
 }) {
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
@@ -131,19 +132,29 @@ export default function EditTask({
 
   useEffect(() => {
     if (task) {
+      const nextStartDate = toValidTaskDate(task.startDateTime, new Date());
+      const nextEndDate = toValidTaskDate(
+        task.endDateTime,
+        addOneMinute(nextStartDate),
+      );
+      const assignee = task.assignedTo;
+      const assigneeId =
+        assignee && typeof assignee === "object"
+          ? assignee._id || assignee.id || ""
+          : assignee || "";
+
       setTaskTitle(task.title || "");
       setSelectedAircraft(task.aircraft || "");
-      setSelectedEmployee(task.assignedTo || "");
+      setSelectedEmployee(assigneeId);
       setSelectedPriority(task.priority || "Normal");
+      setStartDate(nextStartDate);
+      setEndDate(
+        nextEndDate > nextStartDate ? nextEndDate : addOneMinute(nextStartDate),
+      );
 
-      if (task.startDateTime) {
-        setStartDate(new Date(task.startDateTime));
-      }
-      if (task.endDateTime) {
-        setEndDate(new Date(task.endDateTime));
-      }
-
-      setChecklistItems(task.checklistItems || []);
+      setChecklistItems(
+        Array.isArray(task.checklistItems) ? task.checklistItems : [],
+      );
     }
   }, [task]);
 
@@ -318,7 +329,9 @@ export default function EditTask({
       }
     }
 
-    closePicker();
+    if (Platform.OS === "android") {
+      closePicker();
+    }
 
     if (Platform.OS === "android") {
       setAndroidPickerMode("date");
@@ -463,7 +476,7 @@ export default function EditTask({
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent>
+      <Modal visible={visible && !saveConfirmVisible} animationType="slide" transparent>
         <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
@@ -593,13 +606,20 @@ export default function EditTask({
               </TouchableOpacity>
 
               {showStartPicker && (
-                <DateTimePicker
-                  value={startDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onStartChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={startDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onStartChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowStartPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText
@@ -629,13 +649,20 @@ export default function EditTask({
               </TouchableOpacity>
 
               {showEndPicker && (
-                <DateTimePicker
-                  value={endDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onEndChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={endDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onEndChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowEndPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText

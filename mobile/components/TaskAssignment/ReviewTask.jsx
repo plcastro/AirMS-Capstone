@@ -93,7 +93,8 @@ export default function ReviewTask({
 
       try {
         setSubmitting(true);
-        await onConfirm({ note, signature, itemsToUncheck });
+        const completed = await onConfirm({ note, signature, itemsToUncheck });
+        if (completed === false) return;
         resetForm();
         onClose();
       } catch (error) {
@@ -122,7 +123,8 @@ export default function ReviewTask({
     try {
       setSubmitting(true);
       await verifyPin();
-      await onConfirm({ signature });
+      const completed = await onConfirm({ signature });
+      if (completed === false) return;
       resetForm();
       onClose();
     } catch (error) {

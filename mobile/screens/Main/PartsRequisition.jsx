@@ -895,16 +895,17 @@ export default function PartsRequisition({ route, navigation }) {
           );
         }
 
+        if (successMessage) {
+          showToast(successMessage);
+        }
         if (closeDetails) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
           setShowDetailsModal(false);
         }
         resetEntryModal();
         await fetchRequisitions();
         await fetchNotifications();
 
-        if (successMessage) {
-          showToast(successMessage);
-        }
         return true;
       } catch (error) {
         console.error("Error updating requisition:", error);
@@ -1104,9 +1105,9 @@ export default function PartsRequisition({ route, navigation }) {
 
   const handleOrderRequest = async (request) => {
     const confirmed = await confirmWithAlert({
-      title: "Mark for Restock",
-      message: `Mark ${request.requestId} as to be restocked?`,
-      confirmText: "Confirm",
+      title: "Send to Ordering",
+      message: `Send ${request.requestId} to ordering?`,
+      confirmText: "Send to Ordering",
     });
     if (!confirmed) return;
 
@@ -1127,7 +1128,7 @@ export default function PartsRequisition({ route, navigation }) {
         approvedByTitle: getCurrentUserTitle("Reviewer"),
         items: updatedItems,
       },
-      `${request.requestId} marked as to be restocked.`,
+      `${request.requestId} sent to ordering.`,
     );
   };
 
@@ -1200,7 +1201,6 @@ export default function PartsRequisition({ route, navigation }) {
         items: updatedItems,
       },
       "Remaining items are still to be restocked.",
-      { closeDetails: false },
     );
   };
 

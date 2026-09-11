@@ -13,6 +13,10 @@ import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 import { COLORS } from "../../stylesheets/colors";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  getTaskIdentifier,
+  sortTasksByCreatedDesc,
+} from "../../utilities/tasks";
 
 const OPEN_TASK_STATUSES = new Set(["pending", "returned", "ongoing"]);
 const COMPLETED_TASK_STATUSES = new Set(["completed", "turned in", "approved"]);
@@ -54,40 +58,44 @@ export default function TaskTabs({
     if (isHead) {
       switch (activeTab) {
         case "Tasks":
-          return tasks;
+          return sortTasksByCreatedDesc(tasks);
         case "Submitted":
-          return tasks.filter((task) =>
-            ["completed", "turned in"].includes(
-              normalizeTaskStatus(task.status),
+          return sortTasksByCreatedDesc(
+            tasks.filter((task) =>
+              ["completed", "turned in"].includes(
+                normalizeTaskStatus(task.status),
+              ),
             ),
           );
         default:
           return [];
       }
     } else {
-      return tasks.filter((task) => {
-        const taskStatus = normalizeTaskStatus(task.status);
-        const deadline = task.endDateTime || task.dueDate;
-        if (!deadline) return false;
-        const dueDate = new Date(deadline);
-        const today = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-        );
-        const isPastDue = dueDate < today;
+      return sortTasksByCreatedDesc(
+        tasks.filter((task) => {
+          const taskStatus = normalizeTaskStatus(task.status);
+          const deadline = task.endDateTime || task.dueDate;
+          if (!deadline) return false;
+          const dueDate = new Date(deadline);
+          const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          const isPastDue = dueDate < today;
 
-        switch (activeTab) {
-          case "Upcoming":
-            return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
-          case "Past Due":
-            return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
-          case "Completed":
-            return COMPLETED_TASK_STATUSES.has(taskStatus);
-          default:
-            return false;
-        }
-      });
+          switch (activeTab) {
+            case "Upcoming":
+              return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
+            case "Past Due":
+              return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
+            case "Completed":
+              return COMPLETED_TASK_STATUSES.has(taskStatus);
+            default:
+              return false;
+          }
+        }),
+      );
     }
   };
 
@@ -133,16 +141,10 @@ export default function TaskTabs({
       grouped[formattedDate].push(task);
     });
 
-    return Object.keys(grouped)
-      .sort((a, b) => {
-        const dateA = new Date(a);
-        const dateB = new Date(b);
-        return activeTab === "Completed" ? dateB - dateA : dateA - dateB;
-      })
-      .map((date) => ({
-        title: date,
-        data: grouped[date],
-      }));
+    return Object.keys(grouped).map((date) => ({
+      title: date,
+      data: grouped[date],
+    }));
   };
 
   const getCardVariant = () => {
@@ -245,7 +247,7 @@ export default function TaskTabs({
 
                   {section.data.map((task) => (
                     <TaskCard
-                      key={task.id}
+                      key={String(getTaskIdentifier(task))}
                       data={task}
                       variant={getCardVariant()}
                       onPress={onTaskPress}
@@ -258,7 +260,7 @@ export default function TaskTabs({
               ))
             : tasksToRender.map((task) => (
                 <TaskCard
-                  key={task.id}
+                  key={String(getTaskIdentifier(task))}
                   data={task}
                   variant={getCardVariant()}
                   onPress={onTaskPress}

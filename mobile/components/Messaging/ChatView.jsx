@@ -47,9 +47,6 @@ export default function ChatView({
   selectedGroupMembers,
   renderAvatar,
   getDisplayName,
-  onLeaveGroup,
-  onRemoveGroupMember,
-  groupActionLoadingId,
 }) {
   const isNearBottomRef = useRef(true);
   const lastConversationIdRef = useRef(null);
@@ -560,10 +557,6 @@ export default function ChatView({
             selectedGroupMembers={selectedGroupMembers}
             renderAvatar={renderAvatar}
             getDisplayName={getDisplayName}
-            currentUserId={currentUserId}
-            onLeaveGroup={onLeaveGroup}
-            onRemoveGroupMember={onRemoveGroupMember}
-            groupActionLoadingId={groupActionLoadingId}
           />
 
           <Modal

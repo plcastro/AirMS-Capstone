@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
+import InlineDropdown from "../common/InlineDropdown";
 
 const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
@@ -42,6 +43,7 @@ export default function PartsRequisitionEntry({
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
+  const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -57,6 +59,7 @@ export default function PartsRequisitionEntry({
           : [createEmptyItem(1)];
 
       setItems(nextItems);
+      setAircraftDropdownOpen(false);
       onChangeAircraft?.(initialAircraft || "");
     }
   }, [visible]);
@@ -217,38 +220,20 @@ export default function PartsRequisitionEntry({
                 Choose Aircraft *
               </AppText>
 
-              <View
-                style={{
-                  backgroundColor: "#F1F1F1",
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  minHeight: 48,
-                  justifyContent: "center",
+              <InlineDropdown
+                value={selectedAircraft}
+                placeholder="Choose Aircraft"
+                open={aircraftDropdownOpen}
+                onToggle={() => setAircraftDropdownOpen((current) => !current)}
+                onChange={(value) => {
+                  onChangeAircraft?.(value);
+                  setAircraftDropdownOpen(false);
                 }}
-              >
-                <Picker
-                  selectedValue={selectedAircraft}
-                  onValueChange={onChangeAircraft}
-                  mode="dropdown"
-                  style={{
-                    height: Platform.OS === "android" ? 52 : 48,
-                    width: "100%",
-                    color: selectedAircraft ? COLORS.black : COLORS.grayDark,
-                    marginLeft: Platform.OS === "android" ? 2 : -6,
-                    marginTop: Platform.OS === "android" ? -1 : 0,
-                  }}
-                  dropdownIconColor={COLORS.grayDark}
-                >
-                  <Picker.Item label="Choose Aircraft" value="" />
-                  {aircraftOptions.map((aircraft) => (
-                    <Picker.Item
-                      key={aircraft.id || aircraft.name}
-                      label={aircraft.name}
-                      value={aircraft.id}
-                    />
-                  ))}
-                </Picker>
-              </View>
+                options={aircraftOptions.map((aircraft) => ({
+                  label: aircraft.name,
+                  value: aircraft.id,
+                }))}
+              />
             </View>
 
             {items.map((item, index) => (
