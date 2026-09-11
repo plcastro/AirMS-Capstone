@@ -2,12 +2,65 @@ import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
+  Platform,
   View,
   TouchableOpacity,
   ScrollView
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+const formatDate = (date) =>
+  date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+
+const parseDate = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim();
+    const displayMatch = normalizedValue.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+    );
+    if (displayMatch) {
+      return new Date(
+        Number(displayMatch[3]),
+        Number(displayMatch[1]) - 1,
+        Number(displayMatch[2]),
+      );
+    }
+
+    const inputMatch = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (inputMatch) {
+      return new Date(
+        Number(inputMatch[1]),
+        Number(inputMatch[2]) - 1,
+        Number(inputMatch[3]),
+      );
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  const date = parseDate(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const fromDateInputValue = (value) => {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : "";
+};
 
 export default function FlightLogModalDestinations({
   legData,
@@ -17,6 +70,7 @@ export default function FlightLogModalDestinations({
   maxLegs,
 }) {
   const [stations, setStations] = useState(legData.stations || [{ from: "", to: "" }]);
+  const [activeDateLegIndex, setActiveDateLegIndex] = useState(null);
   const [legs, setLegs] = useState(legData.legs || [{
     stations: [{ from: "", to: "" }],
     blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
@@ -130,6 +184,86 @@ export default function FlightLogModalDestinations({
         }}
         editable={isEditable}
       />
+    </View>
+  );
+
+  const updateLegDate = (legIdx, date) => {
+    const newLegs = legs.map((leg, index) =>
+      index === legIdx ? { ...leg, date } : leg,
+    );
+    setLegs(newLegs);
+    onUpdateLeg({ ...legData, legs: newLegs });
+  };
+
+  const renderDateInput = (legIdx) => (
+    <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+        Date *
+      </AppText>
+      {Platform.OS === "web" ? (
+        <input
+          aria-label={`Date for leg ${legIdx + 1}`}
+          type="date"
+          value={toDateInputValue(legs[legIdx]?.date)}
+          disabled={!isEditable}
+          onChange={(event) =>
+            updateLegDate(legIdx, fromDateInputValue(event.target.value))
+          }
+          style={{
+            boxSizing: "border-box",
+            width: "100%",
+            height: 38,
+            padding: "0 10px",
+            border: "none",
+            borderRadius: 4,
+            backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+            color: isEditable ? COLORS.black : COLORS.grayDark,
+            fontSize: 12,
+          }}
+        />
+      ) : (
+        <>
+          <TouchableOpacity
+            onPress={() => isEditable && setActiveDateLegIndex(legIdx)}
+            disabled={!isEditable}
+            style={{
+              backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+              borderRadius: 4,
+              height: 38,
+              paddingHorizontal: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <AppText
+              style={{
+                fontSize: 12,
+                color: legs[legIdx]?.date ? COLORS.black : COLORS.grayDark,
+              }}
+            >
+              {legs[legIdx]?.date || "Select date"}
+            </AppText>
+            <MaterialCommunityIcons
+              name="calendar-blank"
+              size={18}
+              color={COLORS.grayDark}
+            />
+          </TouchableOpacity>
+          {activeDateLegIndex === legIdx && isEditable && (
+            <DateTimePicker
+              value={parseDate(legs[legIdx]?.date)}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setActiveDateLegIndex(null);
+                if (event.type === "dismissed" || !selectedDate) return;
+                updateLegDate(legIdx, formatDate(selectedDate));
+              }}
+            />
+          )}
+        </>
+      )}
     </View>
   );
 
@@ -273,7 +407,7 @@ export default function FlightLogModalDestinations({
               </View>
 
               <View style={{ marginTop: 10 }}>
-                {renderInput(legIdx, "Date", "date")}
+                {renderDateInput(legIdx)}
                 {renderInput(legIdx, "Passengers", "passengers")}
               </View>
             </View>

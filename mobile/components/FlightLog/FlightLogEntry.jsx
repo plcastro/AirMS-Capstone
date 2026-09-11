@@ -323,7 +323,13 @@ export default function FlightLogEntry({
       return ["Basic Information"];
     }
 
-    if (isPilot) return ["Destination/s", "Discrepancy/Remarks"];
+    if (isPilot) {
+      return [
+        "Basic Information",
+        "Destination/s",
+        "Discrepancy/Remarks",
+      ];
+    }
 
     const nextTabs = [
       "Basic Information",
