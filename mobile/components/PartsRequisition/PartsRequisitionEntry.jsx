@@ -4,14 +4,12 @@ import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   ScrollView,
   StatusBar,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import AlertComp from "../AlertComp";
@@ -44,6 +42,7 @@ export default function PartsRequisitionEntry({
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
   const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
+  const [openUnitItemId, setOpenUnitItemId] = useState(null);
 
   useEffect(() => {
     if (visible) {
@@ -60,6 +59,7 @@ export default function PartsRequisitionEntry({
 
       setItems(nextItems);
       setAircraftDropdownOpen(false);
+      setOpenUnitItemId(null);
       onChangeAircraft?.(initialAircraft || "");
     }
   }, [visible]);
@@ -72,10 +72,12 @@ export default function PartsRequisitionEntry({
 
   const addAnotherItem = () => {
     setItems((prev) => [...prev, createEmptyItem(Date.now())]);
+    setOpenUnitItemId(null);
   };
 
   const removeItem = (id) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setOpenUnitItemId((current) => (current === id ? null : current));
   };
 
   const renderInput = (label, value, onChangeText, extraInputStyle = {}) => (
@@ -123,125 +125,71 @@ export default function PartsRequisitionEntry({
     >
       <IosModalSafeAreaProvider>
         <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: "rgba(0, 0, 0, 0.35)",
-          justifyContent: "center",
-          paddingHorizontal: 12,
-          paddingVertical: 16,
-        }}
-      >
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor="rgba(0, 0, 0, 0.35)"
-        />
-
-        <View
           style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 20,
-            overflow: "hidden",
-            elevation: 8,
-            shadowColor: COLORS.black,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
-            shadowRadius: 10,
-            maxHeight: "92%",
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            justifyContent: "center",
+            paddingHorizontal: 12,
+            paddingVertical: 16,
           }}
         >
+          <StatusBar
+            barStyle="dark-content"
+            backgroundColor="rgba(0, 0, 0, 0.35)"
+          />
+
           <View
             style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingHorizontal: 16,
-              paddingVertical: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: "#E8E8E8",
-            }}
-          >
-            <AppText
-              style={{
-                fontSize: 12,
-                fontWeight: "600",
-                color: COLORS.black,
-              }}
-            >
-              {title}
-            </AppText>
-
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={submitting}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 14,
-              paddingTop: 14,
-              paddingBottom: 20,
+              backgroundColor: COLORS.white,
+              borderRadius: 20,
+              overflow: "hidden",
+              maxHeight: "92%",
             }}
           >
             <View
               style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 20,
-                paddingHorizontal: 18,
-                paddingTop: 22,
-                paddingBottom: 16,
-                marginBottom: 18,
-                elevation: 4,
-                shadowColor: COLORS.black,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.12,
-                shadowRadius: 6,
-                borderWidth: 1,
-                borderColor: "#EEEEEE",
-                position: "relative",
-                zIndex: aircraftDropdownOpen ? 20 : 2,
-                elevation: aircraftDropdownOpen ? 12 : 4,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "#E8E8E8",
               }}
             >
               <AppText
                 style={{
                   fontSize: 12,
-                  fontWeight: "700",
-                  color: "#3C3C3C",
-                  marginBottom: 14,
+                  fontWeight: "600",
+                  color: COLORS.black,
                 }}
               >
-                Choose Aircraft *
+                {title}
               </AppText>
 
-              <InlineDropdown
-                value={selectedAircraft}
-                placeholder="Choose Aircraft"
-                open={aircraftDropdownOpen}
-                onToggle={() => setAircraftDropdownOpen((current) => !current)}
-                onChange={(value) => {
-                  onChangeAircraft?.(value);
-                  setAircraftDropdownOpen(false);
-                }}
-                options={aircraftOptions.map((aircraft) => ({
-                  label: aircraft.name,
-                  value: aircraft.id,
-                }))}
-              />
+              <TouchableOpacity
+                onPress={onClose}
+                disabled={submitting}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={COLORS.grayDark}
+                />
+              </TouchableOpacity>
             </View>
 
-            {items.map((item, index) => (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 14,
+                paddingTop: 14,
+                paddingBottom: 20,
+              }}
+            >
               <View
-                key={item.id}
                 style={{
                   backgroundColor: COLORS.white,
                   borderRadius: 20,
@@ -249,163 +197,270 @@ export default function PartsRequisitionEntry({
                   paddingTop: 22,
                   paddingBottom: 16,
                   marginBottom: 18,
-                  elevation: 4,
-                  shadowColor: COLORS.black,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: 6,
                   borderWidth: 1,
                   borderColor: "#EEEEEE",
                   position: "relative",
-                  zIndex: 1,
+                  zIndex: 2,
                 }}
               >
-                <View
+                <AppText
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 18,
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: "#3C3C3C",
+                    marginBottom: 14,
                   }}
                 >
-                  <AppText
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: "#3C3C3C",
-                    }}
-                  >
-                    Item {index + 1}
-                  </AppText>
+                  Choose Aircraft *
+                </AppText>
 
-                  {items.length > 1 && (
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => removeItem(item.id)}
-                      disabled={submitting}
-                    >
-                      <MaterialCommunityIcons
-                        name="delete"
-                        size={22}
-                        color="#FF5A5A"
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <InlineDropdown
+                  value={selectedAircraft}
+                  placeholder="Choose Aircraft"
+                  open={aircraftDropdownOpen}
+                  onToggle={() =>
+                    setAircraftDropdownOpen((current) => {
+                      setOpenUnitItemId(null);
+                      return !current;
+                    })
+                  }
+                  onChange={(value) => {
+                    onChangeAircraft?.(value);
+                    setAircraftDropdownOpen(false);
+                  }}
+                  options={aircraftOptions.map((aircraft) => ({
+                    label: aircraft.name,
+                    value: aircraft.id,
+                  }))}
+                  menuPosition="relative"
+                />
+              </View>
 
-
-                {renderInput("Particular: *", item.particular, (value) =>
-                  updateItem(item.id, "particular", value),
-                )}
-
-                <View style={{ marginBottom: 16 }}>
-                  <AppText
-                    style={{
-                      fontSize: 12,
-                      color: "#3E3E3E",
-                      fontWeight: "500",
-                      marginBottom: 8,
-                    }}
-                  >
-                    Quantity: *
-                  </AppText>
+              {items.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 20,
+                    paddingHorizontal: 18,
+                    paddingTop: 22,
+                    paddingBottom: 16,
+                    marginBottom: 18,
+                    borderWidth: 1,
+                    borderColor: "#EEEEEE",
+                    position: "relative",
+                    zIndex: 1,
+                  }}
+                >
                   <View
                     style={{
                       flexDirection: "row",
+                      justifyContent: "space-between",
                       alignItems: "center",
-                      backgroundColor: "#F1F1F1",
-                      borderRadius: 6,
-                      overflow: "hidden",
-                      minHeight: 44,
+                      marginBottom: 18,
                     }}
                   >
-                    <AppInput
-                      value={item.quantity}
-                      onChangeText={(value) =>
-                        updateItem(item.id, "quantity", value)
-                      }
-                      placeholder="-"
-                      placeholderTextColor="#7C7C7C"
-                      style={{
-                        flex: 1,
-                        height: 44,
-                        paddingHorizontal: 12,
-                        fontSize: 12,
-                        color: COLORS.black,
-                      }}
-                      keyboardType="number-pad"
-                    />
-                    <View
-                      style={{
-                        width: 92,
-                        height: 44,
-                        justifyContent: "center",
-                        borderLeftWidth: 1,
-                        borderLeftColor: "#DEDEDE",
-                      }}
-                    >
-                      <Picker
-                        selectedValue={item.unit}
-                        onValueChange={(value) =>
-                          updateItem(item.id, "unit", value)
-                        }
-                        mode="dropdown"
-                        style={{
-                          height: Platform.OS === "android" ? 52 : 44,
-                          width: 92,
-                          color: item.unit ? COLORS.black : COLORS.grayDark,
-                          marginLeft: Platform.OS === "android" ? 2 : -6,
-                          marginTop: Platform.OS === "android" ? -1 : 0,
-                        }}
-                        dropdownIconColor={COLORS.grayDark}
-                      >
-                        {UNIT_OPTIONS.map((unit) => (
-                          <Picker.Item key={unit} label={unit} value={unit} />
-                        ))}
-                      </Picker>
-                    </View>
-                  </View>
-                </View>
-
-                {renderInput("Purpose:", item.purpose, (value) =>
-                  updateItem(item.id, "purpose", value),
-                )}
-
-                <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={addAnotherItem}
-                    disabled={submitting}
-                    style={{
-                      backgroundColor: "#62C982",
-                      paddingHorizontal: 14,
-                      paddingVertical: 9,
-                      borderRadius: 4,
-                      flexDirection: "row",
-                      alignItems: "center",
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="plus"
-                      size={16}
-                      color={COLORS.white}
-                    />
                     <AppText
                       style={{
-                        color: COLORS.white,
                         fontSize: 12,
-                        fontWeight: "500",
-                        marginLeft: 6,
+                        fontWeight: "700",
+                        color: "#3C3C3C",
                       }}
                     >
-                      Add Another Item
+                      Item {index + 1}
                     </AppText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
 
-            <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+                    {items.length > 1 && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => removeItem(item.id)}
+                        disabled={submitting}
+                      >
+                        <MaterialCommunityIcons
+                          name="delete"
+                          size={22}
+                          color="#FF5A5A"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {renderInput("Particular: *", item.particular, (value) =>
+                    updateItem(item.id, "particular", value),
+                  )}
+
+                  <View style={{ marginBottom: 16 }}>
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        color: "#3E3E3E",
+                        fontWeight: "500",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Quantity: *
+                    </AppText>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: "#F1F1F1",
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        minHeight: 44,
+                      }}
+                    >
+                      <AppInput
+                        value={item.quantity}
+                        onChangeText={(value) =>
+                          updateItem(item.id, "quantity", value)
+                        }
+                        placeholder="-"
+                        placeholderTextColor="#7C7C7C"
+                        style={{
+                          flex: 1,
+                          height: 44,
+                          paddingHorizontal: 12,
+                          fontSize: 12,
+                          color: COLORS.black,
+                        }}
+                        keyboardType="number-pad"
+                      />
+                      <TouchableOpacity
+                        activeOpacity={0.78}
+                        onPress={() => {
+                          setAircraftDropdownOpen(false);
+                          setOpenUnitItemId((current) =>
+                            current === item.id ? null : item.id,
+                          );
+                        }}
+                        disabled={submitting}
+                        style={{
+                          width: 92,
+                          height: 44,
+                          paddingHorizontal: 10,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          borderLeftWidth: 1,
+                          borderLeftColor: "#DEDEDE",
+                        }}
+                      >
+                        <AppText
+                          numberOfLines={1}
+                          style={{
+                            color: item.unit ? COLORS.black : COLORS.grayDark,
+                            fontSize: 12,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {item.unit || "Unit"}
+                        </AppText>
+                        <MaterialCommunityIcons
+                          name={
+                            openUnitItemId === item.id
+                              ? "chevron-up"
+                              : "chevron-down"
+                          }
+                          size={20}
+                          color={COLORS.grayDark}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {openUnitItemId === item.id && (
+                      <View
+                        style={{
+                          width: 92,
+                          alignSelf: "flex-end",
+                          marginTop: 6,
+                          borderWidth: 1,
+                          borderColor: COLORS.grayMedium,
+                          borderRadius: 6,
+                          overflow: "hidden",
+                          backgroundColor: COLORS.white,
+                        }}
+                      >
+                        {UNIT_OPTIONS.map((unit, unitIndex) => (
+                          <TouchableOpacity
+                            key={unit}
+                            activeOpacity={0.78}
+                            onPress={() => {
+                              updateItem(item.id, "unit", unit);
+                              setOpenUnitItemId(null);
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 11,
+                              borderBottomWidth:
+                                unitIndex < UNIT_OPTIONS.length - 1 ? 1 : 0,
+                              borderBottomColor: "#EEEEEE",
+                              backgroundColor:
+                                item.unit === unit
+                                  ? COLORS.primaryLight + "12"
+                                  : COLORS.white,
+                            }}
+                          >
+                            <AppText
+                              style={{
+                                color:
+                                  item.unit === unit
+                                    ? COLORS.primaryLight
+                                    : COLORS.black,
+                                fontSize: 12,
+                                fontWeight: "500",
+                              }}
+                            >
+                              {unit}
+                            </AppText>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  {renderInput("Purpose:", item.purpose, (value) =>
+                    updateItem(item.id, "purpose", value),
+                  )}
+
+                  <View
+                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={addAnotherItem}
+                      disabled={submitting}
+                      style={{
+                        backgroundColor: "#62C982",
+                        paddingHorizontal: 14,
+                        paddingVertical: 9,
+                        borderRadius: 4,
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="plus"
+                        size={16}
+                        color={COLORS.white}
+                      />
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontSize: 12,
+                          fontWeight: "500",
+                          marginLeft: 6,
+                        }}
+                      >
+                        Add Another Item
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={async () => {
@@ -440,26 +495,26 @@ export default function PartsRequisitionEntry({
                   <AppText
                     style={{
                       color: COLORS.white,
-                    fontSize: 12,
-                    fontWeight: "600",
-                  }}
-                >
-                  {submitting ? "Submitting..." : submitLabel}
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {submitting ? "Submitting..." : submitLabel}
                   </AppText>
                 </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-        <AlertComp
-          embedded
-          visible={Boolean(alertConfig.visible)}
-          title={alertConfig.title}
-          message={alertConfig.message}
-          confirmText={alertConfig.confirmText}
-          cancelText={alertConfig.cancelText}
-          onConfirm={alertConfig.onConfirm}
-          onCancel={alertConfig.onCancel}
-        />
+              </View>
+            </ScrollView>
+          </View>
+          <AlertComp
+            embedded
+            visible={Boolean(alertConfig.visible)}
+            title={alertConfig.title}
+            message={alertConfig.message}
+            confirmText={alertConfig.confirmText}
+            cancelText={alertConfig.cancelText}
+            onConfirm={alertConfig.onConfirm}
+            onCancel={alertConfig.onCancel}
+          />
         </SafeAreaView>
       </IosModalSafeAreaProvider>
     </Modal>
