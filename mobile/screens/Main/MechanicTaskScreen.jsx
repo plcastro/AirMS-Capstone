@@ -447,7 +447,7 @@ export default function MechanicTaskScreen({
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search tasks"
-          containerStyle={{ flex: 0.58, height: 48, marginBottom: 0 }}
+          containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
         />
 
         <View style={{ width: 150, maxWidth: "42%" }}>
@@ -459,7 +459,10 @@ export default function MechanicTaskScreen({
               setSelectedAircraft(value);
               setAircraftDropdownOpen(false);
             }}
-            options={aircraftOptions.map((aircraft) => ({ label: aircraft.name, value: aircraft.id }))}
+            options={aircraftOptions.map((aircraft) => ({
+              label: aircraft.name,
+              value: aircraft.id,
+            }))}
             menuMaxHeight={180}
           />
         </View>
