@@ -42,6 +42,7 @@ export default function PartsRequisitionEntry({
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
   const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
+  const [openUnitItemId, setOpenUnitItemId] = useState(null);
 
   useEffect(() => {
     if (visible) {
@@ -58,6 +59,7 @@ export default function PartsRequisitionEntry({
 
       setItems(nextItems);
       setAircraftDropdownOpen(false);
+      setOpenUnitItemId(null);
       onChangeAircraft?.(initialAircraft || "");
     }
   }, [visible]);
@@ -70,10 +72,12 @@ export default function PartsRequisitionEntry({
 
   const addAnotherItem = () => {
     setItems((prev) => [...prev, createEmptyItem(Date.now())]);
+    setOpenUnitItemId(null);
   };
 
   const removeItem = (id) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+    setOpenUnitItemId((current) => (current === id ? null : current));
   };
 
   const renderInput = (label, value, onChangeText, extraInputStyle = {}) => (
@@ -217,6 +221,7 @@ export default function PartsRequisitionEntry({
                   open={aircraftDropdownOpen}
                   onToggle={() =>
                     setAircraftDropdownOpen((current) => {
+                      setOpenUnitItemId(null);
                       return !current;
                     })
                   }
@@ -228,7 +233,7 @@ export default function PartsRequisitionEntry({
                     label: aircraft.name,
                     value: aircraft.id,
                   }))}
-                  menuPosition="absolute"
+                  menuPosition="relative"
                 />
               </View>
 
@@ -297,14 +302,7 @@ export default function PartsRequisitionEntry({
                     >
                       Quantity: *
                     </AppText>
-                    <View
-                      style={{
-                        backgroundColor: "#F1F1F1",
-                        borderRadius: 6,
-                        overflow: "hidden",
-                        minHeight: 44,
-                      }}
-                    >
+                    <View style={{ flexDirection: "row", gap: 8 }}>
                       <AppInput
                         value={item.quantity}
                         onChangeText={(value) =>
@@ -315,59 +313,37 @@ export default function PartsRequisitionEntry({
                         style={{
                           flex: 1,
                           height: 44,
+                          backgroundColor: "#F1F1F1",
+                          borderRadius: 6,
                           paddingHorizontal: 12,
                           fontSize: 12,
                           color: COLORS.black,
                         }}
                         keyboardType="number-pad"
                       />
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        gap: 8,
-                        marginTop: 8,
-                      }}
-                    >
-                      {UNIT_OPTIONS.map((unit) => {
-                        const isSelected = item.unit === unit;
-
-                        return (
-                          <TouchableOpacity
-                            key={unit}
-                            activeOpacity={0.82}
-                            onPress={() => {
-                              setAircraftDropdownOpen(false);
-                              updateItem(item.id, "unit", unit);
-                            }}
-                            disabled={submitting}
-                            style={{
-                              flex: 1,
-                              minHeight: 36,
-                              borderRadius: 6,
-                              borderWidth: 1,
-                              borderColor: isSelected
-                                ? COLORS.primaryLight
-                                : "#DEDEDE",
-                              backgroundColor: isSelected
-                                ? COLORS.primaryLight
-                                : COLORS.white,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <AppText
-                              style={{
-                                color: isSelected ? COLORS.white : COLORS.black,
-                                fontSize: 12,
-                                fontWeight: "600",
-                              }}
-                            >
-                              {unit}
-                            </AppText>
-                          </TouchableOpacity>
-                        );
-                      })}
+                      <View style={{ width: 108 }}>
+                        <InlineDropdown
+                          value={item.unit}
+                          placeholder="Unit"
+                          open={openUnitItemId === item.id}
+                          onToggle={() => {
+                            setAircraftDropdownOpen(false);
+                            setOpenUnitItemId((current) =>
+                              current === item.id ? null : item.id,
+                            );
+                          }}
+                          onChange={(unit) => {
+                            updateItem(item.id, "unit", unit);
+                            setOpenUnitItemId(null);
+                          }}
+                          options={UNIT_OPTIONS.map((unit) => ({
+                            label: unit,
+                            value: unit,
+                          }))}
+                          menuMaxHeight={180}
+                          menuPosition="relative"
+                        />
+                      </View>
                     </View>
                   </View>
 
