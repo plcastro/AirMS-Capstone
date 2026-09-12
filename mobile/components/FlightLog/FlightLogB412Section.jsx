@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
 import AppInput from "../common/AppInput";
 import AppText from "../common/AppText";
+import DateInput from "../common/DateInput";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -163,6 +164,35 @@ function SignatureField({
         onSave={(nextSignature) => {
           onChange(nextSignature);
           setIsSigning(false);
+        }}
+      />
+    </View>
+  );
+}
+
+function DateField({ label, value, onChangeText, isEditable, flex = 1 }) {
+  return (
+    <View style={{ flex, marginBottom: 13 }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 5,
+          fontWeight: "500",
+        }}
+      >
+        {label}
+      </AppText>
+      <DateInput
+        value={value}
+        onChangeText={onChangeText}
+        editable={isEditable}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 4,
+          minHeight: 38,
+          height: 38,
+          paddingHorizontal: 10,
         }}
       />
     </View>
@@ -566,7 +596,7 @@ function DiscrepancyCorrection({
             isEditable={correctionEditable}
           />
           <Row>
-            <Field
+            <DateField
               label="Date"
               value={item.date}
               onChangeText={(value) =>
@@ -652,7 +682,7 @@ export default function FlightLogB412Section({
         />
         {section === "To Date" && (
           <Card title="Next Inspection Due At">
-            <Field
+            <DateField
               label="Airframe Next Inspection Due At"
               value={data.componentData.airframeNextInspectionDueAt}
               onChangeText={(value) =>
@@ -663,7 +693,7 @@ export default function FlightLogB412Section({
               }
               isEditable={isEditable}
             />
-            <Field
+            <DateField
               label="Engine Next Inspection Due At"
               value={data.componentData.engineNextInspectionDueAt}
               onChangeText={(value) =>

@@ -207,6 +207,9 @@ export default function PartsRequisitionEntry({
                 shadowRadius: 6,
                 borderWidth: 1,
                 borderColor: "#EEEEEE",
+                position: "relative",
+                zIndex: aircraftDropdownOpen ? 20 : 2,
+                elevation: aircraftDropdownOpen ? 12 : 4,
               }}
             >
               <AppText
@@ -253,6 +256,8 @@ export default function PartsRequisitionEntry({
                   shadowRadius: 6,
                   borderWidth: 1,
                   borderColor: "#EEEEEE",
+                  position: "relative",
+                  zIndex: 1,
                 }}
               >
                 <View

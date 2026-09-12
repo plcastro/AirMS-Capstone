@@ -10,6 +10,7 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import DateInput from "../common/DateInput";
 
 export default function FlightLogModalWorkDone({
   workItems = [],
@@ -113,6 +114,24 @@ export default function FlightLogModalWorkDone({
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
         editable={isEditable}
+      />
+    </View>
+  );
+
+  const renderDateInput = (itemId, label, fieldKey) => (
+    <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+        {label}:
+      </AppText>
+      <DateInput
+        value={workItems.find(item => item.id === itemId)?.[fieldKey] || ""}
+        onChangeText={(date) => updateWorkItem(itemId, fieldKey, date)}
+        editable={isEditable}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 6,
+          minHeight: 42,
+        }}
       />
     </View>
   );
@@ -232,7 +251,7 @@ export default function FlightLogModalWorkDone({
             </View>
 
             {/* Fields */}
-            {renderInput(item.id, "Date", "date", "MM/DD/YYYY")}
+            {renderDateInput(item.id, "Date", "date")}
             {renderInput(item.id, "Aircraft Type", "aircraft", "Aircraft type")}
             {renderInput(item.id, "Work Done", "workDone", "Describe work done", true)}
             {renderInput(item.id, "Name", "name", "Technician name")}

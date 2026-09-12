@@ -4,6 +4,7 @@ import AppInput from "../common/AppInput";
 import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateInput from "../common/DateInput";
 
 import { API_BASE } from "../../utilities/API_BASE";
 
@@ -144,38 +145,6 @@ export default function FlightLogModalInfo({
       rpc,
     };
   });
-
-  const formatDate = (date) => {
-    if (!date) return "";
-
-    let dateObj;
-
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-
-    if (isNaN(dateObj.getTime())) return "";
-
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const toggleRPCDropdown = () => {
     if (canEditRPC) {
@@ -431,26 +400,11 @@ export default function FlightLogModalInfo({
             >
               Date: *
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
-                borderRadius: 6,
-                height: 42,
-                paddingHorizontal: 12,
-              }}
-            >
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons
-                name="calendar-blank"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
           </View>
 
           <View style={{ marginBottom: 8 }}>

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateInput from "../common/DateInput";
 
 export default function FlightLogModalDestinations({
   legData,
@@ -129,6 +130,32 @@ export default function FlightLogModalDestinations({
           onUpdateLeg({ ...legData, legs: newLegs });
         }}
         editable={isEditable}
+      />
+    </View>
+  );
+
+  const renderDateInput = (legIdx, label, fieldKey) => (
+    <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+        {label}
+      </AppText>
+      <DateInput
+        value={legs[legIdx][fieldKey] || ""}
+        editable={isEditable}
+        onChangeText={(date) => {
+          if (!isEditable) return;
+          const newLegs = [...legs];
+          newLegs[legIdx][fieldKey] = date;
+          setLegs(newLegs);
+          onUpdateLeg({ ...legData, legs: newLegs });
+        }}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 4,
+          minHeight: 38,
+          height: 38,
+          paddingHorizontal: 10,
+        }}
       />
     </View>
   );
@@ -273,7 +300,7 @@ export default function FlightLogModalDestinations({
               </View>
 
               <View style={{ marginTop: 10 }}>
-                {renderInput(legIdx, "Date", "date")}
+                {renderDateInput(legIdx, "Date", "date")}
                 {renderInput(legIdx, "Passengers", "passengers")}
               </View>
             </View>
