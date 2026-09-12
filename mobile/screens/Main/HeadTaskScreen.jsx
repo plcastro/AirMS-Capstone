@@ -537,9 +537,12 @@ export default function HeadTaskScreen({
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
       ? returnData.itemsToUncheck
       : [];
+    const taskChecklistItems = Array.isArray(task.checklistItems)
+      ? task.checklistItems
+      : [];
     const nextChecklistState = Array.isArray(task.checklistState)
       ? [...task.checklistState]
-      : (task.checklistItems || []).map(() => false);
+      : taskChecklistItems.map(() => false);
 
     itemsToUncheck.forEach((index) => {
       if (index >= 0 && index < nextChecklistState.length) {

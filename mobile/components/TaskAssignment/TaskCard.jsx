@@ -35,9 +35,15 @@ export default function TaskCard({
   const displayStatus = data?.isApproved ? "Approved" : status;
 
   // Progress
+  const safeChecklistItems = Array.isArray(checklistItems)
+    ? checklistItems
+    : [];
+  const safeChecklistState = Array.isArray(checklistState)
+    ? checklistState
+    : [];
   const progress =
-    checklistItems?.length > 0
-      ? (checklistState?.filter(Boolean).length || 0) / checklistItems.length
+    safeChecklistItems.length > 0
+      ? safeChecklistState.filter(Boolean).length / safeChecklistItems.length
       : 0;
 
   const progressPercentage = Math.round(progress * 100);

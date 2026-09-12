@@ -35,8 +35,12 @@ export default function TaskChecklist({
   const [reviewMode, setReviewMode] = useState("return");
 
   useEffect(() => {
-    if (task?.checklistItems) {
-      const normalizedChecklistState = task.checklistItems.map((_, index) => {
+    const checklistItems = Array.isArray(task?.checklistItems)
+      ? task.checklistItems
+      : [];
+
+    if (task) {
+      const normalizedChecklistState = checklistItems.map((_, index) => {
         if (Array.isArray(task.checklistState)) {
           return task.checklistState[index] === true;
         }
