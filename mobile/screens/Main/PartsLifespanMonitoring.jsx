@@ -1,9 +1,9 @@
+import Modal from "../../components/common/AppModal";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,

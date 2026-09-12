@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Image,
   TouchableOpacity
@@ -17,7 +17,6 @@ import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 import AlertComp from "../AlertComp";
-import ToastHost from "../common/ToastHost";
 
 export default function TaskChecklist({
   visible,
@@ -676,7 +675,6 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
-          <ToastHost embedded />
           <AlertComp
             embedded
             visible={Boolean(confirmation?.visible)}

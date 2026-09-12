@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
@@ -16,7 +16,6 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
-import ToastHost from "../common/ToastHost";
 import {
   addMinutesToDate,
   addDaysToDate,
@@ -1505,7 +1504,6 @@ export default function AddTask({
               />
             </View>
           </View>
-          <ToastHost embedded />
         </IosModalSafeAreaView>
       </Modal>
       )}

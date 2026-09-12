@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
@@ -18,7 +18,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
-import ToastHost from "../common/ToastHost";
 import { toValidTaskDate } from "../../utilities/tasks";
 
 const { width } = Dimensions.get("window");
@@ -778,7 +777,6 @@ export default function EditTask({
               />
             </View>
           </View>
-          <ToastHost embedded />
         </IosModalSafeAreaView>
       </Modal>
       )}

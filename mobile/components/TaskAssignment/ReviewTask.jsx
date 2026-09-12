@@ -1,3 +1,4 @@
+import Modal from "../common/AppModal";
 import React, { useContext, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -5,7 +6,6 @@ import {
   ActivityIndicator,
   Image,
   View,
-  Modal,
   TouchableOpacity,
   ScrollView
 } from "react-native";
