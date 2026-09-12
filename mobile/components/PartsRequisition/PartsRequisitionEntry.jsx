@@ -126,7 +126,7 @@ export default function PartsRequisitionEntry({
             backgroundColor: "rgba(0, 0, 0, 0.35)",
             justifyContent: "center",
             paddingHorizontal: 12,
-            paddingVertical: 16,
+            paddingVertical: 8,
           }}
         >
           <StatusBar
@@ -139,7 +139,7 @@ export default function PartsRequisitionEntry({
               backgroundColor: COLORS.white,
               borderRadius: 20,
               overflow: "hidden",
-              maxHeight: "92%",
+              maxHeight: "96%",
             }}
           >
             <View
@@ -196,7 +196,8 @@ export default function PartsRequisitionEntry({
                   borderWidth: 1,
                   borderColor: "#EEEEEE",
                   position: "relative",
-                  zIndex: 2,
+                  zIndex: 10,
+                  elevation: 10,
                 }}
               >
                 <AppText
@@ -227,7 +228,7 @@ export default function PartsRequisitionEntry({
                     label: aircraft.name,
                     value: aircraft.id,
                   }))}
-                  menuPosition="relative"
+                  menuPosition="absolute"
                 />
               </View>
 
@@ -245,6 +246,7 @@ export default function PartsRequisitionEntry({
                     borderColor: "#EEEEEE",
                     position: "relative",
                     zIndex: 1,
+                    elevation: 1,
                   }}
                 >
                   <View
@@ -356,9 +358,7 @@ export default function PartsRequisitionEntry({
                           >
                             <AppText
                               style={{
-                                color: isSelected
-                                  ? COLORS.white
-                                  : COLORS.black,
+                                color: isSelected ? COLORS.white : COLORS.black,
                                 fontSize: 12,
                                 fontWeight: "600",
                               }}
