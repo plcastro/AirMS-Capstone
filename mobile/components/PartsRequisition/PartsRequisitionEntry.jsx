@@ -42,7 +42,6 @@ export default function PartsRequisitionEntry({
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
   const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
-  const [openUnitItemId, setOpenUnitItemId] = useState(null);
 
   useEffect(() => {
     if (visible) {
@@ -59,7 +58,6 @@ export default function PartsRequisitionEntry({
 
       setItems(nextItems);
       setAircraftDropdownOpen(false);
-      setOpenUnitItemId(null);
       onChangeAircraft?.(initialAircraft || "");
     }
   }, [visible]);
@@ -72,12 +70,10 @@ export default function PartsRequisitionEntry({
 
   const addAnotherItem = () => {
     setItems((prev) => [...prev, createEmptyItem(Date.now())]);
-    setOpenUnitItemId(null);
   };
 
   const removeItem = (id) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
-    setOpenUnitItemId((current) => (current === id ? null : current));
   };
 
   const renderInput = (label, value, onChangeText, extraInputStyle = {}) => (
@@ -220,7 +216,6 @@ export default function PartsRequisitionEntry({
                   open={aircraftDropdownOpen}
                   onToggle={() =>
                     setAircraftDropdownOpen((current) => {
-                      setOpenUnitItemId(null);
                       return !current;
                     })
                   }
@@ -302,8 +297,6 @@ export default function PartsRequisitionEntry({
                     </AppText>
                     <View
                       style={{
-                        flexDirection: "row",
-                        alignItems: "center",
                         backgroundColor: "#F1F1F1",
                         borderRadius: 6,
                         overflow: "hidden",
@@ -326,96 +319,56 @@ export default function PartsRequisitionEntry({
                         }}
                         keyboardType="number-pad"
                       />
-                      <TouchableOpacity
-                        activeOpacity={0.78}
-                        onPress={() => {
-                          setAircraftDropdownOpen(false);
-                          setOpenUnitItemId((current) =>
-                            current === item.id ? null : item.id,
-                          );
-                        }}
-                        disabled={submitting}
-                        style={{
-                          width: 92,
-                          height: 44,
-                          paddingHorizontal: 10,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          borderLeftWidth: 1,
-                          borderLeftColor: "#DEDEDE",
-                        }}
-                      >
-                        <AppText
-                          numberOfLines={1}
-                          style={{
-                            color: item.unit ? COLORS.black : COLORS.grayDark,
-                            fontSize: 12,
-                            fontWeight: "500",
-                          }}
-                        >
-                          {item.unit || "Unit"}
-                        </AppText>
-                        <MaterialCommunityIcons
-                          name={
-                            openUnitItemId === item.id
-                              ? "chevron-up"
-                              : "chevron-down"
-                          }
-                          size={20}
-                          color={COLORS.grayDark}
-                        />
-                      </TouchableOpacity>
                     </View>
-                    {openUnitItemId === item.id && (
-                      <View
-                        style={{
-                          width: 92,
-                          alignSelf: "flex-end",
-                          marginTop: 6,
-                          borderWidth: 1,
-                          borderColor: COLORS.grayMedium,
-                          borderRadius: 6,
-                          overflow: "hidden",
-                          backgroundColor: COLORS.white,
-                        }}
-                      >
-                        {UNIT_OPTIONS.map((unit, unitIndex) => (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      {UNIT_OPTIONS.map((unit) => {
+                        const isSelected = item.unit === unit;
+
+                        return (
                           <TouchableOpacity
                             key={unit}
-                            activeOpacity={0.78}
+                            activeOpacity={0.82}
                             onPress={() => {
+                              setAircraftDropdownOpen(false);
                               updateItem(item.id, "unit", unit);
-                              setOpenUnitItemId(null);
                             }}
+                            disabled={submitting}
                             style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 11,
-                              borderBottomWidth:
-                                unitIndex < UNIT_OPTIONS.length - 1 ? 1 : 0,
-                              borderBottomColor: "#EEEEEE",
-                              backgroundColor:
-                                item.unit === unit
-                                  ? COLORS.primaryLight + "12"
-                                  : COLORS.white,
+                              flex: 1,
+                              minHeight: 36,
+                              borderRadius: 6,
+                              borderWidth: 1,
+                              borderColor: isSelected
+                                ? COLORS.primaryLight
+                                : "#DEDEDE",
+                              backgroundColor: isSelected
+                                ? COLORS.primaryLight
+                                : COLORS.white,
+                              alignItems: "center",
+                              justifyContent: "center",
                             }}
                           >
                             <AppText
                               style={{
-                                color:
-                                  item.unit === unit
-                                    ? COLORS.primaryLight
-                                    : COLORS.black,
+                                color: isSelected
+                                  ? COLORS.white
+                                  : COLORS.black,
                                 fontSize: 12,
-                                fontWeight: "500",
+                                fontWeight: "600",
                               }}
                             >
                               {unit}
                             </AppText>
                           </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
+                        );
+                      })}
+                    </View>
                   </View>
 
                   {renderInput("Purpose:", item.purpose, (value) =>
