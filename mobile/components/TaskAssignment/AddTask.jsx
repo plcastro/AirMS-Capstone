@@ -1072,8 +1072,9 @@ export default function AddTask({
 
   return (
     <>
+      {visible && !showDiscardAlert && (
       <Modal
-        visible={visible && !showDiscardAlert}
+        visible
         animationType="fade"
         transparent
         onRequestClose={handleCloseWithWarning}
@@ -1504,9 +1505,10 @@ export default function AddTask({
               />
             </View>
           </View>
-          {visible && !showDiscardAlert && <ToastHost embedded />}
+          <ToastHost embedded />
         </IosModalSafeAreaView>
       </Modal>
+      )}
       <AlertComp
         visible={showDiscardAlert}
         title="Discard changes?"
@@ -1515,9 +1517,9 @@ export default function AddTask({
         confirmText="Discard"
         onCancel={() => setShowDiscardAlert(false)}
         onConfirm={() => {
+          onClose?.();
           setShowDiscardAlert(false);
           resetForm();
-          onClose?.();
         }}
       />
     </>

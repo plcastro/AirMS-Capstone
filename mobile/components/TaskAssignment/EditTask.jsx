@@ -212,8 +212,8 @@ export default function EditTask({
   const confirmSave = () => {
     const updatedTask = buildUpdatedTask();
     if (!updatedTask) return;
-    setSaveConfirmVisible(false);
     onSave(updatedTask);
+    setSaveConfirmVisible(false);
   };
 
   const confirmDiscard = () => {
@@ -477,7 +477,8 @@ export default function EditTask({
 
   return (
     <>
-      <Modal visible={visible && !saveConfirmVisible} animationType="slide" transparent>
+      {visible && !saveConfirmVisible && (
+      <Modal visible animationType="slide" transparent>
         <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
@@ -777,9 +778,10 @@ export default function EditTask({
               />
             </View>
           </View>
-          {visible && !saveConfirmVisible && <ToastHost embedded />}
+          <ToastHost embedded />
         </IosModalSafeAreaView>
       </Modal>
+      )}
       <AlertComp
         visible={saveConfirmVisible}
         title="Save Changes?"
