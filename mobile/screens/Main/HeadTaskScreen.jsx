@@ -474,13 +474,6 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const confirmed = await confirmWithAlert({
-      title: "Approve Task",
-      message: "Confirm approval and submit this task review?",
-      confirmText: "Approve",
-    });
-    if (!confirmed) return false;
-
     const now = new Date().toISOString();
     const approverName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
@@ -524,7 +517,7 @@ export default function HeadTaskScreen({
         );
         setSelectedTask(savedTask);
         showToast("Task approved successfully.");
-        await fetchTasks({ silent: true });
+        void fetchTasks({ silent: true });
         return true;
       } else {
         const data = await parseJsonSafely(response).catch(() => ({}));
@@ -537,13 +530,6 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
-    const confirmed = await confirmWithAlert({
-      title: "Return Task",
-      message: "Return this task to the mechanic for revision?",
-      confirmText: "Return",
-    });
-    if (!confirmed) return false;
-
     const now = new Date().toISOString();
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
       ? returnData.itemsToUncheck
@@ -596,10 +582,11 @@ export default function HeadTaskScreen({
         );
         setSelectedTask(savedTask);
         showToast("Task returned successfully.");
-        await fetchTasks({ silent: true });
+        void fetchTasks({ silent: true });
         return true;
       } else {
-        showToast("Failed to return task");
+        const data = await parseJsonSafely(response).catch(() => ({}));
+        showToast(data.message || "Failed to return task");
         return false;
       }
     } catch (error) {
@@ -738,7 +725,6 @@ export default function HeadTaskScreen({
           isHeadView={true}
           onApprove={handleApproveTask}
           onReturn={handleReturnTask}
-          confirmation={alertConfig}
         />
       )}
 
