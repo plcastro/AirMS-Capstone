@@ -233,7 +233,7 @@ export default function PartsRequisitionEntry({
                     label: aircraft.name,
                     value: aircraft.id,
                   }))}
-                  menuPosition="relative"
+                  menuPosition="absolute"
                 />
               </View>
 
@@ -341,7 +341,7 @@ export default function PartsRequisitionEntry({
                             value: unit,
                           }))}
                           menuMaxHeight={180}
-                          menuPosition="relative"
+                          menuPosition="absolute"
                         />
                       </View>
                     </View>
