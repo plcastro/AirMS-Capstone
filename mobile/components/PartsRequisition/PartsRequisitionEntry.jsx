@@ -4,7 +4,6 @@ import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StatusBar,
   TouchableOpacity,
