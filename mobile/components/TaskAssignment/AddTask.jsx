@@ -16,6 +16,7 @@ import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import ToastHost from "../common/ToastHost";
 import {
   addMinutesToDate,
   addDaysToDate,
@@ -1503,6 +1504,7 @@ export default function AddTask({
               />
             </View>
           </View>
+          {visible && !showDiscardAlert && <ToastHost embedded />}
         </IosModalSafeAreaView>
       </Modal>
       <AlertComp

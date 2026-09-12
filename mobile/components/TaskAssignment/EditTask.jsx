@@ -18,6 +18,7 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import ToastHost from "../common/ToastHost";
 import { toValidTaskDate } from "../../utilities/tasks";
 
 const { width } = Dimensions.get("window");
@@ -776,6 +777,7 @@ export default function EditTask({
               />
             </View>
           </View>
+          {visible && !saveConfirmVisible && <ToastHost embedded />}
         </IosModalSafeAreaView>
       </Modal>
       <AlertComp
