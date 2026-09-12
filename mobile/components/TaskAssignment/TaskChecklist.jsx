@@ -17,6 +17,32 @@ import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
+const normalizeStatus = (status) =>
+  String(getDisplayText(status, ""))
+    .trim()
+    .toLowerCase();
+
 export default function TaskChecklist({
   visible,
   onClose,
@@ -46,9 +72,9 @@ export default function TaskChecklist({
         }
 
         if (
-          task.status === "Completed" ||
-          task.status === "Turned in" ||
-          task.status === "Approved"
+          normalizeStatus(task.status) === "completed" ||
+          normalizeStatus(task.status) === "turned in" ||
+          normalizeStatus(task.status) === "approved"
         ) {
           return true;
         }
@@ -59,13 +85,16 @@ export default function TaskChecklist({
       setChecklistState(normalizedChecklistState);
 
       if (
-        task.status === "Completed" ||
-        task.status === "Turned in" ||
-        task.status === "Approved"
+        normalizeStatus(task.status) === "completed" ||
+        normalizeStatus(task.status) === "turned in" ||
+        normalizeStatus(task.status) === "approved"
       ) {
         setIsStarted(true);
       } else {
-        setIsStarted(task.status === "Ongoing" || task.status === "Returned");
+        setIsStarted(
+          normalizeStatus(task.status) === "ongoing" ||
+            normalizeStatus(task.status) === "returned",
+        );
       }
 
       setFindings(task.findings || "");
@@ -75,9 +104,9 @@ export default function TaskChecklist({
   const toggleItem = (index) => {
     if (!isStarted || isHeadView) return;
     if (
-      task.status === "Completed" ||
-      task.status === "Turned in" ||
-      task.status === "Approved"
+      normalizeStatus(task.status) === "completed" ||
+      normalizeStatus(task.status) === "turned in" ||
+      normalizeStatus(task.status) === "approved"
     ) {
       return;
     }
@@ -162,17 +191,19 @@ export default function TaskChecklist({
     ? task.checklistItems
     : [];
 
-  const isReturned = task.status === "Returned";
-  const isTurnedIn = task.status === "Turned in" || task.status === "Completed";
+  const taskStatus = normalizeStatus(task.status);
+  const isReturned = taskStatus === "returned";
+  const isTurnedIn = taskStatus === "turned in" || taskStatus === "completed";
   const isCompleted =
-    task.status === "Completed" ||
-    task.status === "Turned in" ||
-    task.status === "Approved";
+    taskStatus === "completed" ||
+    taskStatus === "turned in" ||
+    taskStatus === "approved";
 
-  const isApproved = task.isApproved || task.status === "Approved" || false;
-  const approvedBy = task.approvedBy || "";
+  const isApproved = task.isApproved || taskStatus === "approved" || false;
+  const approvedBy = getDisplayText(task.approvedBy, "");
   const approvedDate = task.approvedAt || task.approvedDate || "";
-  const approvedSignature = task.approvedSignature || "";
+  const approvedSignature =
+    typeof task.approvedSignature === "string" ? task.approvedSignature : "";
 
   const allCheckboxesChecked =
     checklistItems.length > 0 &&
@@ -212,10 +243,13 @@ export default function TaskChecklist({
 
   const renderChecklistTitle = (item, isDisabled) => {
     if (isHeadView) {
-      return item.taskName;
+      return getDisplayText(item.taskName, "Checklist item");
     }
 
-    const checklistMeta = [item.taskId, item.inspectionTypeFull]
+    const checklistMeta = [
+      getDisplayText(item.taskId, ""),
+      getDisplayText(item.inspectionTypeFull, ""),
+    ]
       .filter(Boolean)
       .join(" | ");
 
@@ -241,7 +275,7 @@ export default function TaskChecklist({
             marginBottom: item.description ? 2 : 0,
           }}
         >
-          {item.taskName}
+          {getDisplayText(item.taskName, "Checklist item")}
         </AppText>
         {!!item.documentation && (
           <AppText
@@ -252,7 +286,7 @@ export default function TaskChecklist({
               marginBottom: item.description ? 2 : 0,
             }}
           >
-            AMM: {item.documentation}
+            AMM: {getDisplayText(item.documentation, "")}
           </AppText>
         )}
         {!!item.description && (
@@ -263,7 +297,7 @@ export default function TaskChecklist({
               color: isDisabled ? "#999" : "#555",
             }}
           >
-            {item.description}
+            {getDisplayText(item.description, "")}
           </AppText>
         )}
       </View>
@@ -322,12 +356,12 @@ export default function TaskChecklist({
                 marginRight: 42,
               }}
             >
-              {task.title}
+              {getDisplayText(task.title, "Maintenance Task")}
             </AppText>
 
             <AppText style={{ fontSize: 12, color: "#666", marginBottom: 20 }}>
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
-              {" "}Aircraft {task.aircraft}
+              {" "}Aircraft {getDisplayText(task.aircraft, "N/A")}
             </AppText>
 
             {isHeadView && isReturned && (
@@ -353,7 +387,7 @@ export default function TaskChecklist({
                 </AppText>
                 {task.returnComments && (
                   <AppText style={{ fontSize: 12, color: "#b71c1c" }}>
-                    {task.returnComments}
+                    {getDisplayText(task.returnComments, "")}
                   </AppText>
                 )}
               </View>
@@ -383,8 +417,10 @@ export default function TaskChecklist({
                 <AppText
                   style={{ fontSize: 12, color: "#b71c1c", marginBottom: 12 }}
                 >
-                  {task.returnComments ||
-                    "Finding details are incomplete. Please update findings."}
+                  {getDisplayText(
+                    task.returnComments,
+                    "Finding details are incomplete. Please update findings.",
+                  )}
                 </AppText>
                 <AppText style={{ fontSize: 12, color: "#e57373" }}>
                   Returned on{" "}

@@ -9,6 +9,32 @@ import ActionIconButton from "../common/ActionIconButton";
 import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 
+const getDisplayText = (value, fallback = "N/A") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
+const normalizeStatus = (value) =>
+  String(getDisplayText(value, ""))
+    .trim()
+    .toLowerCase();
+
 export default function TaskCard({
   data,
   onPress,
@@ -32,7 +58,10 @@ export default function TaskCard({
   } = data;
 
   const deadline = endDateTime || dueDate;
-  const displayStatus = data?.isApproved ? "Approved" : status;
+  const displayStatus = data?.isApproved
+    ? "Approved"
+    : getDisplayText(status, "Pending");
+  const normalizedDisplayStatus = normalizeStatus(displayStatus);
 
   // Progress
   const safeChecklistItems = Array.isArray(checklistItems)
@@ -104,16 +133,17 @@ export default function TaskCard({
             marginRight: 10,
           }}
         >
-          {title || maintenanceType || "Maintenance Task"}
+          {getDisplayText(title || maintenanceType, "Maintenance Task")}
         </AppText>
 
         {/* STATUS */}
         <View
           style={{
             backgroundColor:
-              displayStatus === "Approved" || displayStatus === "Completed"
+              normalizedDisplayStatus === "approved" ||
+              normalizedDisplayStatus === "completed"
                 ? "#E8F5E9"
-                : displayStatus === "Returned"
+                : normalizedDisplayStatus === "returned"
                   ? "#FFEBEE"
                   : "#FFF3E0",
             paddingHorizontal: 8,
@@ -126,14 +156,15 @@ export default function TaskCard({
               fontSize: 10,
               fontWeight: "600",
               color:
-                displayStatus === "Approved" || displayStatus === "Completed"
+                normalizedDisplayStatus === "approved" ||
+                normalizedDisplayStatus === "completed"
                   ? "#2E7D32"
-                  : displayStatus === "Returned"
+                  : normalizedDisplayStatus === "returned"
                     ? "#C62828"
                     : "#ED6C02",
             }}
           >
-            {displayStatus}
+          {getDisplayText(displayStatus, "Pending")}
           </AppText>
         </View>
       </View>
@@ -142,9 +173,9 @@ export default function TaskCard({
         <View
           style={{
             backgroundColor:
-              priority === "High"
+              getDisplayText(priority, "Normal") === "High"
                 ? COLORS.dangerBg
-                : priority === "Low"
+                : getDisplayText(priority, "Normal") === "Low"
                   ? COLORS.successBg
                   : COLORS.infoBg,
             paddingHorizontal: 8,
@@ -157,21 +188,21 @@ export default function TaskCard({
               fontSize: 10,
               fontWeight: "700",
               color:
-                priority === "High"
+                getDisplayText(priority, "Normal") === "High"
                   ? COLORS.dangerBorder
-                  : priority === "Low"
+                  : getDisplayText(priority, "Normal") === "Low"
                     ? COLORS.successBorder
                     : COLORS.infoBorder,
             }}
           >
-            Priority: {priority || "Normal"}
+            Priority: {getDisplayText(priority, "Normal")}
           </AppText>
         </View>
       </View>
 
       {/* BODY INFO */}
       <AppText style={{ fontSize: 12, color: "#555", marginBottom: 2 }}>
-        Aircraft: {aircraft}
+        Aircraft: {getDisplayText(aircraft)}
       </AppText>
 
       <AppText style={{ fontSize: 12, color: "#777", marginBottom: 2 }}>
@@ -183,7 +214,8 @@ export default function TaskCard({
       </AppText>
 
       {/* PROGRESS */}
-      {(displayStatus === "Ongoing" || displayStatus === "Returned") && (
+      {(normalizedDisplayStatus === "ongoing" ||
+        normalizedDisplayStatus === "returned") && (
         <View style={{ marginTop: 6 }}>
           <View
             style={{
@@ -213,7 +245,7 @@ export default function TaskCard({
       {/* ASSIGNED INFO */}
       {assignedToName && (
         <AppText style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
-          Assigned to: {assignedToName}
+          Assigned to: {getDisplayText(assignedToName)}
         </AppText>
       )}
 
@@ -228,7 +260,7 @@ export default function TaskCard({
           }}
         >
           <AppText style={{ fontSize: 12, color: "#C62828" }}>
-            {returnComments}
+            {getDisplayText(returnComments, "")}
           </AppText>
         </View>
       )}

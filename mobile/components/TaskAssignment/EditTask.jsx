@@ -27,6 +27,27 @@ const clampToNow = (date) => {
   return date < now ? now : date;
 };
 const addOneMinute = (date) => new Date(date.getTime() + 60 * 1000);
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.taskName ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
 
 export default function EditTask({
   visible,
@@ -141,8 +162,8 @@ export default function EditTask({
           ? assignee._id || assignee.id || ""
           : assignee || "";
 
-      setTaskTitle(task.title || "");
-      setSelectedAircraft(task.aircraft || "");
+      setTaskTitle(getDisplayText(task.title, ""));
+      setSelectedAircraft(getDisplayText(task.aircraft, ""));
       setSelectedEmployee(assigneeId);
       setSelectedPriority(task.priority || "Normal");
       setStartDate(nextStartDate);
@@ -173,7 +194,7 @@ export default function EditTask({
     }
 
     const filteredChecklist = checklistItems
-      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .filter((item) => getDisplayText(item.taskName, "").trim() !== "")
       .map((item, index) => ({
         ...item,
         inspectionName: item.inspectionName || taskTitle.trim(),
@@ -664,7 +685,7 @@ export default function EditTask({
 
               {checklistItems.map((item, index) => (
                 <View
-                  key={item.taskId || index}
+                  key={getDisplayText(item.taskId, String(index))}
                   style={{ flexDirection: "row", marginBottom: 12 }}
                 >
                   <View style={{ paddingTop: 2 }}>
@@ -673,12 +694,15 @@ export default function EditTask({
 
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {[item.taskId, item.inspectionTypeFull]
+                      {[
+                        getDisplayText(item.taskId, ""),
+                        getDisplayText(item.inspectionTypeFull, ""),
+                      ]
                         .filter(Boolean)
                         .join(" | ")}
                     </AppText>
                     <AppInput
-                      value={item.taskName || ""}
+                      value={getDisplayText(item.taskName, "")}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "taskName", value)
                       }
@@ -692,7 +716,7 @@ export default function EditTask({
                       }}
                     />
                     <AppInput
-                      value={item.description || ""}
+                      value={getDisplayText(item.description, "")}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "description", value)
                       }
