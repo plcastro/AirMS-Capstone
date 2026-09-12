@@ -1,6 +1,6 @@
-import React, { useCallback, useState, useEffect, useContext } from "react";
+import React, { useCallback, useState, useEffect, useContext, useRef } from "react";
 import { View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskTabs from "../../components/TaskAssignment/TaskTabs";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -31,11 +31,13 @@ export default function MechanicTaskScreen({
   targetNotificationStatus,
 }) {
   const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [aircraftDropdownOpen, setAircraftDropdownOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const handledTargetTaskRef = useRef(null);
   const [tasks, setTasks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([
@@ -170,7 +172,14 @@ export default function MechanicTaskScreen({
   }, [currentUserId]);
 
   useEffect(() => {
-    if (!targetTaskId || tasks.length === 0) {
+    if (!targetTaskId) {
+      handledTargetTaskRef.current = null;
+      return;
+    }
+    if (
+      handledTargetTaskRef.current === String(targetTaskId) ||
+      tasks.length === 0
+    ) {
       return;
     }
 
@@ -181,13 +190,15 @@ export default function MechanicTaskScreen({
     );
 
     if (match) {
+      handledTargetTaskRef.current = String(targetTaskId);
       setSelectedTask(match);
       setModalVisible(true);
       if (["Completed", "Turned in"].includes(targetNotificationStatus)) {
         setSelectedAircraft(match.aircraft || "all");
       }
+      navigation.setParams({ targetTaskId: undefined, notificationStatus: undefined });
     }
-  }, [targetTaskId, targetNotificationStatus, tasks]);
+  }, [navigation, targetTaskId, targetNotificationStatus, tasks]);
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -479,15 +490,20 @@ export default function MechanicTaskScreen({
         refreshing={refreshing}
       />
 
-      <TaskChecklist
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        task={selectedTask}
-        onStartTask={handleStartTask}
-        onSaveDraft={handleSaveDraft}
-        onTurnIn={handleTurnIn}
-        confirmation={alertConfig}
-      />
+      {modalVisible && selectedTask && (
+        <TaskChecklist
+          visible={modalVisible}
+          onClose={() => {
+            setModalVisible(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          onStartTask={handleStartTask}
+          onSaveDraft={handleSaveDraft}
+          onTurnIn={handleTurnIn}
+          confirmation={alertConfig}
+        />
+      )}
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState, useEffect } from "react";
+import React, { useCallback, useContext, useState, useEffect, useRef } from "react";
 import AppText from "../../components/common/AppText";
 import {
   View,
@@ -6,7 +6,7 @@ import {
   Dimensions,
   RefreshControl,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import TaskCard from "../../components/TaskAssignment/TaskCard";
 import TaskChecklist from "../../components/TaskAssignment/TaskChecklist";
@@ -55,6 +55,7 @@ export default function HeadTaskScreen({
   addTaskDraft,
 }) {
   const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
@@ -62,6 +63,7 @@ export default function HeadTaskScreen({
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const handledTargetTaskRef = useRef(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [taskPendingDelete, setTaskPendingDelete] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,7 +198,14 @@ export default function HeadTaskScreen({
   }, []);
 
   useEffect(() => {
-    if (!targetTaskId || tasks.length === 0) {
+    if (!targetTaskId) {
+      handledTargetTaskRef.current = null;
+      return;
+    }
+    if (
+      handledTargetTaskRef.current === String(targetTaskId) ||
+      tasks.length === 0
+    ) {
       return;
     }
 
@@ -207,13 +216,15 @@ export default function HeadTaskScreen({
     );
 
     if (match) {
+      handledTargetTaskRef.current = String(targetTaskId);
       setSelectedTask(match);
       setChecklistVisible(true);
       if (["Completed", "Turned in"].includes(targetNotificationStatus)) {
         setActiveTab("For Review");
       }
+      navigation.setParams({ targetTaskId: undefined, notificationStatus: undefined });
     }
-  }, [targetTaskId, targetNotificationStatus, tasks]);
+  }, [navigation, targetTaskId, targetNotificationStatus, tasks]);
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -716,14 +727,20 @@ export default function HeadTaskScreen({
       </View>
 
       {/* Modals */}
-      <TaskChecklist
-        visible={checklistVisible && !alertConfig.visible}
-        onClose={() => setChecklistVisible(false)}
-        task={selectedTask}
-        isHeadView={true}
-        onApprove={handleApproveTask}
-        onReturn={handleReturnTask}
-      />
+      {checklistVisible && selectedTask && (
+        <TaskChecklist
+          visible={checklistVisible}
+          onClose={() => {
+            setChecklistVisible(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          isHeadView={true}
+          onApprove={handleApproveTask}
+          onReturn={handleReturnTask}
+          confirmation={alertConfig}
+        />
+      )}
 
       <AddTask
         visible={addModalVisible && !alertConfig.visible}
@@ -742,7 +759,7 @@ export default function HeadTaskScreen({
       />
 
       <AlertComp
-        visible={alertConfig.visible}
+        visible={alertConfig.visible && !checklistVisible}
         title={alertConfig.title}
         message={alertConfig.message}
         confirmText={alertConfig.confirmText}

@@ -1,4 +1,3 @@
-import Modal from "../common/AppModal";
 import React, { useContext, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -21,7 +20,6 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
 export default function ReviewTask({
-  visible,
   onClose,
   onConfirm,
   mode = "return",
@@ -152,8 +150,7 @@ export default function ReviewTask({
     .filter(({ index }) => checklistState[index] === true);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.alertOverlay}>
+    <View style={styles.alertOverlay}>
         <View style={[styles.alertContainer, { width: 400, padding: 24 }]}>
           <AppText
             style={[
@@ -416,7 +413,6 @@ export default function ReviewTask({
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
           </View>
         </View>
-      </View>
-    </Modal>
+    </View>
   );
 }

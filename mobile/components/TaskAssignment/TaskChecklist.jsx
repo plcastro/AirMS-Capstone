@@ -154,7 +154,7 @@ export default function TaskChecklist({
     setShowReviewModal(true);
   };
 
-  if (!task) return null;
+  if (!task || !visible) return null;
 
   const checklistItems = Array.isArray(task.checklistItems)
     ? task.checklistItems
@@ -269,15 +269,20 @@ export default function TaskChecklist({
   };
 
   return (
-    <>
-      {visible && !showReviewModal && (
-      <Modal
-        visible
-        animationType="none"
-        transparent={true}
-        onRequestClose={confirmation?.visible ? confirmation.onCancel : onClose}
-      >
+    <Modal
+      visible
+      animationType="none"
+      transparent={true}
+      onRequestClose={
+        confirmation?.visible
+          ? confirmation.onCancel
+          : showReviewModal
+            ? handleReviewCancel
+            : onClose
+      }
+    >
         <IosModalSafeAreaView style={styles.modalOverlay}>
+          {!showReviewModal && (
           <View
             style={{
               maxWidth: "95%",
@@ -675,6 +680,18 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
+          )}
+          {showReviewModal && (
+            <ReviewTask
+              onClose={handleReviewCancel}
+              onConfirm={
+                reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
+              }
+              mode={reviewMode}
+              checklistItems={checklistItems}
+              checklistState={checklistState}
+            />
+          )}
           <AlertComp
             embedded
             visible={Boolean(confirmation?.visible)}
@@ -686,19 +703,6 @@ export default function TaskChecklist({
             onCancel={confirmation?.onCancel}
           />
         </IosModalSafeAreaView>
-      </Modal>
-      )}
-
-      <ReviewTask
-        visible={showReviewModal}
-        onClose={handleReviewCancel}
-        onConfirm={
-          reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
-        }
-        mode={reviewMode}
-        checklistItems={checklistItems}
-        checklistState={checklistState}
-      />
-    </>
+    </Modal>
   );
 }
