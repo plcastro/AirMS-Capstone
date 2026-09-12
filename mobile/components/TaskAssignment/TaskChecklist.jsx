@@ -16,6 +16,8 @@ import CheckBox from "../CheckBox";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import AlertComp from "../AlertComp";
+import ToastHost from "../common/ToastHost";
 
 export default function TaskChecklist({
   visible,
@@ -26,6 +28,7 @@ export default function TaskChecklist({
   onTurnIn,
   onApprove,
   onReturn,
+  confirmation,
   isHeadView = false,
 }) {
   const [checklistState, setChecklistState] = useState([]);
@@ -268,11 +271,12 @@ export default function TaskChecklist({
 
   return (
     <>
+      {visible && !showReviewModal && (
       <Modal
-        visible={visible && !showReviewModal}
+        visible
         animationType="none"
         transparent={true}
-        onRequestClose={onClose}
+        onRequestClose={confirmation?.visible ? confirmation.onCancel : onClose}
       >
         <IosModalSafeAreaView style={styles.modalOverlay}>
           <View
@@ -672,8 +676,20 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
+          <ToastHost embedded />
+          <AlertComp
+            embedded
+            visible={Boolean(confirmation?.visible)}
+            title={confirmation?.title}
+            message={confirmation?.message}
+            confirmText={confirmation?.confirmText}
+            cancelText={confirmation?.cancelText}
+            onConfirm={confirmation?.onConfirm}
+            onCancel={confirmation?.onCancel}
+          />
         </IosModalSafeAreaView>
       </Modal>
+      )}
 
       <ReviewTask
         visible={showReviewModal}

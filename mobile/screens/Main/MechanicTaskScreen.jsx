@@ -8,7 +8,6 @@ import { styles } from "../../stylesheets/styles";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { showToast } from "../../utilities/toast";
-import AlertComp from "../../components/AlertComp";
 import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import InlineDropdown from "../../components/common/InlineDropdown";
@@ -243,6 +242,13 @@ export default function MechanicTaskScreen({
   };
 
   const handleStartTask = async (task) => {
+    const confirmed = await confirmWithAlert({
+      title: "Start Task",
+      message: "Start this task now?",
+      confirmText: "Start",
+    });
+    if (!confirmed) return false;
+
     const now = new Date();
 
     const updatedTask = {
@@ -474,21 +480,13 @@ export default function MechanicTaskScreen({
       />
 
       <TaskChecklist
-        visible={modalVisible && !alertConfig.visible}
+        visible={modalVisible}
         onClose={() => setModalVisible(false)}
         task={selectedTask}
         onStartTask={handleStartTask}
         onSaveDraft={handleSaveDraft}
         onTurnIn={handleTurnIn}
-      />
-      <AlertComp
-        visible={alertConfig.visible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        confirmText={alertConfig.confirmText}
-        cancelText={alertConfig.cancelText}
-        onConfirm={alertConfig.onConfirm}
-        onCancel={alertConfig.onCancel}
+        confirmation={alertConfig}
       />
     </View>
   );
