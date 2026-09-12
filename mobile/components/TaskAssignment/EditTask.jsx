@@ -12,7 +12,6 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import Button from "../Button";
-import AlertComp from "../AlertComp";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -53,7 +52,6 @@ export default function EditTask({
 
   const [checklistItems, setChecklistItems] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
-  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
 
   const buildCustomChecklistItem = (index = checklistItems.length) => ({
     inspectionName: taskTitle || "Custom Task",
@@ -205,13 +203,6 @@ export default function EditTask({
   const requestSave = () => {
     const updatedTask = buildUpdatedTask();
     if (!updatedTask) return;
-    setSaveConfirmVisible(true);
-  };
-
-  const confirmSave = () => {
-    const updatedTask = buildUpdatedTask();
-    if (!updatedTask) return;
-    setSaveConfirmVisible(false);
     onSave(updatedTask);
   };
 
@@ -476,7 +467,7 @@ export default function EditTask({
 
   return (
     <>
-      <Modal visible={visible && !saveConfirmVisible} animationType="slide" transparent>
+      <Modal visible={visible} animationType="slide" transparent>
         <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
@@ -778,15 +769,6 @@ export default function EditTask({
           </View>
         </IosModalSafeAreaView>
       </Modal>
-      <AlertComp
-        visible={saveConfirmVisible}
-        title="Save Changes?"
-        message="This will update the task assignment details."
-        confirmText="Save"
-        cancelText="Cancel"
-        onCancel={() => setSaveConfirmVisible(false)}
-        onConfirm={confirmSave}
-      />
     </>
   );
 }
