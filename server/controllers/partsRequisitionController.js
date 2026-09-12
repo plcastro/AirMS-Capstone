@@ -117,7 +117,7 @@ const publishRequisitionUpdated = (requisition, actorUserId) =>
         "superadmin",
         "maintenance manager",
         "officer-in-charge",
-        "warehouse staff",
+        "warehouse personnel",
       ],
       recipientUsers: requisition?.staff?.requisitionerId
         ? [requisition.staff.requisitionerId]
@@ -184,9 +184,9 @@ const exportRequisitionExcel = async (req, res) => {
       .trim()
       .toLowerCase();
 
-    if (requesterRole !== "warehouse staff") {
+    if (requesterRole !== "warehouse personnel") {
       return res.status(403).json({
-        message: "Only warehouse staff can export parts requisitions.",
+        message: "Only warehouse personnel can export parts requisitions.",
       });
     }
 

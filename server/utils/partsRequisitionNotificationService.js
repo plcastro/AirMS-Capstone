@@ -4,7 +4,7 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
-const ROLE_WAREHOUSE = "warehouse staff";
+const ROLE_WAREHOUSE = "warehouse personnel";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 

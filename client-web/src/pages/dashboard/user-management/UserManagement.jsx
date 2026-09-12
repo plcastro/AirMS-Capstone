@@ -35,7 +35,7 @@ const accessLevelData = [
       { title: "Pilot", value: "Pilot" },
       { title: "Officer-In-Charge", value: "Officer-In-Charge" },
       { title: "Mechanic", value: "Mechanic" },
-      { title: "Warehouse Staff", value: "Warehouse Staff" },
+      { title: "Warehouse Personnel", value: "Warehouse Personnel" },
     ],
   },
   {

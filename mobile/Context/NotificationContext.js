@@ -622,7 +622,7 @@ export function NotificationProvider({ children }) {
         "maintenance manager",
         "mechanic",
         "officer-in-charge",
-        "warehouse staff",
+        "warehouse personnel",
       ].includes(normalizedRole);
       const canAccessMessages = canAccessRequisitions;
 

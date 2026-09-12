@@ -165,7 +165,7 @@ export default function WRSModal({
   const { user, getAuthHeader } = useContext(AuthContext);
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
-  const isWarehouseStaff = userRole === "warehouse staff";
+  const isWarehouseStaff = userRole === "warehouse personnel";
   const isMaintenanceReviewer = [
     "superadmin",
     "maintenance manager",
@@ -531,7 +531,7 @@ export default function WRSModal({
 
     const warehouseName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      "Warehouse Staff";
+      "Warehouse Personnel";
     const reviewerName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || userTitle;
 

@@ -75,7 +75,9 @@ const getRequisitionTimestamp = (record = {}) => {
 };
 
 const normalizeOverallStatus = (status) => {
-  const normalizedStatus = String(status || "").trim().toLowerCase();
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalizedStatus) {
     case "parts requested":
@@ -104,7 +106,9 @@ const normalizeOverallStatus = (status) => {
 };
 
 const normalizeItemStatus = (status) => {
-  const normalizedStatus = String(status || "").trim().toLowerCase();
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
 
   switch (normalizedStatus) {
     case "parts requested":
@@ -230,7 +234,7 @@ const buildTimeline = (record) => {
       dateTime: formatDateTime(
         record.dateWarehouseReviewed || record.updatedAt,
       ),
-      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Staff"),
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Personnel"),
       description: "Warehouse reviewed item stock availability",
     },
     "To Be Ordered": {
@@ -242,7 +246,7 @@ const buildTimeline = (record) => {
     Ordered: {
       status: "Ordered",
       dateTime: formatDateTime(record.updatedAt),
-      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Staff"),
+      by: getStaffActor(record.staff, "warehouseBy", "Warehouse Personnel"),
       description: "Warehouse confirmed the restocked items are available",
     },
     Approved: {
@@ -385,7 +389,10 @@ const resolveTabForRequest = (request, isManager) => {
 const canManagerActOnRequest = (request) =>
   ["Availability Checked", "Ordered"].includes(request?.rawStatus);
 
-const buildPartsRequisitionReportSections = (items = [], selectedTab = "All") => {
+const buildPartsRequisitionReportSections = (
+  items = [],
+  selectedTab = "All",
+) => {
   const statusCounts = items.reduce((counts, item) => {
     const label = getDisplayStatusLabel(item.rawStatus || item.status || "N/A");
     counts[label] = (counts[label] || 0) + 1;
@@ -471,7 +478,7 @@ export default function PartsRequisition({ route, navigation }) {
     (fallback = "User") => user?.jobTitle || user?.access || fallback,
     [user?.access, user?.jobTitle],
   );
-  const isWarehouse = userRole === "warehouse staff";
+  const isWarehouse = userRole === "warehouse personnel";
   const isMechanic = userRole === "mechanic";
   const isManager = [
     "superadmin",
@@ -482,7 +489,7 @@ export default function PartsRequisition({ route, navigation }) {
     "superadmin",
     "maintenance manager",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ].includes(userRole);
   const tabLabels = isManager
     ? [
@@ -736,7 +743,9 @@ export default function PartsRequisition({ route, navigation }) {
     return sourceData
       .filter((item) => matchesSearch(searchQuery, item))
       .sort((left, right) => {
-        const leftTime = getRequisitionTimestamp(left.sortDate || left.rawRecord);
+        const leftTime = getRequisitionTimestamp(
+          left.sortDate || left.rawRecord,
+        );
         const rightTime = getRequisitionTimestamp(
           right.sortDate || right.rawRecord,
         );
@@ -1183,8 +1192,8 @@ export default function PartsRequisition({ route, navigation }) {
       request.id,
       {
         dateWarehouseReviewed: new Date().toISOString(),
-        warehouseBy: getCurrentUserName("Warehouse Staff"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
+        warehouseBy: getCurrentUserName("Warehouse Personnel"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Personnel"),
         items: updatedItems,
       },
       "Warehouse stock review submitted successfully.",
@@ -1196,8 +1205,8 @@ export default function PartsRequisition({ route, navigation }) {
       request.id,
       {
         status: "To Be Ordered",
-        warehouseBy: getCurrentUserName("Warehouse Staff"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
+        warehouseBy: getCurrentUserName("Warehouse Personnel"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Personnel"),
         items: updatedItems,
       },
       "Remaining items are still to be restocked.",
@@ -1222,8 +1231,8 @@ export default function PartsRequisition({ route, navigation }) {
       {
         status: nextStatus,
         dateOrdered: new Date().toISOString(),
-        warehouseBy: getCurrentUserName("Warehouse Staff"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
+        warehouseBy: getCurrentUserName("Warehouse Personnel"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Personnel"),
         items: updatedItems,
       },
       nextStatus === "Ordered"
@@ -1246,10 +1255,10 @@ export default function PartsRequisition({ route, navigation }) {
         status: "Delivered",
         dateDelivered: new Date().toISOString(),
         dateReceived: new Date().toISOString(),
-        deliveredBy: getCurrentUserName("Warehouse Staff"),
-        deliveredByTitle: getCurrentUserTitle("Warehouse Staff"),
-        warehouseBy: getCurrentUserName("Warehouse Staff"),
-        warehouseByTitle: getCurrentUserTitle("Warehouse Staff"),
+        deliveredBy: getCurrentUserName("Warehouse Personnel"),
+        deliveredByTitle: getCurrentUserTitle("Warehouse Personnel"),
+        warehouseBy: getCurrentUserName("Warehouse Personnel"),
+        warehouseByTitle: getCurrentUserTitle("Warehouse Personnel"),
         items: (request.rawRecord.items || []).map((item) => ({
           ...item,
           stockStatus: "Delivered",
@@ -1553,7 +1562,9 @@ export default function PartsRequisition({ route, navigation }) {
         visible={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         request={selectedRequest}
-        showManagerActions={isManager && canManagerActOnRequest(selectedRequest)}
+        showManagerActions={
+          isManager && canManagerActOnRequest(selectedRequest)
+        }
         showWarehouseActions={isWarehouse}
         canOrder={canOrder}
         canApprove={canApprove}
@@ -1571,9 +1582,7 @@ export default function PartsRequisition({ route, navigation }) {
       />
 
       <AlertComp
-        visible={
-          alertConfig.visible && !showNewEntryModal && !showDetailsModal
-        }
+        visible={alertConfig.visible && !showNewEntryModal && !showDetailsModal}
         title={alertConfig.title}
         message={alertConfig.message}
         confirmText={alertConfig.confirmText}

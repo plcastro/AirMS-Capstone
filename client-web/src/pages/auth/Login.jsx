@@ -27,7 +27,9 @@ import ResultPopup from "../../components/common/ResultPopup";
 const { Text } = Typography;
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
@@ -228,7 +230,7 @@ const Login = () => {
       case "officer-in-charge":
         dashboardPath = "/dashboard/maintenance-dashboard";
         break;
-      case "warehouse staff":
+      case "warehouse personnel":
         dashboardPath = "/dashboard/parts-requisition";
         break;
     }
@@ -304,7 +306,9 @@ const Login = () => {
               id="base"
               aria-label="Logging in from"
               size="large"
-              placeholder={<span style={{ color: "#595959" }}>Select base</span>}
+              placeholder={
+                <span style={{ color: "#595959" }}>Select base</span>
+              }
               required
               value={formData.base || undefined}
               onChange={(value) =>

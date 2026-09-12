@@ -13,7 +13,9 @@ import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
@@ -158,7 +160,7 @@ export default function OTP() {
             role === "officer-in-charge"
           ) {
             dashboardPath = "/dashboard/maintenance-dashboard";
-          } else if (role === "warehouse staff") {
+          } else if (role === "warehouse personnel") {
             dashboardPath = "/dashboard/parts-requisition";
           }
 
