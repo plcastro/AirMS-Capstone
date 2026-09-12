@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Image,
   TouchableOpacity
@@ -16,6 +16,7 @@ import CheckBox from "../CheckBox";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import AlertComp from "../AlertComp";
 
 const getDisplayText = (value, fallback = "") => {
   if (value === null || value === undefined || value === "") return fallback;
@@ -52,6 +53,7 @@ export default function TaskChecklist({
   onTurnIn,
   onApprove,
   onReturn,
+  confirmation,
   isHeadView = false,
 }) {
   const [checklistState, setChecklistState] = useState([]);
@@ -185,7 +187,7 @@ export default function TaskChecklist({
     setShowReviewModal(true);
   };
 
-  if (!task) return null;
+  if (!task || !visible) return null;
 
   const checklistItems = Array.isArray(task.checklistItems)
     ? task.checklistItems
@@ -305,14 +307,20 @@ export default function TaskChecklist({
   };
 
   return (
-    <>
-      <Modal
-        visible={visible && !showReviewModal}
-        animationType="none"
-        transparent={true}
-        onRequestClose={onClose}
-      >
+    <Modal
+      visible
+      animationType="none"
+      transparent={true}
+      onRequestClose={
+        confirmation?.visible
+          ? confirmation.onCancel
+          : showReviewModal
+            ? handleReviewCancel
+            : onClose
+      }
+    >
         <IosModalSafeAreaView style={styles.modalOverlay}>
+          {!showReviewModal && (
           <View
             style={{
               maxWidth: "95%",
@@ -712,19 +720,29 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
+          )}
+          {showReviewModal && (
+            <ReviewTask
+              onClose={handleReviewCancel}
+              onConfirm={
+                reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
+              }
+              mode={reviewMode}
+              checklistItems={checklistItems}
+              checklistState={checklistState}
+            />
+          )}
+          <AlertComp
+            embedded
+            visible={Boolean(confirmation?.visible)}
+            title={confirmation?.title}
+            message={confirmation?.message}
+            confirmText={confirmation?.confirmText}
+            cancelText={confirmation?.cancelText}
+            onConfirm={confirmation?.onConfirm}
+            onCancel={confirmation?.onCancel}
+          />
         </IosModalSafeAreaView>
-      </Modal>
-
-      <ReviewTask
-        visible={showReviewModal}
-        onClose={handleReviewCancel}
-        onConfirm={
-          reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
-        }
-        mode={reviewMode}
-        checklistItems={checklistItems}
-        checklistState={checklistState}
-      />
-    </>
+    </Modal>
   );
 }

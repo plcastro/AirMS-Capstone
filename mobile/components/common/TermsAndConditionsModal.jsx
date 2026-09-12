@@ -1,6 +1,6 @@
+import Modal from "./AppModal";
 import React from "react";
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,

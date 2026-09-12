@@ -1,8 +1,8 @@
+import Modal from "./common/AppModal";
 import React, { useEffect, useRef } from "react";
 import AppText from "./common/AppText";
 import {
   View,
-  Modal,
   StyleSheet,
   TouchableOpacity,
 } from "react-native";

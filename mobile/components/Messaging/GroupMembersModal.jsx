@@ -1,7 +1,7 @@
+import Modal from "../common/AppModal";
 import React from "react";
 import AppText from "../common/AppText";
 import {
-  Modal,
   ScrollView,
   TouchableOpacity,
   View

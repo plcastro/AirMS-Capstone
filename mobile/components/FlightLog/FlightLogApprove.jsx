@@ -1,3 +1,4 @@
+import Modal from "../common/AppModal";
 import react, { useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -5,7 +6,6 @@ import DateInput from "../common/DateInput";
 
 import {
   View,
-  Modal,
   TouchableOpacity,
   Platform,
   Dimensions,

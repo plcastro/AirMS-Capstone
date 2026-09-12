@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useEffect, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StatusBar,
   TouchableOpacity,
@@ -15,7 +15,6 @@ import { COLORS } from "../../stylesheets/colors";
 import { Picker } from "@react-native-picker/picker";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
-import ToastHost from "../common/ToastHost";
 
 const REQUEST_ITEMS_PAGE_SIZE = 5;
 
@@ -1050,7 +1049,6 @@ export default function PartsRequisitionDetails({
           onConfirm={alertConfig.onConfirm}
           onCancel={alertConfig.onCancel}
         />
-        <ToastHost embedded />
         </SafeAreaView>
       </IosModalSafeAreaProvider>
     </Modal>

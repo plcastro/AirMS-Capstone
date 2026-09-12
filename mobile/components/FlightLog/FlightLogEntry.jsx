@@ -1,8 +1,8 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
@@ -323,7 +323,13 @@ export default function FlightLogEntry({
       return ["Basic Information"];
     }
 
-    if (isPilot) return ["Destination/s", "Discrepancy/Remarks"];
+    if (isPilot) {
+      return [
+        "Basic Information",
+        "Destination/s",
+        "Discrepancy/Remarks",
+      ];
+    }
 
     const nextTabs = [
       "Basic Information",

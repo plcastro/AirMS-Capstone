@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useContext, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   TouchableOpacity,

@@ -1,9 +1,9 @@
+import Modal from "./AppModal";
 import React, { useContext, useRef, useState } from "react";
 import AppText from "./AppText";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   TouchableOpacity,
   View
 } from "react-native";

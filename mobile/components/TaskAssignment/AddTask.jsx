@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
@@ -1091,8 +1091,9 @@ export default function AddTask({
 
   return (
     <>
+      {visible && !showDiscardAlert && (
       <Modal
-        visible={visible && !showDiscardAlert}
+        visible
         animationType="fade"
         transparent
         onRequestClose={handleCloseWithWarning}
@@ -1528,6 +1529,7 @@ export default function AddTask({
           </View>
         </IosModalSafeAreaView>
       </Modal>
+      )}
       <AlertComp
         visible={showDiscardAlert}
         title="Discard changes?"
@@ -1536,9 +1538,9 @@ export default function AddTask({
         confirmText="Discard"
         onCancel={() => setShowDiscardAlert(false)}
         onConfirm={() => {
+          onClose?.();
           setShowDiscardAlert(false);
           resetForm();
-          onClose?.();
         }}
       />
     </>

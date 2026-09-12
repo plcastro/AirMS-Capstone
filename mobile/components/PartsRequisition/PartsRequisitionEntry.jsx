@@ -1,3 +1,4 @@
+import Modal from "../common/AppModal";
 import React, { useEffect, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";

@@ -471,10 +471,13 @@ export default function FlightLogEntry({
 
     const hasDisc = formData.remarks?.trim() !== "";
 
-    // Once the aircraft bootstrap is complete, pilots only work in their two
-    // assigned sections in both create and edit mode.
+    // Keep Basic Information available while a pilot creates a log so the
+    // selected aircraft and other header details remain reviewable. Pilot
+    // edits continue to expose only the two operational sections.
     if (isPilot) {
-      return [ALL_TABS[1], ALL_TABS[5]];
+      return editMode
+        ? [ALL_TABS[1], ALL_TABS[5]]
+        : [ALL_TABS[0], ALL_TABS[1], ALL_TABS[5]];
     }
 
     // Other roles retain the existing full-record edit view.
