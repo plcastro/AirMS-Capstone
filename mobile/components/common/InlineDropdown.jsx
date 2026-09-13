@@ -12,8 +12,10 @@ export default function InlineDropdown({
   onToggle,
   onChange,
   menuMaxHeight = 220,
+  menuPosition = "absolute",
 }) {
   const selected = options.find((option) => String(option.value) === String(value));
+  const isInlineMenu = menuPosition === "relative";
 
   return (
     <View style={{ position: "relative", zIndex: open ? 1000 : 1 }}>
@@ -55,10 +57,11 @@ export default function InlineDropdown({
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
           style={{
-            position: "absolute",
-            top: 52,
-            left: 0,
-            right: 0,
+            position: isInlineMenu ? "relative" : "absolute",
+            top: isInlineMenu ? undefined : 52,
+            left: isInlineMenu ? undefined : 0,
+            right: isInlineMenu ? undefined : 0,
+            marginTop: isInlineMenu ? 6 : 0,
             maxHeight: menuMaxHeight,
             borderWidth: 1,
             borderColor: COLORS.border || "#d1d5db",

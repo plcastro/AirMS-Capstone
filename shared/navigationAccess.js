@@ -6,7 +6,7 @@ const NAV_ACCESS = {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ],
   userManagement: ["superadmin"],
   activityLogs: ["superadmin"],
@@ -47,7 +47,7 @@ const NAV_ACCESS = {
   maintenancePriority: ["superadmin", "maintenance manager"],
   partsRequisition: [
     "superadmin",
-    "warehouse staff",
+    "warehouse personnel",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -58,7 +58,7 @@ const NAV_ACCESS = {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ],
 };
 

@@ -20,6 +20,25 @@ import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.taskName ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
 export default function ReviewTask({
   onClose,
   onConfirm,
@@ -149,9 +168,16 @@ export default function ReviewTask({
     );
   };
 
-  const checkedChecklistItems = checklistItems
+  const safeChecklistItems = Array.isArray(checklistItems)
+    ? checklistItems
+    : [];
+  const safeChecklistState = Array.isArray(checklistState)
+    ? checklistState
+    : [];
+
+  const checkedChecklistItems = safeChecklistItems
     .map((item, index) => ({ item, index }))
-    .filter(({ index }) => checklistState[index] === true);
+    .filter(({ index }) => safeChecklistState[index] === true);
 
   return (
     <View style={[styles.alertOverlay, { width: "100%" }]}>
@@ -198,7 +224,10 @@ export default function ReviewTask({
                     <ScrollView nestedScrollEnabled>
                       {checkedChecklistItems.map(({ item, index }) => {
                         const selected = itemsToUncheck.includes(index);
-                        const meta = [item.taskId, item.inspectionTypeFull]
+                        const meta = [
+                          getDisplayText(item.taskId, ""),
+                          getDisplayText(item.inspectionTypeFull, ""),
+                        ]
                           .filter(Boolean)
                           .join(" | ");
 
@@ -256,7 +285,10 @@ export default function ReviewTask({
                                   color: COLORS.black,
                                 }}
                               >
-                                {item.taskName || "Checklist item"}
+                                {getDisplayText(
+                                  item.taskName,
+                                  "Checklist item",
+                                )}
                               </AppText>
                             </View>
                           </TouchableOpacity>
@@ -315,6 +347,7 @@ export default function ReviewTask({
               >
                 <SignatureCanvas
                   ref={signatureRef}
+                  webviewProps={{ androidLayerType: "software" }}
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
                     setAdvanceAfterSignature(false);

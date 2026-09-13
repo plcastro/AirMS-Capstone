@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  Platform,
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { Platform, View, TouchableOpacity, ScrollView } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateInput from "../common/DateInput";
 
 const formatDate = (date) =>
   date.toLocaleDateString("en-US", {
@@ -69,21 +65,43 @@ export default function FlightLogModalDestinations({
   userRole,
   maxLegs,
 }) {
-  const [stations, setStations] = useState(legData.stations || [{ from: "", to: "" }]);
+  const [stations, setStations] = useState(
+    legData.stations || [{ from: "", to: "" }],
+  );
   const [activeDateLegIndex, setActiveDateLegIndex] = useState(null);
-  const [legs, setLegs] = useState(legData.legs || [{
-    stations: [{ from: "", to: "" }],
-    blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
-    date: "", passengers: ""
-  }]);
+  const [legs, setLegs] = useState(
+    legData.legs || [
+      {
+        stations: [{ from: "", to: "" }],
+        blockTimeOn: "",
+        blockTimeOff: "",
+        flightTimeOn: "",
+        flightTimeOff: "",
+        totalTimeOn: "",
+        totalTimeOff: "",
+        date: "",
+        passengers: "",
+      },
+    ],
+  );
 
   useEffect(() => {
     setStations(legData.stations || [{ from: "", to: "" }]);
-    setLegs(legData.legs || [{
-      stations: [{ from: "", to: "" }],
-      blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
-      date: "", passengers: ""
-    }]);
+    setLegs(
+      legData.legs || [
+        {
+          stations: [{ from: "", to: "" }],
+          blockTimeOn: "",
+          blockTimeOff: "",
+          flightTimeOn: "",
+          flightTimeOff: "",
+          totalTimeOn: "",
+          totalTimeOff: "",
+          date: "",
+          passengers: "",
+        },
+      ],
+    );
   }, [legData]);
 
   const handleFromChange = (legIdx, stationIdx, text) => {
@@ -115,8 +133,12 @@ export default function FlightLogModalDestinations({
   const addStation = (legIdx) => {
     if (!isEditable) return;
     const newLegs = [...legs];
-    const lastStation = newLegs[legIdx].stations[newLegs[legIdx].stations.length - 1];
-    const newStations = [...newLegs[legIdx].stations, { from: lastStation.to, to: "" }];
+    const lastStation =
+      newLegs[legIdx].stations[newLegs[legIdx].stations.length - 1];
+    const newStations = [
+      ...newLegs[legIdx].stations,
+      { from: lastStation.to, to: "" },
+    ];
     newLegs[legIdx].stations = newStations;
     setLegs(newLegs);
     onUpdateLeg({ ...legData, legs: newLegs });
@@ -142,8 +164,14 @@ export default function FlightLogModalDestinations({
     if (Number.isFinite(maxLegs) && legs.length >= maxLegs) return;
     const newLeg = {
       stations: [{ from: "", to: "" }],
-      blockTimeOn: "", blockTimeOff: "", flightTimeOn: "", flightTimeOff: "", totalTimeOn: "", totalTimeOff: "",
-      date: "", passengers: ""
+      blockTimeOn: "",
+      blockTimeOff: "",
+      flightTimeOn: "",
+      flightTimeOff: "",
+      totalTimeOn: "",
+      totalTimeOff: "",
+      date: "",
+      passengers: "",
     };
     const newLegs = [...legs, newLeg];
     setLegs(newLegs);
@@ -162,7 +190,14 @@ export default function FlightLogModalDestinations({
 
   const renderInput = (legIdx, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 4,
+          fontWeight: "500",
+        }}
+      >
         {label}
       </AppText>
       <AppInput
@@ -187,83 +222,36 @@ export default function FlightLogModalDestinations({
     </View>
   );
 
-  const updateLegDate = (legIdx, date) => {
-    const newLegs = legs.map((leg, index) =>
-      index === legIdx ? { ...leg, date } : leg,
-    );
-    setLegs(newLegs);
-    onUpdateLeg({ ...legData, legs: newLegs });
-  };
-
-  const renderDateInput = (legIdx) => (
+  const renderDateInput = (legIdx, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
-        Date *
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 4,
+          fontWeight: "500",
+        }}
+      >
+        {label}
       </AppText>
-      {Platform.OS === "web" ? (
-        <input
-          aria-label={`Date for leg ${legIdx + 1}`}
-          type="date"
-          value={toDateInputValue(legs[legIdx]?.date)}
-          disabled={!isEditable}
-          onChange={(event) =>
-            updateLegDate(legIdx, fromDateInputValue(event.target.value))
-          }
-          style={{
-            boxSizing: "border-box",
-            width: "100%",
-            height: 38,
-            padding: "0 10px",
-            border: "none",
-            borderRadius: 4,
-            backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-            color: isEditable ? COLORS.black : COLORS.grayDark,
-            fontSize: 12,
-          }}
-        />
-      ) : (
-        <>
-          <TouchableOpacity
-            onPress={() => isEditable && setActiveDateLegIndex(legIdx)}
-            disabled={!isEditable}
-            style={{
-              backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-              borderRadius: 4,
-              height: 38,
-              paddingHorizontal: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <AppText
-              style={{
-                fontSize: 12,
-                color: legs[legIdx]?.date ? COLORS.black : COLORS.grayDark,
-              }}
-            >
-              {legs[legIdx]?.date || "Select date"}
-            </AppText>
-            <MaterialCommunityIcons
-              name="calendar-blank"
-              size={18}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
-          {activeDateLegIndex === legIdx && isEditable && (
-            <DateTimePicker
-              value={parseDate(legs[legIdx]?.date)}
-              mode="date"
-              display="default"
-              onChange={(event, selectedDate) => {
-                setActiveDateLegIndex(null);
-                if (event.type === "dismissed" || !selectedDate) return;
-                updateLegDate(legIdx, formatDate(selectedDate));
-              }}
-            />
-          )}
-        </>
-      )}
+      <DateInput
+        value={legs[legIdx][fieldKey] || ""}
+        editable={isEditable}
+        onChangeText={(date) => {
+          if (!isEditable) return;
+          const newLegs = [...legs];
+          newLegs[legIdx][fieldKey] = date;
+          setLegs(newLegs);
+          onUpdateLeg({ ...legData, legs: newLegs });
+        }}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 4,
+          minHeight: 38,
+          height: 38,
+          paddingHorizontal: 10,
+        }}
+      />
     </View>
   );
 
@@ -278,54 +266,87 @@ export default function FlightLogModalDestinations({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Destination/s
       </AppText>
 
       {legs.map((leg, legIdx) => {
         const legNumber = legIdx + 1;
         const suffix = getOrdinalSuffix(legNumber);
-        
+
         return (
-          <View key={legIdx} style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            shadowColor: COLORS.black,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 6,
-            elevation: 2,
-            overflow: "hidden",
-            marginBottom: 20,
-          }}>
-            <View style={{ 
-              backgroundColor: COLORS.primaryLight, 
-              paddingVertical: 14, 
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}>
-              <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
-                {legNumber}{suffix} Leg
+          <View
+            key={legIdx}
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: COLORS.grayMedium,
+              shadowColor: COLORS.black,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 6,
+              elevation: 2,
+              overflow: "hidden",
+              marginBottom: 20,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <AppText
+                style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+              >
+                {legNumber}
+                {suffix} Leg
               </AppText>
               {isEditable && legs.length > 1 && (
                 <TouchableOpacity onPress={() => removeLeg(legIdx)}>
-                  <MaterialCommunityIcons name="close" size={20} color={COLORS.white} />
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={20}
+                    color={COLORS.white}
+                  />
                 </TouchableOpacity>
               )}
             </View>
 
             <View style={{ padding: 20 }}>
-              <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  color: COLORS.black,
+                  marginBottom: 8,
+                  fontWeight: "500",
+                }}
+              >
                 Station *
               </AppText>
 
               {/* Stations List */}
               {leg.stations.map((station, stationIdx) => (
-                <View key={stationIdx} style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                <View
+                  key={stationIdx}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 10,
+                  }}
+                >
                   <AppInput
                     style={{
                       flex: 1,
@@ -337,12 +358,22 @@ export default function FlightLogModalDestinations({
                       color: isEditable ? COLORS.black : COLORS.grayDark,
                     }}
                     value={station.from}
-                    onChangeText={(text) => handleFromChange(legIdx, stationIdx, text)}
+                    onChangeText={(text) =>
+                      handleFromChange(legIdx, stationIdx, text)
+                    }
                     placeholder="From"
                     placeholderTextColor={COLORS.grayDark}
                     editable={isEditable}
                   />
-                  <AppText style={{ marginHorizontal: 8, fontSize: 12, color: COLORS.black }}>-</AppText>
+                  <AppText
+                    style={{
+                      marginHorizontal: 8,
+                      fontSize: 12,
+                      color: COLORS.black,
+                    }}
+                  >
+                    -
+                  </AppText>
                   <AppInput
                     style={{
                       flex: 1,
@@ -354,7 +385,9 @@ export default function FlightLogModalDestinations({
                       color: isEditable ? COLORS.black : COLORS.grayDark,
                     }}
                     value={station.to}
-                    onChangeText={(text) => handleToChange(legIdx, stationIdx, text)}
+                    onChangeText={(text) =>
+                      handleToChange(legIdx, stationIdx, text)
+                    }
                     placeholder="To"
                     placeholderTextColor={COLORS.grayDark}
                     editable={isEditable}
@@ -372,7 +405,11 @@ export default function FlightLogModalDestinations({
                         justifyContent: "center",
                       }}
                     >
-                      <MaterialCommunityIcons name="close" size={20} color={COLORS.white} />
+                      <MaterialCommunityIcons
+                        name="close"
+                        size={20}
+                        color={COLORS.white}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -390,12 +427,27 @@ export default function FlightLogModalDestinations({
                     marginBottom: 20,
                   }}
                 >
-                  <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Station</AppText>
+                  <AppText
+                    style={{
+                      color: COLORS.white,
+                      fontSize: 12,
+                      fontWeight: "500",
+                    }}
+                  >
+                    + Add Station
+                  </AppText>
                 </TouchableOpacity>
               )}
 
               <View style={{ marginTop: 10 }}>
-                <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12}}>
+                <AppText
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: COLORS.black,
+                    marginBottom: 12,
+                  }}
+                >
                   Time Information
                 </AppText>
                 {renderInput(legIdx, "Block Time (ON)", "blockTimeOn")}
@@ -407,7 +459,7 @@ export default function FlightLogModalDestinations({
               </View>
 
               <View style={{ marginTop: 10 }}>
-                {renderDateInput(legIdx)}
+                {renderDateInput(legIdx, "Date", "date")}
                 {renderInput(legIdx, "Passengers", "passengers")}
               </View>
             </View>
@@ -427,7 +479,11 @@ export default function FlightLogModalDestinations({
             marginBottom: 20,
           }}
         >
-          <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>+ Add Leg</AppText>
+          <AppText
+            style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}
+          >
+            + Add Leg
+          </AppText>
         </TouchableOpacity>
       )}
     </ScrollView>

@@ -21,7 +21,7 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  "warehouse staff": [
+  "warehouse personnel": [
     permissions.MESSAGE_READ,
     permissions.MESSAGE_SEND,
     permissions.WAREHOUSE_READ,

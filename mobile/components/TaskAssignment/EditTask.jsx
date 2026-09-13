@@ -7,12 +7,11 @@ import {
   ScrollView,
   Dimensions,
   TouchableOpacity,
-  Platform
+  Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import Button from "../Button";
-import AlertComp from "../AlertComp";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
@@ -28,6 +27,27 @@ const clampToNow = (date) => {
   return date < now ? now : date;
 };
 const addOneMinute = (date) => new Date(date.getTime() + 60 * 1000);
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.taskName ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
 
 export default function EditTask({
   visible,
@@ -53,7 +73,6 @@ export default function EditTask({
 
   const [checklistItems, setChecklistItems] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
-  const [saveConfirmVisible, setSaveConfirmVisible] = useState(false);
 
   const buildCustomChecklistItem = (index = checklistItems.length) => ({
     inspectionName: taskTitle || "Custom Task",
@@ -143,8 +162,8 @@ export default function EditTask({
           ? assignee._id || assignee.id || ""
           : assignee || "";
 
-      setTaskTitle(task.title || "");
-      setSelectedAircraft(task.aircraft || "");
+      setTaskTitle(getDisplayText(task.title, ""));
+      setSelectedAircraft(getDisplayText(task.aircraft, ""));
       setSelectedEmployee(assigneeId);
       setSelectedPriority(task.priority || "Normal");
       setStartDate(nextStartDate);
@@ -175,7 +194,7 @@ export default function EditTask({
     }
 
     const filteredChecklist = checklistItems
-      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .filter((item) => getDisplayText(item.taskName, "").trim() !== "")
       .map((item, index) => ({
         ...item,
         inspectionName: item.inspectionName || taskTitle.trim(),
@@ -203,12 +222,6 @@ export default function EditTask({
   };
 
   const requestSave = () => {
-    const updatedTask = buildUpdatedTask();
-    if (!updatedTask) return;
-    setSaveConfirmVisible(true);
-  };
-
-  const confirmSave = () => {
     const updatedTask = buildUpdatedTask();
     if (!updatedTask) return;
     onSave(updatedTask);
@@ -364,9 +377,13 @@ export default function EditTask({
     disabled = false,
   }) => (
     <View style={{ marginBottom: 15 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}>
+      <AppText
+        style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 5 }}
+      >
         {label}
-        {required && <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>}
+        {required && (
+          <AppText style={{ color: COLORS.dangerBorder }}> *</AppText>
+        )}
       </AppText>
 
       <TouchableOpacity
@@ -460,24 +477,22 @@ export default function EditTask({
   const selectedAircraftLabel =
     aircraftOptions.find((aircraft) => aircraft.id === selectedAircraft)
       ?.name || "";
-  const selectedEmployeeLabel =
-    (() => {
-      const employee = employees.find((emp) => emp.id === selectedEmployee);
-      if (!employee) return "";
-      return `${employee.name}${
-        employee.activeTaskCount
-          ? ` (${employee.activeTaskCount} active task${
-              employee.activeTaskCount === 1 ? "" : "s"
-            })`
-          : ""
-      }`;
-    })();
+  const selectedEmployeeLabel = (() => {
+    const employee = employees.find((emp) => emp.id === selectedEmployee);
+    if (!employee) return "";
+    return `${employee.name}${
+      employee.activeTaskCount
+        ? ` (${employee.activeTaskCount} active task${
+            employee.activeTaskCount === 1 ? "" : "s"
+          })`
+        : ""
+    }`;
+  })();
   const selectedPriorityLabel = selectedPriority || "";
 
   return (
     <>
-      {visible && !saveConfirmVisible && (
-      <Modal visible animationType="slide" transparent>
+      <Modal visible={visible} animationType="slide" transparent>
         <IosModalSafeAreaView style={styles.alertOverlay}>
           <View
             style={[
@@ -610,14 +625,30 @@ export default function EditTask({
                 <>
                   <DateTimePicker
                     value={startDate}
-                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    mode={
+                      Platform.OS === "ios" ? "datetime" : androidPickerMode
+                    }
                     display="default"
                     onChange={onStartChange}
                     minimumDate={getNow()}
                   />
                   {Platform.OS === "ios" && (
-                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowStartPicker(false)}>
-                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    <TouchableOpacity
+                      style={{
+                        alignSelf: "flex-end",
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                      }}
+                      onPress={() => setShowStartPicker(false)}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.primaryLight,
+                          fontWeight: "600",
+                        }}
+                      >
+                        Done
+                      </AppText>
                     </TouchableOpacity>
                   )}
                 </>
@@ -653,14 +684,30 @@ export default function EditTask({
                 <>
                   <DateTimePicker
                     value={endDate}
-                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    mode={
+                      Platform.OS === "ios" ? "datetime" : androidPickerMode
+                    }
                     display="default"
                     onChange={onEndChange}
                     minimumDate={getNow()}
                   />
                   {Platform.OS === "ios" && (
-                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowEndPicker(false)}>
-                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    <TouchableOpacity
+                      style={{
+                        alignSelf: "flex-end",
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                      }}
+                      onPress={() => setShowEndPicker(false)}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.primaryLight,
+                          fontWeight: "600",
+                        }}
+                      >
+                        Done
+                      </AppText>
                     </TouchableOpacity>
                   )}
                 </>
@@ -674,7 +721,7 @@ export default function EditTask({
 
               {checklistItems.map((item, index) => (
                 <View
-                  key={item.taskId || index}
+                  key={getDisplayText(item.taskId, String(index))}
                   style={{ flexDirection: "row", marginBottom: 12 }}
                 >
                   <View style={{ paddingTop: 2 }}>
@@ -683,12 +730,15 @@ export default function EditTask({
 
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {[item.taskId, item.inspectionTypeFull]
+                      {[
+                        getDisplayText(item.taskId, ""),
+                        getDisplayText(item.inspectionTypeFull, ""),
+                      ]
                         .filter(Boolean)
                         .join(" | ")}
                     </AppText>
                     <AppInput
-                      value={item.taskName || ""}
+                      value={getDisplayText(item.taskName, "")}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "taskName", value)
                       }
@@ -702,7 +752,7 @@ export default function EditTask({
                       }}
                     />
                     <AppInput
-                      value={item.description || ""}
+                      value={getDisplayText(item.description, "")}
                       onChangeText={(value) =>
                         updateChecklistItem(index, "description", value)
                       }
@@ -743,7 +793,9 @@ export default function EditTask({
                   alignItems: "center",
                 }}
               >
-                <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>
+                <AppText
+                  style={{ color: COLORS.primaryLight, fontWeight: "600" }}
+                >
                   Add Checklist Item
                 </AppText>
               </TouchableOpacity>
@@ -779,16 +831,6 @@ export default function EditTask({
           </View>
         </IosModalSafeAreaView>
       </Modal>
-      )}
-      <AlertComp
-        visible={saveConfirmVisible}
-        title="Save Changes?"
-        message="This will update the task assignment details."
-        confirmText="Save"
-        cancelText="Cancel"
-        onCancel={() => setSaveConfirmVisible(false)}
-        onConfirm={confirmSave}
-      />
     </>
   );
 }

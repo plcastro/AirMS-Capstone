@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import DateInput from "../common/DateInput";
 
 export default function FlightLogModalFuelServicing({
   legs,
@@ -62,6 +63,24 @@ export default function FlightLogModalFuelServicing({
         placeholderTextColor={COLORS.grayDark}
         keyboardType={keyboardType}
         editable={isEditable}
+      />
+    </View>
+  );
+
+  const renderDateInput = (legIndex, label, fieldKey) => (
+    <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+        {label}:
+      </AppText>
+      <DateInput
+        value={fuelServicingData[legIndex]?.[fieldKey] || ""}
+        onChangeText={(date) => updateFuelData(legIndex, fieldKey, date)}
+        editable={isEditable}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 6,
+          minHeight: 42,
+        }}
       />
     </View>
   );
@@ -132,7 +151,7 @@ export default function FlightLogModalFuelServicing({
             </View>
 
             <View style={{ padding: 20 }}>
-              {renderInput(legIndex, "Date", "date", "MM/DD/YYYY")}
+              {renderDateInput(legIndex, "Date", "date")}
               {renderInput(legIndex, "Cont Check", "contCheck", "Enter contamination check")}
               {renderInput(legIndex, "Main (REM/G)", "mainRemG", "Remaining/Gallons", "numeric")}
               {renderInput(legIndex, "Main (ADD)", "mainAdd", "Added Gallons", "numeric")}

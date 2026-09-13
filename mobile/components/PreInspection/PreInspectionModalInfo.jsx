@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { BASE_OPTIONS } from "../UserManagement/constants";
 import { isB412Aircraft } from "./b412PreInspectionData";
+import DateInput from "../common/DateInput";
 
 export default function PreInspectionModalInfo({
   formData,
@@ -27,38 +28,6 @@ export default function PreInspectionModalInfo({
         .filter(Boolean),
     ),
   );
-
-  const formatDate = (date) => {
-    if (!date) return "";
-
-    let dateObj;
-
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-
-    if (isNaN(dateObj.getTime())) return "";
-
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const toggleRPCDropdown = () => {
     setShowRPCDropdown(!showRPCDropdown);
@@ -455,26 +424,11 @@ export default function PreInspectionModalInfo({
             >
               Date:
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
-                borderRadius: 6,
-                height: 42,
-                paddingHorizontal: 12,
-              }}
-            >
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons
-                name="calendar-blank"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
           </View>
         </View>
       </View>

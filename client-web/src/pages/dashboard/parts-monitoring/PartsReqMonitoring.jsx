@@ -151,7 +151,7 @@ export default function PartsReqMonitoring() {
   });
   const allowedRoles = [
     "superadmin",
-    "warehouse staff",
+    "warehouse personnel",
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
@@ -162,7 +162,7 @@ export default function PartsReqMonitoring() {
     "maintenance manager",
     "officer-in-charge",
   ].includes(userRole);
-  const isWarehouseStaff = userRole === "warehouse staff";
+  const isWarehouseStaff = userRole === "warehouse personnel";
   const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
 
   const statusFilters = useMemo(() => {

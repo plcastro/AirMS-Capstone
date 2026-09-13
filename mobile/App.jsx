@@ -65,7 +65,7 @@ const getRoleHomeRoute = (role = "") => {
     case "maintenance manager":
     case "officer-in-charge":
       return "Reports and Analytics";
-    case "warehouse staff":
+    case "warehouse personnel":
       return "Parts Requisition";
     default:
       return "Profile";
@@ -141,7 +141,7 @@ function DrawerNav({ navigation }) {
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
     "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
@@ -170,7 +170,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ].includes(normalizedRole);
   const canAccessProfile = [
     "superadmin",
@@ -178,7 +178,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "superadmin";
   const canAccessActivityLogs = normalizedRole === "superadmin";
