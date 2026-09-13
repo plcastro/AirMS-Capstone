@@ -480,8 +480,7 @@ export default function HeadTaskScreen({
       user?.username ||
       "Maintenance Manager";
 
-    const updatedTask = {
-      ...task,
+    const approvalChanges = {
       status: "Approved",
       isApproved: true,
       approvedBy: approverName,
@@ -489,6 +488,7 @@ export default function HeadTaskScreen({
       reviewedAt: now,
       approvedAt: now,
     };
+    const updatedTask = { ...task, ...approvalChanges };
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -501,8 +501,9 @@ export default function HeadTaskScreen({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...updatedTask,
+          ...approvalChanges,
           confirmAction: true,
+          confirmBusyMechanic: true,
         }),
       });
       if (response.ok) {
@@ -544,8 +545,7 @@ export default function HeadTaskScreen({
       }
     });
 
-    const updatedTask = {
-      ...task,
+    const returnChanges = {
       status: "Returned",
       returnComments: returnData?.comments || "Please revise findings",
       returnedBy: returnData?.signature || "Head Mechanic",
@@ -554,6 +554,7 @@ export default function HeadTaskScreen({
       isApproved: false,
       checklistState: nextChecklistState,
     };
+    const updatedTask = { ...task, ...returnChanges };
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -566,8 +567,9 @@ export default function HeadTaskScreen({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...updatedTask,
+          ...returnChanges,
           confirmAction: true,
+          confirmBusyMechanic: true,
         }),
       });
       if (response.ok) {

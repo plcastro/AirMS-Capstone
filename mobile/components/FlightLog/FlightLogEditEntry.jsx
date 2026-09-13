@@ -26,6 +26,7 @@ import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
   calculateB412ToDate,
   createEmptyB412Data,
@@ -89,24 +90,6 @@ const hasDestinationInfo = (log = {}) =>
           String(station?.to || "").trim(),
       ),
   );
-
-const hasCompleteDestinationLegs = (log = {}) =>
-  Array.isArray(log.legs) &&
-  log.legs.length > 0 &&
-  log.legs.every((leg) => {
-    const hasValidDate =
-      Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
-    const hasCompleteRoute =
-      Array.isArray(leg?.stations) &&
-      leg.stations.length > 0 &&
-      leg.stations.every(
-        (station) =>
-          String(station?.from || "").trim() &&
-          String(station?.to || "").trim(),
-      );
-
-    return hasValidDate && hasCompleteRoute;
-  });
 
 const formatSignatureDate = (timestamp) => {
   if (!timestamp) return "";
@@ -468,7 +451,7 @@ export default function FlightLogEditEntry({
   };
 
   const persistLog = async (updatedFormData, closeOnSave = false) => {
-    if (isPilot && !hasCompleteDestinationLegs(updatedFormData)) {
+    if (isPilot && !hasCompleteFlightLogLegs(updatedFormData.legs)) {
       showToast("Each leg must include complete station route and date");
       setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
       return false;

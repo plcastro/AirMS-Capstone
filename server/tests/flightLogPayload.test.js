@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const FlightLog = require("../models/flightLogModel");
+const { isValidFlightLogLegDate } = require("../../shared/flightLogLegValidation");
 const {
   canEditFlightLogRequest,
   getTrustedFlightLogRole,
@@ -234,6 +235,10 @@ test("non-pilot payload retains standard and legacy-compatible fields", () => {
 
 test("all aircraft use the same dynamic-leg completeness rule", () => {
   assert.equal(hasCompleteFlightLogLegs([completeLeg()]), true);
+  assert.equal(
+    hasCompleteFlightLogLegs([{ ...completeLeg(), date: "2026-09-10" }]),
+    true,
+  );
   assert.equal(hasCompleteFlightLogLegs([]), false);
   assert.equal(
     hasCompleteFlightLogLegs([
@@ -242,6 +247,15 @@ test("all aircraft use the same dynamic-leg completeness rule", () => {
     ]),
     false,
   );
+});
+
+test("leg dates from the picker validate without parsing a locale string", () => {
+  assert.equal(isValidFlightLogLegDate("09/10/2026"), true);
+  assert.equal(isValidFlightLogLegDate("2026-09-10"), true);
+  assert.equal(isValidFlightLogLegDate("02/29/2024"), true);
+  assert.equal(isValidFlightLogLegDate("02/29/2026"), false);
+  assert.equal(isValidFlightLogLegDate("09/31/2026"), false);
+  assert.equal(isValidFlightLogLegDate(""), false);
 });
 
 test("B412 flight log model accepts one standard top-level leg", async () => {

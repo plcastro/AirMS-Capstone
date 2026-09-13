@@ -23,6 +23,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { showToast } from "../../utilities/toast";
+import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
   calculateB412ToDate,
   createEmptyB412Data,
@@ -653,27 +654,7 @@ export default function FlightLogEntry({
       return;
     }
 
-    const isLegComplete = (leg) => {
-      const date = leg?.date;
-      const hasValidDate =
-        Boolean(date) && !Number.isNaN(new Date(date).getTime());
-      const hasCompleteRoute =
-        Array.isArray(leg?.stations) &&
-        leg.stations.length > 0 &&
-        leg.stations.every(
-          (station) =>
-            String(station?.from || "").trim() &&
-            String(station?.to || "").trim(),
-        );
-      return hasValidDate && hasCompleteRoute;
-    };
-
-    const pilotLegs = Array.isArray(formData.legs) ? formData.legs : [];
-
-    if (
-      isPilot &&
-      (pilotLegs.length === 0 || !pilotLegs.every(isLegComplete))
-    ) {
+    if (isPilot && !hasCompleteFlightLogLegs(formData.legs)) {
       showToast("Each leg must include complete station route and date");
       setCurrentPage(tabs.indexOf("Destination/s"));
       return;

@@ -424,7 +424,7 @@ export default function ReviewTask({
           title={mode === "return" ? "Return Task" : "Approve Task"}
           message={
             mode === "return"
-              ? "Return this task to the mechanic for revision?"
+              ? "Return this task to the mechanic for revision? It will rejoin their active workload."
               : "Confirm approval and submit this task review?"
           }
           confirmText={mode === "return" ? "Return" : "Approve"}
