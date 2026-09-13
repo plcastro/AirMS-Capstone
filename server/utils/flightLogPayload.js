@@ -1,3 +1,5 @@
+const { hasCompleteFlightLogLegs } = require("../../shared/flightLogLegValidation");
+
 const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
   "aircraftType",
   "rpc",
@@ -190,24 +192,6 @@ const pickFlightLogPayloadForRequest = (
 
   return payload;
 };
-
-const hasCompleteFlightLogLegs = (legs) =>
-  Array.isArray(legs) &&
-  legs.length > 0 &&
-  legs.every((leg) => {
-    const hasValidDate =
-      Boolean(leg?.date) && !Number.isNaN(new Date(leg.date).getTime());
-    const hasCompleteRoute =
-      Array.isArray(leg?.stations) &&
-      leg.stations.length > 0 &&
-      leg.stations.every(
-        (station) =>
-          String(station?.from || "").trim() &&
-          String(station?.to || "").trim(),
-      );
-
-    return hasValidDate && hasCompleteRoute;
-  });
 
 module.exports = {
   ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS,

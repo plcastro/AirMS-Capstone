@@ -96,6 +96,7 @@ export default function AlertComp({
 const localStyles = StyleSheet.create({
   embeddedOverlay: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 2000,
     elevation: 24,
   },
 });

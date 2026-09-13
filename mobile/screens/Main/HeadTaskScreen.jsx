@@ -474,21 +474,13 @@ export default function HeadTaskScreen({
   };
 
   const handleApproveTask = async (task, approveData) => {
-    const confirmed = await confirmWithAlert({
-      title: "Approve Task",
-      message: "Confirm approval and submit this task review?",
-      confirmText: "Approve",
-    });
-    if (!confirmed) return false;
-
     const now = new Date().toISOString();
     const approverName =
       `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
       user?.username ||
       "Maintenance Manager";
 
-    const updatedTask = {
-      ...task,
+    const approvalChanges = {
       status: "Approved",
       isApproved: true,
       approvedBy: approverName,
@@ -496,6 +488,7 @@ export default function HeadTaskScreen({
       reviewedAt: now,
       approvedAt: now,
     };
+    const updatedTask = { ...task, ...approvalChanges };
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -508,8 +501,9 @@ export default function HeadTaskScreen({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...updatedTask,
+          ...approvalChanges,
           confirmAction: true,
+          confirmBusyMechanic: true,
         }),
       });
       if (response.ok) {
@@ -524,7 +518,7 @@ export default function HeadTaskScreen({
         );
         setSelectedTask(savedTask);
         showToast("Task approved successfully.");
-        await fetchTasks({ silent: true });
+        void fetchTasks({ silent: true });
         return true;
       } else {
         const data = await parseJsonSafely(response).catch(() => ({}));
@@ -537,13 +531,6 @@ export default function HeadTaskScreen({
   };
 
   const handleReturnTask = async (task, returnData) => {
-    const confirmed = await confirmWithAlert({
-      title: "Return Task",
-      message: "Return this task to the mechanic for revision?",
-      confirmText: "Return",
-    });
-    if (!confirmed) return false;
-
     const now = new Date().toISOString();
     const itemsToUncheck = Array.isArray(returnData?.itemsToUncheck)
       ? returnData.itemsToUncheck
@@ -561,8 +548,7 @@ export default function HeadTaskScreen({
       }
     });
 
-    const updatedTask = {
-      ...task,
+    const returnChanges = {
       status: "Returned",
       returnComments: returnData?.comments || "Please revise findings",
       returnedBy: returnData?.signature || "Head Mechanic",
@@ -571,6 +557,7 @@ export default function HeadTaskScreen({
       isApproved: false,
       checklistState: nextChecklistState,
     };
+    const updatedTask = { ...task, ...returnChanges };
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -583,8 +570,9 @@ export default function HeadTaskScreen({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...updatedTask,
+          ...returnChanges,
           confirmAction: true,
+          confirmBusyMechanic: true,
         }),
       });
       if (response.ok) {
@@ -599,10 +587,11 @@ export default function HeadTaskScreen({
         );
         setSelectedTask(savedTask);
         showToast("Task returned successfully.");
-        await fetchTasks({ silent: true });
+        void fetchTasks({ silent: true });
         return true;
       } else {
-        showToast("Failed to return task");
+        const data = await parseJsonSafely(response).catch(() => ({}));
+        showToast(data.message || "Failed to return task");
         return false;
       }
     } catch (error) {
@@ -741,7 +730,6 @@ export default function HeadTaskScreen({
           isHeadView={true}
           onApprove={handleApproveTask}
           onReturn={handleReturnTask}
-          confirmation={alertConfig}
         />
       )}
 
