@@ -16,6 +16,7 @@ const RefreshToken = require("../models/refreshTokenModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utils/generateUniqueUsername");
 const generateOTP = require("../utils/generateOTP");
+const { isLoginOtpExemptUser } = require("../utils/loginOtpExemptions");
 const {
   normalizePlatform,
   normalizeBase,
@@ -647,11 +648,12 @@ const loginUser = async (req, res) => {
       user,
       inboundTrustedDeviceToken,
     );
-    if (validTrustedDevice) {
-      validTrustedDevice.lastUsedAt = new Date();
-      await user.save();
+    if (validTrustedDevice || isLoginOtpExemptUser(user)) {
+      if (validTrustedDevice) {
+        validTrustedDevice.lastUsedAt = new Date();
+      }
 
-      const trustedPayload = await buildLoginSuccessPayload({
+      const loginPayload = await buildLoginSuccessPayload({
         req,
         res,
         user,
@@ -661,8 +663,8 @@ const loginUser = async (req, res) => {
       });
 
       return res.status(200).json({
-        ...trustedPayload,
-        trustedDeviceAccepted: true,
+        ...loginPayload,
+        ...(validTrustedDevice ? { trustedDeviceAccepted: true } : {}),
       });
     }
 
