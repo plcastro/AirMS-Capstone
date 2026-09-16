@@ -9,9 +9,11 @@ const LOGIN_OTP_EXEMPT_EMAILS = new Set([
   "appreviewwarehousepersonnel@airms.online",
 ]);
 
+// Account exemptions are granted in the database, never through login input.
 const isLoginOtpExemptUser = (user) =>
-  typeof user?.email === "string" &&
-  LOGIN_OTP_EXEMPT_EMAILS.has(user.email.trim().toLowerCase());
+  user?.loginOtpExempt === true ||
+  (typeof user?.email === "string" &&
+    LOGIN_OTP_EXEMPT_EMAILS.has(user.email.trim().toLowerCase()));
 
 // Consume the database grant atomically so concurrent logins cannot reuse it.
 const consumeFirstLoginOtpExemption = async (user, UserModel) => {
