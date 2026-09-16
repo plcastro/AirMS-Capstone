@@ -16,7 +16,10 @@ const RefreshToken = require("../models/refreshTokenModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utils/generateUniqueUsername");
 const generateOTP = require("../utils/generateOTP");
-const { isLoginOtpExemptUser } = require("../utils/loginOtpExemptions");
+const {
+  isLoginOtpExemptUser,
+  consumeFirstLoginOtpExemption,
+} = require("../utils/loginOtpExemptions");
 const {
   normalizePlatform,
   normalizeBase,
@@ -549,7 +552,7 @@ const loginUser = async (req, res) => {
 
     const user = await UserModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
-    }).select("+password +tempPasswordExpires ");
+    }).select("+password +tempPasswordExpires +skipFirstLoginOtp");
 
     if (!user) {
       return res.status(401).json({ message: "Account does not exist" });
@@ -648,7 +651,11 @@ const loginUser = async (req, res) => {
       user,
       inboundTrustedDeviceToken,
     );
-    if (validTrustedDevice || isLoginOtpExemptUser(user)) {
+    const firstLoginOtpExempt = await consumeFirstLoginOtpExemption(
+      user,
+      UserModel,
+    );
+    if (validTrustedDevice || isLoginOtpExemptUser(user) || firstLoginOtpExempt) {
       if (validTrustedDevice) {
         validTrustedDevice.lastUsedAt = new Date();
       }
