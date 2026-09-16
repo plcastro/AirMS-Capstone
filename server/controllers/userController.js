@@ -16,6 +16,7 @@ const RefreshToken = require("../models/refreshTokenModel");
 const { auditLog } = require("./logsController");
 const generateUniqueUsername = require("../utils/generateUniqueUsername");
 const generateOTP = require("../utils/generateOTP");
+const { getAccountCreationPolicy } = require("../utils/accountCreationPolicy");
 const {
   isLoginOtpExemptUser,
   consumeFirstLoginOtpExemption,
@@ -1391,7 +1392,9 @@ const createUser = async (req, res) => {
 
     const username = await generateUniqueUsername(firstName, lastName);
 
-    const tempPassword = Math.random().toString(36).slice(-8);
+    const creationPolicy = getAccountCreationPolicy(email);
+    const tempPassword =
+      creationPolicy.tempPassword || Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
     const tempPasswordExpires = Date.now() + TEMP_PASSWORD_VALIDITY_MS;
 
@@ -1407,8 +1410,9 @@ const createUser = async (req, res) => {
       username: username.trim(),
       password: hashedPassword,
       tempPasswordExpires,
+      loginOtpExempt: creationPolicy.loginOtpExempt,
       invitationStatus: "pending",
-      invitationSentAt: new Date(),
+      invitationSentAt: creationPolicy.suppressInvitationEmail ? null : new Date(),
       invitationExpiresAt: new Date(tempPasswordExpires),
       status: "inactive",
       image: imagePath,
@@ -1417,15 +1421,18 @@ const createUser = async (req, res) => {
       licenseNo: requiresLicense ? licenseNo : undefined,
     });
 
-    await sendActivationCredentialsEmail({
-      to: email,
-      firstName,
-      username,
-      tempPassword,
-      jobTitle,
-      isResend: false,
-    });
+    if (!creationPolicy.suppressInvitationEmail) {
+      await sendActivationCredentialsEmail({
+        to: email,
+        firstName,
+        username,
+        tempPassword,
+        jobTitle,
+        isResend: false,
+      });
+    }
 
+    // Preserve the requested creation-log wording for invitation exemptions.
     const audit = withActorId(
       req,
       `User created: ${username}, email sent successfully`,
@@ -1436,7 +1443,7 @@ const createUser = async (req, res) => {
     res.status(201).json({
       message: "User created successfully",
       data: newUser,
-      emailSent: true,
+      emailSent: !creationPolicy.suppressInvitationEmail,
       invitationEmail: email,
     });
   } catch (err) {
