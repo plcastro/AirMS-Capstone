@@ -552,7 +552,7 @@ const loginUser = async (req, res) => {
 
     const user = await UserModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
-    }).select("+password +tempPasswordExpires +skipFirstLoginOtp");
+    }).select("+password +tempPasswordExpires +skipFirstLoginOtp +loginOtpExempt");
 
     if (!user) {
       return res.status(401).json({ message: "Account does not exist" });

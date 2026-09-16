@@ -15,7 +15,7 @@ const reviewEmails = [
   "appreviewwarehousepersonnel@airms.online",
 ];
 
-test("only the six app review account emails are exempt from login OTP", () => {
+test("only the six app review emails receive automatic login OTP exemptions", () => {
   for (const email of reviewEmails) {
     assert.equal(isLoginOtpExemptUser({ email }), true, email);
     assert.equal(isLoginOtpExemptUser({ email: ` ${email.toUpperCase()} ` }), true);
@@ -31,6 +31,29 @@ test("only the six app review account emails are exempt from login OTP", () => {
     false,
   );
   assert.equal(isLoginOtpExemptUser(null), false);
+});
+
+test("explicit account exemption skips OTP on repeated sign-ins", () => {
+  const user = {
+    email: "regular-user@example.com",
+    loginOtpExempt: true,
+    lastLogin: new Date(),
+    skipFirstLoginOtp: false,
+  };
+  assert.equal(isLoginOtpExemptUser(user), true);
+  assert.equal(isLoginOtpExemptUser(user), true);
+  assert.equal(user.loginOtpExempt, true);
+  user.loginOtpExempt = false;
+  assert.equal(isLoginOtpExemptUser(user), false);
+});
+
+test("missing or non-boolean account exemptions do not skip login OTP", () => {
+  for (const loginOtpExempt of [undefined, null, false, "true", "false", 1, 0]) {
+    assert.equal(
+      isLoginOtpExemptUser({ email: "regular-user@example.com", loginOtpExempt }),
+      false,
+    );
+  }
 });
 
 test("first-login OTP grants require an active account with no previous login", async () => {
