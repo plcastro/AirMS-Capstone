@@ -51,6 +51,8 @@
       "favicon": "./assets/AirMS_mobile.png"
     },
     "plugins": [
+      "./plugins/withAndroidNdkVersion",
+      "./plugins/withAndroidBuildMemory",
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "@react-native-community/datetimepicker",
