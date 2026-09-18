@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema({
   pin: { type: String, default: "", select: false },
   // signature: { type: String, default: "" },
   securitySetupCompleted: { type: Boolean, default: false },
+  skipFirstLoginOtp: { type: Boolean, default: false, select: false },
+  loginOtpExempt: { type: Boolean, default: false, select: false },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
