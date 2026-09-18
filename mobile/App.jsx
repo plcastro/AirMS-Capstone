@@ -59,7 +59,7 @@ const getRoleHomeRoute = (role = "") => {
     case "superadmin":
       return "Manage Users";
     case "mechanic":
-      return "Maintenance Logs";
+      return "Tasks";
     case "pilot":
       return "Flight Logs";
     case "maintenance manager":
@@ -186,7 +186,7 @@ function DrawerNav({ navigation }) {
   const canAccessInitialRoute =
     (roleHomeRoute === "Reports and Analytics" && canAccessReports) ||
     (roleHomeRoute === "Manage Users" && canAccessUserManagement) ||
-    (roleHomeRoute === "Maintenance Logs" && canAccessMaintenanceLog) ||
+    (roleHomeRoute === "Tasks" && canAccessTasks) ||
     (roleHomeRoute === "Flight Logs" && canAccessFlightAndPreInspection) ||
     (roleHomeRoute === "Parts Requisition" && canAccessPartsRequisition) ||
     roleHomeRoute === "Profile";

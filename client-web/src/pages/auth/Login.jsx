@@ -221,7 +221,7 @@ const Login = () => {
         dashboardPath = "/dashboard/user-management/view-users";
         break;
       case "mechanic":
-        dashboardPath = "/dashboard/maintenance-log";
+        dashboardPath = "/dashboard/tasks";
         break;
       case "pilot":
         dashboardPath = "/dashboard/flight-log";

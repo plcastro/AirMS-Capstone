@@ -154,7 +154,7 @@ export default function OTP() {
           if (role === "superadmin") {
             dashboardPath = "/dashboard/user-management/view-users";
           } else if (role === "mechanic") {
-            dashboardPath = "/dashboard/maintenance-log";
+            dashboardPath = "/dashboard/tasks";
           } else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
