@@ -39,8 +39,9 @@ const Login = () => {
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
-    base: "",
   });
+  const [location, setLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("");
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -67,6 +68,41 @@ const Login = () => {
         base: savedBase,
       });
     }
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    setLocationStatus("Getting your location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+
+        setLocation({
+          latitude,
+          longitude,
+          accuracy,
+        });
+
+        setLocationStatus("Location detected.");
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+
+        setLocationStatus(
+          "Unable to detect your location. Please allow location access.",
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    );
   }, []);
 
   const handleInputChange = (e) => {
@@ -133,9 +169,19 @@ const Login = () => {
           password,
           client: "web",
           rememberMe,
-          base,
           trustedDeviceToken,
+          //    trustedDeviceToken,
+
+          //   location: location
+          //     ? {
+          //         latitude: location.latitude,
+          //         longitude: location.longitude,
+          //         accuracy: location.accuracy,
+          //       }
+          //     : null,
+          // }),
         }),
+
         credentials: "include",
       });
 
