@@ -81,10 +81,34 @@ export default function PRMTable({
   );
   const [selectedWRS, setSelectedWRS] = useState(initialSelectedRecord);
   const [exportingRecordId, setExportingRecordId] = useState(null);
+  const [viewedUpdates, setViewedUpdates] = useState({});
 
   const handleShowModal = (record) => {
     setSelectedWRS(record);
     setIsModalVisible(true);
+
+    if (record?._id && record?.updatedAt) {
+      setViewedUpdates((prev) => ({
+        ...prev,
+        [record._id]: record.updatedAt,
+      }));
+    }
+  };
+  const getRecordTimestamp = (value) => {
+    if (!value) return 0;
+
+    const timestamp = new Date(value).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  };
+
+  const isNewUpdate = (record) => {
+    if (!record?._id || !record?.updatedAt) return false;
+
+    const updatedAt = getRecordTimestamp(record.updatedAt);
+    const dateRequested = getRecordTimestamp(record.dateRequested);
+    const viewedAt = getRecordTimestamp(viewedUpdates[record._id]);
+
+    return updatedAt > dateRequested && updatedAt > viewedAt;
   };
 
   const handlePageChange = (page, nextPageSize) => {
@@ -110,10 +134,32 @@ export default function PRMTable({
         title: "WRS No.",
         dataIndex: "wrsNo",
         key: "wrsNo",
-        width: 100,
-        sorter: (a, b) => String(a.wrsNo ?? "").localeCompare(b.wrsNo ?? ""),
-        render: (value) => <strong>{value || "N/A"}</strong>,
+        width: 120,
+        sorter: (a, b) =>
+          String(a.wrsNo ?? "").localeCompare(String(b.wrsNo ?? "")),
+        render: (value, record) => (
+          <Space size={6}>
+            {isNewUpdate(record) && (
+              <Tooltip title="New update">
+                <span
+                  aria-label="New update"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "#1677ff",
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}
+                />
+              </Tooltip>
+            )}
+
+            <strong>{value || "N/A"}</strong>
+          </Space>
+        ),
       },
+
       {
         title: "Aircraft",
         dataIndex: "aircraft",
@@ -248,14 +294,31 @@ export default function PRMTable({
         ),
       },
     ],
-    [exportingRecordId, onExportExcel, screens.lg],
+    [exportingRecordId, onExportExcel, screens.lg, viewedUpdates],
   );
+
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      const aUpdated = isNewUpdate(a) ? getRecordTimestamp(a.updatedAt) : 0;
+
+      const bUpdated = isNewUpdate(b) ? getRecordTimestamp(b.updatedAt) : 0;
+
+      if (aUpdated !== bUpdated) {
+        return bUpdated - aUpdated;
+      }
+
+      return (
+        getRecordTimestamp(b.dateRequested) -
+        getRecordTimestamp(a.dateRequested)
+      );
+    });
+  }, [data, viewedUpdates]);
 
   return (
     <>
       <ResponsiveTable
         columns={columns}
-        dataSource={data}
+        dataSource={sortedData}
         autoDateSort={false}
         rowKey={(record) => record._id}
         loading={loading}
@@ -263,12 +326,15 @@ export default function PRMTable({
         size={"small"}
         onRow={(record) => ({
           onClick: () => handleShowModal(record),
-          style: { cursor: "pointer" },
+          style: {
+            cursor: "pointer",
+            backgroundColor: isNewUpdate(record) ? "#f0f7ff" : undefined,
+          },
         })}
         pagination={{
           current: currentPage,
           pageSize,
-          total: data.length,
+          total: sortedData.length,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50"],
           onChange: handlePageChange,

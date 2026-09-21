@@ -16,8 +16,11 @@ import {
   Modal,
   Row,
   Select,
-  Space,
+  message,
+  Table,
+  AutoComplete,
   Typography,
+  Space,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -26,6 +29,7 @@ import {
   InboxOutlined,
   PlusOutlined,
   SearchOutlined,
+  SaveOutlined,
 } from "@ant-design/icons";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import PRMTable from "../../../components/tables/PRMTable";
@@ -43,6 +47,26 @@ const WRS_UOM_OPTIONS = ["SET", "ST", "UNT", "PC"].map((unit) => ({
   label: unit,
   value: unit,
 }));
+const options = [
+  { value: "WRENCH,LOCK,TRH,PN 350A93-3302-02,AIRBUS" },
+  { value: "TOOL,EXCHANGE,PN 355A93-7540-00,AIRBUS" },
+  { value: "TOOL,PN 350A93-3501-20,AIRBUS" },
+  { value: "TOOL,PN 350A93-3500-00,AIRBUS" },
+  { value: "WRENCH,M27,PN 350A93-3806-00,AIRBUS" },
+  { value: "WRENCH,M22,PN 350A93-3804-00,AIRBUS" },
+  { value: "YOKE,IMMOBILIZING,#350A93-3802-21,AIRBUS" },
+  { value: "YOKE,IMMOBILIZING,#350A93-3800-20,AIRBUS" },
+  { value: "TOOL,GIMBAL,PN 350A93-3505-00,AIRBUS" },
+  { value: "WRENCH,TORQUE,¼DRIVE" },
+  { value: "CALIPER,VERNIER,DIGITAL,0.01-305MM RANGE" },
+  { value: "PICK SET,RADIATOR HOSE" },
+  { value: "PLIERS SET,CIRCLIP" },
+  { value: "WRENCH,TORQUE,⅜ DRIVE" },
+  { value: "WRENCH,TORQUE,½ DRIVE" },
+  { value: "AIRCRAFT TUG, AMA - 5170, WHITE/TOYOTA/MODEL" },
+  { value: "02-2TD25; YEAR 2012" },
+  { value: "LIDAR, STATIC, PORTABLE" },
+];
 
 const normalizeStatus = (value) => {
   const raw = String(value || "")
@@ -141,6 +165,17 @@ export default function PartsReqMonitoring() {
   const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
   const [exportingReport, setExportingReport] = useState(false);
   const [entryForm] = Form.useForm();
+
+  const [requisitionItems, setRequisitionItems] = useState([]);
+  const [editingItemKey, setEditingItemKey] = useState(null);
+
+  const [itemEntry, setItemEntry] = useState({
+    particular: "",
+    quantity: 1,
+    unit: "PC",
+    purpose: "",
+  });
+
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
   const [popup, setPopup] = useState({
@@ -169,12 +204,6 @@ export default function PartsReqMonitoring() {
     if (isManager) {
       return [
         {
-          key: "all",
-          title: "All",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.length,
-        },
-        {
           key: "for_review",
           title: "For Review",
           icon: <InboxOutlined />,
@@ -196,12 +225,6 @@ export default function PartsReqMonitoring() {
     if (isWarehouseStaff) {
       return [
         {
-          key: "all",
-          title: "All",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.length,
-        },
-        {
           key: "pending",
           title: "Pending",
           icon: <InboxOutlined />,
@@ -221,12 +244,6 @@ export default function PartsReqMonitoring() {
     }
 
     return [
-      {
-        key: "all",
-        title: "All",
-        icon: <InboxOutlined />,
-        count: warehouseRequisitions.length,
-      },
       {
         key: "pending",
         title: "Pending",
@@ -400,16 +417,33 @@ export default function PartsReqMonitoring() {
   }
 
   const openAddRequisitionModal = () => {
-    entryForm.setFieldsValue({
-      aircraft: undefined,
-      items: [{ particular: "", quantity: null, unit: "PC", purpose: "" }],
+    entryForm.resetFields();
+
+    setItemEntry({
+      particular: "",
+      quantity: 1,
+      unit: "PC",
+      purpose: "",
     });
+
+    setRequisitionItems([]);
+    setEditingItemKey(null);
     setIsEntryModalOpen(true);
   };
 
   const closeAddRequisitionModal = () => {
     setIsEntryModalOpen(false);
     entryForm.resetFields();
+
+    setItemEntry({
+      particular: "",
+      quantity: 1,
+      unit: "PC",
+      purpose: "",
+    });
+
+    setRequisitionItems([]);
+    setEditingItemKey(null);
   };
 
   const buildRequestItemsPayload = (items = []) =>
@@ -480,21 +514,132 @@ export default function PartsReqMonitoring() {
     }
   };
 
+  const handleAddItem = () => {
+    const particular = String(itemEntry.particular || "").trim();
+    const quantity = Number(itemEntry.quantity);
+    const unit = itemEntry.unit || "PC";
+    const purpose = String(itemEntry.purpose || "").trim();
+
+    if (!particular) {
+      message.error("Please enter a particular.");
+      return;
+    }
+
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      message.error("Quantity must be at least 1.");
+      return;
+    }
+
+    const normalizedParticular = particular.toLowerCase();
+
+    const duplicateItem = requisitionItems.find(
+      (item) =>
+        item.key !== editingItemKey &&
+        String(item.particular || "")
+          .trim()
+          .toLowerCase() === normalizedParticular,
+    );
+
+    if (duplicateItem) {
+      message.warning("This item has already been added to the requisition.");
+      return;
+    }
+
+    if (editingItemKey) {
+      setRequisitionItems((prev) =>
+        prev.map((item) =>
+          item.key === editingItemKey
+            ? {
+                ...item,
+                particular,
+                quantity,
+                unit,
+                purpose,
+              }
+            : item,
+        ),
+      );
+
+      message.success("Item updated successfully.");
+      setEditingItemKey(null);
+    } else {
+      setRequisitionItems((prev) => [
+        ...prev,
+        {
+          key: crypto.randomUUID(),
+          particular,
+          quantity,
+          unit,
+          purpose,
+        },
+      ]);
+
+      message.success("Item added.");
+    }
+
+    setItemEntry({
+      particular: "",
+      quantity: 1,
+      unit: "PC",
+      purpose: "",
+    });
+  };
+
+  const handleEditItem = (record) => {
+    setEditingItemKey(record.key);
+
+    setItemEntry({
+      particular: record.particular || "",
+      quantity: record.quantity || null,
+      unit: record.unit || "PC",
+      purpose: record.purpose || "",
+    });
+  };
+
+  const handleCancelEditItem = () => {
+    setEditingItemKey(null);
+
+    setItemEntry({
+      particular: "",
+      quantity: 1,
+      unit: "PC",
+      purpose: "",
+    });
+  };
+
+  const handleRemoveItem = (key) => {
+    setRequisitionItems((prev) => prev.filter((item) => item.key !== key));
+
+    if (editingItemKey === key) {
+      handleCancelEditItem();
+    }
+  };
+
   const handleAddRequisition = async () => {
     try {
       const values = await entryForm.validateFields();
+
+      if (requisitionItems.length === 0) {
+        message.error("Please add at least one item.");
+        return;
+      }
+
       const fullName =
         `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
         "Unknown User";
+
       const highestSlipNumber = warehouseRequisitions.reduce(
         (highest, item) => {
           const numericPart =
             Number(String(item.wrsNo || "").replace("WRS-", "")) || 0;
+
           return numericPart > highest ? numericPart : highest;
         },
         0,
       );
+
       const nextSlipNo = `WRS-${String(highestSlipNumber + 1).padStart(3, "0")}`;
+
       const confirmedCreate = await confirmAction({
         title: "Submit Requisition",
         content: `Submit new requisition ${nextSlipNo}?`,
@@ -504,6 +649,7 @@ export default function PartsReqMonitoring() {
       if (!confirmedCreate) return;
 
       setIsSubmittingEntry(true);
+
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
         {
@@ -530,7 +676,7 @@ export default function PartsReqMonitoring() {
               deliveredBy: "",
               deliveredByTitle: "",
             },
-            items: buildRequestItemsPayload(values.items),
+            items: buildRequestItemsPayload(requisitionItems),
             dateRequested: new Date().toISOString(),
             status: "Parts Requested",
           }),
@@ -538,20 +684,25 @@ export default function PartsReqMonitoring() {
       );
 
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data?.message || "Failed to create requisition");
       }
+
       setPopup({
         open: true,
         status: "success",
         title: "WRS " + nextSlipNo,
         subTitle: `${nextSlipNo} added successfully.`,
       });
+
       closeAddRequisitionModal();
       await handleAllRequisitions();
     } catch (err) {
       if (err?.errorFields) return;
+
       console.error("Create requisition error:", err);
+
       setPopup({
         open: true,
         status: "error",
@@ -709,113 +860,281 @@ export default function PartsReqMonitoring() {
         onOk={handleAddRequisition}
         confirmLoading={isSubmittingEntry}
         okText="Submit"
-        width={900}
+        cancelText="Cancel"
+        width="min(90%, calc(100vw - 24px))"
         centered
         zIndex={3000}
         destroyOnHidden
+        styles={{
+          body: {
+            height: screens.xs ? "auto" : "100%",
+            maxHeight: screens.xs ? "calc(100vh - 140px)" : "100%",
+            overflowY: "auto",
+            padding: screens.xs ? "0" : "16px 24px",
+          },
+        }}
       >
         <Form form={entryForm} layout="vertical">
           <Form.Item
             label="Aircraft"
             name="aircraft"
-            rules={[{ required: true, message: "Please choose an aircraft." }]}
+            rules={[
+              {
+                required: true,
+                message: "Please choose an aircraft.",
+              },
+            ]}
           >
             <Select
+              size="large"
               placeholder="Choose Aircraft"
               options={aircraftOptions}
-              showSearch={{ optionFilterProp: "label" }}
+              showSearch={{
+                optionFilterProp: "label",
+              }}
             />
           </Form.Item>
 
-          <Form.List name="items">
-            {(fields, { add, remove }) => (
-              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-                {fields.map(({ key, name, ...restField }) => (
-                  <div
-                    key={key}
-                    style={{
-                      border: "1px solid #f0f0f0",
-                      borderRadius: 8,
-                      padding: 12,
-                    }}
-                  >
-                    <Row gutter={12} align="middle">
-                      <Col xs={24} md={9}>
-                        <Form.Item
-                          {...restField}
-                          label="Particular"
-                          name={[name, "particular"]}
-                          rules={[{ required: true, message: "Required" }]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Input placeholder="Particular" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={4}>
-                        <Form.Item
-                          {...restField}
-                          label="Quantity"
-                          name={[name, "quantity"]}
-                          rules={[
-                            { required: true, message: "Required" },
-                            { type: "number", min: 1, message: "Min 1" },
-                          ]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <InputNumber style={{ width: "100%" }} min={1} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={4}>
-                        <Form.Item
-                          {...restField}
-                          label="Unit"
-                          name={[name, "unit"]}
-                          initialValue="PC"
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Select options={WRS_UOM_OPTIONS} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={6}>
-                        <Form.Item
-                          {...restField}
-                          label="Purpose"
-                          name={[name, "purpose"]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Input placeholder="Optional" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={1} style={{ textAlign: "right" }}>
-                        {fields.length > 1 && (
-                          <Button
-                            danger
-                            type="text"
-                            icon={<DeleteOutlined />}
-                            onClick={() => remove(name)}
-                          />
-                        )}
-                      </Col>
-                    </Row>
-                  </div>
-                ))}
-                <Button
-                  type="dashed"
-                  icon={<PlusOutlined />}
-                  onClick={() =>
-                    add({
-                      particular: "",
-                      quantity: null,
-                      unit: "PC",
-                      purpose: "",
-                    })
+          {/* Item Entry */}
+          <div
+            style={{
+              marginTop: 20,
+              marginBottom: 24,
+              padding: 16,
+              border: "1px solid #d9d9d9",
+              borderRadius: 6,
+              background: "#fafafa",
+            }}
+          >
+            <Typography.Text
+              strong
+              style={{
+                display: "block",
+                marginBottom: 16,
+              }}
+            >
+              Add Item
+            </Typography.Text>
+
+            <Row gutter={[12, 0]} align="bottom">
+              <Col xs={24} md={8}>
+                <div style={{ marginBottom: 8 }}>
+                  <Typography.Text>Particular</Typography.Text>
+                </div>
+
+                <AutoComplete
+                  size="large"
+                  value={itemEntry.particular}
+                  options={options}
+                  placeholder="Enter or select particular"
+                  style={{ width: "100%" }}
+                  onChange={(value) =>
+                    setItemEntry((prev) => ({
+                      ...prev,
+                      particular: value,
+                    }))
                   }
+                  showSearch={{
+                    filterOption: (inputValue, option) =>
+                      option?.value
+                        ?.toUpperCase()
+                        .includes(inputValue.toUpperCase()),
+                  }}
+                />
+              </Col>
+
+              <Col xs={24} sm={8} md={3}>
+                <div style={{ marginBottom: 8 }}>
+                  <Typography.Text>Quantity</Typography.Text>
+                </div>
+
+                <InputNumber
+                  size="large"
+                  min={1}
+                  value={itemEntry.quantity ?? 1}
+                  placeholder="Enter Quantity"
+                  style={{ width: "100%" }}
+                  onChange={(value) =>
+                    setItemEntry((prev) => ({
+                      ...prev,
+                      quantity: value,
+                    }))
+                  }
+                />
+              </Col>
+
+              <Col xs={24} sm={8} md={4}>
+                <div style={{ marginBottom: 8 }}>
+                  <Typography.Text>Unit</Typography.Text>
+                </div>
+
+                <Select
+                  size="large"
+                  value={itemEntry.unit}
+                  options={WRS_UOM_OPTIONS}
+                  style={{ width: "100%" }}
+                  onChange={(value) =>
+                    setItemEntry((prev) => ({
+                      ...prev,
+                      unit: value,
+                    }))
+                  }
+                />
+              </Col>
+
+              <Col xs={24} sm={16} md={6}>
+                <div style={{ marginBottom: 8 }}>
+                  <Typography.Text>Purpose</Typography.Text>
+                </div>
+
+                <Input
+                  size="large"
+                  value={itemEntry.purpose}
+                  placeholder="Optional"
+                  onChange={(e) =>
+                    setItemEntry((prev) => ({
+                      ...prev,
+                      purpose: e.target.value,
+                    }))
+                  }
+                />
+              </Col>
+
+              <Col xs={24} sm={8} md={3}>
+                <Space
+                  size={8}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                  }}
                 >
-                  Add Another Item
-                </Button>
-              </Space>
-            )}
-          </Form.List>
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={!editingItemKey ? <PlusOutlined /> : <SaveOutlined />}
+                    onClick={handleAddItem}
+                    style={{ flex: 1 }}
+                  >
+                    {editingItemKey ? "Update" : "Add"}
+                  </Button>
+
+                  {editingItemKey && (
+                    <Button
+                      type="link"
+                      size="large"
+                      onClick={handleCancelEditItem}
+                      style={{
+                        padding: "0 4px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </Space>
+              </Col>
+            </Row>
+          </div>
+
+          {/* Items Table */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Typography.Text strong>Requisition Items</Typography.Text>
+
+              <Typography.Text type="secondary">
+                {requisitionItems.length} item
+                {requisitionItems.length !== 1 ? "s" : ""}
+              </Typography.Text>
+            </div>
+
+            <Table
+              bordered
+              size="small"
+              rowKey="key"
+              dataSource={requisitionItems}
+              onRow={(record) => ({
+                onClick: () => handleEditItem(record),
+                style: {
+                  cursor: "pointer",
+                  background:
+                    editingItemKey === record.key ? "#e6f4ff" : undefined,
+                },
+              })}
+              pagination={
+                requisitionItems.length > 5
+                  ? {
+                      pageSize: 5,
+                      showSizeChanger: false,
+                      showQuickJumper: false,
+                      size: "small",
+                      showTotal: (total, range) =>
+                        `${range[0]}-${range[1]} of ${total}`,
+                    }
+                  : false
+              }
+              scroll={{ x: 700 }}
+              columns={[
+                {
+                  title: "#",
+                  width: 50,
+                  align: "center",
+                  render: (_, __, index) => index + 1,
+                },
+                {
+                  title: "Particular",
+                  dataIndex: "particular",
+                  width: 240,
+                  ellipsis: true,
+                },
+                {
+                  title: "Quantity",
+                  dataIndex: "quantity",
+                  width: 90,
+                  align: "center",
+                },
+                {
+                  title: "Unit",
+                  dataIndex: "unit",
+                  width: 80,
+                  align: "center",
+                },
+                {
+                  title: "Purpose",
+                  dataIndex: "purpose",
+                  width: 220,
+                  ellipsis: true,
+                  render: (value) => value || "—",
+                },
+                {
+                  title: "Action",
+                  width: 70,
+                  fixed: "right",
+                  align: "center",
+                  render: (_, record) => (
+                    <Button
+                      danger
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRemoveItem(record.key);
+                      }}
+                    />
+                  ),
+                },
+              ]}
+              locale={{
+                emptyText: "No items added yet.",
+              }}
+            />
+          </div>
         </Form>
       </Modal>
       <ResultPopup
