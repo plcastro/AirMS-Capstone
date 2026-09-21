@@ -1,4 +1,11 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { API_BASE } from "../utils/API_BASE";
 
 export const AuthContext = createContext();
@@ -41,6 +48,7 @@ export const AuthProvider = ({ children }) => {
   const refreshTokenPromiseRef = useRef(null);
   const sessionEndedRef = useRef(false);
   const lastActivityRecordedAtRef = useRef(0);
+  const getAuthHeaderImplRef = useRef(null);
 
   const getStoredToken = () =>
     sessionStorage.getItem("token") || localStorage.getItem("token");
@@ -404,15 +412,23 @@ export const AuthProvider = ({ children }) => {
     return await refreshAccessToken();
   };
 
-  const getAuthHeader = async () => {
-    const token = await getValidToken();
-    return token
-      ? {
-          Authorization: `Bearer ${token}`,
-          ...buildSessionHeaders(),
-        }
-      : {};
-  };
+  // Keep the public function stable so auth UI updates do not restart data-fetch effects.
+  useLayoutEffect(() => {
+    getAuthHeaderImplRef.current = async () => {
+      const token = await getValidToken();
+      return token
+        ? {
+            Authorization: `Bearer ${token}`,
+            ...buildSessionHeaders(),
+          }
+        : {};
+    };
+  });
+
+  const getAuthHeader = useCallback(
+    () => getAuthHeaderImplRef.current(),
+    [],
+  );
 
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
