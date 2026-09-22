@@ -47,13 +47,15 @@ export default function PreInspectionEntry({
   onSave,
   userRole,
   rpcOptions = [],
+  lockedRpc = "",
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
 
-  const [formData, setFormData] = useState(
-    getDefaultPreInspectionFormData(userRole),
-  );
+  const [formData, setFormData] = useState(() => ({
+    ...getDefaultPreInspectionFormData(userRole),
+    rpc: lockedRpc,
+  }));
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const normalizedRole = String(userRole || "").trim().toLowerCase();
@@ -79,14 +81,14 @@ export default function PreInspectionEntry({
   const isLastPage = currentPage === totalPages - 1;
 
   useEffect(() => {
+    setFormData({ ...getDefaultPreInspectionFormData(userRole), rpc: lockedRpc });
     if (visible) {
       setCurrentPage(0);
-      setFormData(getDefaultPreInspectionFormData(userRole));
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: false });
       }
     }
-  }, [visible, userRole]);
+  }, [visible, userRole, lockedRpc]);
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -114,6 +116,9 @@ export default function PreInspectionEntry({
           ...prev,
           ...clearedLegacyChecks,
           rpc: value,
+          flightLogId: null,
+          assignedPilot: null,
+          assignedMechanic: null,
           aircraftType: "",
           fob: "",
           b412Data: undefined,
@@ -168,6 +173,10 @@ export default function PreInspectionEntry({
   };
 
   const validateBeforeSigning = (actionLabel) => {
+    if (!formData.flightLogId) {
+      showToast("Select the Flight Log for this inspection.");
+      return false;
+    }
     if (!formData.rpc || formData.rpc.trim() === "") {
       showToast("Aircraft RPC is required");
       return false;
@@ -207,6 +216,7 @@ export default function PreInspectionEntry({
   const numericFob = Number(fobValue);
   const hasDate = Boolean(String(formData.date || "").trim());
   const isDraftValid =
+    Boolean(formData.flightLogId) &&
     Boolean(String(formData.rpc || "").trim()) &&
     Boolean(String(formData.aircraftType || "").trim()) &&
     Boolean(String(formData.base || "").trim()) &&
@@ -281,6 +291,10 @@ export default function PreInspectionEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            isRPCEditable={!lockedRpc}
+            isActive={visible}
+            showFlightLogPicker
+            onFlightLogChange={(log) => setFormData((prev) => ({ ...prev, flightLogId: log?._id || null, assignedPilot: log?.assignedPilot || null, assignedMechanic: log?.assignedMechanic || null }))}
             rpcOptions={rpcOptions}
           />
         );
@@ -312,6 +326,8 @@ export default function PreInspectionEntry({
         return null;
     }
   };
+
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>

@@ -5,6 +5,12 @@ const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
   "rpc",
   "date",
   "controlNo",
+  "flightPurpose",
+  "purposeDetails",
+  "noDefectsReported",
+  "additionalLandings",
+  "assignedPilot",
+  "assignedMechanic",
   "sling",
   "remarks",
   "legs",
@@ -30,6 +36,8 @@ const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
 // signatures are deliberately excluded even when a client submits its whole
 // local form object.
 const PILOT_CREATE_FLIGHT_LOG_FIELDS = new Set([
+  "flightPurpose", "purposeDetails", "noDefectsReported",
+  "assignedMechanic",
   "aircraftType",
   "rpc",
   "date",
@@ -45,6 +53,8 @@ const PILOT_CREATE_FLIGHT_LOG_FIELDS = new Set([
 ]);
 
 const PILOT_UPDATE_FLIGHT_LOG_FIELDS = new Set([
+  "noDefectsReported",
+  "assignedMechanic",
   "sling",
   "remarks",
   "legs",

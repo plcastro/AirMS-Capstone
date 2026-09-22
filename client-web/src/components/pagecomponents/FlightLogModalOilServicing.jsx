@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Input, Button, Typography, DatePicker } from "antd";
+import { Input, Button, Typography, DatePicker, Select } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
@@ -79,7 +79,7 @@ function LegSignaturePad({ value, onChange, disabled }) {
   );
 }
 
-export default function FlightLogModalOilServicing({ formData, updateOil, isEditable = true }) {
+export default function FlightLogModalOilServicing({ formData, updateOil, isEditable = true, lockedRows = 0 }) {
   const legs = formData.legs || [];
 
   if (legs.length === 0) {
@@ -101,11 +101,12 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
 
       {legs.map((_, legIdx) => {
         const n = legIdx + 1;
+        const rowEditable = isEditable && legIdx >= lockedRows;
         const oil = formData.oilServicing?.[legIdx] || {};
 
         return (
           <div key={legIdx} className="fl-card" style={{ marginBottom: 16 }}>
-            <div className="fl-card-header">{n}{getOrdinalSuffix(n)} LEG</div>
+            <div className="fl-card-header">{n}{getOrdinalSuffix(n)} LEG{legIdx < lockedRows ? " - Signed at release" : ""}</div>
             <div className="fl-card-body">
               <div className="fl-field-row">
                 <span className="fl-label">Date:</span>
@@ -122,7 +123,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                       date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
                     )
                   }
-                  disabled={!isEditable}
+                  disabled
                 />
               </div>
 
@@ -130,12 +131,12 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                 fields.map(([label, key]) => (
                   <div className="fl-field-row" key={key}>
                     <span className="fl-label">{label}</span>
-                    <Input
+                    {/Rem$|Tot$/.test(key) ? <Select className="fl-input" value={oil[key] || undefined} placeholder="MIN / MAX" options={['MIN', 'MAX'].map(value => ({ value }))} onChange={value => updateOil(legIdx, key, value)} disabled={!rowEditable} /> : <Input
                       className="fl-input"
                       value={oil[key] || ""}
                       onChange={(e) => updateOil(legIdx, key, e.target.value)}
-                      disabled={!isEditable}
-                    />
+                      disabled={!rowEditable}
+                    />}
                   </div>
                 ))
               )}
@@ -148,7 +149,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                     value={oil.remarks || ""}
                     onChange={(e) => updateOil(legIdx, "remarks", e.target.value)}
                     placeholder="Enter oil, gearbox, or servicing findings"
-                    disabled={!isEditable}
+                    disabled={!rowEditable}
                   />
                   <Text type="secondary" style={{ display: "block", marginTop: 4 }}>
                     Oil-servicing remarks are included in AI maintenance tracking.
@@ -161,7 +162,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                   <LegSignaturePad
                     value={oil.signature || ""}
                     onChange={(val) => updateOil(legIdx, "signature", val)}
-                    disabled={!isEditable}
+                    disabled={!rowEditable || !!formData.initialInspectionSignature?.signature}
                   />
                 </div>
               </div>

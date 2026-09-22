@@ -3,6 +3,7 @@ const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
 const { touchSessionActivity } = require("../middleware/sessionActivity");
 const { requireActionConfirmation } = require("../middleware/actionConfirmation");
+const workflow = require('../controllers/flightInspectionWorkflowController');
 const {
   createPostInspection,
   getAllPostInspections,
@@ -17,7 +18,7 @@ router.post(
   "/createPostInspection",
   touchSessionActivity,
   requireActionConfirmation,
-  createPostInspection,
+  workflow.createLegacy,
 );
 router.get("/getAllPostInspection", getAllPostInspections);
 router.get("/getPostInspectionById/:id", getPostInspectionById);
@@ -25,13 +26,13 @@ router.put(
   "/updatePostInspectionById/:id",
   touchSessionActivity,
   requireActionConfirmation,
-  updatePostInspection,
+  workflow.edit('post'),
 );
 router.delete(
   "/deletePostInspectionById/:id",
   touchSessionActivity,
   requireActionConfirmation,
-  deletePostInspection,
+  workflow.remove,
 );
 
 module.exports = router;

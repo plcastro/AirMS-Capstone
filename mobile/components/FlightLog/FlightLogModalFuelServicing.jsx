@@ -16,8 +16,12 @@ export default function FlightLogModalFuelServicing({
   fuelServicingData,
   onUpdateFuelServicing,
   isEditable = true,
+  lockedRows = 0,
+  signatureInherited = false,
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+
+  const canEditRow = index => isEditable && index >= lockedRows;
 
   const getOrdinalSuffix = (num) => {
     const j = num % 10;
@@ -29,6 +33,7 @@ export default function FlightLogModalFuelServicing({
   };
 
   const updateFuelData = (legIndex, field, value) => {
+    if (!canEditRow(legIndex)) return;
     const newFuelData = [...fuelServicingData];
     newFuelData[legIndex] = { ...newFuelData[legIndex], [field]: value };
     onUpdateFuelServicing(legIndex, newFuelData[legIndex]);
@@ -62,7 +67,7 @@ export default function FlightLogModalFuelServicing({
         placeholder={placeholder}
         placeholderTextColor={COLORS.grayDark}
         keyboardType={keyboardType}
-        editable={isEditable}
+        editable={canEditRow(legIndex)}
       />
     </View>
   );
@@ -75,7 +80,7 @@ export default function FlightLogModalFuelServicing({
       <DateInput
         value={fuelServicingData[legIndex]?.[fieldKey] || ""}
         onChangeText={(date) => updateFuelData(legIndex, fieldKey, date)}
-        editable={isEditable}
+        editable={false}
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
@@ -90,7 +95,7 @@ export default function FlightLogModalFuelServicing({
       visible={showSignatureModal === legIndex}
       title={title}
       description="Draw the refueler signature below."
-      confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+      requirePin={false}
       onClose={onClose}
       onSave={(sig) => onSave(legIndex, sig)}
     />
@@ -165,7 +170,7 @@ export default function FlightLogModalFuelServicing({
                   <TouchableOpacity
                     onPress={() => isEditable && updateFuelData(legIndex, "fuelType", "drum")}
                     style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    disabled={!isEditable}
+                    disabled={!canEditRow(legIndex)}
                   >
                     <View style={{
                       width: 20,
@@ -181,7 +186,7 @@ export default function FlightLogModalFuelServicing({
                   <TouchableOpacity
                     onPress={() => isEditable && updateFuelData(legIndex, "fuelType", "truck")}
                     style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    disabled={!isEditable}
+                    disabled={!canEditRow(legIndex)}
                   >
                     <View style={{
                       width: 20,
@@ -200,7 +205,7 @@ export default function FlightLogModalFuelServicing({
                 <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Refueler Name/Sign:
                 </AppText>
-                {isEditable ? (
+                {canEditRow(legIndex) && !signatureInherited ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
                     style={{
@@ -242,7 +247,7 @@ export default function FlightLogModalFuelServicing({
                     )}
                   </View>
                 )}
-                {isEditable && fuelData.signature && (
+                {canEditRow(legIndex) && !signatureInherited && fuelData.signature && (
                   <TouchableOpacity onPress={() => handleClearSignature(legIndex)} style={{ alignSelf: "flex-end", marginTop: 8 }}>
                     <AppText style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</AppText>
                   </TouchableOpacity>

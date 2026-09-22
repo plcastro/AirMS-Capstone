@@ -1,3 +1,7 @@
+import FlightLandingAdjustment from "./FlightLandingAdjustment";
+import { populateFlightInputs } from "../../../../shared/flightAutomaticInputs";
+import FlightLogB412Section from "./FlightLogB412Section";
+import { b412WorkflowComponents } from "../../../../shared/b412WorkflowComponents";
 import React, { useState, useEffect, useMemo } from "react";
 import { Alert, Button, message, Modal, Spin, Typography } from "antd";
 import {
@@ -243,14 +247,18 @@ const WORK_DONE_TAB = {
   icon: <CheckSquareOutlined />,
 };
 
-const REQUIRED_DESTINATION_FIELDS = [["date", "Date"]];
+
+
+function EntryShell({ embedded, children, ...props }) { return embedded ? <div>{children}</div> : <Modal {...props}>{children}</Modal>; }
 
 export default function FlightLogEntry({
   visible,
+  entryConfirmation = null,
   onClose,
   onSave,
   userRole,
   editMode = false,
+  lockedRpc = "",
   initialData = null,
   initialComponentData = null,
   readOnly = false,
@@ -259,6 +267,10 @@ export default function FlightLogEntry({
   onNotify,
   onComplete,
   workflowLoading = false,
+  embedded = false,
+  onDraftChange,
+  permissions,
+  initialTab,
 }) {
   const { Text } = Typography;
   const resolvedRole = resolveRole(userRole);
@@ -271,7 +283,7 @@ export default function FlightLogEntry({
       workItems: source?.workItems || [],
     });
 
-    return syncServicingToLegs(hydrated, {
+    return syncServicingToLegs({ ...hydrated, workItems: source?.workItems?.length ? source.workItems : hydrated.workItems }, {
       trimLegacyPlaceholders: Boolean(source?.b412Data),
     });
   };
@@ -281,7 +293,7 @@ export default function FlightLogEntry({
       ? normalizeInitialForm(initialData)
       : {
           aircraftType: "",
-          rpc: "",
+          rpc: lockedRpc,
           date: new Date(),
           controlNo: "",
           legs: [emptyLeg()],
@@ -291,6 +303,7 @@ export default function FlightLogEntry({
           oilServicing: [emptyOilItem()],
           workItems: [],
           createdBy: userRole,
+          ...entryConfirmation,
         };
 
   const initComponent = () => {
@@ -371,6 +384,13 @@ export default function FlightLogEntry({
     initialData?.acceptedBy,
   ]);
 
+  // The workspace supplies a new source after sync, recovery, or mission edits.
+  useEffect(() => {
+    if (!embedded || !visible || !initialData) return;
+    setFormData(normalizeInitialForm(initialData));
+    setComponentData(initComponent());
+  }, [embedded, visible, initialData]);
+
   const legCount = formData.legs?.length;
   useEffect(() => {
     setFormData((prev) => syncServicingToLegs(prev));
@@ -420,42 +440,19 @@ export default function FlightLogEntry({
     const broughtForward = componentData.broughtForwardData || {};
     const thisFlight = componentData.thisFlightData || {};
 
-    const calculatedToDate = {
-      airframe:
-        (parseFloat(broughtForward.airframe) || 0) +
-        (parseFloat(thisFlight.airframe) || 0),
-      gearBoxMain:
-        (parseFloat(broughtForward.gearBoxMain) || 0) +
-        (parseFloat(thisFlight.gearBoxMain) || 0),
-      gearBoxTail:
-        (parseFloat(broughtForward.gearBoxTail) || 0) +
-        (parseFloat(thisFlight.gearBoxTail) || 0),
-      rotorMain:
-        (parseFloat(broughtForward.rotorMain) || 0) +
-        (parseFloat(thisFlight.rotorMain) || 0),
-      rotorTail:
-        (parseFloat(broughtForward.rotorTail) || 0) +
-        (parseFloat(thisFlight.rotorTail) || 0),
-      engine:
-        (parseFloat(broughtForward.engine) || 0) +
-        (parseFloat(thisFlight.engine) || 0),
-      cycleN1:
-        (parseFloat(broughtForward.cycleN1) || 0) +
-        (parseFloat(thisFlight.cycleN1) || 0),
-      cycleN2:
-        (parseFloat(broughtForward.cycleN2) || 0) +
-        (parseFloat(thisFlight.cycleN2) || 0),
-      usage:
-        (parseFloat(broughtForward.usage) || 0) +
-        (parseFloat(thisFlight.usage) || 0),
-      landingCycle:
-        (parseFloat(broughtForward.landingCycle) || 0) +
-        (parseFloat(thisFlight.landingCycle) || 0),
-      airframeNextInsp:
-        thisFlight.airframeNextInsp || broughtForward.airframeNextInsp || "",
-      engineNextInsp:
-        thisFlight.engineNextInsp || broughtForward.engineNextInsp || "",
+    const addKnown = (key) => {
+      const left = broughtForward[key];
+      const right = thisFlight[key];
+      if (left === '' || left == null || right === '' || right == null) return '';
+      const total = Number(left) + Number(right);
+      return Number.isFinite(total) ? Math.round(total * 1000) / 1000 : '';
     };
+    const calculatedToDate = Object.fromEntries(
+      ['airframe', 'gearBoxMain', 'gearBoxTail', 'rotorMain', 'rotorTail',
+       'engine', 'cycleN1', 'cycleN2', 'usage', 'landingCycle'].map(key => [key, addKnown(key)]),
+    );
+    calculatedToDate.airframeNextInsp = thisFlight.airframeNextInsp || broughtForward.airframeNextInsp || '';
+    calculatedToDate.engineNextInsp = thisFlight.engineNextInsp || broughtForward.engineNextInsp || '';
 
     setComponentData((prev) => ({
       ...prev,
@@ -469,15 +466,11 @@ export default function FlightLogEntry({
       return [ALL_TABS[0]];
     }
 
-    const hasDisc = formData.remarks?.trim() !== "";
+    const hasDisc = embedded || formData.remarks?.trim() !== "";
 
-    // Keep Basic Information available while a pilot creates a log so the
-    // selected aircraft and other header details remain reviewable. Pilot
-    // edits continue to expose only the two operational sections.
-    if (isPilot) {
-      return editMode
-        ? [ALL_TABS[1], ALL_TABS[5]]
-        : [ALL_TABS[0], ALL_TABS[1], ALL_TABS[5]];
+    // Pilots can review crew assignments in Basic Information on existing logs.
+    if (isPilot && !embedded) {
+      return [ALL_TABS[0], ALL_TABS[1], ALL_TABS[5]];
     }
 
     // Other roles retain the existing full-record edit view.
@@ -491,6 +484,7 @@ export default function FlightLogEntry({
 
     const mechanicTabs = [
       ALL_TABS[0],
+      ALL_TABS[1],
       ALL_TABS[2],
       ALL_TABS[3],
       ALL_TABS[4],
@@ -500,7 +494,7 @@ export default function FlightLogEntry({
       mechanicTabs.push(WORK_DONE_TAB);
     }
     return mechanicTabs;
-  }, [isAircraftSelected, isPilot, editMode, formData.remarks]);
+  }, [isAircraftSelected, isPilot, editMode, formData.remarks, embedded]);
 
   const effectiveActiveTab = tabs.some((tab) => tab.key === activeTab)
     ? activeTab
@@ -706,22 +700,18 @@ export default function FlightLogEntry({
 
   // EDIT PERMISSIONS (who can edit what)
   const canEditBasicInfo =
-    !readOnly && (!editMode || formData.createdBy === userRole);
+    !readOnly && (!editMode || isMechanic || embedded) && (!permissions || permissions.preparation);
   const isCompletedLog = editMode && formData.status === "completed";
   const isRPCEditable =
-    !editMode || !isReleasedFlightLogStatus(formData.status);
+    !lockedRpc && (!editMode || !isReleasedFlightLogStatus(formData.status));
   const canEditDestinations =
-    !readOnly && (!editMode ? isPilot : isPilot && editMode);
-  const canEditComponent = !readOnly && isMechanic;
-  const canEditNextInspectionDates = !readOnly && isMechanic;
+    !readOnly && (isPilot || isMechanic) && (!permissions || permissions.flight);
+  const canEditComponent = !readOnly && isMechanic && (!permissions || permissions.maintenance);
+  const canEditNextInspectionDates = !readOnly && isMechanic && (!permissions || permissions.preparation);
   const canEditFuelOil =
-    !readOnly && (!editMode ? isMechanic : isMechanic && editMode);
-  const canEditWorkDone =
-    !readOnly &&
-    isMechanic &&
-    (!editMode ||
-      String(formData.status || "").toLowerCase() === "pending_release");
-  const canEditDiscrepancy = !readOnly;
+    !readOnly && isMechanic && (!permissions || permissions.maintenance);
+  const canEditWorkDone = !readOnly && isMechanic && (!permissions || permissions.maintenance);
+  const canEditDiscrepancy = !readOnly && (!permissions || permissions.flight);
   const canSave = !readOnly && !isCompletedLog;
   const canSaveCurrentTab =
     canSave ||
@@ -745,7 +735,7 @@ export default function FlightLogEntry({
     };
 
     if (isB412Aircraft(sourceFormData.aircraftType)) {
-      payload.b412Data = adaptStandardFlightLogToB412(payload);
+      payload.b412Data = adaptStandardFlightLogToB412({ ...payload, workItems: payload.workItems.filter(item => item.phase !== "post_flight") });
       return payload;
     }
 
@@ -781,37 +771,28 @@ export default function FlightLogEntry({
       message.error("Flight log date is required");
       return;
     }
-    if (canEditDestinations) {
-      const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
-        const hasInvalidRoute = (leg.stations || []).some(
-          (station) =>
-            !String(station?.from || "").trim() ||
-            !String(station?.to || "").trim(),
-        );
-        const hasMissingField = REQUIRED_DESTINATION_FIELDS.some(
-          ([key]) => !String(leg?.[key] || "").trim(),
-        );
-        return hasInvalidRoute || hasMissingField;
-      });
-      if (invalidLegIndex >= 0) {
-        const errorMessage =
-          "Each leg must include complete station route and date";
-        setValidationError(errorMessage);
-        setActiveTab("destinations");
-        message.error(errorMessage);
-        return;
-      }
-    }
     setSubmitting(true);
     try {
       const saved = await onSave(buildSavePayload(formData));
       if (saved === true) {
         onClose();
       }
+    } catch (error) {
+      setValidationError(error.message || 'Could not save this flight draft.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!visible || !formData || formData.status === 'completed') return;
+    const next = populateFlightInputs({ ...formData, componentData });
+    setComponentData(previous => JSON.stringify(previous.thisFlightData) === JSON.stringify(next.componentData.thisFlightData) ? previous : { ...previous, thisFlightData: next.componentData.thisFlightData });
+    setFormData(previous => {
+      const updated = { ...previous, fuelServicing: next.fuelServicing, oilServicing: next.oilServicing, ...(next.b412Data ? { b412Data: next.b412Data } : {}) };
+      return JSON.stringify(previous) === JSON.stringify(updated) ? previous : updated;
+    });
+  }, [visible, formData, componentData]);
 
   const renderContent = () => {
     switch (effectiveActiveTab) {
@@ -821,9 +802,11 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={canSave && canEditBasicInfo}
-            isRPCEditable={isRPCEditable}
+            isRPCEditable={embedded ? false : isRPCEditable}
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
+            assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
+            canAssign={canSave && (isPilot || isMechanic) && (!permissions || permissions.preparation)}
           />
         );
       case "destinations":
@@ -838,13 +821,19 @@ export default function FlightLogEntry({
           />
         );
       case "component":
+        if (isB412Aircraft(formData.aircraftType)) {
+          const data = adaptStandardFlightLogToB412({ ...formData, componentData });
+          return <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(canSave && canEditComponent)} onChange={value => updateForm("additionalLandings", value)} />{["BRT FORWARD", "This Flight", "To Date"].map(section => <FlightLogB412Section key={section} section={section} data={data}
+            totalsEditable={section === "This Flight" && canSave && canEditComponent} isEditable={canEditNextInspectionDates}
+            onChange={next => { setFormData(previous => ({ ...previous, b412Data: next })); setComponentData(b412WorkflowComponents(next.componentData)); }} />)}</>;
+        }
         return (
-          <FlightLogModalComponentTimes
+          <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(canSave && canEditComponent)} onChange={value => updateForm("additionalLandings", value)} /><FlightLogModalComponentTimes
             componentData={componentData}
             updateComponent={updateComponent}
             isEditable={canSave && canEditComponent}
             canEditNextInspection={canEditNextInspectionDates}
-          />
+          /></>
         );
       case "fuel":
         return (
@@ -852,6 +841,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateFuel={updateFuel}
             isEditable={canSave && canEditFuelOil}
+            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (initialData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.fuelServicing?.length ?? initialData?.fuelServicing?.length ?? 0) : 0}
           />
         );
       case "oil":
@@ -860,6 +850,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateOil={updateOil}
             isEditable={canSave && canEditFuelOil}
+            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (initialData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.oilServicing?.length ?? initialData?.oilServicing?.length ?? 0) : 0}
           />
         );
       case "discrepancy":
@@ -876,6 +867,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={canSave && canEditWorkDone}
+            phase={permissions && !permissions.preparation ? "post_flight" : "preparation"}
           />
         );
       default:
@@ -1001,8 +993,11 @@ export default function FlightLogEntry({
     showReleaseButton,
   ]);
 
+  useEffect(() => { if (embedded) onDraftChange?.(buildSavePayload(formData)); }, [embedded, formData, componentData, onDraftChange]);
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
+
   return (
-    <Modal
+    <EntryShell embedded={embedded}
       open={visible}
       onCancel={onClose}
       footer={null}
@@ -1051,7 +1046,7 @@ export default function FlightLogEntry({
               style={{ marginBottom: 12 }}
             />
           )}
-          {workflowGuide && (
+          {!embedded && workflowGuide && (
             <Alert
               type={workflowGuide.type}
               showIcon
@@ -1094,7 +1089,7 @@ export default function FlightLogEntry({
                 )}
               </div>
             )}
-          {(showReleaseButton ||
+          {!embedded && (showReleaseButton ||
             showAcceptButton ||
             showNotifyButton ||
             showCompleteButton) && (
@@ -1149,7 +1144,7 @@ export default function FlightLogEntry({
         </div>
 
         {/* Footer actions */}
-        <div className="fl-modal-footer">
+        <div className="fl-modal-footer" style={embedded ? { display: "none" } : undefined}>
           {canSaveCurrentTab ? (
             <Button
               type="primary"
@@ -1157,7 +1152,7 @@ export default function FlightLogEntry({
               onClick={handleSave}
               loading={submitting}
             >
-              {editMode ? "Save" : "Add"}
+              {editMode ? "Save Draft" : "Create Draft"}
             </Button>
           ) : (
             <Button className="fl-nav-btn" onClick={onClose}>
@@ -1171,6 +1166,6 @@ export default function FlightLogEntry({
           )}
         </div>
       </Spin>
-    </Modal>
+    </EntryShell>
   );
 }

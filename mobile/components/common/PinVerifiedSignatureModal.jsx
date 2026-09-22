@@ -1,5 +1,5 @@
 import Modal from "./AppModal";
-import React, { useContext, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import AppText from "./AppText";
 import {
   ActivityIndicator,
@@ -21,6 +21,8 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
+  requirePin = true,
+  initialSignature = '',
   onClose,
   onSave,
   saveLabel = "Sign and Confirm",
@@ -33,7 +35,10 @@ export default function PinVerifiedSignatureModal({
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pinError, setPinError] = useState("");
-  const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
+  const awaitingSignature = useRef(false);
+  useEffect(() => {
+    if (visible && initialSignature) { setSignature(initialSignature); setStep('pin'); setPin(''); setPinError(''); }
+  }, [visible, initialSignature]);
 
   const reset = () => {
     setStep("signature");
@@ -41,7 +46,7 @@ export default function PinVerifiedSignatureModal({
     setPin("");
     setSubmitting(false);
     setPinError("");
-    setAdvanceAfterSignature(false);
+    awaitingSignature.current = false;
   };
 
   const handleClose = () => {
@@ -72,51 +77,53 @@ export default function PinVerifiedSignatureModal({
     }
   };
 
-  const handleSignatureSaved = (signatureData) => {
-    setSignature(signatureData);
-
-    if (advanceAfterSignature) {
-      setAdvanceAfterSignature(false);
-      setStep("pin");
-    }
-  };
-
-  const saveSignature = (advance = false) => {
-    setAdvanceAfterSignature(advance);
-    signatureRef.current?.readSignature();
-  };
-
-  const handleConfirm = async () => {
-    if (step === "signature") {
-      if (!signature) {
-        saveSignature(true);
-        return;
-      }
-
-      setStep("pin");
-      return;
-    }
-
-    if (!/^\d{6}$/.test(pin)) {
-      setPinError("Enter your 6-digit PIN to confirm this signature.");
-      return;
-    }
-
+  const persistSignature = async (signatureData) => {
     try {
       setPinError("");
       setSubmitting(true);
-      await verifyPin();
-      const saveResult = await onSave?.(signature);
+      if (requirePin) await verifyPin();
+      const saveResult = await onSave?.(signatureData, { pin: requirePin ? pin : undefined });
       if (saveResult === false) {
         return;
       }
       reset();
       onClose?.();
     } catch (error) {
-      setPinError(error.message || "Could not verify your PIN.");
+      setPinError(error.message || "Could not save your signature.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSignatureSaved = async (signatureData) => {
+    if (!awaitingSignature.current) return;
+    awaitingSignature.current = false;
+    setSignature(signatureData);
+
+    if (requirePin) {
+      setSubmitting(false);
+      setStep("pin");
+    } else {
+      await persistSignature(signatureData);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (submitting || awaitingSignature.current) return;
+    if (step === "signature") {
+      if (!signatureRef.current) return;
+      setPinError("");
+      awaitingSignature.current = true;
+      setSubmitting(true);
+      signatureRef.current.readSignature();
+      return;
+    }
+
+    if (requirePin && !/^\d{6}$/.test(pin)) {
+      setPinError("Enter your 6-digit PIN to confirm this signature.");
+      return;
+    }
+    await persistSignature(signature);
   };
 
   const content = (
@@ -182,7 +189,8 @@ export default function PinVerifiedSignatureModal({
                   webviewProps={{ androidLayerType: "software" }}
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
-                    setAdvanceAfterSignature(false);
+                    awaitingSignature.current = false;
+                    setSubmitting(false);
                     showToast("Please draw your signature before continuing.");
                   }}
                   webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
@@ -212,14 +220,6 @@ export default function PinVerifiedSignatureModal({
                 }}
                 inputContainerStyle={{ width: "100%" }}
               />
-              {!!pinError && (
-                <AppText
-                  accessibilityRole="alert"
-                  style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}
-                >
-                  {pinError}
-                </AppText>
-              )}
               {!!signature && (
                 <View
                   style={{
@@ -245,6 +245,15 @@ export default function PinVerifiedSignatureModal({
             </>
           )}
 
+          {!!pinError && (
+            <AppText
+              accessibilityRole="alert"
+              style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}
+            >
+              {pinError}
+            </AppText>
+          )}
+
           <View
             style={{
               flexDirection: "row",
@@ -258,6 +267,7 @@ export default function PinVerifiedSignatureModal({
                 onPress={() => {
                   signatureRef.current?.clearSignature();
                   setSignature("");
+                  setPinError("");
                 }}
                 disabled={submitting}
                 style={{
@@ -306,7 +316,7 @@ export default function PinVerifiedSignatureModal({
                 {submitting
                   ? "Please wait..."
                   : step === "signature"
-                    ? "Continue"
+                    ? requirePin ? "Continue" : "Save Signature"
                     : saveLabel}
               </AppText>
             </TouchableOpacity>

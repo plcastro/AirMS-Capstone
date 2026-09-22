@@ -33,6 +33,7 @@ const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
 const { startSessionRetentionJob } = require("./utils/sessionRetentionService");
+const { startFlightNotificationJob, drainFlightNotifications } = require("./utils/flightWorkflowNotificationOutbox");
 const {
   subscribeSSE,
   publishEvent,
@@ -182,6 +183,7 @@ connectToDatabase()
     }
     startInvitationLifecycleJob();
     startSessionRetentionJob();
+    startFlightNotificationJob();
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -190,6 +192,8 @@ connectToDatabase()
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
+    // Also retry delivery on requests in serverless deployments where timers pause.
+    if (req.path.startsWith('/api/notifications')) await drainFlightNotifications().catch(() => {});
     next();
   } catch (error) {
     console.error("Database unavailable for request:", error.message);

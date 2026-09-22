@@ -769,7 +769,7 @@ const sumField = (left, right) => {
   const leftValue = String(left ?? "").trim();
   const rightValue = String(right ?? "").trim();
 
-  if (!leftValue && !rightValue) return "";
+  if (!leftValue || !rightValue) return "";
 
   const total =
     (Number.parseFloat(leftValue) || 0) +

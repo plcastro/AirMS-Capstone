@@ -2,6 +2,7 @@ import React from "react";
 import { DatePicker, Input } from "antd";
 import { LockOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { HOUR_FIELDS } from '../../../../shared/flightAutomaticInputs';
 
 const COMPONENT_FIELDS = [
   { label: "A/Frame:", key: "airframe" },
@@ -89,7 +90,7 @@ export default function FlightLogModalComponentTimes({
                         onChange={(e) =>
                           updateComponent(key, field.key, e.target.value)
                         }
-                        disabled={!canEdit}
+                        disabled={!canEdit || HOUR_FIELDS.includes(field.key) || field.key === 'landingCycle'}
                       />
                     )}
                   </div>

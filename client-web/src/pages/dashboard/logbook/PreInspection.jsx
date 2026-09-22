@@ -26,6 +26,7 @@ import {
   message,
 } from "antd";
 import {
+  ArrowLeftOutlined,
   CheckOutlined,
   ExportOutlined,
   EyeOutlined,
@@ -35,6 +36,10 @@ import {
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
+import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
+import { isAssignedFlightCrew } from "../../../../../shared/flightCrewAccess";
+import InspectionFlightLogPicker from "../../../components/pagecomponents/InspectionFlightLogPicker";
 import { confirmAction } from "../../../utils/confirmAction";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -43,6 +48,7 @@ import dayjs from "dayjs";
 import { useLocation, useNavigate } from "react-router-dom";
 import { matchesSearch } from "../../../utils/search";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import { getLogAircraftRegistration } from "../../../../../shared/aircraftLogGroups";
 import PreInspectionB412Checklist from "../../../components/pagecomponents/PreInspectionB412Checklist";
 import {
   B412_PRE_INSPECTION_SECTIONS,
@@ -489,7 +495,8 @@ export default function PreInspection() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [aircraft, setAircraft] = useState("all");
+  const [aircraftQuery, setAircraftQuery] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -509,7 +516,9 @@ export default function PreInspection() {
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canCreate = role !== "pilot" && !readOnly;
+  const lockedCreateRpc =
+    selectedAircraft === "Unassigned aircraft" ? "" : selectedAircraft || "";
+  const canCreate = role === "mechanic";
   const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
     role,
   );
@@ -523,10 +532,12 @@ export default function PreInspection() {
   const isCompletedInspection = (record) =>
     getDisplayStatus(record?.status) === "completed";
   const isAcceptableByPilot = (record) =>
+    isAssignedFlightCrew(user, record) &&
     canAccept &&
     getDisplayStatus(record?.status) === "released" &&
     !record?.acceptedBy?.name;
   const isRecordReadOnly = (record) =>
+    !isAssignedFlightCrew(user, record) ||
     readOnly ||
     isCompletedInspection(record) ||
     getDisplayStatus(record?.status) === "released";
@@ -584,7 +595,9 @@ export default function PreInspection() {
     const notificationStatus = params.get("notificationStatus");
     if (notificationStatus) {
       setStatus(String(notificationStatus).toLowerCase());
-      setAircraft("all");
+      setSelectedAircraft(null);
+      setQuery("");
+      setAircraftQuery("");
     }
   }, [location.search]);
 
@@ -598,14 +611,25 @@ export default function PreInspection() {
     );
     if (!match) return;
 
+    setSelectedAircraft(getLogAircraftRegistration(match));
+    setQuery("");
+    setStatus("all");
     setEditing(match);
     navigate("/dashboard/pre-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
-  const aircraftOptions = useMemo(
-    () => ["all", ...new Set(records.map((item) => item.rpc).filter(Boolean))],
-    [records],
-  );
+  const openAircraft = (rpc) => {
+    setSelectedAircraft(rpc);
+    setQuery("");
+    setStatus("all");
+  };
+
+  const backToAircraft = () => {
+    setSelectedAircraft(null);
+    setQuery("");
+    setStatus("all");
+  };
+
   const rpcDropdownOptions = useMemo(
     () => [
       ...new Set([
@@ -639,6 +663,9 @@ export default function PreInspection() {
     setDraft((prev) => ({
       ...resetAircraftInspectionValues(prev),
       rpc,
+      flightLogId: null,
+      assignedPilot: null,
+      assignedMechanic: null,
     }));
 
     const aircraftType = await resolveAircraftTypeByRpc(rpc);
@@ -686,13 +713,14 @@ export default function PreInspection() {
     () =>
       records.filter((item) => {
         const matchesQuery = matchesSearch(query, item);
-        const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
+        const matchesAircraft =
+          getLogAircraftRegistration(item) === selectedAircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, query, aircraft, status],
+    [records, query, selectedAircraft, status],
   );
 
   const booleanFields = useMemo(
@@ -724,78 +752,22 @@ export default function PreInspection() {
     if (draftIsAS350) return CREATE_FORM_SECTIONS;
     return [CREATE_FORM_SECTIONS[0]];
   }, [draftHasAircraft, draftIsAS350, draftIsB412]);
-  const allDraftReleaseChecksComplete = useMemo(
-    () => areAllReleaseChecksComplete(draft),
-    [draft],
-  );
 
-  const saveCreate = async (releaseSignature = "") => {
-    if (
-      !draft.rpc?.trim() ||
-      !draft.base?.trim() ||
-      !draft.aircraftType?.trim() ||
-      !draft.date
-    ) {
-      message.warning("RP/C, base, aircraft type, and date are required");
-      return;
-    }
-    if (!isValidDate(draft.date)) {
-      message.warning("Please select a valid date");
-      return;
-    }
-
+  const saveCreate = async () => {
+    if (!draft.flightLogId) { message.warning("Select the Flight Log for this inspection."); return false; }
     try {
-      setCreating(true);
-      const releasedBy = signaturePayload(user, releaseSignature);
-      const createPayload = isB412Aircraft(draft.aircraftType)
-        ? {
-            ...draft,
-            b412Data: createEmptyB412PreInspectionData(draft.b412Data),
-          }
-        : { ...draft, b412Data: undefined };
-      const response = await fetch(
-        `${API_BASE}/api/pre-flight/createPreInspection`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(await getAuthHeader()),
-          },
-          body: JSON.stringify({
-            ...createPayload,
-            status: "released",
-            releasedBy,
-            createdBy:
-              `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
-            confirmAction: true,
-          }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(
-          data.message || "Failed to release pre-flight inspection",
-        );
-      setPopup({
-        open: true,
-        status: "success",
-        title: "Pre-Flight Inspection Released!",
-        subTitle: "The pre-flight inspection has been released successfully.",
-      });
-      setCreating(false);
-      setDraft(getDefaultPreInspectionDraft(user));
-      setCreateActiveTab("basic");
-      setCreateSelectAllState({});
-      await load();
-    } catch (error) {
-      setCreating(false);
-      setPopup({
-        open: true,
-        status: "error",
-        title: "Operation failed!",
-        subTitle: error.message || "Failed to release pre-flight inspection",
-      });
-    }
+      const headers = { ...(await getAuthHeader()), "Content-Type": "application/json", "x-action-confirmed": "true" };
+      const path = API_BASE + "/api/flightlogs/" + draft.flightLogId;
+      const currentResponse = await fetch(path + "/workspace", { headers });
+      const current = await currentResponse.json();
+      if (!currentResponse.ok) throw Error(current.message);
+      const response = await fetch(path + "/inspections", { method: "POST", headers, body: JSON.stringify({ changes: draft, expectedVersion: current.data.flightLog.__v || 0 }) });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.message);
+      setCreating(false); setEditing({ ...result.data.pre, flightLogId: draft.flightLogId });
+      setDraft(getDefaultPreInspectionDraft(user)); setCreateActiveTab("basic"); setCreateSelectAllState({});
+      await load(); return true;
+    } catch (error) { message.error(error.message || "Could not create inspection draft."); return false; }
   };
 
   const saveEdit = async (
@@ -843,6 +815,10 @@ export default function PreInspection() {
         );
       setEditing(data.data);
       await load();
+      const savedAircraft = getLogAircraftRegistration(data.data || nextPayload);
+      if (savedAircraft !== selectedAircraft) {
+        openAircraft(savedAircraft);
+      }
       setPopup({
         open: true,
         status: "success",
@@ -903,27 +879,6 @@ export default function PreInspection() {
         subTitle: error.message || "Failed to export pre-flight inspection",
       });
     }
-  };
-
-  const requestCreateRelease = async () => {
-    if (!areAllReleaseChecksComplete(draft)) {
-      message.warning(
-        "Please check all pre-flight inspection items before release",
-      );
-      return;
-    }
-    if (!hasValidFob(draft)) {
-      message.warning("FOB must be filled in before release.");
-      return;
-    }
-
-    const confirmed = await confirmAction({
-      title: "Release Pre-Flight Inspection",
-      content:
-        "This will create and release the pre-flight inspection log. Continue?",
-      okText: "Release",
-    });
-    if (confirmed) setSignatureMode("create-release");
   };
 
   const requestEditRelease = async () => {
@@ -1067,9 +1022,66 @@ export default function PreInspection() {
 
   return (
     <div style={{ padding: isMobile ? 12 : 20 }}>
+      {(selectedAircraft || canCreate) && (
+        <Row
+          gutter={[12, 12]}
+          align="middle"
+          justify="space-between"
+          style={{ marginBottom: 16 }}
+        >
+          <Col xs={24} sm={canCreate ? 16 : 24}>
+            {selectedAircraft && (
+              <>
+                <Button
+                  type="text"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={backToAircraft}
+                  style={{ paddingInline: 0 }}
+                >
+                  Back to Aircraft
+                </Button>
+                <Typography.Title level={4} style={{ margin: "8px 0 0" }}>
+                  {selectedAircraft} — Pre-Flight Inspections
+                </Typography.Title>
+              </>
+            )}
+          </Col>
+          {canCreate && (
+            <Col xs={24} sm={8} style={{ textAlign: "right" }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setDraft(getDefaultPreInspectionDraft(user));
+                  handleDraftRpcChange(lockedCreateRpc);
+                  setCreateActiveTab("basic");
+                  setCreating(true);
+                }}
+                size="large"
+                block={isMobile}
+              >
+                New Entry
+              </Button>
+            </Col>
+          )}
+        </Row>
+      )}
+
+      {!selectedAircraft ? (
+        <AircraftLogGroups
+          records={records}
+          sortBy="latestActivity"
+          loading={loading}
+          query={aircraftQuery}
+          onQueryChange={setAircraftQuery}
+          onSelect={openAircraft}
+          emptyText="No pre-flight inspections found."
+        />
+      ) : (
+        <>
       <Card>
         <Row gutter={[12, 12]}>
-          <Col xs={24} md={8}>
+          <Col xs={24} md={16}>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -1079,19 +1091,7 @@ export default function PreInspection() {
               allowClear
             />
           </Col>
-          <Col xs={12} md={4}>
-            <Select
-              style={{ width: "100%" }}
-              value={aircraft}
-              onChange={setAircraft}
-              options={aircraftOptions.map((value) => ({
-                value,
-                label: value === "all" ? "All Aircraft" : `RP/C: ${value}`,
-              }))}
-              size="large"
-            />
-          </Col>
-          <Col xs={12} md={6}>
+          <Col xs={24} md={8}>
             <Select
               style={{ width: "100%" }}
               value={status}
@@ -1103,26 +1103,11 @@ export default function PreInspection() {
               size="large"
             />
           </Col>
-          {canCreate && (
-            <Col xs={24} md={4}>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setCreateActiveTab("basic");
-                  setCreating(true);
-                }}
-                size="large"
-                block
-              >
-                New Entry
-              </Button>
-            </Col>
-          )}
         </Row>
       </Card>
 
       <ResponsiveTable
+        key={selectedAircraft}
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
@@ -1179,6 +1164,8 @@ export default function PreInspection() {
           </Text>
         </Col>
       </Row>
+        </>
+      )}
 
       <Modal
         open={creating}
@@ -1189,10 +1176,10 @@ export default function PreInspection() {
           setCreateActiveTab("basic");
           setCreateSelectAllState({});
         }}
-        onOk={requestCreateRelease}
+        onOk={() => saveCreate()}
         title="Release Pre-Flight Inspection"
-        okText="Release"
-        okButtonProps={{ disabled: !allDraftReleaseChecksComplete }}
+        okText="Create Draft"
+        okButtonProps={{ disabled: !draft.flightLogId }}
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         centered
@@ -1224,6 +1211,14 @@ export default function PreInspection() {
                     }}
                   >
                     <Row gutter={[12, 12]}>
+                      <Col span={24}>
+                        <Text strong>Linked Flight Log *</Text>
+                        <InspectionFlightLogPicker
+                          rpc={draft.rpc} value={draft.flightLogId} active={creating}
+                          onChange={(log) => setDraft((prev) => ({ ...prev, flightLogId: log?._id || null, assignedPilot: log?.assignedPilot || null, assignedMechanic: log?.assignedMechanic || null }))}
+                        />
+                        <Text type="secondary">Pilot: {draft.assignedPilot?.name || "Not assigned"} · Mechanic: {draft.assignedMechanic?.name || "Not assigned"}</Text>
+                      </Col>
                       <Col xs={24} md={12}>
                         <Text
                           strong
@@ -1260,6 +1255,7 @@ export default function PreInspection() {
                           style={{ width: "100%" }}
                           value={draft.rpc}
                           onChange={handleDraftRpcChange}
+                          disabled={Boolean(lockedCreateRpc)}
                           placeholder="Select RP/C"
                           showSearch={{
                             optionFilterProp: "label",
@@ -1396,7 +1392,7 @@ export default function PreInspection() {
       <Modal
         centered
         zIndex={9999}
-        open={Boolean(editing)}
+        open={Boolean(editing) && !editing?.flightLogId}
         onCancel={() => {
           editingRpcRequestRef.current += 1;
           setEditing(null);
@@ -1423,6 +1419,7 @@ export default function PreInspection() {
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
+            <Text type="secondary">Linked Flight Log: {editing.flightLogControlNo || editing.flightLogId || "Not linked"} · Pilot: {editing.assignedPilot?.name || "Not assigned"} · Mechanic: {editing.assignedMechanic?.name || "Not assigned"}</Text>
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
                 <Text
@@ -1436,12 +1433,12 @@ export default function PreInspection() {
                   style={{ width: "100%" }}
                   value={editing.rpc}
                   onChange={handleEditingRpcChange}
+                  disabled={editingReadOnly || Boolean(editing.flightLogId)}
                   showSearch={{ optionFilterProp: "label" }}
                   options={rpcDropdownOptions.map((rpc) => ({
                     value: rpc,
                     label: rpc,
                   }))}
-                  disabled={editingReadOnly}
                 />
               </Col>
               <Col xs={24} md={8}>

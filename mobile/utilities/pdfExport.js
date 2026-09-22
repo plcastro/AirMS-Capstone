@@ -4,6 +4,7 @@ import { Alert, Image, Platform } from "react-native";
 import { showToast } from "./toast";
 import { saveExportFile } from "./saveExportFile";
 import { openPdfPrintDialogOnWeb } from "./webPdfExport";
+import { flightWorkflowExportRows } from "../../shared/flightWorkflowExport";
 import {
   exportPostInspectionTemplatePdf,
   exportPreInspectionTemplatePdf,
@@ -2998,9 +2999,12 @@ export const exportFlightLogPdf = async (log) => {
     fileName: getFlightLogFileName(log),
     buildHtml: async () => {
       const logoDataUri = await getNgcpLogoDataUri();
-      return isB412FlightLog(log)
+      const html = isB412FlightLog(log)
         ? buildB412FlightLogHtml(log, logoDataUri)
         : buildFlightLogHtml(log, logoDataUri);
+      if (!log.workflowHistory?.length && !log.amendments?.length) return html;
+      const history = `<section style="page-break-before:always"><h2>Flight record history - ${escapeHtml(log.rpc)} / ${escapeHtml(log.controlNo)}</h2><table><thead><tr><th>Step / section</th><th>Record details</th></tr></thead><tbody>${flightWorkflowExportRows(log).map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(value)}</td></tr>`).join('')}</tbody></table></section>`;
+      return html.replace('</body>', `${history}</body>`);
     },
   });
 };

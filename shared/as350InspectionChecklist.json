@@ -1,0 +1,676 @@
+{
+  "pre": [
+    {
+      "key": "station1_transparentPanels",
+      "title": "Transparent Panels",
+      "description": "Condition - Cleanliness"
+    },
+    {
+      "key": "station1_engineOilCooler",
+      "title": "Engine oil cooler air inlet",
+      "description": "Check no obstruction nor debris"
+    },
+    {
+      "key": "station1_sideSlipIndicator",
+      "title": "Side slip indicator",
+      "description": "Condition"
+    },
+    {
+      "key": "station1_pitotTube",
+      "title": "Pitot tube",
+      "description": "Cover removed - Condition"
+    },
+    {
+      "key": "station1_landingLights",
+      "title": "Landing lights",
+      "description": "Condition"
+    },
+    {
+      "key": "station1_mgbCowl",
+      "title": "MGB cowl",
+      "description": "MGB oil level - Cowl locked"
+    },
+    {
+      "key": "station1_lowerFairings",
+      "title": "All lower fairings panels",
+      "description": "Locked"
+    },
+    {
+      "key": "station1_landingGear",
+      "title": "Landing gear and footstep",
+      "description": "Secure - Visual Check"
+    },
+    {
+      "key": "station1_staticPorts",
+      "title": "Static ports",
+      "description": "Clear, covers removed"
+    },
+    {
+      "key": "station1_oatSensor",
+      "title": "OAT sensor, antennas",
+      "description": "Condition"
+    },
+    {
+      "key": "station1_mainRotor",
+      "title": "Main rotor head blades",
+      "description": "Visual inspection, no impact"
+    },
+    {
+      "key": "station1_engineAirIntake",
+      "title": "Engine air intake",
+      "description": "Clear (water, snow foreign object)"
+    },
+    {
+      "key": "station1_engineCowl",
+      "title": "Engine cowl",
+      "description": "Locked"
+    },
+    {
+      "key": "station1_exhaustCover",
+      "title": "Exhaust cover",
+      "description": "Removed"
+    },
+    {
+      "key": "station1_rearCargoDoorOpen",
+      "title": "Rear cargo door",
+      "description": "Opened"
+    },
+    {
+      "key": "station1_loadsObjects",
+      "title": "Loads and object carried",
+      "description": "Secured"
+    },
+    {
+      "key": "station1_elt",
+      "title": "ELT",
+      "description": "Check ARMED"
+    },
+    {
+      "key": "station1_rearCargoDoorClosed",
+      "title": "Rear cargo door",
+      "description": "Closed, locked"
+    },
+    {
+      "key": "station1_oilDrain",
+      "title": "Oil drain",
+      "description": "No oil under scupper"
+    },
+    {
+      "key": "station2_frontDoor",
+      "title": "Front door",
+      "description": "Condition jettison system check"
+    },
+    {
+      "key": "station2_rearDoor",
+      "title": "Rear door",
+      "description": "Condition, closed, or opened lock (sliding door)"
+    },
+    {
+      "key": "station2_leftCargoDoorOpen",
+      "title": "Left cargo door",
+      "description": "Open"
+    },
+    {
+      "key": "station2_loadsObjects",
+      "title": "Loads and objects carried",
+      "description": "Secured"
+    },
+    {
+      "key": "station2_leftCargoDoorClosed",
+      "title": "Left cargo door",
+      "description": "Closed, locked"
+    },
+    {
+      "key": "station2_fuelTank",
+      "title": "Fuel tank and system",
+      "description": "Filler plug closed, Tank sump drained"
+    },
+    {
+      "key": "station3_heatShield",
+      "title": "Heat shield on tail drive",
+      "description": "Condition, attachment"
+    },
+    {
+      "key": "station3_tailBoom",
+      "title": "Tail boom, antennas",
+      "description": "Condition - Fairings fasteners locked"
+    },
+    {
+      "key": "station3_stabilizer",
+      "title": "Stabilizer, fin, external lights",
+      "description": "General condition"
+    },
+    {
+      "key": "station3_tailRotorGuard",
+      "title": "Tail rotor guard (if fitted)",
+      "description": "Condition, attachment"
+    },
+    {
+      "key": "station3_tgbFairing",
+      "title": "TGB fairing",
+      "description": "Secured, fasteners locked"
+    },
+    {
+      "key": "station3_tgbOilLevel",
+      "title": "TGB oil level",
+      "description": "Checked"
+    },
+    {
+      "key": "station3_tailSkid",
+      "title": "Tail skid",
+      "description": "Condition, attachment"
+    },
+    {
+      "key": "station3_flexibleCoupling",
+      "title": "Flexible Coupling",
+      "description": "Visual Check No Crack"
+    },
+    {
+      "key": "sling_sling",
+      "title": "Sling",
+      "description": "Security - General condition"
+    },
+    {
+      "key": "sling_cablePins",
+      "title": "Cable and Pins",
+      "description": "Condition, attachment points"
+    },
+    {
+      "key": "floats_lhRh",
+      "title": "LH & RH Floats",
+      "description": "Security - General Condition"
+    },
+    {
+      "key": "floats_cylinder",
+      "title": "Cylinder",
+      "description": "Pressure & Condition, attachment points"
+    },
+    {
+      "key": "floats_hoses",
+      "title": "Hoses",
+      "description": "Condition, attachment points"
+    },
+    {
+      "key": "onboard_firstAid",
+      "title": "First Aid Kit",
+      "description": "Condition, no expired"
+    },
+    {
+      "key": "onboard_lifeVest",
+      "title": "Life Vest",
+      "description": "Condition, cleanliness & no damage"
+    },
+    {
+      "key": "onboard_lifeRaft",
+      "title": "Life-raft",
+      "description": "Condition, cleanliness & no damage"
+    },
+    {
+      "key": "onboard_axl",
+      "title": "AXL",
+      "description": "Security - General Condition"
+    },
+    {
+      "key": "onboard_fireExt",
+      "title": "Fire Extinguisher",
+      "description": "Security - General Condition"
+    },
+    {
+      "key": "onboard_certAirworthiness",
+      "title": "Certificate of Airworthiness",
+      "description": "Onboard"
+    },
+    {
+      "key": "onboard_certRegistration",
+      "title": "Certificate of Registration",
+      "description": "Onboard"
+    },
+    {
+      "key": "onboard_radioLicense",
+      "title": "Radio License",
+      "description": "Onboard"
+    },
+    {
+      "key": "onboard_flightLogbook",
+      "title": "Flight Logbook",
+      "description": "Onboard"
+    }
+  ],
+  "post": [
+    {
+      "key": "station1_transparentPanels_condition",
+      "title": "Transparent Panels",
+      "description": "Condition, no cracks, cleanliness"
+    },
+    {
+      "key": "station1_transparentPanels_clean",
+      "title": "Transparent Panels",
+      "description": "Clean if necessary"
+    },
+    {
+      "key": "station1_doorsPillars_condition",
+      "title": "Doors pillars",
+      "description": "Condition, no crack"
+    },
+    {
+      "key": "station1_sideSlipIndicator_condition",
+      "title": "Side slip indicator",
+      "description": "Condition, blanking cap removed or fitted as necessary"
+    },
+    {
+      "key": "station1_sideSlipIndicator2_condition",
+      "title": "Side slip indicator",
+      "description": "Condition"
+    },
+    {
+      "key": "station1_mgbEngineOilCooler_condition",
+      "title": "MGB - Engine oil cooler inlet",
+      "description": "Condition, no obstruction or debris, blanking removed or fitted as necessary"
+    },
+    {
+      "key": "station2_frontDoorJettison_condition",
+      "title": "Front door jettison system",
+      "description": "Condition, no crack on external jettison lever"
+    },
+    {
+      "key": "station2_leftCabinAccess_condition",
+      "title": "Left cabin access doors",
+      "description": "Condition, security, locking, no abnormal freeplay"
+    },
+    {
+      "key": "station2_landingGear_condition",
+      "title": "Landing gear",
+      "description": "Condition of crosstubes, skids, wear resistant plates, footstep attachment"
+    },
+    {
+      "key": "station2_staticPressure_condition",
+      "title": "Static pressure points",
+      "description": "Condition, blanking removed or fitted as necessary"
+    },
+    {
+      "key": "station2_oatProbe_condition",
+      "title": "OAT probe",
+      "description": "Condition, attachment"
+    },
+    {
+      "key": "station2_antennas_condition",
+      "title": "Antennas under belly",
+      "description": "Condition"
+    },
+    {
+      "key": "station2_lights_condition",
+      "title": "Landing and taxiing lights",
+      "description": "Condition"
+    },
+    {
+      "key": "station2_lowerCowlings_condition",
+      "title": "Lower cowlings",
+      "description": "Condition, security"
+    },
+    {
+      "key": "station2_leftCargoDoorOpen_opening",
+      "title": "Left cargo door",
+      "description": "Opening, condition, attachment points, no abnormal freeplay"
+    },
+    {
+      "key": "station2_leftCargoDoorClosed_closed",
+      "title": "Left cargo door",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "station2_fuelTank_condition",
+      "title": "Fuel tank",
+      "description": "Filler plug closed - Tank sump drained (before first flight of the day and any aircraft displacement)"
+    },
+    {
+      "key": "station2_rearCargoDoorOpen_opening",
+      "title": "Rear cargo door",
+      "description": "Opening, condition, attachment points, no abnormal freeplay"
+    },
+    {
+      "key": "station2_rearCargoBay_harness",
+      "title": "Rear cargo bay",
+      "description": "Harness condition"
+    },
+    {
+      "key": "station2_elt_condition",
+      "title": "ELT",
+      "description": "Condition, security, \"ARM\" or \"OFF\" as necessary"
+    },
+    {
+      "key": "station2_rearCargoDoorClosed_closed",
+      "title": "Rear cargo door",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "station2_mgbCowlings_opening",
+      "title": "LH side MGB and engine cowlings",
+      "description": "Opening, condition of locking devices, no abnormal freeplay"
+    },
+    {
+      "key": "station2_upperCowling_security",
+      "title": "Upper cowling",
+      "description": "Security"
+    },
+    {
+      "key": "station2_mgb_condition",
+      "title": "MGB",
+      "description": "Condition, oil levels, no leaks"
+    },
+    {
+      "key": "station2_transmissionDeck_cleanliness",
+      "title": "Transmission deck",
+      "description": "Cleanliness"
+    },
+    {
+      "key": "station2_mgbSupportBars_condition",
+      "title": "MGB support bars",
+      "description": "Condition, security"
+    },
+    {
+      "key": "station2_hydraulicSystem_condition",
+      "title": "Hydraulic system",
+      "description": "Condition, attachment points, pipes, no leaks"
+    },
+    {
+      "key": "station2_servos_security",
+      "title": "Servos",
+      "description": "Security, no leaks or cracks"
+    },
+    {
+      "key": "station2_coolingFan_condition",
+      "title": "Cooling fan",
+      "description": "Motor security, blade condition"
+    },
+    {
+      "key": "station2_gimbalRing_fitting",
+      "title": "Gimbal ring assembly",
+      "description": "Fitting, safety pin set and locked"
+    },
+    {
+      "key": "station2_electricalHarnesses_condition",
+      "title": "Electrical harnesses",
+      "description": "Condition, security"
+    },
+    {
+      "key": "station2_fuelShutoff_condition",
+      "title": "Fuel shut-off valve",
+      "description": "Condition, security"
+    },
+    {
+      "key": "station2_mgbCowlingLH_safety",
+      "title": "MGB cowling (LH side)",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "engine_airInlet_condition",
+      "title": "Engine air inlet",
+      "description": "Security, condition, seal condition"
+    },
+    {
+      "key": "engine_firewall_condition",
+      "title": "Firewall",
+      "description": "Condition, check for cracks"
+    },
+    {
+      "key": "engine_accessories_condition",
+      "title": "Engine and accessories",
+      "description": "General condition, cleanliness sealing, attachment pipes, electrical harness"
+    },
+    {
+      "key": "engine_transmissionDeck_condition",
+      "title": "Engine transmission deck",
+      "description": "Condition, cleanliness, no leak"
+    },
+    {
+      "key": "engine_case_condition",
+      "title": "Engine case",
+      "description": "Mounting pads condition"
+    },
+    {
+      "key": "engine_oilFilter_condition",
+      "title": "Oil filter",
+      "description": "Clogging indicator retracted"
+    },
+    {
+      "key": "engine_fuelFilter_condition",
+      "title": "Fuel filter",
+      "description": "Clogging indicator retracted"
+    },
+    {
+      "key": "engine_oilSystem_condition",
+      "title": "Oil system",
+      "description": "Check for leaks"
+    },
+    {
+      "key": "engine_mounts_condition",
+      "title": "Engine mounts",
+      "description": "Condition, security"
+    },
+    {
+      "key": "engine_deckDrainHoles_condition",
+      "title": "Engine deck drain holes",
+      "description": "Free from obstructions and debris"
+    },
+    {
+      "key": "engine_exhaustPipe_condition",
+      "title": "Exhaust pipe",
+      "description": "Condition, blanking fitted or removed, as necessary"
+    },
+    {
+      "key": "station3_scissors_condition",
+      "title": "Scissors, swashplates, rods swivel bearings",
+      "description": "Condition, security, freeplay evolution (manual check)"
+    },
+    {
+      "key": "station3_swashPlate_condition",
+      "title": "Swash plate/pitch change rods and end-fittings interface",
+      "description": "No contact traces or paint scaling on swashplate driving yokes"
+    },
+    {
+      "key": "station3_pitchChangeRods_condition",
+      "title": "Pitch change rods",
+      "description": "Condition, no radial free play at end fittings, paint marks visible and aligned"
+    },
+    {
+      "key": "station3_rotorShaft_condition",
+      "title": "Rotor shaft, all visible parts, particularly under the hub",
+      "description": "Paint condition, no cracks, crazing, blistering, corrosion nor tools marks"
+    },
+    {
+      "key": "mainRotor_head_condition",
+      "title": "Main Rotor Head",
+      "description": "Security, general condition"
+    },
+    {
+      "key": "mainRotor_starflex_condition",
+      "title": "STARFLEX star",
+      "description": "No delamination, (splinters)"
+    },
+    {
+      "key": "mainRotor_starRecesses_condition",
+      "title": "Star recesses",
+      "description": "No cracks"
+    },
+    {
+      "key": "mainRotor_sphericalBearings_condition",
+      "title": "Spherical thrust bearings frequency adapters",
+      "description": "No elastomeric defects, separation, scratches, blisters, extrusion or cracks (other than minor and non evolving surface defects)"
+    },
+    {
+      "key": "mainRotor_ballJoints_condition",
+      "title": "Self-lubricating ball joints",
+      "description": "No debris nor free-play"
+    },
+    {
+      "key": "mainRotor_starArms_condition",
+      "title": "Star arms end bushes",
+      "description": "No space between adhesive bead and bush"
+    },
+    {
+      "key": "mainRotor_vibrationAbsorber_condition",
+      "title": "Vibration absorber",
+      "description": "Security"
+    },
+    {
+      "key": "mainRotor_blades_condition",
+      "title": "Blades",
+      "description": "Security, general coating, tabs, and polyurethane protection condition (visual check for debonding, scratches, cracks, impacts and distortions). No erosion holes on leading edge steel strip, no gaps nor impacts"
+    },
+    {
+      "key": "mainRotor_rightCargoDoor_opening",
+      "title": "Right cargo door",
+      "description": "Opening, condition, attachment points, no abnormal freeplay"
+    },
+    {
+      "key": "mainRotor_rightCargoDoor_closed",
+      "title": "Right cargo door",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "mainRotor_gpuPlug_condition",
+      "title": "GPU plug planet",
+      "description": "Closed or plugged-in, as applicable"
+    },
+    {
+      "key": "mainRotor_rhMgbCowling_opening",
+      "title": "RH MGB cowling",
+      "description": "Opening, condition of locking systems, no abnormal freeplay"
+    },
+    {
+      "key": "mainRotor_transmissionDeck_cleanliness",
+      "title": "Transmission deck",
+      "description": "Cleanliness"
+    },
+    {
+      "key": "mainRotor_mgbSupportBars_condition",
+      "title": "MGB support bars",
+      "description": "Condition, security"
+    },
+    {
+      "key": "mainRotor_oilCooler_condition",
+      "title": "Oil cooler, fan and pipes",
+      "description": "Condition, no leak, fan security, fan blades condition"
+    },
+    {
+      "key": "mainRotor_servos_security",
+      "title": "Servos",
+      "description": "Security check for leaks or cracks"
+    },
+    {
+      "key": "mainRotor_hydraulicSystem_condition",
+      "title": "Hydraulic System",
+      "description": "Security, pipes condition, check for leaks, filter clogging indicator retracted"
+    },
+    {
+      "key": "mainRotor_hydraulicTank_condition",
+      "title": "Hydraulic system tank",
+      "description": "Level, no leak"
+    },
+    {
+      "key": "mainRotor_engineOilTank_condition",
+      "title": "Engine oil tank",
+      "description": "Oil level, pipes condition, no leak"
+    },
+    {
+      "key": "mainRotor_electricalHarnesses_condition",
+      "title": "Electrical harnesses",
+      "description": "Condition, security"
+    },
+    {
+      "key": "mainRotor_gimbalRing_fitting",
+      "title": "Gimbal ring assembly",
+      "description": "Fitting, safety pins set and locked"
+    },
+    {
+      "key": "mainRotor_rhSideMgbCowling_closed",
+      "title": "RH side MGB cowling",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "mainRotor_landingGear_condition",
+      "title": "Landing gear",
+      "description": "Condition of cross-tubes, skids, wear resistant plates, footstep security"
+    },
+    {
+      "key": "mainRotor_lowerFairings_closed",
+      "title": "All lower central fairings",
+      "description": "Closed and secured"
+    },
+    {
+      "key": "mainRotor_rhCabinAccess_condition",
+      "title": "RH cabin access doors",
+      "description": "Condition, security, locking, no abnormal freeplay"
+    },
+    {
+      "key": "mainRotor_frontDoorJettison_condition",
+      "title": "Front door jettison system",
+      "description": "Condition, no crack"
+    },
+    {
+      "key": "cabin_general_cleanliness",
+      "title": "Cabin",
+      "description": "General cleanliness"
+    },
+    {
+      "key": "cabin_seats_condition",
+      "title": "Seats",
+      "description": "Condition, attachment points"
+    },
+    {
+      "key": "cabin_doorJettison_checked",
+      "title": "Door jettison system",
+      "description": "Checked - Plastic guard condition"
+    },
+    {
+      "key": "cabin_fireExtinguisher_condition",
+      "title": "Fire Extinguisher",
+      "description": "Secured - Checked"
+    },
+    {
+      "key": "cabin_circuitBreakers_set",
+      "title": "Circuit Breakers",
+      "description": "All set"
+    },
+    {
+      "key": "cabin_scu_position",
+      "title": "SCU",
+      "description": "Check all pushbuttons in OFF position"
+    },
+    {
+      "key": "cabin_batterySwitchOn_on",
+      "title": "Battery Switch",
+      "description": "ON, check battery voltage"
+    },
+    {
+      "key": "cabin_vemd_flightReport",
+      "title": "VEMD",
+      "description": "Check flights of the day report pages data (MAIN mode, FLIGHT REPORT page)"
+    },
+    {
+      "key": "cabin_vemd_flightTimes",
+      "title": "VEMD",
+      "description": "VEMD flight times"
+    },
+    {
+      "key": "cabin_vemd_cycles",
+      "title": "VEMD",
+      "description": "Ng and Nf cycles: check written in white characters and above 0"
+    },
+    {
+      "key": "cabin_vemd_advisoryMessages",
+      "title": "VEMD",
+      "description": "Check advisory messages of FAILURE or OVERLIMIT DETECTED"
+    },
+    {
+      "key": "cabin_vemd_recordData",
+      "title": "VEMD",
+      "description": "Record flights of the day data in aircraft and engine logbooks"
+    },
+    {
+      "key": "cabin_batterySwitchOff_off",
+      "title": "Battery Switch",
+      "description": "OFF"
+    }
+  ]
+}

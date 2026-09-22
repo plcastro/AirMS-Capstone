@@ -1,3 +1,7 @@
+import FlightLandingAdjustment from "./FlightLandingAdjustment";
+import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
+import FlightLogB412Section from "./FlightLogB412Section";
+import { b412WorkflowComponents } from "../../../shared/b412WorkflowComponents";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
@@ -147,6 +151,7 @@ const getSignerLabel = (signatureData = {}) =>
         .filter(Boolean)
         .join(" - ");
 
+function EntryShell({ embedded, children, ...props }) { return embedded ? <View style={{flex:1}}>{children}</View> : <Modal {...props}>{children}</Modal>; }
 export default function FlightLogEditEntry({
   visible,
   logData,
@@ -156,6 +161,10 @@ export default function FlightLogEditEntry({
   userRole,
   currentUser,
   readOnly = false,
+  embedded = false,
+  onDraftChange,
+  permissions,
+  initialTab,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -221,22 +230,26 @@ export default function FlightLogEditEntry({
   useEffect(() => {
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
+    const sum = key => {
+      const first = String(bf[key] ?? "").trim(), second = String(tf[key] ?? "").trim();
+      return first && second && Number.isFinite(Number(first)) && Number.isFinite(Number(second)) ? Number(first) + Number(second) : "";
+    };
     const calculated = {
-      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      airframe: sum("airframe"),
       gearBoxMain:
-        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+        sum("gearBoxMain"),
       gearBoxTail:
-        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+        sum("gearBoxTail"),
       rotorMain:
-        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+        sum("rotorMain"),
       rotorTail:
-        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
-      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
-      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
-      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+        sum("rotorTail"),
+      engine: sum("engine"),
+      cycleN1: sum("cycleN1"),
+      cycleN2: sum("cycleN2"),
       landingCycle:
-        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
-      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+        sum("landingCycle"),
+      usage: sum("usage"),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
     };
@@ -248,10 +261,10 @@ export default function FlightLogEditEntry({
   // Reset page when modal opens
   useEffect(() => {
     if (visible) {
-      setCurrentPage(0);
+      setCurrentPage(({ component: 2, destinations: 1, workdone: 8, info: 0 })[initialTab] || 0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     }
-  }, [visible]);
+  }, [visible, initialTab]);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -260,14 +273,14 @@ export default function FlightLogEditEntry({
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
   const hasWorkItems = Array.isArray(workItems) && workItems.length > 0;
-  const shouldShowWorkDone = hasDiscrepancy || hasWorkItems;
+  const shouldShowWorkDone = embedded || hasDiscrepancy || hasWorkItems;
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
       return ["Basic Information"];
     }
 
-    if (isPilot) return ["Destination/s", "Discrepancy/Remarks"];
+    if (isPilot && !embedded) return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
 
     const nextTabs = [
       "Basic Information",
@@ -293,16 +306,16 @@ export default function FlightLogEditEntry({
   const isCompletedLog = formData.status === "completed";
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
-  const isBasicInfoEditable = !readOnly && !isCompletedLog;
-  const isRPCEditable = !isReleasedFlightLogStatus(formData.status);
-  const isDestinationsEditable = !readOnly && !isCompletedLog && isPilot;
-  const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
-  const isBroughtForwardLocked = formData.broughtForwardLocked === true;
+  const isBasicInfoEditable = !readOnly && !isCompletedLog && !isPilot && (!permissions || permissions.preparation);
+  const isRPCEditable = !embedded && !isReleasedFlightLogStatus(formData.status);
+  const isDestinationsEditable = !readOnly && !isCompletedLog && (isPilot || isMechanic) && (!permissions || permissions.flight);
+  const isComponentEditable = !readOnly && !isCompletedLog && isMechanic && (!permissions || permissions.maintenance);
+  const isBroughtForwardLocked = formData.broughtForwardLocked === true || (permissions && !permissions.preparation);
 
-  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
-  const isDiscrepancyEditable = !readOnly && !isCompletedLog;
+  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic && (!permissions || permissions.maintenance);
+  const isDiscrepancyEditable = !readOnly && !isCompletedLog && (!permissions || permissions.flight);
   const isWorkDoneEditable =
-    !readOnly && !isCompletedLog && shouldShowWorkDone;
+    !readOnly && !isCompletedLog && isMechanic && shouldShowWorkDone && (!permissions || permissions.maintenance);
 
   useEffect(() => {
     if (shouldShowWorkDone) {
@@ -451,6 +464,8 @@ export default function FlightLogEditEntry({
   };
 
   const persistLog = async (updatedFormData, closeOnSave = false) => {
+    // Embedded forms save exclusively through the versioned workspace actions.
+    if (embedded) return false;
     if (isPilot && !hasCompleteFlightLogLegs(updatedFormData.legs)) {
       showToast("Each leg must include complete station route and date");
       setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
@@ -459,22 +474,23 @@ export default function FlightLogEditEntry({
 
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
+    const sum = key => { const left = String(bf[key] ?? '').trim(), right = String(tf[key] ?? '').trim(); return left && right && Number.isFinite(Number(left)) && Number.isFinite(Number(right)) ? Number(left) + Number(right) : ''; };
     const calculatedToDate = {
-      airframe: (parseFloat(bf.airframe) || 0) + (parseFloat(tf.airframe) || 0),
+      airframe: sum("airframe"),
       gearBoxMain:
-        (parseFloat(bf.gearBoxMain) || 0) + (parseFloat(tf.gearBoxMain) || 0),
+        sum("gearBoxMain"),
       gearBoxTail:
-        (parseFloat(bf.gearBoxTail) || 0) + (parseFloat(tf.gearBoxTail) || 0),
+        sum("gearBoxTail"),
       rotorMain:
-        (parseFloat(bf.rotorMain) || 0) + (parseFloat(tf.rotorMain) || 0),
+        sum("rotorMain"),
       rotorTail:
-        (parseFloat(bf.rotorTail) || 0) + (parseFloat(tf.rotorTail) || 0),
-      engine: (parseFloat(bf.engine) || 0) + (parseFloat(tf.engine) || 0),
-      cycleN1: (parseFloat(bf.cycleN1) || 0) + (parseFloat(tf.cycleN1) || 0),
-      cycleN2: (parseFloat(bf.cycleN2) || 0) + (parseFloat(tf.cycleN2) || 0),
+        sum("rotorTail"),
+      engine: sum("engine"),
+      cycleN1: sum("cycleN1"),
+      cycleN2: sum("cycleN2"),
       landingCycle:
-        (parseFloat(bf.landingCycle) || 0) + (parseFloat(tf.landingCycle) || 0),
-      usage: (parseFloat(bf.usage) || 0) + (parseFloat(tf.usage) || 0),
+        sum("landingCycle"),
+      usage: sum("usage"),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
     };
@@ -885,9 +901,25 @@ export default function FlightLogEditEntry({
     Boolean(formData.releasedBy?.signature) ||
     Boolean(formData.acceptedBy?.signature);
 
+  useEffect(() => {
+    if (!visible || !formData || formData.status === 'completed') return;
+    const next = populateFlightInputs({ ...formData, componentData });
+    setComponentData(previous => JSON.stringify(previous.thisFlightData) === JSON.stringify(next.componentData.thisFlightData) ? previous : { ...previous, thisFlightData: next.componentData.thisFlightData });
+    setFormData(previous => {
+      const updated = { ...previous, fuelServicing: next.fuelServicing, oilServicing: next.oilServicing, ...(next.b412Data ? { b412Data: next.b412Data } : {}) };
+      return JSON.stringify(previous) === JSON.stringify(updated) ? previous : updated;
+    });
+  }, [visible, formData, componentData]);
+
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
+    if (isB412 && ["Brought Forward", "This Flight", "To Date"].includes(currentTab)) {
+      const data = syncB412DataFromStandardFlightLog({ ...formData, componentData }, formData.b412Data);
+      return <>{currentTab === "This Flight" && <FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isComponentEditable)} onChange={value => updateForm("additionalLandings", value)} />}<FlightLogB412Section section={currentTab === "Brought Forward" ? "BRT FORWARD" : currentTab} data={data}
+        totalsEditable={currentTab === "This Flight" && isComponentEditable} isEditable={isComponentEditable && (!permissions || permissions.preparation)}
+        onChange={next => { setFormData(previous => ({ ...previous, b412Data: next })); setComponentData(b412WorkflowComponents(next.componentData)); }} /></>;
+    }
     switch (currentTab) {
       case "Basic Information":
         return (
@@ -899,6 +931,8 @@ export default function FlightLogEditEntry({
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412}
+            assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
+            canAssign={!readOnly && !isCompletedLog && (isPilot || isMechanic) && (!permissions || permissions.preparation)}
           />
         );
 
@@ -927,13 +961,13 @@ export default function FlightLogEditEntry({
 
       case "This Flight":
         return (
-          <FlightLogModalThisFlight
+          <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isComponentEditable)} onChange={value => updateForm("additionalLandings", value)} /><FlightLogModalThisFlight
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)
             }
             isEditable={isComponentEditable}
-          />
+          /></>
         );
 
       case "To Date":
@@ -950,6 +984,8 @@ export default function FlightLogEditEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
+            signatureInherited={!!formData.initialInspectionSignature?.signature}
+            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (logData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.fuelServicing?.length ?? logData?.fuelServicing?.length ?? 0) : 0}
             legs={formData.legs || []}
             fuelServicingData={formData.fuelServicing || []}
             onUpdateFuelServicing={updateFuelServicing}
@@ -960,6 +996,8 @@ export default function FlightLogEditEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
+            signatureInherited={!!formData.initialInspectionSignature?.signature}
+            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (logData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.oilServicing?.length ?? logData?.oilServicing?.length ?? 0) : 0}
             legs={formData.legs || []}
             oilServicingData={formData.oilServicing || []}
             onUpdateOilServicing={updateOilServicing}
@@ -984,6 +1022,7 @@ export default function FlightLogEditEntry({
             workItems={workItems}
             onUpdateWorkItems={updateWorkItems}
             isEditable={isWorkDoneEditable}
+            phase={permissions && !permissions.preparation ? "post_flight" : "preparation"}
           />
         );
 
@@ -992,13 +1031,20 @@ export default function FlightLogEditEntry({
     }
   };
 
+  useEffect(() => {
+    if (!embedded || !formData?._id) return;
+    const payload = { ...formData, date: formData.date instanceof Date ? formData.date.toLocaleDateString('en-US') : formData.date, componentData, workItems };
+    if (isB412Aircraft(formData.aircraftType)) payload.b412Data = syncB412DataFromStandardFlightLog(payload, formData.b412Data);
+    onDraftChange?.(payload);
+  }, [embedded, formData, componentData, workItems, onDraftChange]);
+
   if (isLoading || !formData) {
     return null;
   }
 
   return (
     <>
-      <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+      <EntryShell embedded={embedded} visible={visible} animationType="fade" onRequestClose={onClose}>
         <IosModalSafeAreaProvider>
           <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
@@ -1094,7 +1140,7 @@ export default function FlightLogEditEntry({
         >
           {renderPage()}
 
-          {showActionButtons && (
+          {!embedded && showActionButtons && (
             <View style={{ marginTop: 20, marginBottom: 20 }}>
               {showReleaseButton && (
                 <TouchableOpacity
@@ -1343,6 +1389,7 @@ export default function FlightLogEditEntry({
 
         <View
           style={{
+            display: embedded ? "none" : "flex",
             flexDirection: "row",
             justifyContent: "flex-end",
             alignItems: "center",
@@ -1451,7 +1498,7 @@ export default function FlightLogEditEntry({
         />
           </SafeAreaView>
         </IosModalSafeAreaProvider>
-      </Modal>
+      </EntryShell>
     </>
   );
 }

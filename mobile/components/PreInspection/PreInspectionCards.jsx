@@ -5,12 +5,14 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
 import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function PreInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
+  currentUser,
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
 
@@ -95,6 +97,7 @@ export default function PreInspectionCards({
         const exportLoading = exportingInspectionId === inspectionKey;
         const displayStatus = getDisplayStatus(inspection.status);
         const isViewOnly =
+          !isAssignedFlightCrew(currentUser, inspection) ||
           displayStatus === "released" ||
           displayStatus === "completed" ||
           isOfficerInCharge;
