@@ -1,4 +1,6 @@
 const PostInspection = require("../models/postInspectionModel");
+const { isAssignedFlightCrew, getAssignedCrewField, CREW_ACCESS_MESSAGE } = require("../../shared/flightCrewAccess");
+const { getInspectionFlightLog, withInspectionCrew, pickInspectionUpdates } = require("../utils/inspectionFlightCrew");
 const {
   createPostInspectionNotifications,
 } = require("../utils/postInspectionNotificationService");
@@ -68,8 +70,17 @@ const stripImmutableUpdateFields = (updates) => {
 
 const createPostInspection = async (req, res) => {
   try {
+    const flightLog = await getInspectionFlightLog(req.body);
+    if (!flightLog) return res.status(400).json({ message: "Select a linked Flight Log before creating this inspection." });
+    if (flightLog.status === "completed") return res.status(400).json({ message: "Choose an open Flight Log for a new inspection." });
+    if (!isAssignedFlightCrew(req.user, flightLog) || getAssignedCrewField(req.user) !== "assignedMechanic") {
+      return res.status(403).json({ message: "Only the linked Flight Log's assigned mechanic can create this inspection." });
+    }
     const payload = {
       ...req.body,
+      flightLogId: flightLog._id,
+      rpc: flightLog.rpc,
+      aircraftType: flightLog.aircraftType,
       dateAdded: req.body.dateAdded || new Date().toLocaleDateString("en-US"),
       status: normalizeStatus(req.body.status) || "pending",
     };
@@ -119,7 +130,7 @@ const createPostInspection = async (req, res) => {
 
     res.status(201).json({
       message: "Post-inspection created successfully",
-      data: inspection,
+      data: withInspectionCrew(inspection, flightLog),
     });
   } catch (err) {
     console.error("Error creating post-flight inspection:", err);
@@ -131,8 +142,8 @@ const createPostInspection = async (req, res) => {
 
 const getAllPostInspections = async (req, res) => {
   try {
-    const inspections = await PostInspection.find().sort({ createdAt: -1 });
-    res.status(200).json({ status: "Ok", data: inspections });
+    const inspections = await PostInspection.find().sort({ createdAt: -1 }).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
+    res.status(200).json({ status: "Ok", data: inspections.map((inspection) => withInspectionCrew(inspection)) });
   } catch (err) {
     console.error("Error fetching post-flight inspections:", err);
     res
@@ -143,13 +154,13 @@ const getAllPostInspections = async (req, res) => {
 
 const getPostInspectionById = async (req, res) => {
   try {
-    const inspection = await PostInspection.findById(req.params.id);
+    const inspection = await PostInspection.findById(req.params.id).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
 
     if (!inspection) {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
 
-    res.status(200).json({ status: "Ok", data: inspection });
+    res.status(200).json({ status: "Ok", data: withInspectionCrew(inspection) });
   } catch (err) {
     console.error("Error fetching post-flight inspection:", err);
     res.status(500).json({ message: "Failed to fetch post-flight inspection" });
@@ -164,6 +175,8 @@ const updatePostInspection = async (req, res) => {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
 
+    const flightLog = await getInspectionFlightLog(previousInspection);
+    if (!isAssignedFlightCrew(req.user, flightLog)) return res.status(403).json({ message: CREW_ACCESS_MESSAGE });
     const previousPayload = previousInspection.toObject();
     const previousStatus = normalizeStatus(previousPayload.status);
 
@@ -173,12 +186,12 @@ const updatePostInspection = async (req, res) => {
         .json({ message: "Completed post-flight inspections are view-only." });
     }
 
+    const updates = pickInspectionUpdates(req.body, PostInspection);
     const nextPayload = {
       ...previousPayload,
-      ...req.body,
+      ...updates,
     };
     const nextStatus = normalizeStatus(nextPayload.status);
-    const updates = { ...req.body };
     stripImmutableUpdateFields(updates);
 
     if (hasOwn(req.body, "status")) {
@@ -258,7 +271,7 @@ const updatePostInspection = async (req, res) => {
 
     res.status(200).json({
       message: "Post-inspection updated successfully",
-      data: inspection,
+      data: withInspectionCrew(inspection, flightLog),
     });
   } catch (err) {
     console.error("Error updating post-flight inspection:", err);
@@ -270,11 +283,15 @@ const updatePostInspection = async (req, res) => {
 
 const deletePostInspection = async (req, res) => {
   try {
-    const inspection = await PostInspection.findByIdAndDelete(req.params.id);
+    const inspection = await PostInspection.findById(req.params.id);
 
     if (!inspection) {
       return res.status(404).json({ message: "Post-inspection not found" });
     }
+    const flightLog = await getInspectionFlightLog(inspection);
+    if (!isAssignedFlightCrew(req.user, flightLog)) return res.status(403).json({ message: CREW_ACCESS_MESSAGE });
+    if (normalizeStatus(inspection.status) === "completed") return res.status(400).json({ message: "Completed inspections are view-only." });
+    await PostInspection.findByIdAndDelete(req.params.id);
     const audit = withActorId(
       req,
       `Post-inspection deleted: ${inspection._id}`,

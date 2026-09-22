@@ -8,7 +8,8 @@ const { TextArea } = Input;
 
 const WORK_TYPES = ["Discrepancy Correction", "SB/AD Compliance", "Inspection", "Others"];
 
-const emptyWorkItem = () => ({
+const emptyWorkItem = (phase) => ({
+  phase,
   id: Date.now().toString() + Math.random(),
   selectedWorkTypes: [],
   date: "", aircraft: "", workDone: "", name: "", certificateNumber: "", signature: "",
@@ -65,11 +66,11 @@ function WorkItemSignaturePad({ value, onChange, disabled }) {
   );
 }
 
-export default function FlightLogModalWorkDone({ formData, updateForm, isEditable = true }) {
+export default function FlightLogModalWorkDone({ formData, updateForm, isEditable = true, phase = "preparation" }) {
   const workItems = formData.workItems || [];
 
   const addWorkItem = () => {
-    updateForm("workItems", [...workItems, emptyWorkItem()]);
+    updateForm("workItems", [...workItems, emptyWorkItem(phase)]);
   };
 
   const removeWorkItem = (id) => {
@@ -105,11 +106,13 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
         </div>
       )}
 
-      {workItems.map((item, idx) => (
+      {workItems.map((item, idx) => {
+        const itemEditable = isEditable && (item.phase || "preparation") === phase;
+        return (
         <div key={item.id} className="fl-card" style={{ marginBottom: 16 }}>
           <div className="fl-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>WORK DONE {workItems.length > 1 ? `#${idx + 1}` : ""}</span>
-            {isEditable && workItems.length > 1 && (
+            <span>WORK DONE {workItems.length > 1 ? `#${idx + 1}` : ""} - {item.phase === "post_flight" ? "Post-flight" : "Preparation"}{!itemEditable && phase === "post_flight" && item.phase !== "post_flight" ? " (signed at release)" : ""}</span>
+            {itemEditable && (
               <Button
                 type="text"
                 size="small"
@@ -127,8 +130,8 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                   <input
                     type="checkbox"
                     checked={(item.selectedWorkTypes || []).includes(type)}
-                    onChange={() => isEditable && toggleWorkType(item.id, type)}
-                    disabled={!isEditable}
+                    onChange={() => itemEditable && toggleWorkType(item.id, type)}
+                    disabled={!itemEditable}
                     style={{ accentColor: "#26866F" }}
                   />
                   {type}
@@ -151,7 +154,7 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                     date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
                   )
                 }
-                disabled={!isEditable}
+                disabled={!itemEditable}
               />
             </div>
             <div className="fl-field-row">
@@ -160,7 +163,7 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 className="fl-input"
                 value={item.aircraft || ""}
                 onChange={(e) => updateWorkItem(item.id, "aircraft", e.target.value)}
-                disabled={!isEditable}
+                disabled={!itemEditable}
               />
             </div>
             <div className="fl-field-row">
@@ -170,8 +173,8 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 value={item.workDone || ""}
                 onChange={(e) => updateWorkItem(item.id, "workDone", e.target.value)}
                 placeholder="Describe work done"
-                disabled={!isEditable}
-                style={{ resize: "none", flex: 1, backgroundColor: isEditable ? "#fff" : "#f5f5f5" }}
+                disabled={!itemEditable}
+                style={{ resize: "none", flex: 1, backgroundColor: itemEditable ? "#fff" : "#f5f5f5" }}
               />
             </div>
             <div className="fl-field-row">
@@ -180,7 +183,7 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 className="fl-input"
                 value={item.name || ""}
                 onChange={(e) => updateWorkItem(item.id, "name", e.target.value)}
-                disabled={!isEditable}
+                disabled={!itemEditable}
               />
             </div>
             <div className="fl-field-row">
@@ -189,7 +192,7 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 className="fl-input"
                 value={item.certificateNumber || ""}
                 onChange={(e) => updateWorkItem(item.id, "certificateNumber", e.target.value)}
-                disabled={!isEditable}
+                disabled={!itemEditable}
               />
             </div>
             <div className="fl-field-row fl-sig-row">
@@ -198,18 +201,18 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
                 <WorkItemSignaturePad
                   value={item.signature || ""}
                   onChange={(val) => updateWorkItem(item.id, "signature", val)}
-                  disabled={!isEditable}
+                  disabled={!itemEditable}
                 />
               </div>
             </div>
           </div>
         </div>
-      ))}
+      ); })}
 
       {isEditable && (
         <div style={{ textAlign: "right", marginTop: 8 }}>
           <Button className="fl-action-btn" icon={<PlusOutlined />} onClick={addWorkItem}>
-            Add Work Done
+            Add {phase === "post_flight" ? "Post-Flight" : "Preparation"} Work
           </Button>
         </div>
       )}

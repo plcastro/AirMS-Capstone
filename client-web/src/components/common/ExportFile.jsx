@@ -1,4 +1,5 @@
 import { message } from "antd";
+import { flightWorkflowExportRows } from "../../../../shared/flightWorkflowExport";
 
 const showExportPopup = (
   setPopup,
@@ -1304,6 +1305,17 @@ const drawB412FlightLog = (
   });
 };
 
+const appendFlightWorkflow = (doc, autoTable, record) => {
+  if (!record.workflowHistory?.length && !record.amendments?.length) return;
+  doc.addPage();
+  doc.setFontSize(13);
+  doc.text(`Flight record history - ${record.rpc || ''} / ${record.controlNo || ''}`, 20, 32);
+  autoTable(doc, { startY: 48, margin: { left: 20, right: 20 },
+    head: [['Step / section', 'Record details']], body: flightWorkflowExportRows(record),
+    styles: { fontSize: 8, overflow: 'linebreak', cellPadding: 5 },
+    columnStyles: { 0: { cellWidth: 140 } } });
+};
+
 export const exportFlightLogToPDF = async (record = {}, options = {}) => {
   const { setPopup } = options;
   try {
@@ -1323,6 +1335,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
 
     if (isB412FlightLogRecord(record)) {
       drawB412FlightLog(doc, autoTable, record, logoDataUrl);
+      appendFlightWorkflow(doc, autoTable, record);
       doc.save(`${fileName}.pdf`);
       showExportPopup(setPopup, {
         status: "success",
@@ -1661,6 +1674,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
       },
     });
 
+    appendFlightWorkflow(doc, autoTable, record);
     doc.save(`${fileName}.pdf`);
     showExportPopup(setPopup, {
       status: "success",

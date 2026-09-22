@@ -9,6 +9,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
+import { HOUR_FIELDS } from '../../../shared/flightAutomaticInputs';
 
 export default function FlightLogModalThisFlight({
   componentData,
@@ -94,7 +95,7 @@ export default function FlightLogModalThisFlight({
           }}
           value={componentData[field] || ""}
           onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
-          editable={isEditable}
+          editable={isEditable && !HOUR_FIELDS.includes(field) && field !== 'landingCycle'}
           keyboardType="numeric"
         />
       )}

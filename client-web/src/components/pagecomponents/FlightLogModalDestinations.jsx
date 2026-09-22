@@ -1,7 +1,9 @@
 import React from "react";
 import { Input, Button, DatePicker } from "antd";
+import FlightStationInput from './FlightStationInput';
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { isLegTotal, legFieldDisplay } from "../../../../shared/flightLegTimes";
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -25,6 +27,7 @@ export default function FlightLogModalDestinations({
   return (
     <div className="fl-section">
       <div className="fl-section-title">DESTINATION/S</div>
+      <p>Use 24-hour times (HH:mm), consistently in the same time zone. OFF is departure/takeoff; ON is arrival/landing. Totals are calculated in decimal hours; an ON time before OFF means the following day.</p>
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
@@ -52,10 +55,10 @@ export default function FlightLogModalDestinations({
                 <div style={{ flex: 1 }}>
                   {stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">
-                      <Input
+                      <FlightStationInput
                         className="fl-input"
                         value={station?.from || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "from", e.target.value)}
+                        onChange={value => updateStation(legIdx, stIdx, "from", value)}
                         placeholder="From"
                         disabled={!isEditable}
                         required
@@ -63,10 +66,10 @@ export default function FlightLogModalDestinations({
                         style={{ flex: 1 }}
                       />
                       <span className="fl-station-sep">-</span>
-                      <Input
+                      <FlightStationInput
                         className="fl-input"
                         value={station?.to || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "to", e.target.value)}
+                        onChange={value => updateStation(legIdx, stIdx, "to", value)}
                         placeholder="To"
                         disabled={!isEditable}
                         required
@@ -134,9 +137,10 @@ export default function FlightLogModalDestinations({
                   ) : (
                     <Input
                       className="fl-input"
-                      value={leg[key] || ""}
+                      value={isEditable ? legFieldDisplay(leg, key) : leg[key] ?? ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
-                      disabled={!isEditable}
+                      disabled={!isEditable || isLegTotal(key)}
+                      placeholder={isLegTotal(key) ? 'Calculated from times' : key.includes('Time') ? 'HH:mm' : ''}
                       required={REQUIRED_LEG_FIELDS.has(key)}
                       aria-required={REQUIRED_LEG_FIELDS.has(key)}
                     />

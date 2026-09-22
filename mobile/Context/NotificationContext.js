@@ -169,6 +169,7 @@ const buildTargetNavigation = (notificationPayload) => {
           notificationPayload?.entityId ||
           notificationPayload?.targetFlightLogId ||
           notificationPayload?.data?.targetFlightLogId,
+        targetSection: notificationPayload?.metadata?.targetSection || notificationPayload?.targetSection || notificationPayload?.data?.targetSection || 'flight',
         notificationStatus:
           notificationPayload?.metadata?.status ||
           notificationPayload?.status ||

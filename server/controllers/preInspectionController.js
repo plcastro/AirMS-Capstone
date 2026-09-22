@@ -1,5 +1,7 @@
 const PreInspection = require("../models/preInspectionModel");
 const PostInspection = require("../models/postInspectionModel");
+const { isAssignedFlightCrew, getAssignedCrewField, CREW_ACCESS_MESSAGE } = require("../../shared/flightCrewAccess");
+const { getInspectionFlightLog, withInspectionCrew, pickInspectionUpdates } = require("../utils/inspectionFlightCrew");
 const {
   createPreInspectionNotifications,
 } = require("../utils/preInspectionNotificationService");
@@ -68,8 +70,17 @@ const getReleaseValidationMessage = (record = {}) => {
 
 const createPreInspection = async (req, res) => {
   try {
+    const flightLog = await getInspectionFlightLog(req.body);
+    if (!flightLog) return res.status(400).json({ message: "Select a linked Flight Log before creating this inspection." });
+    if (flightLog.status === "completed") return res.status(400).json({ message: "Choose an open Flight Log for a new inspection." });
+    if (!isAssignedFlightCrew(req.user, flightLog) || getAssignedCrewField(req.user) !== "assignedMechanic") {
+      return res.status(403).json({ message: "Only the linked Flight Log's assigned mechanic can create this inspection." });
+    }
     const payload = {
       ...req.body,
+      flightLogId: flightLog._id,
+      rpc: flightLog.rpc,
+      aircraftType: flightLog.aircraftType,
       dateAdded: req.body.dateAdded || new Date().toLocaleDateString("en-US"),
       status: req.body.status || "pending",
     };
@@ -99,6 +110,7 @@ const createPreInspection = async (req, res) => {
     const inspection = await PreInspection.create(payload);
 
     const linkedPostPayload = {
+      flightLogId: flightLog._id,
       preInspectionId: inspection._id,
       linkedFromPreFlight: true,
       aircraftType: payload.aircraftType,
@@ -122,7 +134,7 @@ const createPreInspection = async (req, res) => {
 
     await createPreInspectionNotifications({
       previousInspection: null,
-      inspection,
+      inspection: withInspectionCrew(inspection, flightLog),
       actorUserId: req.user?.id,
     });
 
@@ -131,7 +143,7 @@ const createPreInspection = async (req, res) => {
 
     res.status(201).json({
       message: "Pre-inspection created successfully",
-      data: inspection,
+      data: withInspectionCrew(inspection, flightLog),
     });
   } catch (err) {
     console.error("Error creating pre-flight inspection:", err);
@@ -141,8 +153,8 @@ const createPreInspection = async (req, res) => {
 
 const getAllPreInspections = async (req, res) => {
   try {
-    const inspections = await PreInspection.find().sort({ createdAt: -1 });
-    res.status(200).json({ status: "Ok", data: inspections });
+    const inspections = await PreInspection.find().sort({ createdAt: -1 }).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
+    res.status(200).json({ status: "Ok", data: inspections.map((inspection) => withInspectionCrew(inspection)) });
   } catch (err) {
     console.error("Error fetching pre-flight inspections:", err);
     res.status(500).json({ message: "Failed to fetch pre-flight inspections" });
@@ -151,13 +163,13 @@ const getAllPreInspections = async (req, res) => {
 
 const getPreInspectionById = async (req, res) => {
   try {
-    const inspection = await PreInspection.findById(req.params.id);
+    const inspection = await PreInspection.findById(req.params.id).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
 
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
 
-    res.status(200).json({ status: "Ok", data: inspection });
+    res.status(200).json({ status: "Ok", data: withInspectionCrew(inspection) });
   } catch (err) {
     console.error("Error fetching pre-flight inspection:", err);
     res.status(500).json({ message: "Failed to fetch pre-flight inspection" });
@@ -172,10 +184,15 @@ const updatePreInspection = async (req, res) => {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
 
+    const flightLog = await getInspectionFlightLog(previousInspection);
+    if (!isAssignedFlightCrew(req.user, flightLog)) {
+      return res.status(403).json({ message: CREW_ACCESS_MESSAGE });
+    }
+    const updates = pickInspectionUpdates(req.body, PreInspection);
     const previousPayload = previousInspection.toObject();
     const nextPayload = {
       ...previousPayload,
-      ...req.body,
+      ...updates,
     };
     const previousStatus = normalizeStatus(previousPayload.status);
     const nextStatus = normalizeStatus(nextPayload.status);
@@ -187,7 +204,6 @@ const updatePreInspection = async (req, res) => {
     }
 
     const nextIsB412 = isB412AircraftType(nextPayload.aircraftType);
-    const updates = { ...req.body };
 
     if (nextIsB412) {
       if (nextPayload.b412Data === undefined || nextPayload.b412Data === null) {
@@ -210,6 +226,7 @@ const updatePreInspection = async (req, res) => {
     }
 
     if (nextStatus === "released") {
+      if (getAssignedCrewField(req.user) !== "assignedMechanic") return res.status(403).json({ message: "Only the assigned mechanic can release this inspection." });
       const validationMessage = getReleaseValidationMessage(nextPayload);
       if (validationMessage) {
         return res.status(400).json({ message: validationMessage });
@@ -217,6 +234,9 @@ const updatePreInspection = async (req, res) => {
     }
 
     if (nextStatus === "completed") {
+      if (getAssignedCrewField(req.user) !== "assignedPilot") {
+        return res.status(403).json({ message: "Only the assigned pilot can accept this pre-flight inspection." });
+      }
       if (previousStatus !== "released") {
         return res.status(400).json({
           message: "Only released pre-flight inspections can be accepted.",
@@ -241,7 +261,7 @@ const updatePreInspection = async (req, res) => {
 
     await createPreInspectionNotifications({
       previousInspection,
-      inspection,
+      inspection: withInspectionCrew(inspection, flightLog),
       actorUserId: req.user?.id,
     });
 
@@ -250,7 +270,7 @@ const updatePreInspection = async (req, res) => {
 
     res.status(200).json({
       message: "Pre-inspection updated successfully",
-      data: inspection,
+      data: withInspectionCrew(inspection, flightLog),
     });
   } catch (err) {
     console.error("Error updating pre-flight inspection:", err);
@@ -260,11 +280,15 @@ const updatePreInspection = async (req, res) => {
 
 const deletePreInspection = async (req, res) => {
   try {
-    const inspection = await PreInspection.findByIdAndDelete(req.params.id);
+    const inspection = await PreInspection.findById(req.params.id);
 
     if (!inspection) {
       return res.status(404).json({ message: "Pre-inspection not found" });
     }
+    const flightLog = await getInspectionFlightLog(inspection);
+    if (!isAssignedFlightCrew(req.user, flightLog)) return res.status(403).json({ message: CREW_ACCESS_MESSAGE });
+    if (normalizeStatus(inspection.status) === "completed") return res.status(400).json({ message: "Completed inspections are view-only." });
+    await PreInspection.findByIdAndDelete(req.params.id);
     const audit = withActorId(req, `Pre-inspection deleted: ${inspection._id}`);
     await auditLog(audit.action, audit.actorId);
 

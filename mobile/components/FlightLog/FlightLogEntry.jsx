@@ -1,5 +1,7 @@
+import FlightLandingAdjustment from "./FlightLandingAdjustment";
+import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
 import Modal from "../common/AppModal";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import AppText from "../common/AppText";
 import {
   View,
@@ -23,7 +25,8 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { showToast } from "../../utilities/toast";
-import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
+import { API_BASE } from "../../utilities/API_BASE";
+
 import {
   calculateB412ToDate,
   createEmptyB412Data,
@@ -71,10 +74,12 @@ const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
 
 export default function FlightLogEntry({
   visible,
+  entryConfirmation = null,
   onClose,
   onSave,
   userRole,
   currentUser,
+  lockedRpc = "",
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
@@ -102,7 +107,7 @@ export default function FlightLogEntry({
       "superadmin",
     ].includes(normalizedRole);
 
-  const handleAircraftDataLoaded = (data) => {
+  const handleAircraftDataLoaded = useCallback((data) => {
     setLoadedAircraftData(data);
 
     if (!data) {
@@ -161,12 +166,12 @@ export default function FlightLogEntry({
           : {}),
       };
     });
-  };
+  }, []);
 
   // Start with 1 leg only
   const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
+    aircraftType: entryConfirmation?.aircraftType || "",
+    rpc: lockedRpc,
     date: new Date(),
     controlNo: "",
     legs: [
@@ -189,6 +194,7 @@ export default function FlightLogEntry({
     oilServicing: [],
     workItems: [],
     createdBy: userRole,
+    ...entryConfirmation,
     status: "pending_release",
     notifiedForCompletion: false,
     broughtForwardLocked: false,
@@ -353,7 +359,7 @@ export default function FlightLogEntry({
   const tabs = getFlightLogTabs();
   const totalPages = tabs.length;
   const isBasicInfoEditable = true;
-  const isDestinationsEditable = isPilot;
+  const isDestinationsEditable = isPilot || isMechanic;
   const isMechanicSectionEditable = isMechanic;
   const isWorkDoneEditable =
     isMechanic && formData.status === "pending_release";
@@ -424,7 +430,7 @@ export default function FlightLogEntry({
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       setFormData({
         aircraftType: "",
-        rpc: "",
+        rpc: lockedRpc,
         date: new Date(),
         controlNo: "",
         legs: [
@@ -499,7 +505,37 @@ export default function FlightLogEntry({
       });
       setLoadedAircraftData(null);
     }
-  }, [visible]);
+  }, [visible, lockedRpc, userRole]);
+
+  useEffect(() => {
+    if (!visible || !lockedRpc) return;
+
+    let cancelled = false;
+    setFormData((prev) => ({ ...prev, rpc: lockedRpc, aircraftType: "" }));
+    const loadSelectedAircraft = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedRpc)}`,
+        );
+        const payload = await response.json();
+        if (cancelled) return;
+        if (response.ok && payload?.data) {
+          setFormData((prev) => ({
+            ...prev,
+            aircraftType: payload.data.aircraftType || "",
+          }));
+          handleAircraftDataLoaded(payload.data);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error loading selected aircraft:", error);
+      }
+    };
+    loadSelectedAircraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, lockedRpc, handleAircraftDataLoaded]);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -537,6 +573,10 @@ export default function FlightLogEntry({
     setFormData((prev) => ({ ...prev, workItems }));
   };
 
+  useEffect(() => {
+    if (visible && entryConfirmation) setFormData(previous => ({ ...previous, ...entryConfirmation }));
+  }, [visible, entryConfirmation]);
+
   const formatDateForSave = (date) => {
     return date.toLocaleDateString("en-US", {
       month: "2-digit",
@@ -544,6 +584,16 @@ export default function FlightLogEntry({
       year: "numeric",
     });
   };
+
+  useEffect(() => {
+    if (!visible || !formData || formData.status === 'completed') return;
+    const next = populateFlightInputs({ ...formData, componentData });
+    setComponentData(previous => JSON.stringify(previous.thisFlightData) === JSON.stringify(next.componentData.thisFlightData) ? previous : { ...previous, thisFlightData: next.componentData.thisFlightData });
+    setFormData(previous => {
+      const updated = { ...previous, fuelServicing: next.fuelServicing, oilServicing: next.oilServicing, ...(next.b412Data ? { b412Data: next.b412Data } : {}) };
+      return JSON.stringify(previous) === JSON.stringify(updated) ? previous : updated;
+    });
+  }, [visible, formData, componentData]);
 
   const handleNext = () => {
     if (currentPage < totalPages - 1) {
@@ -654,12 +704,6 @@ export default function FlightLogEntry({
       return;
     }
 
-    if (isPilot && !hasCompleteFlightLogLegs(formData.legs)) {
-      showToast("Each leg must include complete station route and date");
-      setCurrentPage(tabs.indexOf("Destination/s"));
-      return;
-    }
-
     onSave(buildFlightLogPayload(formData));
   };
 
@@ -673,9 +717,12 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
+            isRPCEditable={!lockedRpc}
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412Aircraft(formData.aircraftType)}
+            assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
+            canAssign={isPilot || isMechanic}
           />
         );
 
@@ -704,13 +751,13 @@ export default function FlightLogEntry({
 
       case "This Flight":
         return (
-          <FlightLogModalThisFlight
+          <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isMechanicSectionEditable)} onChange={value => updateForm("additionalLandings", value)} /><FlightLogModalThisFlight
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)
             }
             isEditable={isMechanicSectionEditable}
-          />
+          /></>
         );
 
       case "To Date":
@@ -719,6 +766,7 @@ export default function FlightLogEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
+            signatureInherited={!!formData.initialInspectionSignature?.signature}
             legs={formData.legs}
             fuelServicingData={formData.fuelServicing}
             onUpdateFuelServicing={updateFuelServicing}
@@ -728,6 +776,7 @@ export default function FlightLogEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
+            signatureInherited={!!formData.initialInspectionSignature?.signature}
             legs={formData.legs}
             oilServicingData={formData.oilServicing}
             onUpdateOilServicing={updateOilServicing}
@@ -859,7 +908,7 @@ export default function FlightLogEntry({
         >
           {renderPage()}
 
-          {showReleaseButton && (
+          {false && showReleaseButton && (
             <View style={{ marginTop: 20, marginBottom: 12 }}>
               <TouchableOpacity
                 onPress={() => setShowReleaseModal(true)}
@@ -950,7 +999,7 @@ export default function FlightLogEntry({
               {!isAircraftSelected
                 ? "Select Aircraft"
                 : currentPage === totalPages - 1
-                  ? "Add"
+                  ? "Create Draft"
                   : "Next"}
             </AppText>
           </TouchableOpacity>

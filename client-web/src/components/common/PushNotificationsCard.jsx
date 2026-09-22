@@ -380,6 +380,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
         targetFlightLogId: String(notification.entityId || ""),
+        targetSection: notification?.metadata?.targetSection || 'flight',
         ...(status ? { notificationStatus: status } : {}),
       });
 

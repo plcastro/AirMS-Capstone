@@ -279,7 +279,7 @@ export default function PostInspectionEditEntry({
             updateForm={updateForm}
             isEditable={isFormEditable}
             isAircraftEditable={
-              isFormEditable && !formData.linkedFromPreFlight
+              isFormEditable && !formData.linkedFromPreFlight && !formData.flightLogId
             }
             rpcOptions={rpcOptions}
           />

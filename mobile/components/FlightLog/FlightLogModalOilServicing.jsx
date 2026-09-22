@@ -1,3 +1,4 @@
+import { Picker } from "@react-native-picker/picker";
 import React, { useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -16,8 +17,12 @@ export default function FlightLogModalOilServicing({
   oilServicingData,
   onUpdateOilServicing,
   isEditable = true,
+  lockedRows = 0,
+  signatureInherited = false,
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+
+  const canEditRow = index => isEditable && index >= lockedRows;
 
   const getOrdinalSuffix = (num) => {
     const j = num % 10;
@@ -29,6 +34,7 @@ export default function FlightLogModalOilServicing({
   };
 
   const updateOilData = (legIndex, field, value) => {
+    if (!canEditRow(legIndex)) return;
     const newOilData = [...oilServicingData];
     newOilData[legIndex] = { ...newOilData[legIndex], [field]: value };
     onUpdateOilServicing(legIndex, newOilData[legIndex]);
@@ -48,7 +54,7 @@ export default function FlightLogModalOilServicing({
       <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
         {label}:
       </AppText>
-      <AppInput
+      {/Rem$|Tot$/.test(fieldKey) ? !canEditRow(legIndex) ? <AppText>{oilServicingData[legIndex]?.[fieldKey] || "?"}</AppText> : <Picker enabled={canEditRow(legIndex)} selectedValue={oilServicingData[legIndex]?.[fieldKey] || ""} onValueChange={value => updateOilData(legIndex, fieldKey, value)}><Picker.Item label="MIN / MAX" value="" /><Picker.Item label="MIN" value="MIN" /><Picker.Item label="MAX" value="MAX" /></Picker> : <AppInput
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
@@ -62,8 +68,8 @@ export default function FlightLogModalOilServicing({
         placeholder={placeholder}
         placeholderTextColor={COLORS.grayDark}
         keyboardType={keyboardType}
-        editable={isEditable}
-      />
+        editable={canEditRow(legIndex)}
+      />}
     </View>
   );
 
@@ -75,7 +81,7 @@ export default function FlightLogModalOilServicing({
       <DateInput
         value={oilServicingData[legIndex]?.[fieldKey] || ""}
         onChangeText={(date) => updateOilData(legIndex, fieldKey, date)}
-        editable={isEditable}
+        editable={false}
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
@@ -195,7 +201,7 @@ export default function FlightLogModalOilServicing({
                   placeholderTextColor={COLORS.grayDark}
                   multiline
                   numberOfLines={3}
-                  editable={isEditable}
+                  editable={canEditRow(legIndex)}
                 />
               </View>
 
@@ -203,7 +209,7 @@ export default function FlightLogModalOilServicing({
                 <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                   Sign:
                 </AppText>
-                {isEditable ? (
+                {canEditRow(legIndex) && !signatureInherited ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
                     style={{
@@ -245,7 +251,7 @@ export default function FlightLogModalOilServicing({
                     )}
                   </View>
                 )}
-                {isEditable && oilData.signature && (
+                {canEditRow(legIndex) && !signatureInherited && oilData.signature && (
                   <TouchableOpacity onPress={() => handleClearSignature(legIndex)} style={{ alignSelf: "flex-end", marginTop: 8 }}>
                     <AppText style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</AppText>
                   </TouchableOpacity>

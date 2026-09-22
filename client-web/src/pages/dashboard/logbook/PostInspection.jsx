@@ -24,6 +24,7 @@ import {
   DatePicker,
 } from "antd";
 import {
+  ArrowLeftOutlined,
   EditOutlined,
   ExportOutlined,
   EyeOutlined,
@@ -35,11 +36,15 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
+import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
+import { isAssignedFlightCrew } from "../../../../../shared/flightCrewAccess";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import { getLogAircraftRegistration } from "../../../../../shared/aircraftLogGroups";
 import PostInspectionB412Checklist from "../../../components/pagecomponents/PostInspectionB412Checklist";
 import {
   B412_POST_INSPECTION_SECTIONS,
@@ -100,7 +105,8 @@ export default function PostInspection() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
-  const [aircraft, setAircraft] = useState("all");
+  const [aircraftQuery, setAircraftQuery] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [signatureMode, setSignatureMode] = useState(null);
@@ -126,7 +132,7 @@ export default function PostInspection() {
   const isCompletedRecord = (record) =>
     getDisplayStatus(String(record?.status || "").toLowerCase()) ===
     "completed";
-  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record);
+  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record) || !isAssignedFlightCrew(user, record);
 
   const load = useCallback(async () => {
     try {
@@ -162,7 +168,9 @@ export default function PostInspection() {
     const notificationStatus = params.get("notificationStatus");
     if (notificationStatus) {
       setStatus(String(notificationStatus).toLowerCase());
-      setAircraft("all");
+      setSelectedAircraft(null);
+      setQuery("");
+      setAircraftQuery("");
     }
   }, [location.search]);
 
@@ -176,27 +184,38 @@ export default function PostInspection() {
     );
     if (!match) return;
 
+    setSelectedAircraft(getLogAircraftRegistration(match));
+    setQuery("");
+    setStatus("all");
     setEditTab("basic");
     setEditing(match);
     navigate("/dashboard/post-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
-  const aircraftOptions = useMemo(
-    () => ["all", ...new Set(records.map((item) => item.rpc).filter(Boolean))],
-    [records],
-  );
+  const openAircraft = (rpc) => {
+    setSelectedAircraft(rpc);
+    setQuery("");
+    setStatus("all");
+  };
+
+  const backToAircraft = () => {
+    setSelectedAircraft(null);
+    setQuery("");
+    setStatus("all");
+  };
 
   const filtered = useMemo(
     () =>
       records.filter((item) => {
         const matchesQuery = matchesSearch(debouncedQuery, item);
-        const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
+        const matchesAircraft =
+          getLogAircraftRegistration(item) === selectedAircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, debouncedQuery, aircraft, status],
+    [records, debouncedQuery, selectedAircraft, status],
   );
 
   const booleanFields = useMemo(
@@ -399,6 +418,10 @@ export default function PostInspection() {
         );
       setEditing(data.data);
       await load();
+      const savedAircraft = getLogAircraftRegistration(data.data || nextPayload);
+      if (savedAircraft !== selectedAircraft) {
+        openAircraft(savedAircraft);
+      }
       setPopup({
         open: true,
         status: "success",
@@ -481,9 +504,32 @@ export default function PostInspection() {
 
   return (
     <div style={{ padding: isMobile ? 12 : 20 }}>
+      {!selectedAircraft ? (
+        <AircraftLogGroups
+          records={records}
+          sortBy="latestActivity"
+          loading={loading}
+          query={aircraftQuery}
+          onQueryChange={setAircraftQuery}
+          onSelect={openAircraft}
+          emptyText="No post-flight inspections found."
+        />
+      ) : (
+        <>
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={backToAircraft}
+            style={{ paddingInline: 0 }}
+          >
+            Back to Aircraft
+          </Button>
+          <Typography.Title level={4} style={{ margin: "8px 0 16px" }}>
+            {selectedAircraft} — Post-Flight Inspections
+          </Typography.Title>
       <Card>
         <Row gutter={[12, 12]}>
-          <Col xs={24} md={9}>
+          <Col xs={24} md={16}>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -493,19 +539,7 @@ export default function PostInspection() {
               allowClear
             />
           </Col>
-          <Col xs={12} md={7}>
-            <Select
-              style={{ width: "100%" }}
-              value={aircraft}
-              onChange={setAircraft}
-              options={aircraftOptions.map((value) => ({
-                value,
-                label: value === "all" ? "All Aircraft" : `RP/C: ${value}`,
-              }))}
-              size="large"
-            />
-          </Col>
-          <Col xs={12} md={6}>
+          <Col xs={24} md={8}>
             <Select
               style={{ width: "100%" }}
               value={status}
@@ -521,6 +555,7 @@ export default function PostInspection() {
       </Card>
 
       <ResponsiveTable
+        key={selectedAircraft}
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
@@ -575,9 +610,11 @@ export default function PostInspection() {
           </Text>
         </Col>
       </Row>
+        </>
+      )}
 
       <Modal
-        open={Boolean(editing)}
+        open={Boolean(editing) && !editing?.flightLogId}
         onCancel={() => {
           setEditTab("basic");
           setEditing(null);
@@ -625,6 +662,7 @@ export default function PostInspection() {
                     label: tab.label,
                     children: (
                       <Row gutter={[10, 10]}>
+                        <Col span={24}><Text type="secondary">Linked Flight Log: {editing.flightLogControlNo || editing.flightLogId || "Not linked"} · Pilot: {editing.assignedPilot?.name || "Not assigned"} · Mechanic: {editing.assignedMechanic?.name || "Not assigned"}</Text></Col>
                         <Col xs={24} md={8}>
                           <Text strong>RP/C</Text>
                           <Input
@@ -636,7 +674,7 @@ export default function PostInspection() {
                               }))
                             }
                             disabled={isRecordReadOnly(editing)}
-                            readOnly={Boolean(editing.linkedFromPreFlight)}
+                            readOnly={Boolean(editing.linkedFromPreFlight || editing.flightLogId)}
                           />
                         </Col>
                         <Col xs={24} md={8}>

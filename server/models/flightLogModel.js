@@ -53,6 +53,7 @@ const oilServicingSchema = new mongoose.Schema({
 
 // Work Item Schema
 const workItemSchema = new mongoose.Schema({
+  phase: { type: String, enum: ['preparation', 'post_flight'], default: 'preparation' },
   id: { type: String, default: "" },
   selectedWorkTypes: { type: [String], default: [] },
   description: { type: String, default: "" },
@@ -253,6 +254,10 @@ const b412FlightLogDataSchema = new mongoose.Schema(
 
 // Person Signature Schema
 const personSignatureSchema = new mongoose.Schema({
+  scope: { type: String, default: '' },
+  authorizationId: { type: String, default: '' },
+  authorizationReference: { type: String, default: '' },
+  licenseType: { type: String, default: '' },
   name: { type: String, default: "" },
   id: { type: String, default: "" },
   licenseNo: { type: String, default: "" },
@@ -270,6 +275,33 @@ const flightLogSchema = new mongoose.Schema(
     rpc: { type: String, default: "" },
     date: { type: String, default: "" },
     controlNo: { type: String, default: "" },
+    flightPurpose: { type: String, enum: ['company_transport', 'line_inspection', 'sling_work', 'training', 'maintenance_test', 'other', ''], default: '' },
+    purposeDetails: { type: String, default: '' },
+    noDefectsReported: { type: Boolean, default: false },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    pendingNotifications: { type: [mongoose.Schema.Types.Mixed], default: [], select: false },
+    amendments: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    completionReceipt: { type: mongoose.Schema.Types.Mixed, default: null },
+    monitoringBaseline: { type: mongoose.Schema.Types.Mixed, default: null },
+    submittedBy: personSignatureSchema,
+    completedBy: personSignatureSchema,
+    initialInspectionSignature: personSignatureSchema,
+    additionalLandings: { type: Number, default: 0, min: 0, validate: Number.isInteger },
+    inspectionFlow: { type: String, default: '' },
+    assignedPilot: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
+    assignedMechanic: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
     sling: { type: String, default: "" },
     remarks: { type: String, default: "" },
 
@@ -302,6 +334,9 @@ const flightLogSchema = new mongoose.Schema(
         "released",
         "accepted",
         "completed",
+        "submitted",
+        "returned_to_mechanic",
+        "returned_to_pilot",
       ],
       default: "pending_release",
     },
