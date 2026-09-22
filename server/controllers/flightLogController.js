@@ -1,4 +1,7 @@
 const FlightLog = require("../models/flightLogModel");
+const { resolveAssignedPilot } = require('../utils/flightLogPilot');
+const { applyFlightLogHours, requiredFlightTimeError } = require('../../shared/flightLogTimes');
+const { syncFlightLogDates } = require('../../shared/flightLogDates');
 const { auditLog } = require("./logsController");
 const {
   createFlightLogNotifications,
@@ -169,6 +172,10 @@ const createFlightLog = async (req, res) => {
       "create",
     );
 
+    Object.assign(flightLogData, syncFlightLogDates(flightLogData));
+    const timeError = requiredFlightTimeError(flightLogData.legs);
+    if (timeError) return res.status(400).json({ success: false, message: timeError });
+
     const b412PayloadError = getB412PayloadShapeError(flightLogData.b412Data);
     if (b412PayloadError) {
       return res.status(400).json({
@@ -285,7 +292,12 @@ const createFlightLog = async (req, res) => {
     );
 
     // Create and save the flight log
-    const flightLog = new FlightLog(flightLogData);
+    if (Object.hasOwn(flightLogData, 'assignedPilot')) {
+      const pilot = await resolveAssignedPilot(flightLogData.assignedPilot);
+      if (pilot.error) return res.status(400).json({ success: false, message: pilot.error });
+      flightLogData.assignedPilot = pilot.value;
+    }
+    const flightLog = new FlightLog(applyFlightLogHours(flightLogData));
     console.log("FlightLog model created");
 
     await flightLog.save();
@@ -547,6 +559,13 @@ const updateFlightLog = async (req, res) => {
       });
     }
 
+    if (['date', 'legs', 'fuelServicing', 'oilServicing'].some(key => Object.hasOwn(updates, key))) {
+      const dated = syncFlightLogDates({ ...toComparableFlightLog(existingFlightLog), ...updates });
+      for (const key of ['legs', 'fuelServicing', 'oilServicing']) updates[key] = dated[key];
+    }
+    const timeError = requiredFlightTimeError(Object.hasOwn(updates, 'legs') ? updates.legs : existingFlightLog.legs);
+    if (timeError) return res.status(400).json({ success: false, message: timeError });
+
     if (
       isRestrictedPilotFlightLogRequest(req) &&
       Object.prototype.hasOwnProperty.call(updates, "legs") &&
@@ -612,6 +631,23 @@ const updateFlightLog = async (req, res) => {
             "Add at least one complete From-To station in Destination/s before notifying for completion.",
         });
       }
+    }
+
+    if (['date', 'legs', 'fuelServicing', 'oilServicing', 'componentData', 'additionalLandings'].some(key => Object.hasOwn(updates, key))) {
+      const calculated = applyFlightLogHours({
+        ...toComparableFlightLog(existingFlightLog), ...updates,
+      });
+      updates.componentData = calculated.componentData;
+      updates.additionalLandings = calculated.additionalLandings;
+      updates.legs = calculated.legs;
+      updates.fuelServicing = calculated.fuelServicing;
+      updates.oilServicing = calculated.oilServicing;
+    }
+
+    if (Object.hasOwn(updates, 'assignedPilot')) {
+      const pilot = await resolveAssignedPilot(updates.assignedPilot, existingFlightLog.assignedPilot);
+      if (pilot.error) return res.status(400).json({ success: false, message: pilot.error });
+      updates.assignedPilot = pilot.value;
     }
 
     // Update the flight log
@@ -685,6 +721,9 @@ const releaseFlightLog = async (req, res) => {
         message: `Cannot release flight log in ${flightLog.status} status`,
       });
     }
+
+    const timeError = requiredFlightTimeError(flightLog.legs);
+    if (timeError) return res.status(400).json({ success: false, message: timeError });
 
     // Release the flight log
     const previousFlightLog = toComparableFlightLog(flightLog);
@@ -810,6 +849,9 @@ const completeFlightLog = async (req, res) => {
         message: `Cannot complete flight log in ${flightLog.status} status`,
       });
     }
+
+    const timeError = requiredFlightTimeError(flightLog.legs);
+    if (timeError) return res.status(400).json({ success: false, message: timeError });
 
     // Complete the flight log
     const previousFlightLog = toComparableFlightLog(flightLog);

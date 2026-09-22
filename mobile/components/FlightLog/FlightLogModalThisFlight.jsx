@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FLIGHT_HOUR_FIELDS, normalizeAdditionalLandings } from '../../../shared/flightLogTimes';
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
@@ -14,6 +15,9 @@ export default function FlightLogModalThisFlight({
   componentData,
   onUpdateComponent,
   isEditable = true,
+  legCount = 0,
+  additionalLandings = 0,
+  onAdditionalLandingsChange,
 }) {
   const [activeDateField, setActiveDateField] = useState(null);
 
@@ -40,7 +44,25 @@ export default function FlightLogModalThisFlight({
       <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
         {label}
       </AppText>
-      {isNextDueDateField ? (
+      {field === 'landingCycle' ? (
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {[-1, 1].map(delta => {
+              const disabled = !isEditable || !onAdditionalLandingsChange || (delta < 0 && normalizeAdditionalLandings(additionalLandings) === 0);
+              return <React.Fragment key={delta}>
+                {delta === 1 && <AppText accessibilityLabel="This flight landing cycles" style={{ paddingHorizontal: 16 }}>{componentData[field]}</AppText>}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={delta < 0 ? 'Decrease landing cycles' : 'Increase landing cycles'}
+                  accessibilityState={{ disabled }} disabled={disabled}
+                  onPress={() => onAdditionalLandingsChange(normalizeAdditionalLandings(additionalLandings) + delta)}
+                  style={{ paddingHorizontal: 18, paddingVertical: 12, borderRadius: 6, backgroundColor: disabled ? '#eee' : '#dcefe7' }}>
+                  <AppText>{delta < 0 ? '−' : '+'}</AppText>
+                </TouchableOpacity>
+              </React.Fragment>;
+            })}
+          </View>
+          <AppText style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Minimum: {legCount} (one per leg)</AppText>
+        </View>
+      ) : isNextDueDateField ? (
         <>
           <TouchableOpacity
             onPress={() => isEditable && setActiveDateField(field)}
@@ -94,7 +116,7 @@ export default function FlightLogModalThisFlight({
           }}
           value={componentData[field] || ""}
           onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
-          editable={isEditable}
+          editable={isEditable && !FLIGHT_HOUR_FIELDS.includes(field)}
           keyboardType="numeric"
         />
       )}

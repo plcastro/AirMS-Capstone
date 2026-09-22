@@ -1,4 +1,6 @@
 import React from "react";
+import FlightTimeInput from './FlightTimeInput';
+import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
 import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -11,7 +13,7 @@ const getOrdinalSuffix = (n) => {
   return "th";
 };
 
-const REQUIRED_LEG_FIELDS = new Set(["date"]);
+const REQUIRED_LEG_FIELDS = new Set(["date", "totalTimeOff"]);
 
 export default function FlightLogModalDestinations({
   formData,
@@ -117,6 +119,7 @@ export default function FlightLogModalDestinations({
                       style={{ width: "100%" }}
                       format="MM/DD/YYYY"
                       inputReadOnly
+                  placeholder="From Basic Information"
                       value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
                       onChange={(date) =>
                         updateLeg(
@@ -127,10 +130,13 @@ export default function FlightLogModalDestinations({
                             : "",
                         )
                       }
-                      disabled={!isEditable}
+                      disabled
                       required
                       aria-required="true"
                     />
+                  ) : FLIGHT_TIME_FIELDS.includes(key) ? (
+                    <FlightTimeInput label={label} value={leg[key]} duration={isTotalTimeField(key)} required={key === 'totalTimeOff'}
+                      disabled={!isEditable} onChange={value => updateLeg(legIdx, key, value)} />
                   ) : (
                     <Input
                       className="fl-input"

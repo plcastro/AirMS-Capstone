@@ -43,29 +43,26 @@ export default function FlightLogModalOilServicing({
     updateOilData(legIndex, "signature", "");
   };
 
-  const renderInput = (legIndex, label, fieldKey, placeholder = "", keyboardType = "default") => (
-    <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-        {label}:
-      </AppText>
-      <AppInput
-        style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-          borderRadius: 6,
-          height: 42,
-          paddingHorizontal: 12,
-          fontSize: 12,
-          color: isEditable ? COLORS.black : COLORS.grayDark,
-        }}
-        value={oilServicingData[legIndex]?.[fieldKey] || ""}
-        onChangeText={(text) => updateOilData(legIndex, fieldKey, text)}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.grayDark}
-        keyboardType={keyboardType}
-        editable={isEditable}
-      />
-    </View>
-  );
+  const renderOilLevel = (legIndex, label, fieldKey) => {
+    const value = oilServicingData[legIndex]?.[fieldKey];
+    return <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: '500' }}>{label}:</AppText>
+      <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', gap: 8 }}>
+        {['MIN', 'MAX'].map(option => {
+          const selected = value === option;
+          return <TouchableOpacity key={option} accessibilityRole="radio"
+            accessibilityLabel={`${label}: ${option}`} accessibilityState={{ checked: selected, disabled: !isEditable }}
+            disabled={!isEditable} onPress={() => updateOilData(legIndex, fieldKey, option)}
+            style={{ minWidth: 80, minHeight: 44, paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center', borderRadius: 6,
+              borderWidth: 1, borderColor: selected ? '#247a61' : '#aaa', backgroundColor: selected ? '#247a61' : '#f5f5f5', opacity: isEditable ? 1 : 0.65 }}>
+            <AppText style={{ color: selected ? '#fff' : '#333', fontWeight: selected ? '700' : '400' }}>{option}</AppText>
+          </TouchableOpacity>;
+        })}
+      </View>
+      {value !== undefined && String(value) !== '' && !['MIN', 'MAX'].includes(value) &&
+        <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}>Saved value: {value}</AppText>}
+    </View>;
+  };
 
   const renderDateInput = (legIndex, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
@@ -75,9 +72,10 @@ export default function FlightLogModalOilServicing({
       <DateInput
         value={oilServicingData[legIndex]?.[fieldKey] || ""}
         onChangeText={(date) => updateOilData(legIndex, fieldKey, date)}
-        editable={isEditable}
+        editable={false}
+        placeholder="From Basic Information"
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 6,
           minHeight: 42,
         }}
@@ -156,23 +154,23 @@ export default function FlightLogModalOilServicing({
               <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 Engine
               </AppText>
-              {renderInput(legIndex, "Engine (REM)", "engineRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "Engine (ADD)", "engineAdd", "Added", "numeric")}
-              {renderInput(legIndex, "Engine (TOT)", "engineTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "Engine (REM)", "engineRem")}
+              {renderOilLevel(legIndex, "Engine (ADD)", "engineAdd")}
+              {renderOilLevel(legIndex, "Engine (TOT)", "engineTot")}
 
               <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 M/R G/Box
               </AppText>
-              {renderInput(legIndex, "M/R G/Box (REM)", "mrGboxRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "M/R G/Box (ADD)", "mrGboxAdd", "Added", "numeric")}
-              {renderInput(legIndex, "M/R G/Box (TOT)", "mrGboxTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "M/R G/Box (REM)", "mrGboxRem")}
+              {renderOilLevel(legIndex, "M/R G/Box (ADD)", "mrGboxAdd")}
+              {renderOilLevel(legIndex, "M/R G/Box (TOT)", "mrGboxTot")}
 
               <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
                 T/R G/Box
               </AppText>
-              {renderInput(legIndex, "T/R G/Box (REM)", "trGboxRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "T/R G/Box (ADD)", "trGboxAdd", "Added", "numeric")}
-              {renderInput(legIndex, "T/R G/Box (TOT)", "trGboxTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "T/R G/Box (REM)", "trGboxRem")}
+              {renderOilLevel(legIndex, "T/R G/Box (ADD)", "trGboxAdd")}
+              {renderOilLevel(legIndex, "T/R G/Box (TOT)", "trGboxTot")}
 
               <View style={{ marginBottom: 16, marginTop: 8 }}>
                 <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>

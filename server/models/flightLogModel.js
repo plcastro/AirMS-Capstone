@@ -294,6 +294,13 @@ const flightLogSchema = new mongoose.Schema(
     createdBy: { type: String, default: "" },
     createdByName: { type: String, default: "" },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    assignedPilot: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
     status: {
       type: String,
       enum: [
@@ -307,6 +314,7 @@ const flightLogSchema = new mongoose.Schema(
     },
     notifiedForCompletion: { type: Boolean, default: false },
     broughtForwardLocked: { type: Boolean, default: false },
+    additionalLandings: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
 
     // Signatures
     releasedBy: personSignatureSchema,

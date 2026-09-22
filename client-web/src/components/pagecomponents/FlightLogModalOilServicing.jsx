@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Input, Button, Typography, DatePicker } from "antd";
+import { Input, Button, Typography, DatePicker, Radio } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
@@ -114,6 +114,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
                   inputReadOnly
+                  placeholder="From Basic Information"
                   value={oil.date ? dayjs(oil.date) : null}
                   onChange={(date) =>
                     updateOil(
@@ -122,7 +123,7 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                       date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
                     )
                   }
-                  disabled={!isEditable}
+                  disabled
                 />
               </div>
 
@@ -130,12 +131,22 @@ export default function FlightLogModalOilServicing({ formData, updateOil, isEdit
                 fields.map(([label, key]) => (
                   <div className="fl-field-row" key={key}>
                     <span className="fl-label">{label}</span>
-                    <Input
-                      className="fl-input"
-                      value={oil[key] || ""}
-                      onChange={(e) => updateOil(legIdx, key, e.target.value)}
-                      disabled={!isEditable}
-                    />
+                    <div style={{ flex: 1 }}>
+                      <Radio.Group
+                        aria-label={label}
+                        optionType="button"
+                        buttonStyle="solid"
+                        options={["MIN", "MAX"]}
+                        value={oil[key] || undefined}
+                        onChange={(event) => updateOil(legIdx, key, event.target.value)}
+                        disabled={!isEditable}
+                      />
+                      {oil[key] !== undefined && String(oil[key]) !== '' && !["MIN", "MAX"].includes(oil[key]) && (
+                        <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                          Saved value: {oil[key]}
+                        </Text>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

@@ -3,6 +3,7 @@ import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
+import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 export default function FlightLogModalInfo({
   formData,
@@ -305,6 +306,12 @@ export default function FlightLogModalInfo({
               required
               aria-required="true"
             />
+          </div>
+
+          <div className="fl-field-row">
+            <span className="fl-label">Assigned Pilot:</span>
+            <FlightAssignedPilotSelect value={formData.assignedPilot} onChange={value => updateForm('assignedPilot', value)}
+              disabled={!isEditable} isActive={isActive} />
           </div>
 
           <div className="fl-field-row">

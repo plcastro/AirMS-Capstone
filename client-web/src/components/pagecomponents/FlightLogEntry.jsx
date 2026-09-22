@@ -1,3 +1,5 @@
+import { syncFlightLogDates } from '../../../../shared/flightLogDates';
+import { totalFlightHours, FLIGHT_HOUR_FIELDS, flightLandingCycles, requiredFlightTimeError } from '../../../../shared/flightLogTimes';
 import React, { useState, useEffect, useMemo } from "react";
 import { Alert, Button, message, Modal, Spin, Typography } from "antd";
 import {
@@ -264,6 +266,9 @@ export default function FlightLogEntry({
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
+  const canEnterDestinations = ["pilot", "mechanic", "maintenance manager"].includes(
+    String(userRole || "").trim().toLowerCase().replace(/[\s-]+/g, " "),
+  );
 
   const normalizeInitialForm = (source) => {
     const hydrated = hydrateLegacyB412FlightLog({
@@ -491,6 +496,7 @@ export default function FlightLogEntry({
 
     const mechanicTabs = [
       ALL_TABS[0],
+      ALL_TABS[1],
       ALL_TABS[2],
       ALL_TABS[3],
       ALL_TABS[4],
@@ -711,7 +717,7 @@ export default function FlightLogEntry({
   const isRPCEditable =
     !editMode || !isReleasedFlightLogStatus(formData.status);
   const canEditDestinations =
-    !readOnly && (!editMode ? isPilot : isPilot && editMode);
+    !readOnly && !isCompletedLog && canEnterDestinations;
   const canEditComponent = !readOnly && isMechanic;
   const canEditNextInspectionDates = !readOnly && isMechanic;
   const canEditFuelOil =
@@ -756,6 +762,15 @@ export default function FlightLogEntry({
     return payload;
   };
 
+  const validateRequiredFlightTime = () => {
+    const error = requiredFlightTimeError(formData.legs);
+    if (!error) return true;
+    setValidationError(error);
+    setActiveTab('destinations');
+    message.error(error);
+    return false;
+  };
+
   const handleSave = async () => {
     setValidationError("");
     if (
@@ -781,7 +796,8 @@ export default function FlightLogEntry({
       message.error("Flight log date is required");
       return;
     }
-    if (canEditDestinations) {
+    if (!validateRequiredFlightTime()) return;
+    if (isPilot && canEditDestinations) {
       const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
         const hasInvalidRoute = (leg.stations || []).some(
           (station) =>
@@ -813,6 +829,25 @@ export default function FlightLogEntry({
     }
   };
 
+  useEffect(() => {
+    if (!visible || formData.status === 'completed') return;
+    const hours = totalFlightHours(formData.legs);
+    const landingCycle = String(flightLandingCycles(formData.legs, formData.additionalLandings));
+    setComponentData(previous => {
+      if (previous.thisFlightData?.landingCycle === landingCycle && FLIGHT_HOUR_FIELDS.every(key => previous.thisFlightData?.[key] === hours)) return previous;
+      return { ...previous, thisFlightData: { ...previous.thisFlightData,
+        ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map(key => [key, hours])), landingCycle } };
+    });
+  }, [visible, formData.legs, formData.status, formData.additionalLandings]);
+
+  useEffect(() => {
+    if (!visible || formData.status === 'completed') return;
+    setFormData(previous => {
+      const next = syncFlightLogDates(previous);
+      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+    });
+  }, [visible, formData]);
+
   const renderContent = () => {
     switch (effectiveActiveTab) {
       case "info":
@@ -840,6 +875,9 @@ export default function FlightLogEntry({
       case "component":
         return (
           <FlightLogModalComponentTimes
+            legCount={formData.legs?.length || 0}
+            additionalLandings={formData.additionalLandings || 0}
+            onAdditionalLandingsChange={additionalLandings => setFormData(previous => ({ ...previous, additionalLandings }))}
             componentData={componentData}
             updateComponent={updateComponent}
             isEditable={canSave && canEditComponent}
@@ -1111,7 +1149,7 @@ export default function FlightLogEntry({
                 <Button
                   type="primary"
                   loading={workflowLoading}
-                  onClick={() => onRelease?.(buildSavePayload(formData))}
+                  onClick={() => { if (validateRequiredFlightTime()) onRelease?.(buildSavePayload(formData)); }}
                 >
                   Release
                 </Button>
@@ -1138,7 +1176,7 @@ export default function FlightLogEntry({
                   type="primary"
                   loading={workflowLoading}
                   onClick={() =>
-                    onComplete?.(buildSavePayload(formData))
+                    validateRequiredFlightTime() && onComplete?.(buildSavePayload(formData))
                   }
                 >
                   Complete

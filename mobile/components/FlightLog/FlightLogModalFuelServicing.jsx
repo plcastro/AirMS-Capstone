@@ -75,9 +75,10 @@ export default function FlightLogModalFuelServicing({
       <DateInput
         value={fuelServicingData[legIndex]?.[fieldKey] || ""}
         onChangeText={(date) => updateFuelData(legIndex, fieldKey, date)}
-        editable={isEditable}
+        editable={false}
+        placeholder="From Basic Information"
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 6,
           minHeight: 42,
         }}

@@ -106,6 +106,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
                   inputReadOnly
+                  placeholder="From Basic Information"
                   value={fuel.date ? dayjs(fuel.date) : null}
                   onChange={(date) =>
                     updateFuel(
@@ -114,7 +115,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                       date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
                     )
                   }
-                  disabled={!isEditable}
+                  disabled
                 />
               </div>
               <div className="fl-field-row">

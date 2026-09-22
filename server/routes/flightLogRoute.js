@@ -25,6 +25,7 @@ router
 // Statistics and search routes
 router.get("/stats", getFlightLogStats);
 router.get("/search", searchFlightLogs);
+router.get('/pilot-options', verifyToken, require('../utils/flightLogPilot').getAssignedPilotOptions);
 
 // Aircraft-specific routes
 router.get("/aircraft/:rpc", getFlightLogsByAircraft);

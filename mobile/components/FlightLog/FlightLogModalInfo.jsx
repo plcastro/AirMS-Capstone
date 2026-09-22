@@ -5,6 +5,7 @@ import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateInput from "../common/DateInput";
+import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
 
@@ -405,6 +406,12 @@ export default function FlightLogModalInfo({
               onChangeText={(date) => updateForm("date", date)}
               editable={isEditable}
             />
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: '500' }}>Assigned Pilot:</AppText>
+            <FlightAssignedPilotSelect value={formData.assignedPilot} onChange={value => updateForm('assignedPilot', value)}
+              disabled={!isEditable} isActive={isActive} />
           </View>
 
           <View style={{ marginBottom: 8 }}>

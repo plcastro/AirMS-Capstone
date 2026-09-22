@@ -1,3 +1,5 @@
+import FlightTimeInput from './FlightTimeInput';
+import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../shared/flightLogTimes';
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -198,8 +200,16 @@ export default function FlightLogModalDestinations({
           fontWeight: "500",
         }}
       >
-        {label}
+        {label}{fieldKey === 'totalTimeOff' ? ' *' : ''}
       </AppText>
+      {FLIGHT_TIME_FIELDS.includes(fieldKey) ? <FlightTimeInput label={label} required={fieldKey === 'totalTimeOff'}
+        value={legs[legIdx][fieldKey]} duration={isTotalTimeField(fieldKey)} disabled={!isEditable}
+        onChange={value => {
+          if (!isEditable) return;
+          const newLegs = legs.map((leg, i) => i === legIdx ? { ...leg, [fieldKey]: value } : leg);
+          setLegs(newLegs);
+          onUpdateLeg({ ...legData, legs: newLegs });
+        }} /> : (
       <AppInput
         style={{
           backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
@@ -218,7 +228,7 @@ export default function FlightLogModalDestinations({
           onUpdateLeg({ ...legData, legs: newLegs });
         }}
         editable={isEditable}
-      />
+      />)}
     </View>
   );
 
@@ -236,7 +246,8 @@ export default function FlightLogModalDestinations({
       </AppText>
       <DateInput
         value={legs[legIdx][fieldKey] || ""}
-        editable={isEditable}
+        editable={false}
+        placeholder="From Basic Information"
         onChangeText={(date) => {
           if (!isEditable) return;
           const newLegs = [...legs];
@@ -245,7 +256,7 @@ export default function FlightLogModalDestinations({
           onUpdateLeg({ ...legData, legs: newLegs });
         }}
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 4,
           minHeight: 38,
           height: 38,
