@@ -252,7 +252,7 @@ function DrawerNav({ navigation }) {
                   style={{
                     height: 48,
                     justifyContent: "center",
-                    paddingBottom: 10,
+                    paddingBottom: 7,
                   }}
                 >
                   <Image
@@ -275,6 +275,7 @@ function DrawerNav({ navigation }) {
                     backgroundColor: "#E6F4F1",
                     alignItems: "center",
                     justifyContent: "center",
+                    paddingBottom: 7,
                   }}
                 >
                   <AppText style={{ color: "#26866F", fontWeight: "700" }}>
