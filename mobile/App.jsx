@@ -225,6 +225,7 @@ function DrawerNav({ navigation }) {
           <View
             style={{
               paddingHorizontal: 7,
+              paddingBottom: 6,
               flexDirection: "row",
               alignItems: "center",
             }}
@@ -238,17 +239,23 @@ function DrawerNav({ navigation }) {
               onPress={() => navigation.navigate("Profile")}
             >
               {profileImage ? (
-                <Image
-                  source={{
-                    uri: profileImage,
-                  }}
+                <View
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    marginRight: 5,
+                    height: 48,
+                    justifyContent: "center",
+                    paddingBottom: 5,
                   }}
-                />
+                >
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      marginRight: 5,
+                    }}
+                  />
+                </View>
               ) : (
                 <View
                   style={{
