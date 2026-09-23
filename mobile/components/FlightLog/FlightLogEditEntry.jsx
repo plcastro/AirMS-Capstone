@@ -1,5 +1,10 @@
-import { syncFlightLogDates } from '../../../shared/flightLogDates';
-import { totalFlightHours, FLIGHT_HOUR_FIELDS, flightLandingCycles, requiredFlightTimeError } from '../../../shared/flightLogTimes';
+import { syncFlightLogDates } from "../../../shared/flightLogDates";
+import {
+  totalFlightHours,
+  FLIGHT_HOUR_FIELDS,
+  flightLandingCycles,
+  requiredFlightTimeError,
+} from "../../../shared/flightLogTimes";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
@@ -149,7 +154,13 @@ const getSignerLabel = (signatureData = {}) =>
         .filter(Boolean)
         .join(" - ");
 
-function EntryShell({ embedded, children, ...props }) { return embedded ? <View style={{flex:1}}>{children}</View> : <Modal {...props}>{children}</Modal>; }
+function EntryShell({ embedded, children, ...props }) {
+  return embedded ? (
+    <View style={{ flex: 1 }}>{children}</View>
+  ) : (
+    <Modal {...props}>{children}</Modal>
+  );
+}
 export default function FlightLogEditEntry({
   visible,
   logData,
@@ -180,15 +191,14 @@ export default function FlightLogEditEntry({
     .toLowerCase()
     .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
-  const isMechanic =
-    [
-      "mechanic",
-      "engineer",
-      "maintenance manager",
-      "head of maintenance",
-      "admin",
-      "superadmin",
-    ].includes(normalizedRole);
+  const isMechanic = [
+    "mechanic",
+    "engineer",
+    "maintenance manager",
+    "head of maintenance",
+    "admin",
+    "superadmin",
+  ].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -221,32 +231,33 @@ export default function FlightLogEditEntry({
   const isB412 = isB412Aircraft(formData.aircraftType);
   const isAircraftSelected = Boolean(
     String(formData.rpc || "").trim() &&
-      String(formData.aircraftType || "").trim(),
+    String(formData.aircraftType || "").trim(),
   );
 
   // Calculate toDateData whenever broughtForwardData or thisFlightData changes
   useEffect(() => {
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
-    const sum = key => {
-      const first = String(bf[key] ?? "").trim(), second = String(tf[key] ?? "").trim();
-      return first && second && Number.isFinite(Number(first)) && Number.isFinite(Number(second)) ? Number(first) + Number(second) : "";
+    const sum = (key) => {
+      const first = String(bf[key] ?? "").trim(),
+        second = String(tf[key] ?? "").trim();
+      return first &&
+        second &&
+        Number.isFinite(Number(first)) &&
+        Number.isFinite(Number(second))
+        ? Number(first) + Number(second)
+        : "";
     };
     const calculated = {
       airframe: sum("airframe"),
-      gearBoxMain:
-        sum("gearBoxMain"),
-      gearBoxTail:
-        sum("gearBoxTail"),
-      rotorMain:
-        sum("rotorMain"),
-      rotorTail:
-        sum("rotorTail"),
+      gearBoxMain: sum("gearBoxMain"),
+      gearBoxTail: sum("gearBoxTail"),
+      rotorMain: sum("rotorMain"),
+      rotorTail: sum("rotorTail"),
       engine: sum("engine"),
       cycleN1: sum("cycleN1"),
       cycleN2: sum("cycleN2"),
-      landingCycle:
-        sum("landingCycle"),
+      landingCycle: sum("landingCycle"),
       usage: sum("usage"),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
@@ -259,7 +270,10 @@ export default function FlightLogEditEntry({
   // Reset page when modal opens
   useEffect(() => {
     if (visible) {
-      setCurrentPage(({ component: 2, destinations: 1, workdone: 8, info: 0 })[initialTab] || 0);
+      setCurrentPage(
+        { component: 2, destinations: 1, workdone: 8, info: 0 }[initialTab] ||
+          0,
+      );
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     }
   }, [visible, initialTab]);
@@ -278,7 +292,8 @@ export default function FlightLogEditEntry({
       return ["Basic Information"];
     }
 
-    if (isPilot && !embedded) return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
+    if (isPilot && !embedded)
+      return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
 
     const nextTabs = [
       "Basic Information",
@@ -307,15 +322,25 @@ export default function FlightLogEditEntry({
   const isBasicInfoEditable = !readOnly && !isCompletedLog;
   const isRPCEditable = !isReleasedFlightLogStatus(formData.status);
   const isDestinationsEditable =
-    !readOnly && !isCompletedLog &&
+    !readOnly &&
+    !isCompletedLog &&
     (isPilot || ["mechanic", "maintenance manager"].includes(normalizedRole));
   const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
-  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic && (!permissions || permissions.maintenance);
-  const isDiscrepancyEditable = !readOnly && !isCompletedLog && (!permissions || permissions.flight);
+  const isFuelOilEditable =
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic &&
+    (!permissions || permissions.maintenance);
+  const isDiscrepancyEditable =
+    !readOnly && !isCompletedLog && (!permissions || permissions.flight);
   const isWorkDoneEditable =
-    !readOnly && !isCompletedLog && isMechanic && shouldShowWorkDone && (!permissions || permissions.maintenance);
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic &&
+    shouldShowWorkDone &&
+    (!permissions || permissions.maintenance);
 
   useEffect(() => {
     if (shouldShowWorkDone) {
@@ -467,7 +492,7 @@ export default function FlightLogEditEntry({
     const timeError = requiredFlightTimeError(updatedFormData.legs);
     if (timeError) {
       showToast(timeError);
-      setCurrentPage(Math.max(tabs.indexOf('Destination/s'), 0));
+      setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
       return false;
     }
 
@@ -479,22 +504,26 @@ export default function FlightLogEditEntry({
 
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
-    const sum = key => { const left = String(bf[key] ?? '').trim(), right = String(tf[key] ?? '').trim(); return left && right && Number.isFinite(Number(left)) && Number.isFinite(Number(right)) ? Number(left) + Number(right) : ''; };
+    const sum = (key) => {
+      const left = String(bf[key] ?? "").trim(),
+        right = String(tf[key] ?? "").trim();
+      return left &&
+        right &&
+        Number.isFinite(Number(left)) &&
+        Number.isFinite(Number(right))
+        ? Number(left) + Number(right)
+        : "";
+    };
     const calculatedToDate = {
       airframe: sum("airframe"),
-      gearBoxMain:
-        sum("gearBoxMain"),
-      gearBoxTail:
-        sum("gearBoxTail"),
-      rotorMain:
-        sum("rotorMain"),
-      rotorTail:
-        sum("rotorTail"),
+      gearBoxMain: sum("gearBoxMain"),
+      gearBoxTail: sum("gearBoxTail"),
+      rotorMain: sum("rotorMain"),
+      rotorTail: sum("rotorTail"),
       engine: sum("engine"),
       cycleN1: sum("cycleN1"),
       cycleN2: sum("cycleN2"),
-      landingCycle:
-        sum("landingCycle"),
+      landingCycle: sum("landingCycle"),
       usage: sum("usage"),
       airframeNextInsp: tf.airframeNextInsp || bf.airframeNextInsp,
       engineNextInsp: tf.engineNextInsp || bf.engineNextInsp,
@@ -505,13 +534,8 @@ export default function FlightLogEditEntry({
       toDateData: calculatedToDate,
     };
 
-    const {
-      b412Data: sourceB412Data,
-      ...nonB412FormData
-    } = updatedFormData;
-    const shouldIncludeB412Data = isB412Aircraft(
-      updatedFormData.aircraftType,
-    );
+    const { b412Data: sourceB412Data, ...nonB412FormData } = updatedFormData;
+    const shouldIncludeB412Data = isB412Aircraft(updatedFormData.aircraftType);
     const shouldClearB412Data =
       !shouldIncludeB412Data && sourceB412Data !== undefined;
     const normalizedB412Data = shouldIncludeB412Data
@@ -665,13 +689,10 @@ export default function FlightLogEditEntry({
         return;
       }
 
-      const standardBroughtForward =
-        componentData.broughtForwardData || {};
+      const standardBroughtForward = componentData.broughtForwardData || {};
       const standardThisFlight = componentData.thisFlightData || {};
       const sumStandardValue = (field) => {
-        const broughtValue = String(
-          standardBroughtForward[field] ?? "",
-        ).trim();
+        const broughtValue = String(standardBroughtForward[field] ?? "").trim();
         const flightValue = String(standardThisFlight[field] ?? "").trim();
         if (!broughtValue && !flightValue) return "";
         return (parseFloat(broughtValue) || 0) + (parseFloat(flightValue) || 0);
@@ -907,32 +928,77 @@ export default function FlightLogEditEntry({
     Boolean(formData.acceptedBy?.signature);
 
   useEffect(() => {
-    if (!visible || formData.status === 'completed') return;
+    if (!visible || formData.status === "completed") return;
     const hours = totalFlightHours(formData.legs);
-    const landingCycle = String(flightLandingCycles(formData.legs, formData.additionalLandings));
-    setComponentData(previous => {
-      if (previous.thisFlightData?.landingCycle === landingCycle && FLIGHT_HOUR_FIELDS.every(key => previous.thisFlightData?.[key] === hours)) return previous;
-      return { ...previous, thisFlightData: { ...previous.thisFlightData,
-        ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map(key => [key, hours])), landingCycle } };
+    const landingCycle = String(
+      flightLandingCycles(formData.legs, formData.additionalLandings),
+    );
+    setComponentData((previous) => {
+      if (
+        previous.thisFlightData?.landingCycle === landingCycle &&
+        FLIGHT_HOUR_FIELDS.every(
+          (key) => previous.thisFlightData?.[key] === hours,
+        )
+      )
+        return previous;
+      return {
+        ...previous,
+        thisFlightData: {
+          ...previous.thisFlightData,
+          ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map((key) => [key, hours])),
+          landingCycle,
+        },
+      };
     });
   }, [visible, formData.legs, formData.status, formData.additionalLandings]);
 
   useEffect(() => {
-    if (!visible || formData.status === 'completed') return;
-    setFormData(previous => {
+    if (!visible || formData.status === "completed") return;
+    setFormData((previous) => {
       const next = syncFlightLogDates(previous);
-      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+      return JSON.stringify(previous) === JSON.stringify(next)
+        ? previous
+        : next;
     });
   }, [visible, formData]);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
-    if (isB412 && ["Brought Forward", "This Flight", "To Date"].includes(currentTab)) {
-      const data = syncB412DataFromStandardFlightLog({ ...formData, componentData }, formData.b412Data);
-      return <>{currentTab === "This Flight" && <FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isComponentEditable)} onChange={value => updateForm("additionalLandings", value)} />}<FlightLogB412Section section={currentTab === "Brought Forward" ? "BRT FORWARD" : currentTab} data={data}
-        totalsEditable={currentTab === "This Flight" && isComponentEditable} isEditable={isComponentEditable && (!permissions || permissions.preparation)}
-        onChange={next => { setFormData(previous => ({ ...previous, b412Data: next })); setComponentData(b412WorkflowComponents(next.componentData)); }} /></>;
+    if (
+      isB412 &&
+      ["Brought Forward", "This Flight", "To Date"].includes(currentTab)
+    ) {
+      const data = syncB412DataFromStandardFlightLog(
+        { ...formData, componentData },
+        formData.b412Data,
+      );
+      return (
+        <>
+          {currentTab === "This Flight" && (
+            <FlightLandingAdjustment
+              legs={formData.legs}
+              extra={formData.additionalLandings}
+              disabled={!isComponentEditable}
+              onChange={(value) => updateForm("additionalLandings", value)}
+            />
+          )}
+          <FlightLogB412Section
+            section={
+              currentTab === "Brought Forward" ? "BRT FORWARD" : currentTab
+            }
+            data={data}
+            totalsEditable={currentTab === "This Flight" && isComponentEditable}
+            isEditable={
+              isComponentEditable && (!permissions || permissions.preparation)
+            }
+            onChange={(next) => {
+              setFormData((previous) => ({ ...previous, b412Data: next }));
+              setComponentData(b412WorkflowComponents(next.componentData));
+            }}
+          />
+        </>
+      );
     }
     switch (currentTab) {
       case "Basic Information":
@@ -946,7 +1012,12 @@ export default function FlightLogEditEntry({
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412}
             assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
-            canAssign={!readOnly && !isCompletedLog && (isPilot || isMechanic) && (!permissions || permissions.preparation)}
+            canAssign={
+              !readOnly &&
+              !isCompletedLog &&
+              (isPilot || isMechanic) &&
+              (!permissions || permissions.preparation)
+            }
           />
         );
 
@@ -978,13 +1049,15 @@ export default function FlightLogEditEntry({
           <FlightLogModalThisFlight
             legCount={formData.legs?.length || 0}
             additionalLandings={formData.additionalLandings || 0}
-            onAdditionalLandingsChange={additionalLandings => setFormData(previous => ({ ...previous, additionalLandings }))}
+            onAdditionalLandingsChange={(additionalLandings) =>
+              setFormData((previous) => ({ ...previous, additionalLandings }))
+            }
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)
             }
             isEditable={isComponentEditable}
-          /></>
+          />
         );
 
       case "To Date":
@@ -1001,8 +1074,20 @@ export default function FlightLogEditEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
-            signatureInherited={!!formData.initialInspectionSignature?.signature}
-            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (logData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.fuelServicing?.length ?? logData?.fuelServicing?.length ?? 0) : 0}
+            signatureInherited={
+              !!formData.initialInspectionSignature?.signature
+            }
+            lockedRows={
+              formData.inspectionFlow !== "confirmation" &&
+              permissions &&
+              !permissions.preparation
+                ? (logData?.workflowHistory?.findLast(
+                    (event) => event.action === "release",
+                  )?.snapshot?.fuelServicing?.length ??
+                  logData?.fuelServicing?.length ??
+                  0)
+                : 0
+            }
             legs={formData.legs || []}
             fuelServicingData={formData.fuelServicing || []}
             onUpdateFuelServicing={updateFuelServicing}
@@ -1013,8 +1098,20 @@ export default function FlightLogEditEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
-            signatureInherited={!!formData.initialInspectionSignature?.signature}
-            lockedRows={formData.inspectionFlow !== "confirmation" && permissions && !permissions.preparation ? (logData?.workflowHistory?.findLast(event => event.action === "release")?.snapshot?.oilServicing?.length ?? logData?.oilServicing?.length ?? 0) : 0}
+            signatureInherited={
+              !!formData.initialInspectionSignature?.signature
+            }
+            lockedRows={
+              formData.inspectionFlow !== "confirmation" &&
+              permissions &&
+              !permissions.preparation
+                ? (logData?.workflowHistory?.findLast(
+                    (event) => event.action === "release",
+                  )?.snapshot?.oilServicing?.length ??
+                  logData?.oilServicing?.length ??
+                  0)
+                : 0
+            }
             legs={formData.legs || []}
             oilServicingData={formData.oilServicing || []}
             onUpdateOilServicing={updateOilServicing}
@@ -1039,7 +1136,11 @@ export default function FlightLogEditEntry({
             workItems={workItems}
             onUpdateWorkItems={updateWorkItems}
             isEditable={isWorkDoneEditable}
-            phase={permissions && !permissions.preparation ? "post_flight" : "preparation"}
+            phase={
+              permissions && !permissions.preparation
+                ? "post_flight"
+                : "preparation"
+            }
           />
         );
 
@@ -1050,8 +1151,20 @@ export default function FlightLogEditEntry({
 
   useEffect(() => {
     if (!embedded || !formData?._id) return;
-    const payload = { ...formData, date: formData.date instanceof Date ? formData.date.toLocaleDateString('en-US') : formData.date, componentData, workItems };
-    if (isB412Aircraft(formData.aircraftType)) payload.b412Data = syncB412DataFromStandardFlightLog(payload, formData.b412Data);
+    const payload = {
+      ...formData,
+      date:
+        formData.date instanceof Date
+          ? formData.date.toLocaleDateString("en-US")
+          : formData.date,
+      componentData,
+      workItems,
+    };
+    if (isB412Aircraft(formData.aircraftType))
+      payload.b412Data = syncB412DataFromStandardFlightLog(
+        payload,
+        formData.b412Data,
+      );
     onDraftChange?.(payload);
   }, [embedded, formData, componentData, workItems, onDraftChange]);
 
@@ -1061,458 +1174,490 @@ export default function FlightLogEditEntry({
 
   return (
     <>
-      <EntryShell embedded={embedded} visible={visible} animationType="fade" onRequestClose={onClose}>
+      <EntryShell
+        embedded={embedded}
+        visible={visible}
+        animationType="fade"
+        onRequestClose={onClose}
+      >
         <IosModalSafeAreaProvider>
           <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-        <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 16,
-              marginBottom: 12,
-            }}
-          >
-            <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
-              </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
-                Select Section
-              </AppText>
+            <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  marginBottom: 12,
+                }}
+              >
+                <View>
+                  <AppText
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "700",
+                      color: COLORS.black,
+                    }}
+                  >
+                    {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
+                  </AppText>
+                  <AppText
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color: COLORS.grayDark,
+                    }}
+                  >
+                    Select Section
+                  </AppText>
+                </View>
+
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.grayDark}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                ref={tabScrollViewRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingHorizontal: 16,
+                  gap: 12,
+                  paddingBottom: 12,
+                }}
+              >
+                {tabs.map((tab, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => setCurrentPage(index)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor:
+                        currentPage === index
+                          ? COLORS.primaryLight
+                          : COLORS.grayMedium,
+                      backgroundColor:
+                        currentPage === index
+                          ? COLORS.primaryLight
+                          : "transparent",
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        fontWeight: "500",
+                        color:
+                          currentPage === index
+                            ? COLORS.white
+                            : COLORS.grayDark,
+                      }}
+                    >
+                      {tab}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: COLORS.grayMedium,
+                  marginTop: 12,
+                }}
+              />
             </View>
 
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <ScrollView
+              ref={scrollViewRef}
+              style={{ flex: 1, paddingHorizontal: 20 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-          </View>
+              {renderPage()}
 
-          <ScrollView
-            ref={tabScrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              gap: 12,
-              paddingBottom: 12,
-            }}
-          >
-            {tabs.map((tab, index) => (
+              {!embedded && showActionButtons && (
+                <View style={{ marginTop: 20, marginBottom: 20 }}>
+                  {showReleaseButton && (
+                    <TouchableOpacity
+                      onPress={() => setShowReleaseModal(true)}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Release
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {showAcceptButton && (
+                    <TouchableOpacity
+                      onPress={() => setShowAcceptModal(true)}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Accept
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {showNotifyButton && (
+                    <TouchableOpacity
+                      onPress={handleNotifyMechanic}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Notify Mechanic for Completing Flights
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {showCompleteButton && (
+                    <TouchableOpacity
+                      onPress={handleComplete}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Complete
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {(formData.releasedBy?.name ||
+                    formData.releasedBy?.signature) && (
+                    <View
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.grayMedium,
+                        marginBottom: 20,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryLight,
+                          paddingVertical: 14,
+                          paddingHorizontal: 16,
+                        }}
+                      >
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.white,
+                            fontWeight: "600",
+                          }}
+                        >
+                          RELEASED BY:
+                        </AppText>
+                      </View>
+                      <View style={{ padding: 20 }}>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.black,
+                            marginBottom: 4,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {getSignerLabel(formData.releasedBy)}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {["maintenance manager", "superadmin"].includes(
+                            normalizedRole,
+                          )
+                            ? "MAINTENANCE MANAGER"
+                            : "MECHANIC"}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            marginTop: 8,
+                          }}
+                        >
+                          {formatSignatureDate(formData.releasedBy?.timestamp)}
+                        </AppText>
+                        {!!formData.releasedBy?.signature && (
+                          <Image
+                            source={{ uri: formData.releasedBy.signature }}
+                            style={{
+                              width: "100%",
+                              height: 80,
+                              resizeMode: "contain",
+                              marginTop: 12,
+                              backgroundColor: COLORS.white,
+                            }}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {(formData.acceptedBy?.name ||
+                    formData.acceptedBy?.signature) && (
+                    <View
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.grayMedium,
+                        marginBottom: 20,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryLight,
+                          paddingVertical: 14,
+                          paddingHorizontal: 16,
+                        }}
+                      >
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.white,
+                            fontWeight: "600",
+                          }}
+                        >
+                          ACCEPTED BY:
+                        </AppText>
+                      </View>
+                      <View style={{ padding: 20 }}>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.black,
+                            marginBottom: 4,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {getSignerLabel(formData.acceptedBy)}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          PILOT
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            marginTop: 8,
+                          }}
+                        >
+                          {formatSignatureDate(formData.acceptedBy?.timestamp)}
+                        </AppText>
+                        {!!formData.acceptedBy?.signature && (
+                          <Image
+                            source={{ uri: formData.acceptedBy.signature }}
+                            style={{
+                              width: "100%",
+                              height: 80,
+                              resizeMode: "contain",
+                              marginTop: 12,
+                              backgroundColor: COLORS.white,
+                            }}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            <View
+              style={{
+                display: embedded ? "none" : "flex",
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                padding: 20,
+                backgroundColor: "#F9F9F9",
+                gap: 10,
+              }}
+            >
               <TouchableOpacity
-                key={index}
-                onPress={() => setCurrentPage(index)}
+                onPress={handlePrevious}
+                disabled={currentPage === 0}
                 style={{
                   paddingVertical: 8,
                   paddingHorizontal: 16,
-                  borderRadius: 20,
+                  borderRadius: 4,
+                  backgroundColor: COLORS.white,
                   borderWidth: 1,
-                  borderColor:
-                    currentPage === index
-                      ? COLORS.primaryLight
-                      : COLORS.grayMedium,
-                  backgroundColor:
-                    currentPage === index ? COLORS.primaryLight : "transparent",
+                  borderColor: COLORS.grayMedium,
+                  opacity: currentPage === 0 ? 0.5 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                  Previous
+                </AppText>
+              </TouchableOpacity>
+
+              <View
+                style={{
+                  backgroundColor: COLORS.primaryLight,
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderRadius: 4,
                 }}
               >
                 <AppText
                   style={{
-                    fontSize: 12,
-                    fontWeight: "500",
-                    color:
-                      currentPage === index ? COLORS.white : COLORS.grayDark,
+                    color: COLORS.white,
+                    fontWeight: "600",
+                    fontSize: 14,
                   }}
                 >
-                  {tab}
+                  {currentPage + 1}
+                </AppText>
+              </View>
+
+              <TouchableOpacity
+                onPress={
+                  !isAircraftSelected && !readOnly && !isCompletedLog
+                    ? undefined
+                    : isLastPage
+                      ? readOnly || isCompletedLog
+                        ? onClose
+                        : handleSave
+                      : handleNext
+                }
+                disabled={!isAircraftSelected && !readOnly && !isCompletedLog}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 24,
+                  borderRadius: 4,
+                  backgroundColor: COLORS.primaryLight,
+                  opacity:
+                    !isAircraftSelected && !readOnly && !isCompletedLog
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                <AppText
+                  style={{
+                    color: COLORS.white,
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  {!isAircraftSelected && !readOnly && !isCompletedLog
+                    ? "Select Aircraft"
+                    : isLastPage
+                      ? readOnly || isCompletedLog
+                        ? "Close"
+                        : "Save"
+                      : "Next"}
                 </AppText>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: COLORS.grayMedium,
-              marginTop: 12,
-            }}
-          />
-
-        </View>
-
-        <ScrollView
-          ref={scrollViewRef}
-          style={{ flex: 1, paddingHorizontal: 20 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
-        >
-          {renderPage()}
-
-          {!embedded && showActionButtons && (
-            <View style={{ marginTop: 20, marginBottom: 20 }}>
-              {showReleaseButton && (
-                <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Release
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showAcceptButton && (
-                <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Accept
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showNotifyButton && (
-                <TouchableOpacity
-                  onPress={handleNotifyMechanic}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Notify Mechanic for Completing Flights
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showCompleteButton && (
-                <TouchableOpacity
-                  onPress={handleComplete}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Complete
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {(formData.releasedBy?.name ||
-                formData.releasedBy?.signature) && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    marginBottom: 20,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.white,
-                        fontWeight: "600",
-                      }}
-                    >
-                      RELEASED BY:
-                    </AppText>
-                  </View>
-                  <View style={{ padding: 20 }}>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.black,
-                        marginBottom: 4,
-                        fontWeight: "500",
-                      }}
-                    >
-                      {getSignerLabel(formData.releasedBy)}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {["maintenance manager", "superadmin"].includes(normalizedRole)
-                        ? "MAINTENANCE MANAGER"
-                        : "MECHANIC"}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        marginTop: 8,
-                      }}
-                    >
-                      {formatSignatureDate(formData.releasedBy?.timestamp)}
-                    </AppText>
-                    {!!formData.releasedBy?.signature && (
-                      <Image
-                        source={{ uri: formData.releasedBy.signature }}
-                        style={{
-                          width: "100%",
-                          height: 80,
-                          resizeMode: "contain",
-                          marginTop: 12,
-                          backgroundColor: COLORS.white,
-                        }}
-                      />
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {(formData.acceptedBy?.name ||
-                formData.acceptedBy?.signature) && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    marginBottom: 20,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.white,
-                        fontWeight: "600",
-                      }}
-                    >
-                      ACCEPTED BY:
-                    </AppText>
-                  </View>
-                  <View style={{ padding: 20 }}>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.black,
-                        marginBottom: 4,
-                        fontWeight: "500",
-                      }}
-                    >
-                      {getSignerLabel(formData.acceptedBy)}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      PILOT
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        marginTop: 8,
-                      }}
-                    >
-                      {formatSignatureDate(formData.acceptedBy?.timestamp)}
-                    </AppText>
-                    {!!formData.acceptedBy?.signature && (
-                      <Image
-                        source={{ uri: formData.acceptedBy.signature }}
-                        style={{
-                          width: "100%",
-                          height: 80,
-                          resizeMode: "contain",
-                          marginTop: 12,
-                          backgroundColor: COLORS.white,
-                        }}
-                      />
-                    )}
-                  </View>
-                </View>
-              )}
             </View>
-          )}
-        </ScrollView>
 
-        <View
-          style={{
-            display: embedded ? "none" : "flex",
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            padding: 20,
-            backgroundColor: "#F9F9F9",
-            gap: 10,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handlePrevious}
-            disabled={currentPage === 0}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 4,
-              backgroundColor: COLORS.white,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              opacity: currentPage === 0 ? 0.5 : 1,
-            }}
-          >
-            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
-              Previous
-            </AppText>
-          </TouchableOpacity>
+            <FlightLogSignatureModal
+              visible={showReleaseModal}
+              title="Release Signature"
+              onClose={() => setShowReleaseModal(false)}
+              onSave={handleRelease}
+              aircraftRPC={formData.rpc}
+              useNativeModal={false}
+            />
 
-          <View
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 4,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
-            >
-              {currentPage + 1}
-            </AppText>
-          </View>
+            <FlightLogSignatureModal
+              visible={showAcceptModal}
+              title="Accept Signature"
+              onClose={() => setShowAcceptModal(false)}
+              onSave={handleAccept}
+              aircraftRPC={formData.rpc}
+              useNativeModal={false}
+            />
 
-          <TouchableOpacity
-            onPress={
-              !isAircraftSelected && !readOnly && !isCompletedLog
-                ? undefined
-                : isLastPage
-                ? readOnly || isCompletedLog
-                  ? onClose
-                  : handleSave
-                : handleNext
-            }
-            disabled={!isAircraftSelected && !readOnly && !isCompletedLog}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 4,
-              backgroundColor: COLORS.primaryLight,
-              opacity:
-                !isAircraftSelected && !readOnly && !isCompletedLog ? 0.5 : 1,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
-            >
-              {!isAircraftSelected && !readOnly && !isCompletedLog
-                ? "Select Aircraft"
-                : isLastPage
-                ? readOnly || isCompletedLog
-                  ? "Close"
-                  : "Save"
-                : "Next"}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        <FlightLogSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-          useNativeModal={false}
-        />
-
-        <FlightLogSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-          useNativeModal={false}
-        />
-
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
+            <AlertComp
+              visible={feedbackAlert.visible}
+              title={feedbackAlert.title}
+              message={feedbackAlert.message}
+              duration={1400}
+              onFinish={() => {
+                const shouldClose = feedbackAlert.closeOnFinish;
+                setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+                if (shouldClose) {
+                  onClose();
+                }
+              }}
+            />
           </SafeAreaView>
         </IosModalSafeAreaProvider>
       </EntryShell>
