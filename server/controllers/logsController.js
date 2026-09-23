@@ -8,7 +8,6 @@ const {
 const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 
 const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
-const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
 const compactText = (value = "", limit = 160) =>
   String(value || "")
     .trim()
@@ -28,7 +27,6 @@ const resolveAuditContext = async (context = {}, userId = null) => {
 
   if (
     isKnownPlatform(resolved.platform) &&
-    isKnownBase(resolved.base) &&
     resolved.sessionId &&
     resolved.devicePlatform &&
     resolved.deviceModel &&
@@ -57,9 +55,6 @@ const resolveAuditContext = async (context = {}, userId = null) => {
   resolved.platform = isKnownPlatform(resolved.platform)
     ? resolved.platform
     : session.platform || null;
-  resolved.base = isKnownBase(resolved.base)
-    ? resolved.base
-    : session.base || null;
   resolved.devicePlatform =
     compactText(resolved.devicePlatform) || session.devicePlatform || "";
   resolved.deviceModel =
@@ -159,7 +154,6 @@ const auditLog = async (
       displayName,
       sessionId: context.sessionId || null,
       platform: context.platform || null,
-      base: context.base || null,
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
       devicePlatform: compactText(context.devicePlatform),
@@ -201,8 +195,9 @@ const getLatestLog = async (req, res) => {
       id: latestLog._id,
       dateTime: latestLog.dateTime,
       actionMade: latestLog.action,
-      username: latestLog.username || "Unknown",
+      username: latestLog.displayName || latestLog.username || "Unknown",
       displayName: latestLog.displayName || latestLog.username || "Unknown",
+      performedByName: latestLog.displayName || latestLog.username || "Unknown",
       firstName: latestLog.firstName || "",
       lastName: latestLog.lastName || "",
     });
@@ -224,7 +219,6 @@ const createAuditLogFromRequest = async (req, res) => {
     const log = await auditLog(action.trim(), actorId, username || null, {
       sessionId: req.headers["x-session-id"] || null,
       platform: req.headers["x-platform"] || null,
-      base: req.headers["x-base"] || null,
       ipAddress: req.ip || req.socket?.remoteAddress || null,
       userAgent: req.headers["user-agent"] || "",
       devicePlatform: req.headers["x-device-platform"] || "",
@@ -304,7 +298,6 @@ const getAllUserLogs = async (req, res) => {
             (log) =>
               log.sessionId &&
               (!isKnownPlatform(log.platform) ||
-                !isKnownBase(log.base) ||
                 !log.devicePlatform ||
                 !log.deviceModel ||
                 !log.locationText),
@@ -319,7 +312,7 @@ const getAllUserLogs = async (req, res) => {
             (
               await UserSession.find({ sessionId: { $in: sessionIds } })
                 .select(
-                  "sessionId platform base devicePlatform deviceModel locationText locationLatitude locationLongitude",
+                  "sessionId platform devicePlatform deviceModel locationText locationLatitude locationLongitude",
                 )
                 .lean()
             ).map((session) => [session.sessionId, session]),
@@ -349,7 +342,6 @@ const getAllUserLogs = async (req, res) => {
       const platform = isKnownPlatform(log.platform)
         ? log.platform
         : session?.platform || null;
-      const base = isKnownBase(log.base) ? log.base : session?.base || null;
       const user = log.performedBy ? userMap.get(String(log.performedBy)) : null;
       const displayName =
         log.displayName ||
@@ -377,14 +369,14 @@ const getAllUserLogs = async (req, res) => {
         _id: log._id,
         dateTime: log.dateTime,
         actionMade: log.action,
-        username: log.username || "Unknown",
+        username: displayName,
         displayName,
+        performedByName: displayName,
         firstName: log.firstName || user?.firstName || "",
         lastName: log.lastName || user?.lastName || "",
         platform,
         devicePlatform,
         deviceModel,
-        base,
         locationText,
         locationLatitude,
         locationLongitude,

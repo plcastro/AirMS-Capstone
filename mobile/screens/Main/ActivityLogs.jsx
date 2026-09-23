@@ -41,7 +41,6 @@ const DATE_RANGE_OPTIONS = [
 ];
 const SCOPE_TYPE_OPTIONS = [
   { label: "All Scope", value: "all" },
-  { label: "Base", value: "base" },
   { label: "Platform", value: "platform" },
 ];
 const LOGS_PER_PAGE = 10;
@@ -72,6 +71,14 @@ const formatDevicePlatform = (devicePlatform, platform) => {
   return String(platform || "unknown")
     .trim()
     .toUpperCase();
+};
+
+const getPerformedByName = (item = {}) => {
+  const fullName = [item.firstName, item.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || item.displayName || "Unknown";
 };
 
 const startOfDay = (date) => {
@@ -192,40 +199,40 @@ export default function ActivityLogs() {
         }
 
         const responseLogs = Array.isArray(json.data) ? json.data : [];
-        const mapped = responseLogs.map((item, index) => ({
-          _id: item._id || String(index),
-          index: index + 1,
-          dateTime: item.dateTime,
-          actionMade: item.actionMade || item.action || "N/A",
-          username: item.username || "Unknown",
-          displayName: item.displayName || item.username || "Unknown",
-          firstName: item.firstName || "",
-          lastName: item.lastName || "",
-          base: String(item.base || item.loginBase || "unknown")
-            .trim()
-            .toUpperCase(),
-          platform: String(item.platform || "unknown")
-            .trim()
-            .toUpperCase(),
-          devicePlatform: String(item.devicePlatform || "")
-            .trim()
-            .toUpperCase(),
-          deviceModel: String(item.deviceModel || "").trim(),
-          locationText: String(item.locationText || "").trim(),
-          locationCoordinates:
-            item.locationLatitude !== null &&
-            item.locationLatitude !== undefined &&
-            item.locationLongitude !== null &&
-            item.locationLongitude !== undefined
-              ? `${Number(item.locationLatitude).toFixed(6)}, ${Number(
-                  item.locationLongitude,
-                ).toFixed(6)}`
-              : "",
-          platformLabel: formatDevicePlatform(
-            item.devicePlatform,
-            item.platform,
-          ),
-        }));
+        const mapped = responseLogs.map((item, index) => {
+          const performedByName = getPerformedByName(item);
+          return {
+            _id: item._id || String(index),
+            index: index + 1,
+            dateTime: item.dateTime,
+            actionMade: item.actionMade || item.action || "N/A",
+            username: performedByName,
+            displayName: performedByName,
+            firstName: item.firstName || "",
+            lastName: item.lastName || "",
+            platform: String(item.platform || "unknown")
+              .trim()
+              .toUpperCase(),
+            devicePlatform: String(item.devicePlatform || "")
+              .trim()
+              .toUpperCase(),
+            deviceModel: String(item.deviceModel || "").trim(),
+            locationText: String(item.locationText || "").trim(),
+            locationCoordinates:
+              item.locationLatitude !== null &&
+              item.locationLatitude !== undefined &&
+              item.locationLongitude !== null &&
+              item.locationLongitude !== undefined
+                ? `${Number(item.locationLatitude).toFixed(6)}, ${Number(
+                    item.locationLongitude,
+                  ).toFixed(6)}`
+                : "",
+            platformLabel: formatDevicePlatform(
+              item.devicePlatform,
+              item.platform,
+            ),
+          };
+        });
 
         setLogs(mapped);
       } catch (error) {
@@ -282,13 +289,7 @@ export default function ActivityLogs() {
     }
 
     if (scopeType !== "all" && scopeValue !== "all") {
-      if (scopeType === "base") {
-        next = next.filter(
-          (item) =>
-            String(item.base || "unknown").toUpperCase() ===
-            String(scopeValue).toUpperCase(),
-        );
-      } else if (scopeType === "platform") {
+      if (scopeType === "platform") {
         next = next.filter(
           (item) =>
             String(item.platform || "unknown").toUpperCase() ===
@@ -360,26 +361,6 @@ export default function ActivityLogs() {
   }, [filteredLogs]);
 
   const scopeValueOptions = useMemo(() => {
-    if (scopeType === "base") {
-      const values = Array.from(
-        new Set([
-          "MANILA",
-          "CEBU",
-          "CDO",
-          ...logs
-            .map((item) =>
-              String(item.base || "")
-                .trim()
-                .toUpperCase(),
-            )
-            .filter(Boolean),
-        ]),
-      ).sort();
-      return [
-        { label: "All Base", value: "all" },
-        ...values.map((value) => ({ label: value, value })),
-      ];
-    }
     if (scopeType === "platform") {
       const values = Array.from(
         new Set([
@@ -416,7 +397,7 @@ export default function ActivityLogs() {
     "Scope";
   const selectedScopeValueLabel =
     scopeValueOptions.find((option) => option.value === scopeValue)?.label ||
-    (scopeType === "base" ? "All Base" : "All Platform");
+    "All Platform";
   const visibleTrendSeries = useMemo(
     () =>
       actionType === "all"
@@ -542,7 +523,7 @@ export default function ActivityLogs() {
       : [
           {
             filterKey: "scopeValue",
-            label: scopeType === "base" ? "Base" : "Platform",
+            label: "Platform",
             selectedLabel: selectedScopeValueLabel,
             options: scopeValueOptions,
             onSelect: (value) => selectFilterValue(setScopeValue, value),
@@ -579,23 +560,21 @@ export default function ActivityLogs() {
             title: "Activity Logs",
             columns: [
               "Date / Time",
-              "User",
+              "Performed By",
               "Action",
               "Platform",
-              "Device",
+              "Device Model",
               "Location",
               "Coordinates",
-              "Base",
             ],
             rows: filteredLogs.map((log) => ({
               "Date / Time": formatDisplayDate(log.dateTime),
-              User: log.displayName || "Unknown",
+              "Performed By": log.displayName || "Unknown",
               Action: log.actionMade || "N/A",
               Platform: log.platformLabel || log.platform || "Not captured",
-              Device: log.deviceModel || "Not captured",
+              "Device Model": log.deviceModel || "Not captured",
               Location: log.locationText || "Not captured",
               Coordinates: log.locationCoordinates || "Not captured",
-              Base: log.base || "Not captured",
             })),
           },
         ],
@@ -775,18 +754,13 @@ export default function ActivityLogs() {
                 </View>
 
                 <AppText style={styles.userText}>
-                  User: {item.displayName || "Unknown"}
+                  Performed by: {item.displayName || "Unknown"}
                 </AppText>
                 <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
                 </AppText>
 
                 <View style={styles.metaTagsRow}>
-                  <View style={[styles.tag, styles.baseTag]}>
-                    <AppText style={[styles.tagText, styles.baseTagText]}>
-                      BASE: {item.base || "UNKNOWN"}
-                    </AppText>
-                  </View>
                   <View style={[styles.tag, styles.platformTag]}>
                     <AppText style={[styles.tagText, styles.platformTagText]}>
                       {item.platformLabel || "UNKNOWN"}
@@ -795,7 +769,7 @@ export default function ActivityLogs() {
                   {!!item.deviceModel && (
                     <View style={[styles.tag, styles.deviceTag]}>
                       <AppText style={[styles.tagText, styles.deviceTagText]}>
-                        {item.deviceModel}
+                        Device: {item.deviceModel}
                       </AppText>
                     </View>
                   )}
@@ -1074,8 +1048,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tagText: { fontSize: 10, fontWeight: "700" },
-  baseTag: { backgroundColor: "#EEF4FF", borderColor: "#D5E3FF" },
-  baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
   deviceTag: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },

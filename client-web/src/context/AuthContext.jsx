@@ -29,6 +29,22 @@ const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
 const AUTH_SYNC_KEY = "authSyncEvent";
 
+export const buildStoredUserProfile = (userData = {}) => {
+  const id = userData.id || userData._id || userData.userid || null;
+  return {
+    id,
+    _id: id,
+    firstName: userData.firstName || "",
+    lastName: userData.lastName || "",
+    jobTitle: userData.jobTitle || null,
+    access: userData.access || null,
+    licenseNo: userData.licenseNo || userData.licenseNumber || "",
+    base: userData.base || "",
+    status: userData.status || "",
+    sessionId: userData.sessionId || null,
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -103,10 +119,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const persistAuthState = (normalizedUser, token, rememberMe) => {
-    sessionStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    const storedUser = buildStoredUserProfile(normalizedUser);
+    sessionStorage.setItem("currentUser", JSON.stringify(storedUser));
     sessionStorage.setItem("token", token);
     if (rememberMe) {
-      localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+      localStorage.setItem("currentUser", JSON.stringify(storedUser));
       localStorage.setItem("token", token);
       localStorage.setItem(REMEMBER_ME_KEY, "true");
     } else {
@@ -452,7 +469,12 @@ export const AuthProvider = ({ children }) => {
     });
     persistAuthState(normalized, token, rememberMe);
     persistSessionTiming(token, "login");
-    publishAuthSync({ type: "LOGIN", token, user: normalized, rememberMe });
+    publishAuthSync({
+      type: "LOGIN",
+      token,
+      user: buildStoredUserProfile(normalized),
+      rememberMe,
+    });
     scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
   };
 
@@ -489,7 +511,12 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.getItem("token") || localStorage.getItem("token");
     if (rememberMe) {
       localStorage.setItem(REMEMBER_ME_KEY, "true");
-      if (user) localStorage.setItem("currentUser", JSON.stringify(user));
+      if (user) {
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify(buildStoredUserProfile(user)),
+        );
+      }
       if (tokenToKeep) localStorage.setItem("token", tokenToKeep);
       if (tokenToKeep) {
         localStorage.setItem(
@@ -550,7 +577,10 @@ export const AuthProvider = ({ children }) => {
           sessionEndedRef.current = false;
           setUser(normalizeUser(payload.user));
           lastActivityRecordedAtRef.current = Date.now();
-          sessionStorage.setItem("currentUser", JSON.stringify(payload.user));
+          sessionStorage.setItem(
+            "currentUser",
+            JSON.stringify(buildStoredUserProfile(payload.user)),
+          );
           sessionStorage.setItem("token", payload.token);
           setRememberMePreferenceState(Boolean(payload.rememberMe));
           persistSessionTiming(payload.token, "sync-login");
@@ -591,8 +621,10 @@ export const AuthProvider = ({ children }) => {
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
         if (token && isTokenValid(token) && parsedUser) {
           if (sessionEndedRef.current) return;
+          const normalizedUser = normalizeUser(parsedUser);
           lastActivityRecordedAtRef.current = Date.now();
-          setUser(normalizeUser(parsedUser));
+          setUser(normalizedUser);
+          persistAuthState(normalizedUser, token, remembered);
           persistSessionTiming(token, "restore", { restartFullWindow: true });
           scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
           return;

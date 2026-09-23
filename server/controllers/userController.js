@@ -237,8 +237,8 @@ const hasDetectedLoginLocation = (req) => {
   const location = getLoginLocationFromRequest(req);
   return Boolean(
     location.text &&
-      Number.isFinite(location.latitude) &&
-      Number.isFinite(location.longitude),
+    Number.isFinite(location.latitude) &&
+    Number.isFinite(location.longitude),
   );
 };
 
@@ -267,7 +267,9 @@ const reverseGeocodeLoginLocation = async (req, res) => {
     const longitude = Number(req.query.longitude);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return res.status(400).json({ message: "Valid coordinates are required" });
+      return res
+        .status(400)
+        .json({ message: "Valid coordinates are required" });
     }
 
     const controller = new AbortController();
@@ -293,7 +295,10 @@ const reverseGeocodeLoginLocation = async (req, res) => {
     const payload = await response.json();
     const text =
       formatReverseGeocodeAddress(payload?.address) ||
-      String(payload?.display_name || "").split(",").slice(0, 3).join(",");
+      String(payload?.display_name || "")
+        .split(",")
+        .slice(0, 3)
+        .join(",");
 
     return res.status(200).json({
       text: String(text || "").trim(),
@@ -302,7 +307,9 @@ const reverseGeocodeLoginLocation = async (req, res) => {
   } catch (error) {
     const isAbort = error?.name === "AbortError";
     return res.status(isAbort ? 504 : 502).json({
-      message: isAbort ? "Reverse geocoding timed out" : "Reverse geocoding failed",
+      message: isAbort
+        ? "Reverse geocoding timed out"
+        : "Reverse geocoding failed",
     });
   }
 };
@@ -601,8 +608,7 @@ const buildLoginSuccessPayload = async ({
   );
 
   const displayName =
-    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-    user.username;
+    [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username;
 
   auditLog(
     `User log in: ${displayName} (actorId: ${user._id})`,
@@ -671,7 +677,8 @@ const loginUser = async (req, res) => {
     }
     if (!hasDetectedLoginLocation(req)) {
       return res.status(400).json({
-        message: "Allow location access so AirMS can detect where you are logging in from.",
+        message:
+          "Allow location access so AirMS can detect where you are logging in from.",
       });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
@@ -907,7 +914,8 @@ const verifyLoginOtp = async (req, res) => {
           : "UNKNOWN";
     if (!hasDetectedLoginLocation(req)) {
       return res.status(400).json({
-        message: "Allow location access so AirMS can detect where you are logging in from.",
+        message:
+          "Allow location access so AirMS can detect where you are logging in from.",
       });
     }
 
@@ -2167,42 +2175,6 @@ const verifyPIN = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-// const updateSignature = async (req, res) => {
-//   try {
-//     const user = await UserModel.findById(req.params.id);
-//     if (!user) return res.status(404).json({ message: "User not found" });
-//
-//     if (user.signature) {
-//       return res.status(400).json({
-//         message: "Signature specimen has already been uploaded.",
-//       });
-//     }
-//
-//     const signature = req.file?.savedPath || req.body.signature;
-//     if (!signature) {
-//       return res.status(400).json({ message: "Signature is required" });
-//     }
-//
-//     const updatedUser = await UserModel.findByIdAndUpdate(
-//       req.params.id,
-//       { signature },
-//       { returnDocument: "after" },
-//     );
-//
-//     const audit = withActorId(
-//       req,
-//       `Signature updated for ${updatedUser.username}`,
-//       updatedUser._id,
-//     );
-//     await auditLog(audit.action, audit.actorId);
-//
-//     res.status(200).json({ message: "Signature updated", user: updatedUser });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 const activateUser = async (req, res) => {
   try {

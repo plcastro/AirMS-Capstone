@@ -21,11 +21,6 @@ const userLogSchema = new mongoose.Schema({
   },
   devicePlatform: { type: String, default: "" },
   deviceModel: { type: String, default: "" },
-  base: {
-    type: String,
-    enum: ["MANILA", "CEBU", "CDO"],
-    default: null,
-  },
   locationText: { type: String, default: "" },
   locationLatitude: { type: Number, default: null },
   locationLongitude: { type: Number, default: null },
