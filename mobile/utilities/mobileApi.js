@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Device from "expo-device";
 import { Platform } from "react-native";
 
 export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
@@ -11,6 +12,46 @@ const readPlatformConstant = (...keys) => {
     }
   }
   return "";
+};
+
+const compactText = (value = "") => String(value || "").trim();
+
+const uniqueParts = (parts = []) =>
+  parts
+    .map(compactText)
+    .filter(Boolean)
+    .filter((part, index, values) => values.indexOf(part) === index);
+
+const appendModelId = (label, modelId) => {
+  const safeLabel = compactText(label);
+  const safeModelId = compactText(modelId);
+  if (!safeModelId) return safeLabel;
+  if (!safeLabel) return safeModelId;
+  if (safeLabel.toLowerCase().includes(safeModelId.toLowerCase())) {
+    return safeLabel;
+  }
+  return `${safeLabel} (${safeModelId})`;
+};
+
+const getExactDeviceModel = () => {
+  const manufacturer =
+    compactText(Device.manufacturer) ||
+    readPlatformConstant("Manufacturer", "manufacturer");
+  const brand = compactText(Device.brand) || readPlatformConstant("Brand", "brand");
+  const modelName =
+    compactText(Device.modelName) ||
+    readPlatformConstant("Model", "model", "deviceName", "DeviceName");
+  const modelId =
+    compactText(Device.modelId) ||
+    readPlatformConstant("ModelID", "modelId", "modelID");
+  const modelLabel = uniqueParts([manufacturer || brand, modelName]).join(" ");
+
+  return (
+    appendModelId(modelLabel, modelId) ||
+    uniqueParts([brand, modelName]).join(" ") ||
+    modelId ||
+    `${Platform.OS} device`
+  );
 };
 
 export const getDeviceAuditHeaders = () => {
@@ -27,25 +68,9 @@ export const getDeviceAuditHeaders = () => {
       : Platform.OS === "android"
         ? "MOBILE_ANDROID"
         : `MOBILE_${String(Platform.OS || "UNKNOWN").toUpperCase()}`;
-  const manufacturer = readPlatformConstant("Manufacturer", "manufacturer");
-  const brand = readPlatformConstant("Brand", "brand");
-  const modelName = readPlatformConstant(
-    "Model",
-    "model",
-    "deviceName",
-    "DeviceName",
-  );
-  const model =
-    [manufacturer || brand, modelName]
-      .filter(Boolean)
-      .filter((part, index, parts) => parts.indexOf(part) === index)
-      .join(" ") ||
-    brand ||
-    `${Platform.OS} device`;
-
   return {
     "x-device-platform": platformLabel,
-    "x-device-model": model,
+    "x-device-model": getExactDeviceModel(),
   };
 };
 
