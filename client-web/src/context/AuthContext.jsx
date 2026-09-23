@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { API_BASE } from "../utils/API_BASE";
+import { buildLoginLocationHeaders } from "../utils/loginLocation";
 
 export const AuthContext = createContext();
 
@@ -85,9 +86,9 @@ export const AuthProvider = ({ children }) => {
 
   const persistSessionMeta = (meta = {}) => {
     const sessionMeta = {
-      base: meta.base || "UNKNOWN",
       sessionId: meta.sessionId || null,
       platform: meta.platform || "WEB",
+      location: meta.location || null,
     };
     localStorage.setItem(SESSION_META_KEY, JSON.stringify(sessionMeta));
     return sessionMeta;
@@ -271,7 +272,7 @@ export const AuthProvider = ({ children }) => {
     const lastClientActivityAt = lastActivityRecordedAtRef.current;
     return {
       "x-platform": sessionMeta.platform || "WEB",
-      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
+      ...buildLoginLocationHeaders(sessionMeta.location),
       ...(sessionMeta.sessionId
         ? { "x-session-id": sessionMeta.sessionId }
         : {}),
@@ -440,15 +441,14 @@ export const AuthProvider = ({ children }) => {
       isOnline: true,
       online: true,
       platform: "web",
-      base: options.base || userData.base,
       sessionId: options.sessionId || userData.sessionId,
     });
     setUser(normalized);
     setRememberMePreferenceState(rememberMe);
     persistSessionMeta({
-      base: normalized.base,
       sessionId: normalized.sessionId,
       platform: "WEB",
+      location: options.location || null,
     });
     persistAuthState(normalized, token, rememberMe);
     persistSessionTiming(token, "login");
@@ -472,7 +472,7 @@ export const AuthProvider = ({ children }) => {
         ...(sessionMeta?.sessionId
           ? { "x-session-id": sessionMeta.sessionId }
           : {}),
-        ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+        ...buildLoginLocationHeaders(sessionMeta.location),
         "x-platform": "WEB",
       },
       body: JSON.stringify({ rememberMe, revokePersistentTokens }),
@@ -615,7 +615,6 @@ export const AuthProvider = ({ children }) => {
                 jobTitle: payload.jobTitle,
                 access: payload.access,
                 licenseNo: payload.licenseNo,
-                base: payload.base,
                 sessionId: payload.sessionId,
               }
             : null);

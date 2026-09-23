@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import AppText from "../../components/common/AppText";
 import {
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   View,
   Pressable,
@@ -126,6 +127,11 @@ export default function OTP() {
       return;
     }
 
+    const loginClient =
+      route.params?.client || (Platform.OS === "web" ? "web" : "mobile");
+    const loginPlatform =
+      String(loginClient).toLowerCase() === "web" ? "WEB" : "MOBILE";
+
     try {
       setIsVerifying(true);
       setMessageStatus("error");
@@ -133,7 +139,7 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-platform": "MOBILE",
+          "x-platform": loginPlatform,
           ...buildLoginLocationHeaders(route.params?.loginLocation),
           ...getDeviceAuditHeaders(),
         },
@@ -142,9 +148,10 @@ export default function OTP() {
           otp: code,
           rememberMe,
           location: route.params?.loginLocation,
-          client: route.params?.client || "mobile",
+          client: loginClient,
           trustDevice: rememberMe ? trustDevice : false,
-          trustedDeviceLabel: "mobile-app",
+          trustedDeviceLabel:
+            String(loginClient).toLowerCase() === "web" ? "web-app" : "mobile-app",
         }),
       });
 
@@ -192,7 +199,7 @@ export default function OTP() {
           {
             location: route.params?.loginLocation,
             sessionId: data.sessionId,
-            platform: "MOBILE",
+            platform: loginPlatform,
           },
         accessToken,
         refreshToken,
@@ -245,7 +252,7 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-platform": "MOBILE",
+          "x-platform": Platform.OS === "web" ? "WEB" : "MOBILE",
           ...buildLoginLocationHeaders(route.params?.loginLocation),
           ...getDeviceAuditHeaders(),
         },

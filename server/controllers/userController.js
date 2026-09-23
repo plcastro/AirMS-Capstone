@@ -180,7 +180,6 @@ const buildAccessToken = (user, session = {}) =>
       id: user._id,
       sessionId: session.sessionId || null,
       platform: session.platform || "UNKNOWN",
-      base: session.base || "UNKNOWN",
     },
     process.env.JWT_SECRET,
     { expiresIn: "30m" },
@@ -200,8 +199,7 @@ const buildClientUserProfile = (user) => ({
   lastLogin: user.lastLogin,
 });
 
-const buildSessionPayload = (session = {}, fallbackBase = "") => ({
-  base: session.base || fallbackBase || "UNKNOWN",
+const buildSessionPayload = (session = {}) => ({
   sessionId: session.sessionId || null,
   platform: session.platform || "UNKNOWN",
   location: {
@@ -212,6 +210,102 @@ const buildSessionPayload = (session = {}, fallbackBase = "") => ({
     },
   },
 });
+
+const getLoginLocationFromRequest = (req) => {
+  const bodyLocation = req.body?.location || {};
+  const bodyCoordinates = bodyLocation.coordinates || {};
+  const locationText = String(
+    req.headers["x-location-text"] || bodyLocation.text || "",
+  )
+    .trim()
+    .slice(0, 240);
+  const locationLatitude = Number(
+    req.headers["x-location-latitude"] ?? bodyCoordinates.latitude,
+  );
+  const locationLongitude = Number(
+    req.headers["x-location-longitude"] ?? bodyCoordinates.longitude,
+  );
+
+  return {
+    text: locationText,
+    latitude: Number.isFinite(locationLatitude) ? locationLatitude : null,
+    longitude: Number.isFinite(locationLongitude) ? locationLongitude : null,
+  };
+};
+
+const hasDetectedLoginLocation = (req) => {
+  const location = getLoginLocationFromRequest(req);
+  return Boolean(
+    location.text &&
+      Number.isFinite(location.latitude) &&
+      Number.isFinite(location.longitude),
+  );
+};
+
+const formatReverseGeocodeAddress = (address = {}) => {
+  const city =
+    address.city ||
+    address.town ||
+    address.municipality ||
+    address.village ||
+    address.suburb ||
+    address.city_district ||
+    address.county ||
+    "";
+  const region = address.state || address.region || address.province || "";
+  const country = address.country || "";
+  return [city, region, country]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part, index, values) => values.indexOf(part) === index)
+    .join(", ");
+};
+
+const reverseGeocodeLoginLocation = async (req, res) => {
+  try {
+    const latitude = Number(req.query.latitude);
+    const longitude = Number(req.query.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({ message: "Valid coordinates are required" });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(latitude));
+    url.searchParams.set("lon", String(longitude));
+    url.searchParams.set("addressdetails", "1");
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "AirMS/1.0",
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!response.ok) {
+      return res.status(502).json({ message: "Reverse geocoding failed" });
+    }
+
+    const payload = await response.json();
+    const text =
+      formatReverseGeocodeAddress(payload?.address) ||
+      String(payload?.display_name || "").split(",").slice(0, 3).join(",");
+
+    return res.status(200).json({
+      text: String(text || "").trim(),
+      coordinates: { latitude, longitude },
+    });
+  } catch (error) {
+    const isAbort = error?.name === "AbortError";
+    return res.status(isAbort ? 504 : 502).json({
+      message: isAbort ? "Reverse geocoding timed out" : "Reverse geocoding failed",
+    });
+  }
+};
 
 const revokeRefreshTokenByHash = async (
   tokenHash,
@@ -281,17 +375,10 @@ const createUserSession = async (req, userId, platform) => {
   const deviceModel = String(req.headers["x-device-model"] || "")
     .trim()
     .slice(0, 160);
-  const locationText = String(req.headers["x-location-text"] || "")
-    .trim()
-    .slice(0, 240);
-  const locationLatitude = Number(req.headers["x-location-latitude"]);
-  const locationLongitude = Number(req.headers["x-location-longitude"]);
-  const safeLocationLatitude = Number.isFinite(locationLatitude)
-    ? locationLatitude
-    : null;
-  const safeLocationLongitude = Number.isFinite(locationLongitude)
-    ? locationLongitude
-    : null;
+  const detectedLocation = getLoginLocationFromRequest(req);
+  const locationText = detectedLocation.text;
+  const locationLatitude = detectedLocation.latitude;
+  const locationLongitude = detectedLocation.longitude;
 
   await UserSession.create({
     userId,
@@ -303,8 +390,8 @@ const createUserSession = async (req, userId, platform) => {
     devicePlatform,
     deviceModel,
     locationText,
-    locationLatitude: safeLocationLatitude,
-    locationLongitude: safeLocationLongitude,
+    locationLatitude,
+    locationLongitude,
     isActive: true,
   });
 
@@ -315,8 +402,8 @@ const createUserSession = async (req, userId, platform) => {
     devicePlatform,
     deviceModel,
     locationText,
-    locationLatitude: safeLocationLatitude,
-    locationLongitude: safeLocationLongitude,
+    locationLatitude,
+    locationLongitude,
   };
 };
 
@@ -472,7 +559,6 @@ const buildLoginSuccessPayload = async ({
   user,
   loginPlatform,
   rememberMe,
-  loginBase,
 }) => {
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -514,16 +600,24 @@ const buildLoginSuccessPayload = async ({
     loginPlatform,
   );
 
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.username;
+
   auditLog(
-    `User log in: ${user.username} (actorId: ${user._id})`,
+    `User log in: ${displayName} (actorId: ${user._id})`,
     user._id,
-    user.username,
+    displayName,
     {
       sessionId: session.sessionId,
       platform: session.platform,
-      base: session.base,
       ipAddress: req.ip || req.socket?.remoteAddress || "",
       userAgent: req.headers["user-agent"] || "",
+      locationText: session.locationText,
+      locationLatitude: session.locationLatitude,
+      locationLongitude: session.locationLongitude,
+      devicePlatform: session.devicePlatform,
+      deviceModel: session.deviceModel,
     },
   ).catch((logError) => {
     console.error("Login audit log failed:", logError);
@@ -533,7 +627,7 @@ const buildLoginSuccessPayload = async ({
     message: "Login successful",
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
-    session: buildSessionPayload(session, loginBase),
+    session: buildSessionPayload(session),
     sessionId: session.sessionId,
     user: buildClientUserProfile(user),
   };
@@ -569,16 +663,15 @@ const loginUser = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
-    const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (loginBase === "UNKNOWN") {
+    if (!hasDetectedLoginLocation(req)) {
       return res.status(400).json({
-        message: "Please select where you are logging in from",
+        message: "Allow location access so AirMS can detect where you are logging in from.",
       });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
@@ -707,7 +800,6 @@ const loginUser = async (req, res) => {
         user,
         loginPlatform,
         rememberMe: Boolean(rememberMe),
-        loginBase,
       });
 
       return res.status(200).json({
@@ -747,7 +839,6 @@ const loginUser = async (req, res) => {
       loginContext: {
         loginPlatform,
         rememberMe: Boolean(rememberMe),
-        base: loginBase,
       },
     });
   } catch (err) {
@@ -814,7 +905,11 @@ const verifyLoginOtp = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
-    const loginBase = normalizeBase(req.headers["x-base"] || base);
+    if (!hasDetectedLoginLocation(req)) {
+      return res.status(400).json({
+        message: "Allow location access so AirMS can detect where you are logging in from.",
+      });
+    }
 
     const payload = await buildLoginSuccessPayload({
       req,
@@ -822,7 +917,6 @@ const verifyLoginOtp = async (req, res) => {
       user,
       loginPlatform,
       rememberMe: Boolean(rememberMe),
-      loginBase,
     });
 
     if (trustDevice) {
@@ -1047,7 +1141,6 @@ const refreshToken = async (req, res) => {
     const newAccessToken = buildAccessToken(user, {
       sessionId: req.headers["x-session-id"] || payload.sessionId || null,
       platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
-      base: req.headers["x-base"] || payload.base || "UNKNOWN",
     });
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
@@ -2363,4 +2456,5 @@ module.exports = {
   revokeInvitation,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
+  reverseGeocodeLoginLocation,
 };

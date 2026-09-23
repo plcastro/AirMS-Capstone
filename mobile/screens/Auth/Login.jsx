@@ -4,6 +4,7 @@ import AppInput from "../../components/common/AppInput";
 import {
   View,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -60,6 +61,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  const loginClient = Platform.OS === "web" ? "web" : "mobile";
+  const loginPlatform = Platform.OS === "web" ? "WEB" : "MOBILE";
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -125,14 +128,14 @@ export default function Login() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-platform": "MOBILE",
+          "x-platform": loginPlatform,
           ...buildLoginLocationHeaders(loginLocation),
           ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
-          client: "mobile",
+          client: loginClient,
           rememberMe,
           location: loginLocation,
           trustedDeviceToken,
@@ -172,7 +175,7 @@ export default function Login() {
           identifier: formData.identifier.trim(),
           rememberMe,
           loginLocation,
-          client: "mobile",
+          client: loginClient,
         });
         return;
       }
@@ -221,7 +224,7 @@ export default function Login() {
           {
             location: loginLocation,
             sessionId: data.sessionId,
-            platform: "MOBILE",
+            platform: loginPlatform,
           },
         accessToken: token,
         refreshToken,

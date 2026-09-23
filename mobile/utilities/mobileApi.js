@@ -8,6 +8,7 @@ import {
 import { buildLoginLocationHeaders } from "./loginLocation";
 
 export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
+const DEFAULT_PLATFORM = Platform.OS === "web" ? "WEB" : "MOBILE";
 
 const readPlatformConstant = (...keys) => {
   for (const key of keys) {
@@ -104,11 +105,10 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
     ...extraHeaders,
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-platform": sessionMeta?.platform || DEFAULT_PLATFORM,
     "x-client-active-at": String(clientActiveAt),
     ...getDeviceAuditHeaders(),
     ...buildLoginLocationHeaders(sessionMeta?.location),
-    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId
       ? { "x-session-id": sessionMeta.sessionId }
       : {}),
@@ -129,11 +129,10 @@ export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
   return {
     ...extraHeaders,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    "x-platform": sessionMeta?.platform || "MOBILE",
+    "x-platform": sessionMeta?.platform || DEFAULT_PLATFORM,
     "x-client-active-at": String(clientActiveAt),
     ...getDeviceAuditHeaders(),
     ...buildLoginLocationHeaders(sessionMeta?.location),
-    ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId
       ? { "x-session-id": sessionMeta.sessionId }
       : {}),

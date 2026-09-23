@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import { Platform } from "react-native";
+import { API_BASE } from "./API_BASE";
 
 const COORDINATE_PRECISION = 6;
 
@@ -32,6 +33,21 @@ const formatAddress = (address = {}) => {
   const region = address.region;
   const country = address.country;
   return uniqueParts([city, region, country]).join(", ");
+};
+
+const reverseGeocodeWithServer = async (coordinates = {}) => {
+  const coordinateText = formatCoordinates(coordinates);
+  if (!coordinateText) return "";
+
+  const query = new URLSearchParams({
+    latitude: String(coordinates.latitude),
+    longitude: String(coordinates.longitude),
+  });
+  const response = await fetch(`${API_BASE}/api/user/reverse-geocode?${query}`);
+  if (!response.ok) return "";
+
+  const payload = await response.json().catch(() => ({}));
+  return cleanPart(payload?.text);
 };
 
 export const buildLoginLocationHeaders = (location = {}) => {
@@ -69,6 +85,14 @@ export const detectLoginLocation = async () => {
     text = formatAddress(address);
   } catch {
     text = "";
+  }
+
+  if (!text && Platform.OS === "web") {
+    try {
+      text = await reverseGeocodeWithServer(coordinates);
+    } catch {
+      text = "";
+    }
   }
 
   return {

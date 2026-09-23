@@ -53,6 +53,7 @@ const {
   completeSecuritySetup,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
+  reverseGeocodeLoginLocation,
 } = require("../controllers/userController");
 
 const {
@@ -96,6 +97,7 @@ const requireOwnProfileUpdate = (req, res, next) => {
 router.post("/login", rateLimiter, loginUser);
 router.post("/login/verify-otp", otpRequestLimiter, verifyLoginOtp);
 router.post("/login/resend-otp", otpRequestLimiter, resendLoginOtp);
+router.get("/reverse-geocode", rateLimiter, reverseGeocodeLoginLocation);
 
 router.post("/refresh-token", refreshToken);
 router.put(

@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../utilities/API_BASE";
 import {
@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [rememberMePreference, setRememberMePreference] = useState(false);
   const [session, setSession] = useState(null);
+  const defaultPlatform = Platform.OS === "web" ? "WEB" : "MOBILE";
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
   const refreshPromiseRef = useRef(null);
@@ -85,10 +86,9 @@ export const AuthProvider = ({ children }) => {
           headers: {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-            "x-platform": sessionMeta?.platform || "MOBILE",
+            "x-platform": sessionMeta?.platform || defaultPlatform,
             ...getDeviceAuditHeaders(),
             ...buildLoginLocationHeaders(sessionMeta?.location),
-            ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
             ...(sessionMeta?.sessionId
               ? { "x-session-id": sessionMeta.sessionId }
               : {}),
@@ -117,9 +117,8 @@ export const AuthProvider = ({ children }) => {
 
   const persistSessionMeta = useCallback(async (sessionData = {}) => {
     const payload = {
-      base: sessionData.base || "UNKNOWN",
       sessionId: sessionData.sessionId || null,
-      platform: "MOBILE",
+      platform: sessionData.platform || defaultPlatform,
       location: sessionData.location || null,
     };
     await setStoredSessionMeta(JSON.stringify(payload));
@@ -166,11 +165,10 @@ export const AuthProvider = ({ children }) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-platform": "MOBILE",
+              "x-platform": sessionMeta?.platform || defaultPlatform,
               "x-client-active-at": String(clientActiveAt),
               ...getDeviceAuditHeaders(),
               ...buildLoginLocationHeaders(sessionMeta?.location),
-              ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
               ...(sessionMeta?.sessionId
                 ? { "x-session-id": sessionMeta.sessionId }
                 : {}),
@@ -324,12 +322,8 @@ export const AuthProvider = ({ children }) => {
 
         if (parsedStoredUser && (accessToken || persistedRefreshToken)) {
           const sessionMeta = persistedSessionMeta;
-          if (
-            !sessionMeta?.sessionId &&
-            (parsedStoredUser?.sessionId || parsedStoredUser?.base)
-          ) {
+          if (!sessionMeta?.sessionId && parsedStoredUser?.sessionId) {
             await persistSessionMeta({
-              base: parsedStoredUser?.base,
               sessionId: parsedStoredUser?.sessionId,
             });
           }
@@ -369,7 +363,6 @@ export const AuthProvider = ({ children }) => {
       await setStoredAccessToken(accessToken);
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       await persistSessionMeta({
-        base: sessionData?.base || userData?.base,
         sessionId: sessionData?.sessionId || userData?.sessionId,
         location: sessionData?.location,
       });
@@ -421,10 +414,9 @@ export const AuthProvider = ({ children }) => {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
-        "x-platform": "MOBILE",
+        "x-platform": sessionMeta?.platform || defaultPlatform,
         ...getDeviceAuditHeaders(),
         ...buildLoginLocationHeaders(sessionMeta?.location),
-        ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
         ...(sessionMeta?.sessionId
           ? { "x-session-id": sessionMeta.sessionId }
           : {}),
