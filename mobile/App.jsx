@@ -26,7 +26,6 @@ import Dashboard from "./Layout/Dashboard";
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
-import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
@@ -253,7 +252,7 @@ function DrawerNav({ navigation }) {
                   style={{
                     height: 48,
                     justifyContent: "center",
-                    paddingBottom: 5,
+                    paddingBottom: 10,
                   }}
                 >
                   <Image
