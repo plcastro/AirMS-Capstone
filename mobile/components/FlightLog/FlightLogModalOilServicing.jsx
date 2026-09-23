@@ -2,12 +2,7 @@ import { Picker } from "@react-native-picker/picker";
 import React, { useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Image
-} from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import DateInput from "../common/DateInput";
@@ -22,7 +17,7 @@ export default function FlightLogModalOilServicing({
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
 
-  const canEditRow = index => isEditable && index >= lockedRows;
+  const canEditRow = (index) => isEditable && index >= lockedRows;
 
   const getOrdinalSuffix = (num) => {
     const j = num % 10;
@@ -49,41 +44,95 @@ export default function FlightLogModalOilServicing({
     updateOilData(legIndex, "signature", "");
   };
 
-  const renderInput = (legIndex, label, fieldKey, placeholder = "", keyboardType = "default") => (
-    <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
-        {label}:
-      </AppText>
-      {/Rem$|Tot$/.test(fieldKey) ? !canEditRow(legIndex) ? <AppText>{oilServicingData[legIndex]?.[fieldKey] || "?"}</AppText> : <Picker enabled={canEditRow(legIndex)} selectedValue={oilServicingData[legIndex]?.[fieldKey] || ""} onValueChange={value => updateOilData(legIndex, fieldKey, value)}><Picker.Item label="MIN / MAX" value="" /><Picker.Item label="MIN" value="MIN" /><Picker.Item label="MAX" value="MAX" /></Picker> : <AppInput
-        style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-          borderRadius: 6,
-          height: 42,
-          paddingHorizontal: 12,
-          fontSize: 12,
-          color: isEditable ? COLORS.black : COLORS.grayDark,
-        }}
-        value={oilServicingData[legIndex]?.[fieldKey] || ""}
-        onChangeText={(text) => updateOilData(legIndex, fieldKey, text)}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.grayDark}
-        keyboardType={keyboardType}
-        editable={canEditRow(legIndex)}
-      />}
-    </View>
-  );
+  const renderOilLevel = (legIndex, label, fieldKey) => {
+    const value = oilServicingData[legIndex]?.[fieldKey];
+    return (
+      <View style={{ marginBottom: 16 }}>
+        <AppText
+          style={{
+            fontSize: 12,
+            color: COLORS.black,
+            marginBottom: 6,
+            fontWeight: "500",
+          }}
+        >
+          {label}:
+        </AppText>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={label}
+          style={{ flexDirection: "row", gap: 8 }}
+        >
+          {["MIN", "MAX"].map((option) => {
+            const selected = value === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                accessibilityRole="radio"
+                accessibilityLabel={`${label}: ${option}`}
+                accessibilityState={{
+                  checked: selected,
+                  disabled: !isEditable,
+                }}
+                disabled={!isEditable}
+                onPress={() => updateOilData(legIndex, fieldKey, option)}
+                style={{
+                  minWidth: 80,
+                  minHeight: 44,
+                  paddingHorizontal: 18,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: selected ? "#247a61" : "#aaa",
+                  backgroundColor: selected ? "#247a61" : "#f5f5f5",
+                  opacity: isEditable ? 1 : 0.65,
+                }}
+              >
+                <AppText
+                  style={{
+                    color: selected ? "#fff" : "#333",
+                    fontWeight: selected ? "700" : "400",
+                  }}
+                >
+                  {option}
+                </AppText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {value !== undefined &&
+          String(value) !== "" &&
+          !["MIN", "MAX"].includes(value) && (
+            <AppText
+              style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 4 }}
+            >
+              Saved value: {value}
+            </AppText>
+          )}
+      </View>
+    );
+  };
 
   const renderDateInput = (legIndex, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 6,
+          fontWeight: "500",
+        }}
+      >
         {label}:
       </AppText>
       <DateInput
         value={oilServicingData[legIndex]?.[fieldKey] || ""}
         onChangeText={(date) => updateOilData(legIndex, fieldKey, date)}
         editable={false}
+        placeholder="From Basic Information"
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 6,
           minHeight: 42,
         }}
@@ -105,18 +154,29 @@ export default function FlightLogModalOilServicing({
   if (!legs || legs.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+        <AppText
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: COLORS.grayDark,
+            marginBottom: 16,
+          }}
+        >
           Oil Servicing
         </AppText>
-        <View style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          padding: 40,
-          alignItems: "center",
-        }}>
-          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No legs available</AppText>
+        <View
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            padding: 40,
+            alignItems: "center",
+          }}
+        >
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            No legs available
+          </AppText>
         </View>
       </ScrollView>
     );
@@ -124,7 +184,14 @@ export default function FlightLogModalOilServicing({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Oil Servicing
       </AppText>
 
@@ -150,38 +217,78 @@ export default function FlightLogModalOilServicing({
               marginBottom: 20,
             }}
           >
-            <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-              <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
-                {legNumber}{suffix} Leg
+            <View
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <AppText
+                style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+              >
+                {legNumber}
+                {suffix} Leg
               </AppText>
             </View>
 
             <View style={{ padding: 20 }}>
               {renderDateInput(legIndex, "Date", "date")}
 
-              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: COLORS.black,
+                  marginBottom: 12,
+                  marginTop: 8,
+                }}
+              >
                 Engine
               </AppText>
-              {renderInput(legIndex, "Engine (REM)", "engineRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "Engine (ADD)", "engineAdd", "Added", "numeric")}
-              {renderInput(legIndex, "Engine (TOT)", "engineTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "Engine (REM)", "engineRem")}
+              {renderOilLevel(legIndex, "Engine (ADD)", "engineAdd")}
+              {renderOilLevel(legIndex, "Engine (TOT)", "engineTot")}
 
-              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: COLORS.black,
+                  marginBottom: 12,
+                  marginTop: 8,
+                }}
+              >
                 M/R G/Box
               </AppText>
-              {renderInput(legIndex, "M/R G/Box (REM)", "mrGboxRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "M/R G/Box (ADD)", "mrGboxAdd", "Added", "numeric")}
-              {renderInput(legIndex, "M/R G/Box (TOT)", "mrGboxTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "M/R G/Box (REM)", "mrGboxRem")}
+              {renderOilLevel(legIndex, "M/R G/Box (ADD)", "mrGboxAdd")}
+              {renderOilLevel(legIndex, "M/R G/Box (TOT)", "mrGboxTot")}
 
-              <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.black, marginBottom: 12, marginTop: 8}}>
+              <AppText
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: COLORS.black,
+                  marginBottom: 12,
+                  marginTop: 8,
+                }}
+              >
                 T/R G/Box
               </AppText>
-              {renderInput(legIndex, "T/R G/Box (REM)", "trGboxRem", "Remaining", "numeric")}
-              {renderInput(legIndex, "T/R G/Box (ADD)", "trGboxAdd", "Added", "numeric")}
-              {renderInput(legIndex, "T/R G/Box (TOT)", "trGboxTot", "Total", "numeric")}
+              {renderOilLevel(legIndex, "T/R G/Box (REM)", "trGboxRem")}
+              {renderOilLevel(legIndex, "T/R G/Box (ADD)", "trGboxAdd")}
+              {renderOilLevel(legIndex, "T/R G/Box (TOT)", "trGboxTot")}
 
               <View style={{ marginBottom: 16, marginTop: 8 }}>
-                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.black,
+                    marginBottom: 6,
+                    fontWeight: "500",
+                  }}
+                >
                   Remarks:
                 </AppText>
                 <AppInput
@@ -196,7 +303,9 @@ export default function FlightLogModalOilServicing({
                     textAlignVertical: "top",
                   }}
                   value={oilData.remarks || ""}
-                  onChangeText={(text) => updateOilData(legIndex, "remarks", text)}
+                  onChangeText={(text) =>
+                    updateOilData(legIndex, "remarks", text)
+                  }
                   placeholder="Enter any remarks"
                   placeholderTextColor={COLORS.grayDark}
                   multiline
@@ -206,7 +315,14 @@ export default function FlightLogModalOilServicing({
               </View>
 
               <View style={{ marginBottom: 16 }}>
-                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.black,
+                    marginBottom: 6,
+                    fontWeight: "500",
+                  }}
+                >
                   Sign:
                 </AppText>
                 {canEditRow(legIndex) && !signatureInherited ? (
@@ -225,41 +341,64 @@ export default function FlightLogModalOilServicing({
                     {oilData.signature ? (
                       <Image
                         source={{ uri: oilData.signature }}
-                        style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          resizeMode: "contain",
+                        }}
                       />
                     ) : (
-                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>Tap to sign</AppText>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                        Tap to sign
+                      </AppText>
                     )}
                   </TouchableOpacity>
                 ) : (
-                  <View style={{
-                    backgroundColor: "#E8E8E8",
-                    borderRadius: 6,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    height: 80,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}>
+                  <View
+                    style={{
+                      backgroundColor: "#E8E8E8",
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      height: 80,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
                     {oilData.signature ? (
                       <Image
                         source={{ uri: oilData.signature }}
-                        style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          resizeMode: "contain",
+                        }}
                       />
                     ) : (
-                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No signature</AppText>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                        No signature
+                      </AppText>
                     )}
                   </View>
                 )}
-                {canEditRow(legIndex) && !signatureInherited && oilData.signature && (
-                  <TouchableOpacity onPress={() => handleClearSignature(legIndex)} style={{ alignSelf: "flex-end", marginTop: 8 }}>
-                    <AppText style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</AppText>
-                  </TouchableOpacity>
-                )}
+                {canEditRow(legIndex) &&
+                  !signatureInherited &&
+                  oilData.signature && (
+                    <TouchableOpacity
+                      onPress={() => handleClearSignature(legIndex)}
+                      style={{ alignSelf: "flex-end", marginTop: 8 }}
+                    >
+                      <AppText style={{ color: "#D9534F", fontSize: 12 }}>
+                        Clear Signature
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
               </View>
             </View>
 
-            {renderSignatureModal(legIndex, "Sign Here", handleSignature, () => setShowSignatureModal(null))}
+            {renderSignatureModal(legIndex, "Sign Here", handleSignature, () =>
+              setShowSignatureModal(null),
+            )}
           </View>
         );
       })}

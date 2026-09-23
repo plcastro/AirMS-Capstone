@@ -107,6 +107,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
                   inputReadOnly
+                  placeholder="From Basic Information"
                   value={fuel.date ? dayjs(fuel.date) : null}
                   onChange={(date) =>
                     updateFuel(

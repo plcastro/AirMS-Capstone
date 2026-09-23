@@ -1,7 +1,5 @@
-import FlightLandingAdjustment from "./FlightLandingAdjustment";
-import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
-import FlightLogB412Section from "./FlightLogB412Section";
-import { b412WorkflowComponents } from "../../../shared/b412WorkflowComponents";
+import { syncFlightLogDates } from '../../../shared/flightLogDates';
+import { totalFlightHours, FLIGHT_HOUR_FIELDS, flightLandingCycles, requiredFlightTimeError } from '../../../shared/flightLogTimes';
 import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
@@ -306,11 +304,13 @@ export default function FlightLogEditEntry({
   const isCompletedLog = formData.status === "completed";
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
-  const isBasicInfoEditable = !readOnly && !isCompletedLog && !isPilot && (!permissions || permissions.preparation);
-  const isRPCEditable = !embedded && !isReleasedFlightLogStatus(formData.status);
-  const isDestinationsEditable = !readOnly && !isCompletedLog && (isPilot || isMechanic) && (!permissions || permissions.flight);
-  const isComponentEditable = !readOnly && !isCompletedLog && isMechanic && (!permissions || permissions.maintenance);
-  const isBroughtForwardLocked = formData.broughtForwardLocked === true || (permissions && !permissions.preparation);
+  const isBasicInfoEditable = !readOnly && !isCompletedLog;
+  const isRPCEditable = !isReleasedFlightLogStatus(formData.status);
+  const isDestinationsEditable =
+    !readOnly && !isCompletedLog &&
+    (isPilot || ["mechanic", "maintenance manager"].includes(normalizedRole));
+  const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
+  const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
   const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic && (!permissions || permissions.maintenance);
   const isDiscrepancyEditable = !readOnly && !isCompletedLog && (!permissions || permissions.flight);
@@ -464,8 +464,13 @@ export default function FlightLogEditEntry({
   };
 
   const persistLog = async (updatedFormData, closeOnSave = false) => {
-    // Embedded forms save exclusively through the versioned workspace actions.
-    if (embedded) return false;
+    const timeError = requiredFlightTimeError(updatedFormData.legs);
+    if (timeError) {
+      showToast(timeError);
+      setCurrentPage(Math.max(tabs.indexOf('Destination/s'), 0));
+      return false;
+    }
+
     if (isPilot && !hasCompleteFlightLogLegs(updatedFormData.legs)) {
       showToast("Each leg must include complete station route and date");
       setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
@@ -902,14 +907,23 @@ export default function FlightLogEditEntry({
     Boolean(formData.acceptedBy?.signature);
 
   useEffect(() => {
-    if (!visible || !formData || formData.status === 'completed') return;
-    const next = populateFlightInputs({ ...formData, componentData });
-    setComponentData(previous => JSON.stringify(previous.thisFlightData) === JSON.stringify(next.componentData.thisFlightData) ? previous : { ...previous, thisFlightData: next.componentData.thisFlightData });
-    setFormData(previous => {
-      const updated = { ...previous, fuelServicing: next.fuelServicing, oilServicing: next.oilServicing, ...(next.b412Data ? { b412Data: next.b412Data } : {}) };
-      return JSON.stringify(previous) === JSON.stringify(updated) ? previous : updated;
+    if (!visible || formData.status === 'completed') return;
+    const hours = totalFlightHours(formData.legs);
+    const landingCycle = String(flightLandingCycles(formData.legs, formData.additionalLandings));
+    setComponentData(previous => {
+      if (previous.thisFlightData?.landingCycle === landingCycle && FLIGHT_HOUR_FIELDS.every(key => previous.thisFlightData?.[key] === hours)) return previous;
+      return { ...previous, thisFlightData: { ...previous.thisFlightData,
+        ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map(key => [key, hours])), landingCycle } };
     });
-  }, [visible, formData, componentData]);
+  }, [visible, formData.legs, formData.status, formData.additionalLandings]);
+
+  useEffect(() => {
+    if (!visible || formData.status === 'completed') return;
+    setFormData(previous => {
+      const next = syncFlightLogDates(previous);
+      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+    });
+  }, [visible, formData]);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -961,7 +975,10 @@ export default function FlightLogEditEntry({
 
       case "This Flight":
         return (
-          <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isComponentEditable)} onChange={value => updateForm("additionalLandings", value)} /><FlightLogModalThisFlight
+          <FlightLogModalThisFlight
+            legCount={formData.legs?.length || 0}
+            additionalLandings={formData.additionalLandings || 0}
+            onAdditionalLandingsChange={additionalLandings => setFormData(previous => ({ ...previous, additionalLandings }))}
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)

@@ -1,5 +1,5 @@
-import FlightLandingAdjustment from "./FlightLandingAdjustment";
-import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
+import { syncFlightLogDates } from '../../../shared/flightLogDates';
+import { totalFlightHours, FLIGHT_HOUR_FIELDS, flightLandingCycles, requiredFlightTimeError } from '../../../shared/flightLogTimes';
 import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AppText from "../common/AppText";
@@ -359,7 +359,8 @@ export default function FlightLogEntry({
   const tabs = getFlightLogTabs();
   const totalPages = tabs.length;
   const isBasicInfoEditable = true;
-  const isDestinationsEditable = isPilot || isMechanic;
+  const isDestinationsEditable =
+    isPilot || ["mechanic", "maintenance manager"].includes(normalizedRole);
   const isMechanicSectionEditable = isMechanic;
   const isWorkDoneEditable =
     isMechanic && formData.status === "pending_release";
@@ -663,7 +664,16 @@ export default function FlightLogEntry({
     };
   };
 
+  const validateRequiredFlightTime = () => {
+    const error = requiredFlightTimeError(formData.legs);
+    if (!error) return true;
+    showToast(error);
+    setCurrentPage(Math.max(tabs.indexOf('Destination/s'), 0));
+    return false;
+  };
+
   const handleRelease = async (signature) => {
+    if (!validateRequiredFlightTime()) return false;
     if (!isAircraftSelected) {
       showToast("Select an aircraft and wait for its type to load");
       return false;
@@ -704,8 +714,34 @@ export default function FlightLogEntry({
       return;
     }
 
+    if (!validateRequiredFlightTime()) return;
+    if (isPilot && !hasCompleteFlightLogLegs(formData.legs)) {
+      showToast("Each leg must include complete station route and date");
+      setCurrentPage(tabs.indexOf("Destination/s"));
+      return;
+    }
+
     onSave(buildFlightLogPayload(formData));
   };
+
+  useEffect(() => {
+    if (!visible || formData.status === 'completed') return;
+    const hours = totalFlightHours(formData.legs);
+    const landingCycle = String(flightLandingCycles(formData.legs, formData.additionalLandings));
+    setComponentData(previous => {
+      if (previous.thisFlightData?.landingCycle === landingCycle && FLIGHT_HOUR_FIELDS.every(key => previous.thisFlightData?.[key] === hours)) return previous;
+      return { ...previous, thisFlightData: { ...previous.thisFlightData,
+        ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map(key => [key, hours])), landingCycle } };
+    });
+  }, [visible, formData.legs, formData.status, formData.additionalLandings]);
+
+  useEffect(() => {
+    if (!visible || formData.status === 'completed') return;
+    setFormData(previous => {
+      const next = syncFlightLogDates(previous);
+      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+    });
+  }, [visible, formData]);
 
   const renderPage = () => {
     const currentTab = tabs[currentPage];
@@ -751,7 +787,10 @@ export default function FlightLogEntry({
 
       case "This Flight":
         return (
-          <><FlightLandingAdjustment legs={formData.legs} extra={formData.additionalLandings} disabled={!(isMechanicSectionEditable)} onChange={value => updateForm("additionalLandings", value)} /><FlightLogModalThisFlight
+          <FlightLogModalThisFlight
+            legCount={formData.legs?.length || 0}
+            additionalLandings={formData.additionalLandings || 0}
+            onAdditionalLandingsChange={additionalLandings => setFormData(previous => ({ ...previous, additionalLandings }))}
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)

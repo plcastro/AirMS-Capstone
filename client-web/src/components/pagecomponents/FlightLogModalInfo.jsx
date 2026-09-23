@@ -3,8 +3,7 @@ import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
-import FlightLogCrewAssignment from "./FlightLogCrewAssignment";
-import { AuthContext } from "../../context/AuthContext";
+import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
 
 export default function FlightLogModalInfo({
   formData,
@@ -105,7 +104,14 @@ export default function FlightLogModalInfo({
     const fetchOngoingAircraftRpcs = async () => {
       try {
         const headers = await getAuthHeader();
-        const statuses = ["pending_release", "pending_acceptance", "accepted", "submitted", "returned_to_pilot", "returned_to_mechanic"];
+        const statuses = [
+          "pending_release",
+          "pending_acceptance",
+          "accepted",
+          "submitted",
+          "returned_to_pilot",
+          "returned_to_mechanic",
+        ];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
@@ -318,6 +324,16 @@ export default function FlightLogModalInfo({
               disabled={!isEditable}
               required
               aria-required="true"
+            />
+          </div>
+
+          <div className="fl-field-row">
+            <span className="fl-label">Assigned Pilot:</span>
+            <FlightAssignedPilotSelect
+              value={formData.assignedPilot}
+              onChange={(value) => updateForm("assignedPilot", value)}
+              disabled={!isEditable}
+              isActive={isActive}
             />
           </div>
 

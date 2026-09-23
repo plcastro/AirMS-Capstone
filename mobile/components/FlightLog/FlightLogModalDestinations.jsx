@@ -1,4 +1,8 @@
-import FlightStationInput from "./FlightStationInput";
+import FlightTimeInput from "./FlightTimeInput";
+import {
+  FLIGHT_TIME_FIELDS,
+  isTotalTimeField,
+} from "../../../shared/flightLogTimes";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -201,27 +205,56 @@ export default function FlightLogModalDestinations({
         }}
       >
         {label}
+        {fieldKey === "totalTimeOff" ? " *" : ""}
       </AppText>
-      <AppInput
-        style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-          borderRadius: 4,
-          height: 38,
-          paddingHorizontal: 10,
-          fontSize: 12,
-          color: isEditable ? COLORS.black : COLORS.grayDark,
-        }}
-        value={String(isEditable ? legFieldDisplay(legs[legIdx], fieldKey) : legs[legIdx][fieldKey] ?? "")}
-        placeholder={isLegTotal(fieldKey) ? 'Calculated from times' : fieldKey.includes('Time') ? 'HH:mm' : ''}
-        onChangeText={(text) => {
-          if (!isEditable) return;
-          const newLegs = [...legs];
-          newLegs[legIdx][fieldKey] = text;
-          setLegs(newLegs);
-          onUpdateLeg({ ...legData, legs: newLegs });
-        }}
-        editable={isEditable && !isLegTotal(fieldKey)}
-      />
+      {FLIGHT_TIME_FIELDS.includes(fieldKey) ? (
+        <FlightTimeInput
+          label={label}
+          required={fieldKey === "totalTimeOff"}
+          value={legs[legIdx][fieldKey]}
+          duration={isTotalTimeField(fieldKey)}
+          disabled={!isEditable}
+          onChange={(value) => {
+            if (!isEditable) return;
+            const newLegs = legs.map((leg, i) =>
+              i === legIdx ? { ...leg, [fieldKey]: value } : leg,
+            );
+            setLegs(newLegs);
+            onUpdateLeg({ ...legData, legs: newLegs });
+          }}
+        />
+      ) : (
+        <AppInput
+          style={{
+            backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+            borderRadius: 4,
+            height: 38,
+            paddingHorizontal: 10,
+            fontSize: 12,
+            color: isEditable ? COLORS.black : COLORS.grayDark,
+          }}
+          value={String(
+            isEditable
+              ? legFieldDisplay(legs[legIdx], fieldKey)
+              : (legs[legIdx][fieldKey] ?? ""),
+          )}
+          placeholder={
+            isLegTotal(fieldKey)
+              ? "Calculated from times"
+              : fieldKey.includes("Time")
+                ? "HH:mm"
+                : ""
+          }
+          onChangeText={(text) => {
+            if (!isEditable) return;
+            const newLegs = [...legs];
+            newLegs[legIdx][fieldKey] = text;
+            setLegs(newLegs);
+            onUpdateLeg({ ...legData, legs: newLegs });
+          }}
+          editable={isEditable}
+        />
+      )}
     </View>
   );
 
@@ -239,7 +272,8 @@ export default function FlightLogModalDestinations({
       </AppText>
       <DateInput
         value={legs[legIdx][fieldKey] || ""}
-        editable={isEditable}
+        editable={false}
+        placeholder="From Basic Information"
         onChangeText={(date) => {
           if (!isEditable) return;
           const newLegs = [...legs];
@@ -248,7 +282,7 @@ export default function FlightLogModalDestinations({
           onUpdateLeg({ ...legData, legs: newLegs });
         }}
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: "#E8E8E8",
           borderRadius: 4,
           minHeight: 38,
           height: 38,
@@ -279,7 +313,11 @@ export default function FlightLogModalDestinations({
       >
         Destination/s
       </AppText>
-      <AppText style={{ marginBottom: 16 }}>Use 24-hour times (HH:mm) in the same time zone. OFF is departure/takeoff; ON is arrival/landing. Totals are decimal hours. ON before OFF means the following day.</AppText>
+      <AppText style={{ marginBottom: 16 }}>
+        Use 24-hour times (HH:mm) in the same time zone. OFF is
+        departure/takeoff; ON is arrival/landing. Totals are decimal hours. ON
+        before OFF means the following day.
+      </AppText>
 
       {legs.map((leg, legIdx) => {
         const legNumber = legIdx + 1;

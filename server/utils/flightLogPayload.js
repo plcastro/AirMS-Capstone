@@ -1,6 +1,9 @@
-const { hasCompleteFlightLogLegs } = require("../../shared/flightLogLegValidation");
+const {
+  hasCompleteFlightLogLegs,
+} = require("../../shared/flightLogLegValidation");
 
 const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
+  "assignedPilot",
   "aircraftType",
   "rpc",
   "date",
@@ -14,6 +17,7 @@ const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
   "sling",
   "remarks",
   "legs",
+  "additionalLandings",
   "fuelServicing",
   "oilServicing",
   "workItems",
@@ -36,8 +40,7 @@ const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
 // signatures are deliberately excluded even when a client submits its whole
 // local form object.
 const PILOT_CREATE_FLIGHT_LOG_FIELDS = new Set([
-  "flightPurpose", "purposeDetails", "noDefectsReported",
-  "assignedMechanic",
+  "assignedPilot",
   "aircraftType",
   "rpc",
   "date",
@@ -53,8 +56,7 @@ const PILOT_CREATE_FLIGHT_LOG_FIELDS = new Set([
 ]);
 
 const PILOT_UPDATE_FLIGHT_LOG_FIELDS = new Set([
-  "noDefectsReported",
-  "assignedMechanic",
+  "assignedPilot",
   "sling",
   "remarks",
   "legs",
@@ -81,9 +83,7 @@ const getTrustedFlightLogRole = (req = {}) => {
   const user = req?.user;
   if (!user || typeof user !== "object") return "";
 
-  return normalizeFlightLogRole(
-    user.jobTitle || user.role || user.access,
-  );
+  return normalizeFlightLogRole(user.jobTitle || user.role || user.access);
 };
 
 const isPilotFlightLogRequest = (req = {}) =>
@@ -167,11 +167,7 @@ const mergePilotB412Update = (existingB412Data, pilotB412Update) => {
   return { ...existing, ...pilotB412Update };
 };
 
-const pickFlightLogPayloadForRequest = (
-  req,
-  body,
-  operation = "update",
-) => {
+const pickFlightLogPayloadForRequest = (req, body, operation = "update") => {
   const isPilot = isRestrictedPilotFlightLogRequest(req);
   const pilotAllowedFields =
     operation === "create"
