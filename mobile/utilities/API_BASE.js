@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 const localUrl = "http://localhost:8000";
 const androidEmulatorUrl = "http://10.0.2.2:8000";
-const productionUrl = "https://airms-server.vercel.app";
+const productionUrl = "https://api.airms.online";
 
 // Expo only guarantees EXPO_PUBLIC_* variables at runtime.
 const envBackendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
