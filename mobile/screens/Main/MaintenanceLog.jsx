@@ -75,7 +75,7 @@ const getLogStableId = (entry) =>
   String(entry?.sourceTaskId || entry?.id || entry?._id || "");
 
 export default function MaintenanceLog() {
-  const { user } = useContext(AuthContext);
+  const { user, session } = useContext(AuthContext);
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function MaintenanceLog() {
   const [seenLogIds, setSeenLogIds] = useState(new Set());
   const userRole = resolveUserRole(user);
   const isMechanic = userRole === "mechanic";
-  const userBase = String(user?.base || "").trim().toUpperCase();
+  const userBase = String(session?.base || "").trim().toUpperCase();
   const canExportMaintenanceLogs = canExportModule(
     userRole,
     "maintenanceLogs",

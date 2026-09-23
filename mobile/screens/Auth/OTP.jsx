@@ -21,6 +21,7 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
 
 const getTrustedDeviceStorageKey = (account) => {
   const normalizedAccount = String(account || "")
@@ -132,6 +133,7 @@ export default function OTP() {
           "Content-Type": "application/json",
           "x-base": route.params?.base || "",
           "x-platform": "MOBILE",
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           token,
@@ -160,7 +162,7 @@ export default function OTP() {
         return;
       }
 
-      const { user, token: accessToken, refreshToken } = data;
+      const { user, token: accessToken, refreshToken, session } = data;
       if (data?.trustedDeviceToken) {
         await storeTrustedDeviceTokenForAccounts(
           [route.params?.identifier, user?.email, user?.username],
@@ -185,6 +187,13 @@ export default function OTP() {
 
       await loginUser({
         user,
+        session:
+          session ||
+          {
+            base: route.params?.base,
+            sessionId: data.sessionId,
+            platform: "MOBILE",
+          },
         accessToken,
         refreshToken,
         rememberMe,
@@ -238,6 +247,7 @@ export default function OTP() {
           "Content-Type": "application/json",
           "x-base": route.params?.base || "",
           "x-platform": "MOBILE",
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify(resendPayload),
       });

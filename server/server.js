@@ -80,6 +80,8 @@ const corsOptions = {
     "x-base",
     "x-session-id",
     "x-client-active-at",
+    "x-device-platform",
+    "x-device-model",
     "x-action-confirmed",
     "x-confirm-action",
   ],

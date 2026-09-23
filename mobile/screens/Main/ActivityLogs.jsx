@@ -16,7 +16,6 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
@@ -33,6 +32,7 @@ import {
   getAuditActionCategory,
   getAuditActionCategoryOptions,
 } from "../../utilities/auditActions";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
 const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
@@ -61,6 +61,18 @@ const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
 );
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDevicePlatform = (devicePlatform, platform) => {
+  const normalizedDevice = String(devicePlatform || "")
+    .trim()
+    .toUpperCase();
+  if (normalizedDevice === "MOBILE_IOS") return "IOS";
+  if (normalizedDevice === "MOBILE_ANDROID") return "ANDROID";
+  if (normalizedDevice) return normalizedDevice.replace(/_/g, " ");
+  return String(platform || "unknown")
+    .trim()
+    .toUpperCase();
+};
 
 const startOfDay = (date) => {
   const next = new Date(date);
@@ -153,7 +165,6 @@ export default function ActivityLogs() {
     async ({ silent = false } = {}) => {
       try {
         if (!silent) setLoading(true);
-        const token = await AsyncStorage.getItem("currentUserToken");
         const query = new URLSearchParams({ page: "1", limit: "1000" });
 
         if (dateRangeFilter !== "all") {
@@ -171,9 +182,7 @@ export default function ActivityLogs() {
         const response = await fetch(
           `${API_BASE}/api/logs/getAllUserLogs?${query.toString()}`,
           {
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
@@ -189,12 +198,23 @@ export default function ActivityLogs() {
           dateTime: item.dateTime,
           actionMade: item.actionMade || item.action || "N/A",
           username: item.username || "Unknown",
+          displayName: item.displayName || item.username || "Unknown",
+          firstName: item.firstName || "",
+          lastName: item.lastName || "",
           base: String(item.base || item.loginBase || "unknown")
             .trim()
             .toUpperCase(),
           platform: String(item.platform || "unknown")
             .trim()
             .toUpperCase(),
+          devicePlatform: String(item.devicePlatform || "")
+            .trim()
+            .toUpperCase(),
+          deviceModel: String(item.deviceModel || "").trim(),
+          platformLabel: formatDevicePlatform(
+            item.devicePlatform,
+            item.platform,
+          ),
         }));
 
         setLogs(mapped);
@@ -262,7 +282,9 @@ export default function ActivityLogs() {
         next = next.filter(
           (item) =>
             String(item.platform || "unknown").toUpperCase() ===
-            String(scopeValue).toUpperCase(),
+              String(scopeValue).toUpperCase() ||
+            String(item.platformLabel || "unknown").toUpperCase() ===
+              String(scopeValue).toUpperCase(),
         );
       }
     }
@@ -302,7 +324,7 @@ export default function ActivityLogs() {
     const byUser = {};
     const byModule = {};
     filteredLogs.forEach((item) => {
-      const userKey = String(item.username || "Unknown");
+      const userKey = String(item.displayName || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
       const module = actionText.includes("task")
@@ -354,11 +376,14 @@ export default function ActivityLogs() {
           "WEB",
           "MOBILE",
           ...logs
-            .map((item) =>
+            .flatMap((item) => [
               String(item.platform || "")
                 .trim()
                 .toUpperCase(),
-            )
+              String(item.platformLabel || "")
+                .trim()
+                .toUpperCase(),
+            ])
             .filter(Boolean),
         ]),
       ).sort();
@@ -542,12 +567,20 @@ export default function ActivityLogs() {
         sections: [
           {
             title: "Activity Logs",
-            columns: ["Date / Time", "User", "Action", "Platform", "Base"],
+            columns: [
+              "Date / Time",
+              "User",
+              "Action",
+              "Platform",
+              "Device",
+              "Base",
+            ],
             rows: filteredLogs.map((log) => ({
               "Date / Time": formatDisplayDate(log.dateTime),
-              User: log.username || "Unknown",
+              User: log.displayName || "Unknown",
               Action: log.actionMade || "N/A",
-              Platform: log.platform || "Not captured",
+              Platform: log.platformLabel || log.platform || "Not captured",
+              Device: log.deviceModel || "Not captured",
               Base: log.base || "Not captured",
             })),
           },
@@ -728,7 +761,7 @@ export default function ActivityLogs() {
                 </View>
 
                 <AppText style={styles.userText}>
-                  User: {item.username || "Unknown"}
+                  User: {item.displayName || "Unknown"}
                 </AppText>
                 <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
@@ -742,9 +775,16 @@ export default function ActivityLogs() {
                   </View>
                   <View style={[styles.tag, styles.platformTag]}>
                     <AppText style={[styles.tagText, styles.platformTagText]}>
-                      {String(item.platform || "unknown").toUpperCase()}
+                      {item.platformLabel || "UNKNOWN"}
                     </AppText>
                   </View>
+                  {!!item.deviceModel && (
+                    <View style={[styles.tag, styles.deviceTag]}>
+                      <AppText style={[styles.tagText, styles.deviceTagText]}>
+                        {item.deviceModel}
+                      </AppText>
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -1007,6 +1047,8 @@ const styles = StyleSheet.create({
   baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
+  deviceTag: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  deviceTagText: { color: "#9A3412" },
   paginationRow: {
     marginTop: 4,
     flexDirection: "row",

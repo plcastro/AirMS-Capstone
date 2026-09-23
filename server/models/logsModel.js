@@ -10,12 +10,17 @@ const userLogSchema = new mongoose.Schema({
     required: false,
   },
   username: { type: String, required: false },
+  firstName: { type: String, default: "" },
+  lastName: { type: String, default: "" },
+  displayName: { type: String, default: "" },
   sessionId: { type: String, default: null },
   platform: {
     type: String,
     enum: ["WEB", "MOBILE"],
     default: null,
   },
+  devicePlatform: { type: String, default: "" },
+  deviceModel: { type: String, default: "" },
   base: {
     type: String,
     enum: ["MANILA", "CEBU", "CDO"],

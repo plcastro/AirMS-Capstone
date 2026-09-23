@@ -30,6 +30,7 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
 
 const BASE_OPTIONS = [
   { label: "Manila", value: "MANILA" },
@@ -128,6 +129,7 @@ export default function Login() {
           "Content-Type": "application/json",
           "x-platform": "MOBILE",
           "x-base": selectedBase,
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
@@ -177,7 +179,7 @@ export default function Login() {
         return;
       }
 
-      const { user, token, refreshToken } = data;
+      const { user, token, refreshToken, session } = data;
       if (!user || !token) {
         setMessage(data.message || "Invalid login response");
         return;
@@ -218,6 +220,13 @@ export default function Login() {
 
       await loginUser({
         user,
+        session:
+          session ||
+          {
+            base: selectedBase,
+            sessionId: data.sessionId,
+            platform: "MOBILE",
+          },
         accessToken: token,
         refreshToken,
         rememberMe,

@@ -21,6 +21,8 @@ const userSessionSchema = new mongoose.Schema(
     },
     ipAddress: { type: String, default: "" },
     userAgent: { type: String, default: "" },
+    devicePlatform: { type: String, default: "" },
+    deviceModel: { type: String, default: "" },
     loginAt: { type: Date, default: Date.now },
     lastActivityAt: { type: Date, default: Date.now },
     logoutAt: { type: Date, default: null },

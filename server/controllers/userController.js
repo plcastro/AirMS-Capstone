@@ -174,6 +174,38 @@ const storeRefreshToken = async ({
   });
 };
 
+const buildAccessToken = (user, session = {}) =>
+  jwt.sign(
+    {
+      id: user._id,
+      sessionId: session.sessionId || null,
+      platform: session.platform || "UNKNOWN",
+      base: session.base || "UNKNOWN",
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "30m" },
+  );
+
+const buildClientUserProfile = (user) => ({
+  id: user._id,
+  username: user.username,
+  email: user.email,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  jobTitle: user.jobTitle,
+  access: user.access,
+  licenseNo: user.licenseNo,
+  status: user.status,
+  image: user.image,
+  lastLogin: user.lastLogin,
+});
+
+const buildSessionPayload = (session = {}, fallbackBase = "") => ({
+  base: session.base || fallbackBase || "UNKNOWN",
+  sessionId: session.sessionId || null,
+  platform: session.platform || "UNKNOWN",
+});
+
 const revokeRefreshTokenByHash = async (
   tokenHash,
   reason,
@@ -424,21 +456,7 @@ const buildLoginSuccessPayload = async ({
 
   const session = await createUserSession(req, user._id, loginPlatform);
 
-  const token = jwt.sign(
-    {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      jobTitle: user.jobTitle,
-      access: user.access,
-      licenseNo: user.licenseNo,
-      sessionId: session.sessionId,
-      platform: session.platform,
-      base: session.base,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" },
-  );
+  const token = buildAccessToken(user, session);
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
   const { token: refreshToken, jti } = issueRefreshToken(
@@ -481,27 +499,9 @@ const buildLoginSuccessPayload = async ({
     message: "Login successful",
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
+    session: buildSessionPayload(session, loginBase),
     sessionId: session.sessionId,
-    user: {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      jobTitle: user.jobTitle,
-      access: user.access,
-      licenseNo: user.licenseNo,
-      status: user.status,
-      image: user.image,
-      // signature: user.signature,
-      securitySetupCompleted: user.securitySetupCompleted,
-      lastLogin: user.lastLogin,
-      isOnline: user.isOnline,
-      platform: user.platform,
-      base: session.base || loginBase,
-      sessionId: session.sessionId,
-      lastSeenAt: user.lastSeenAt,
-    },
+    user: buildClientUserProfile(user),
   };
 };
 
@@ -553,7 +553,9 @@ const loginUser = async (req, res) => {
 
     const user = await UserModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
-    }).select("+password +tempPasswordExpires +skipFirstLoginOtp +loginOtpExempt");
+    }).select(
+      "+password +tempPasswordExpires +skipFirstLoginOtp +loginOtpExempt",
+    );
 
     if (!user) {
       return res.status(401).json({ message: "Account does not exist" });
@@ -656,7 +658,11 @@ const loginUser = async (req, res) => {
       user,
       UserModel,
     );
-    if (validTrustedDevice || isLoginOtpExemptUser(user) || firstLoginOtpExempt) {
+    if (
+      validTrustedDevice ||
+      isLoginOtpExemptUser(user) ||
+      firstLoginOtpExempt
+    ) {
       if (validTrustedDevice) {
         validTrustedDevice.lastUsedAt = new Date();
       }
@@ -1004,21 +1010,11 @@ const refreshToken = async (req, res) => {
       return res.status(403).json({ message: "Account deactivated" });
     }
 
-    const newAccessToken = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        jobTitle: user.jobTitle,
-        access: user.access,
-        licenseNo: user.licenseNo,
-        sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
-        base: req.headers["x-base"] || payload.base || "UNKNOWN",
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m" },
-    );
+    const newAccessToken = buildAccessToken(user, {
+      sessionId: req.headers["x-session-id"] || payload.sessionId || null,
+      platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+      base: req.headers["x-base"] || payload.base || "UNKNOWN",
+    });
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
@@ -1411,7 +1407,9 @@ const createUser = async (req, res) => {
       tempPasswordExpires,
       loginOtpExempt: creationPolicy.loginOtpExempt,
       invitationStatus: "pending",
-      invitationSentAt: creationPolicy.suppressInvitationEmail ? null : new Date(),
+      invitationSentAt: creationPolicy.suppressInvitationEmail
+        ? null
+        : new Date(),
       invitationExpiresAt: new Date(tempPasswordExpires),
       status: "inactive",
       image: imagePath,

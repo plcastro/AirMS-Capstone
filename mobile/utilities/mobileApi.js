@@ -1,6 +1,53 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
+
+const readPlatformConstant = (...keys) => {
+  for (const key of keys) {
+    const value = Platform.constants?.[key];
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+};
+
+export const getDeviceAuditHeaders = () => {
+  if (Platform.OS === "web") {
+    return {
+      "x-device-platform": "WEB",
+      "x-device-model": "Browser",
+    };
+  }
+
+  const platformLabel =
+    Platform.OS === "ios"
+      ? "MOBILE_IOS"
+      : Platform.OS === "android"
+        ? "MOBILE_ANDROID"
+        : `MOBILE_${String(Platform.OS || "UNKNOWN").toUpperCase()}`;
+  const manufacturer = readPlatformConstant("Manufacturer", "manufacturer");
+  const brand = readPlatformConstant("Brand", "brand");
+  const modelName = readPlatformConstant(
+    "Model",
+    "model",
+    "deviceName",
+    "DeviceName",
+  );
+  const model =
+    [manufacturer || brand, modelName]
+      .filter(Boolean)
+      .filter((part, index, parts) => parts.indexOf(part) === index)
+      .join(" ") ||
+    brand ||
+    `${Platform.OS} device`;
+
+  return {
+    "x-device-platform": platformLabel,
+    "x-device-model": model,
+  };
+};
 
 export const recordClientActivity = async (timestamp = Date.now()) => {
   await AsyncStorage.setItem(CLIENT_ACTIVE_AT_KEY, String(timestamp));
@@ -29,8 +76,11 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "x-platform": sessionMeta?.platform || "MOBILE",
     "x-client-active-at": String(clientActiveAt),
+    ...getDeviceAuditHeaders(),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
-    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+    ...(sessionMeta?.sessionId
+      ? { "x-session-id": sessionMeta.sessionId }
+      : {}),
   };
 };
 
@@ -50,8 +100,11 @@ export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "x-platform": sessionMeta?.platform || "MOBILE",
     "x-client-active-at": String(clientActiveAt),
+    ...getDeviceAuditHeaders(),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
-    ...(sessionMeta?.sessionId ? { "x-session-id": sessionMeta.sessionId } : {}),
+    ...(sessionMeta?.sessionId
+      ? { "x-session-id": sessionMeta.sessionId }
+      : {}),
   };
 };
 

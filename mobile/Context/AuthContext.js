@@ -15,6 +15,7 @@ import {
 import { API_BASE } from "../utilities/API_BASE";
 import {
   getClientActiveAt,
+  getDeviceAuditHeaders,
   recordClientActivity,
 } from "../utilities/mobileApi";
 
@@ -27,6 +28,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rememberMePreference, setRememberMePreference] = useState(false);
+  const [session, setSession] = useState(null);
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
   const refreshPromiseRef = useRef(null);
@@ -84,6 +86,7 @@ export const AuthProvider = ({ children }) => {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             "x-platform": sessionMeta?.platform || "MOBILE",
+            ...getDeviceAuditHeaders(),
             ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
             ...(sessionMeta?.sessionId
               ? { "x-session-id": sessionMeta.sessionId }
@@ -99,6 +102,7 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setUser(null);
         setToken(null);
+        setSession(null);
         accessTokenRef.current = null;
         refreshTokenRef.current = null;
         await clearStoredAuth();
@@ -117,6 +121,7 @@ export const AuthProvider = ({ children }) => {
       platform: "MOBILE",
     };
     await AsyncStorage.setItem("authSessionMeta", JSON.stringify(payload));
+    setSession(payload);
     return payload;
   }, []);
 
@@ -161,6 +166,7 @@ export const AuthProvider = ({ children }) => {
               "Content-Type": "application/json",
               "x-platform": "MOBILE",
               "x-client-active-at": String(clientActiveAt),
+              ...getDeviceAuditHeaders(),
               ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
               ...(sessionMeta?.sessionId
                 ? { "x-session-id": sessionMeta.sessionId }
@@ -220,6 +226,7 @@ export const AuthProvider = ({ children }) => {
         if (isInvalidRefreshToken) {
           setUser(null);
           setToken(null);
+          setSession(null);
           accessTokenRef.current = null;
           refreshTokenRef.current = null;
           await clearStoredAuth();
@@ -290,6 +297,8 @@ export const AuthProvider = ({ children }) => {
           (await AsyncStorage.getItem("refreshToken")) ||
           (await secureGetItem("refreshToken"));
         const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+        const persistedSessionMeta = await getSessionMeta();
+        setSession(persistedSessionMeta?.sessionId ? persistedSessionMeta : null);
 
         const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
         if (hasAuthMaterial && parsedStoredUser) {
@@ -308,7 +317,7 @@ export const AuthProvider = ({ children }) => {
         refreshTokenRef.current = persistedRefreshToken;
 
         if (parsedStoredUser && (accessToken || persistedRefreshToken)) {
-          const sessionMeta = await getSessionMeta();
+          const sessionMeta = persistedSessionMeta;
           if (
             !sessionMeta?.sessionId &&
             (parsedStoredUser?.sessionId || parsedStoredUser?.base)
@@ -339,6 +348,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginUser = async ({
     user: userData,
+    session: sessionData,
     accessToken,
     refreshToken,
     rememberMe = true,
@@ -354,8 +364,8 @@ export const AuthProvider = ({ children }) => {
       await secureSetItem("accessToken", accessToken);
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       await persistSessionMeta({
-        base: userData?.base,
-        sessionId: userData?.sessionId,
+        base: sessionData?.base || userData?.base,
+        sessionId: sessionData?.sessionId || userData?.sessionId,
       });
       refreshFailureLoggedRef.current = false;
 
@@ -410,6 +420,7 @@ export const AuthProvider = ({ children }) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
         "x-platform": "MOBILE",
+        ...getDeviceAuditHeaders(),
         ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
         ...(sessionMeta?.sessionId
           ? { "x-session-id": sessionMeta.sessionId }
@@ -441,6 +452,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        session,
         token,
         loginUser,
         updateUser,
