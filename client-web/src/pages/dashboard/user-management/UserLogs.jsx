@@ -39,7 +39,9 @@ import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import {
+  addPdfExecutionFooter,
   drawPdfReportHeader,
+  getExportExecutorName,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -340,6 +342,7 @@ export default function UserLogs() {
         title: "Activity Logs Report",
         subtitle: generatedAt,
         logoDataUrl,
+        executedBy: getExportExecutorName(),
       });
 
       autoTable(doc, {
@@ -359,6 +362,7 @@ export default function UserLogs() {
         },
         margin: { left: 40, right: 40 },
       });
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
       doc.save(fileName);
 
       setPopup({

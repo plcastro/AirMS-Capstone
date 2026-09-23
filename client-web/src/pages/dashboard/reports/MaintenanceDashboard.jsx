@@ -27,7 +27,9 @@ import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import {
+  addPdfExecutionFooter,
   drawPdfReportHeader,
+  getExportExecutorName,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
 const { Title, Text } = Typography;
@@ -1083,6 +1085,7 @@ export default function MaintenanceDashboard() {
         title: "Reports and Analytics - Statistics",
         subtitle: generatedAt,
         logoDataUrl,
+        executedBy: getExportExecutorName(),
       });
       const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -1243,6 +1246,7 @@ export default function MaintenanceDashboard() {
         title: "Reports and Analytics - Details",
         subtitle: generatedAt,
         logoDataUrl,
+        executedBy: getExportExecutorName(),
       });
 
       sections.forEach((section, index) => {
@@ -1252,6 +1256,7 @@ export default function MaintenanceDashboard() {
             title: "Reports and Analytics - Details",
             subtitle: generatedAt,
             logoDataUrl,
+            executedBy: getExportExecutorName(),
           });
         }
 
@@ -1279,6 +1284,7 @@ export default function MaintenanceDashboard() {
         y = doc.lastAutoTable.finalY + 22;
       });
 
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
       doc.save(buildReportFileName("Reports and Analytics", "pdf"));
       setPopup({
         open: true,

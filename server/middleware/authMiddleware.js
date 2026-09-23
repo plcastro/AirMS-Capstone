@@ -72,7 +72,7 @@ const verifyToken = async (req, res, next) => {
     );
 
     const user = await UserModel.findById(userId)
-      .select("username email jobTitle access licenseNo status")
+      .select("username email firstName lastName jobTitle access licenseNo status")
       .lean();
 
     if (!user) {
@@ -91,6 +91,8 @@ const verifyToken = async (req, res, next) => {
       sub: String(user._id),
       username: user.username,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       jobTitle: user.jobTitle,
       access: user.access,
       licenseNo: user.licenseNo,

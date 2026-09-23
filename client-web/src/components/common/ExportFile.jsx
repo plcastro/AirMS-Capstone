@@ -60,6 +60,68 @@ const formatExportValue = (value) => {
   return String(value);
 };
 
+export const getExportExecutorName = (fallback = "Unknown User") => {
+  const readUser = (storage) => {
+    if (!storage) return null;
+    try {
+      const raw = storage.getItem("currentUser");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const user =
+    readUser(typeof sessionStorage !== "undefined" ? sessionStorage : null) ||
+    readUser(typeof localStorage !== "undefined" ? localStorage : null);
+  const fullName = [user?.firstName, user?.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    fullName ||
+    String(user?.displayName || user?.username || user?.email || fallback)
+      .trim()
+  );
+};
+
+const formatExecutedAt = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+export const addPdfExecutionFooter = (
+  doc,
+  { executedBy = getExportExecutorName(), executedAt = new Date() } = {},
+) => {
+  const pageCount = doc.internal.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerText = `Executed By: ${executedBy || "Unknown User"} | Executed On: ${formatExecutedAt(executedAt)}`;
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100);
+    doc.text(footerText, 40, pageHeight - 18);
+    doc.text(`Page ${page} of ${pageCount}`, pageWidth - 40, pageHeight - 18, {
+      align: "right",
+    });
+  }
+
+  doc.setTextColor(0);
+};
+
 const flattenRecord = (value, prefix = "") => {
   if (value === null || value === undefined) {
     return prefix ? [{ label: prefix, value: "N/A" }] : [];
@@ -120,8 +182,10 @@ const formatFileDate = (value = new Date()) => {
 };
 
 const buildFlightLogFileName = (record = {}) => {
-  const aircraft = record.rpc || record.aircraft || record.aircraftNo || "Aircraft";
-  const date = record.date || record.dateAdded || record.createdAt || record.updatedAt;
+  const aircraft =
+    record.rpc || record.aircraft || record.aircraftNo || "Aircraft";
+  const date =
+    record.date || record.dateAdded || record.createdAt || record.updatedAt;
   return `FlightLog_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
 };
 
@@ -216,6 +280,8 @@ export const drawPdfReportHeader = (
     title = "Export",
     subtitle = "",
     logoDataUrl = null,
+    executedBy = getExportExecutorName(),
+    exportedAt = new Date(),
     x = 40,
     y = 34,
     logoWidth = 78,
@@ -240,8 +306,18 @@ export const drawPdfReportHeader = (
     doc.text(subtitle, titleX, y + 16);
   }
 
+  if (executedBy) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(90);
+
+    doc.text(`Executed By: ${executedBy}`, titleX, y + 31);
+    doc.text(`Executed On: ${formatExecutedAt(exportedAt)}`, titleX, y + 43);
+  }
+
   doc.setTextColor(0);
-  return y + (subtitle ? 36 : 24);
+
+  return y + (subtitle ? 58 : 48);
 };
 
 const getImageFormatFromDataUrl = (dataUrl = "") => {
@@ -373,15 +449,11 @@ const isB412FlightLogRecord = (record = {}) => {
       record.aircraft?.type,
   );
 
-  return (
-    aircraftType.includes("B412EP") || aircraftType.includes("BELL412EP")
-  );
+  return aircraftType.includes("B412EP") || aircraftType.includes("BELL412EP");
 };
 
 const firstFlightValue = (...values) =>
-  values.find(
-    (value) => value !== null && value !== undefined && value !== "",
-  );
+  values.find((value) => value !== null && value !== undefined && value !== "");
 
 const hasPopulatedStandardFlightValue = (value) => {
   if (value === null || value === undefined || value === "") return false;
@@ -406,12 +478,7 @@ const getB412ComponentSection = (b412Data, sectionKey) =>
   b412Data?.componentTimes?.[sectionKey] ||
   {};
 
-const getB412PassengerValue = (
-  b412Data,
-  record,
-  rowIndex,
-  legIndex,
-) => {
+const getB412PassengerValue = (b412Data, record, rowIndex, legIndex) => {
   const passengerRow = b412Data?.passengerRows?.[rowIndex];
   const rowLegs = Array.isArray(passengerRow)
     ? passengerRow
@@ -422,10 +489,7 @@ const getB412PassengerValue = (
     if (hasPopulatedStandardFlightValue(legPassengers[rowIndex])) {
       return flightValue(legPassengers[rowIndex]);
     }
-  } else if (
-    rowIndex === 0 &&
-    hasPopulatedStandardFlightValue(legPassengers)
-  ) {
+  } else if (rowIndex === 0 && hasPopulatedStandardFlightValue(legPassengers)) {
     return flightValue(legPassengers);
   }
 
@@ -497,10 +561,7 @@ const mergeB412ComponentForExport = (
       legacySection.engine2Cycle,
     ),
   },
-  sling: standardFlightValue(
-    standardSection.usage,
-    legacySection.sling,
-  ),
+  sling: standardFlightValue(standardSection.usage, legacySection.sling),
 });
 
 const mergeB412FuelForExport = (standardRow = {}, legacyRow = {}) => ({
@@ -526,10 +587,7 @@ const mergeB412FuelForExport = (standardRow = {}, legacyRow = {}) => ({
     legacyRow.refuellerName,
     legacyRow.refuelerName,
   ),
-  signature: standardFlightValue(
-    standardRow.signature,
-    legacyRow.signature,
-  ),
+  signature: standardFlightValue(standardRow.signature, legacyRow.signature),
 });
 
 const mergeB412OilForExport = (standardRow = {}, legacyRow = {}) => ({
@@ -608,10 +666,7 @@ const mergeB412CorrectionForExport = (standardItem = {}, legacyItem = {}) => {
   return {
     ...legacyItem,
     selectedWorkTypes,
-    category: standardFlightValue(
-      selectedWorkTypes[0],
-      legacyItem.category,
-    ),
+    category: standardFlightValue(selectedWorkTypes[0], legacyItem.category),
     date: standardFlightValue(standardItem.date, legacyItem.date),
     aircraftTotalTime: standardFlightValue(
       standardItem.aircraft,
@@ -729,12 +784,7 @@ const drawB412FlightHeader = (doc, record, b412Data, logoDataUrl = null) => {
   doc.line(442, 102, 570, 102);
 };
 
-const drawB412FlightLog = (
-  doc,
-  autoTable,
-  record = {},
-  logoDataUrl = null,
-) => {
+const drawB412FlightLog = (doc, autoTable, record = {}, logoDataUrl = null) => {
   const b412Data = record.b412Data || {};
   const legs = fitRows(record.legs || [], 6, () => ({}));
   const passengerRows = Array.from({ length: 4 }, (_, rowIndex) =>
@@ -767,29 +817,13 @@ const drawB412FlightLog = (
       ),
     ],
   ];
-  const legacyFuelRows = fitRows(
-    b412Data.fuelServicing || [],
-    6,
-    () => ({}),
-  );
-  const standardFuelRows = fitRows(
-    record.fuelServicing || [],
-    6,
-    () => ({}),
-  );
+  const legacyFuelRows = fitRows(b412Data.fuelServicing || [], 6, () => ({}));
+  const standardFuelRows = fitRows(record.fuelServicing || [], 6, () => ({}));
   const fuelRows = legacyFuelRows.map((legacyRow, index) =>
     mergeB412FuelForExport(standardFuelRows[index], legacyRow),
   );
-  const legacyOilRows = fitRows(
-    b412Data.oilServicing || [],
-    2,
-    () => ({}),
-  );
-  const standardOilRows = fitRows(
-    record.oilServicing || [],
-    2,
-    () => ({}),
-  );
+  const legacyOilRows = fitRows(b412Data.oilServicing || [], 2, () => ({}));
+  const standardOilRows = fitRows(record.oilServicing || [], 2, () => ({}));
   const oilRows = legacyOilRows.map((legacyRow, index) =>
     mergeB412OilForExport(standardOilRows[index], legacyRow),
   );
@@ -1009,21 +1043,13 @@ const drawB412FlightLog = (
     ],
     body: componentSections.map(([label, section]) => [
       label,
-      flightValue(
-        getB412GroupValue(section, "engine1", "tsn", "engine1Tsn"),
-      ),
-      flightValue(
-        getB412GroupValue(section, "engine1", "tso", "engine1Tso"),
-      ),
+      flightValue(getB412GroupValue(section, "engine1", "tsn", "engine1Tsn")),
+      flightValue(getB412GroupValue(section, "engine1", "tso", "engine1Tso")),
       flightValue(
         getB412GroupValue(section, "engine1", "cycle", "engine1Cycle"),
       ),
-      flightValue(
-        getB412GroupValue(section, "engine2", "tsn", "engine2Tsn"),
-      ),
-      flightValue(
-        getB412GroupValue(section, "engine2", "tso", "engine2Tso"),
-      ),
+      flightValue(getB412GroupValue(section, "engine2", "tsn", "engine2Tsn")),
+      flightValue(getB412GroupValue(section, "engine2", "tso", "engine2Tso")),
       flightValue(
         getB412GroupValue(section, "engine2", "cycle", "engine2Cycle"),
       ),
@@ -1128,12 +1154,7 @@ const drawB412FlightLog = (
           : flightValue(oil.mechanicSignature),
       },
       ...oilGroups.flatMap(([groupKey, aliasPrefix]) => [
-        getB412OilValue(
-          oil,
-          groupKey,
-          "remaining",
-          `${aliasPrefix}Rem`,
-        ),
+        getB412OilValue(oil, groupKey, "remaining", `${aliasPrefix}Rem`),
         getB412OilValue(oil, groupKey, "added", `${aliasPrefix}Add`),
         getB412OilValue(oil, groupKey, "total", `${aliasPrefix}Tot`),
       ]),
@@ -1159,16 +1180,11 @@ const drawB412FlightLog = (
     },
     didDrawCell: ({ cell, column, row, section }) => {
       if (section === "body" && column.index === 0) {
-        drawSignatureInCell(
-          doc,
-          cell,
-          oilRows[row.index]?.mechanicSignature,
-          {
-            height: 10,
-            topOffset: 1,
-            horizontalPadding: 4,
-          },
-        );
+        drawSignatureInCell(doc, cell, oilRows[row.index]?.mechanicSignature, {
+          height: 10,
+          topOffset: 1,
+          horizontalPadding: 4,
+        });
       }
     },
   });
@@ -1309,11 +1325,19 @@ const appendFlightWorkflow = (doc, autoTable, record) => {
   if (!record.workflowHistory?.length && !record.amendments?.length) return;
   doc.addPage();
   doc.setFontSize(13);
-  doc.text(`Flight record history - ${record.rpc || ''} / ${record.controlNo || ''}`, 20, 32);
-  autoTable(doc, { startY: 48, margin: { left: 20, right: 20 },
-    head: [['Step / section', 'Record details']], body: flightWorkflowExportRows(record),
-    styles: { fontSize: 8, overflow: 'linebreak', cellPadding: 5 },
-    columnStyles: { 0: { cellWidth: 140 } } });
+  doc.text(
+    `Flight record history - ${record.rpc || ""} / ${record.controlNo || ""}`,
+    20,
+    32,
+  );
+  autoTable(doc, {
+    startY: 48,
+    margin: { left: 20, right: 20 },
+    head: [["Step / section", "Record details"]],
+    body: flightWorkflowExportRows(record),
+    styles: { fontSize: 8, overflow: "linebreak", cellPadding: 5 },
+    columnStyles: { 0: { cellWidth: 140 } },
+  });
 };
 
 export const exportFlightLogToPDF = async (record = {}, options = {}) => {
@@ -1336,6 +1360,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
     if (isB412FlightLogRecord(record)) {
       drawB412FlightLog(doc, autoTable, record, logoDataUrl);
       appendFlightWorkflow(doc, autoTable, record);
+      addPdfExecutionFooter(doc, options);
       doc.save(`${fileName}.pdf`);
       showExportPopup(setPopup, {
         status: "success",
@@ -1675,6 +1700,7 @@ export const exportFlightLogToPDF = async (record = {}, options = {}) => {
     });
 
     appendFlightWorkflow(doc, autoTable, record);
+    addPdfExecutionFooter(doc, options);
     doc.save(`${fileName}.pdf`);
     showExportPopup(setPopup, {
       status: "success",
@@ -1766,6 +1792,7 @@ export const exportToPDF = async (options = {}) => {
       theme: "grid",
     });
 
+    addPdfExecutionFooter(doc, options);
     doc.save("MaintenanceDashboard.pdf");
     showExportPopup(setPopup, {
       status: "success",
@@ -1888,15 +1915,13 @@ const summarizePartsRequisitions = (requisitions = []) => {
       const partId = getReportPartId(item);
       const key = `${partId || partName}`.toLowerCase();
       const quantity = Number(item.quantity) || 0;
-      const existing =
-        partMap.get(key) ||
-        {
-          partName,
-          partId,
-          totalQuantity: 0,
-          requisitionIds: new Set(),
-          dates: [],
-        };
+      const existing = partMap.get(key) || {
+        partName,
+        partId,
+        totalQuantity: 0,
+        requisitionIds: new Set(),
+        dates: [],
+      };
 
       existing.totalQuantity += quantity;
       existing.requisitionIds.add(record._id || record.wrsNo || key);
@@ -2155,7 +2180,14 @@ export const exportPartsRequisitionMonitoringReport = async ({
     autoTable(doc, {
       startY: y,
       theme: "grid",
-      head: [["Part Name / ID", "Requests", "Requests / Month", "Requests / Quarter"]],
+      head: [
+        [
+          "Part Name / ID",
+          "Requests",
+          "Requests / Month",
+          "Requests / Quarter",
+        ],
+      ],
       body: report.topParts.map((part) => [
         [part.partName, part.partId].filter(Boolean).join(" / "),
         part.requisitionCount,
@@ -2234,6 +2266,7 @@ export const exportPartsRequisitionMonitoringReport = async ({
       headStyles: { fillColor: [4, 100, 64] },
     });
 
+    addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
     doc.save(
       buildSafeFileName(
         `Parts Requisition Monitoring Report ${formatFileDate()}`,
@@ -2306,6 +2339,7 @@ export const exportRecordToPDF = async ({
       },
     });
 
+    addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
     doc.save(buildSafeFileName(fileName, title || "export") + ".pdf");
     showExportPopup(setPopup, {
       status: "success",
