@@ -21,7 +21,12 @@ const normalizeBase = (value = "") => {
 const parseHeaderText = (value = "") =>
   String(value || "")
     .trim()
-    .slice(0, 160);
+    .slice(0, 240);
+
+const parseCoordinate = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 
 const requestContextMiddleware = (req, _res, next) => {
   const store = {
@@ -35,6 +40,9 @@ const requestContextMiddleware = (req, _res, next) => {
     userAgent: req.headers["user-agent"] || null,
     devicePlatform: parseHeaderText(req.headers["x-device-platform"]),
     deviceModel: parseHeaderText(req.headers["x-device-model"]),
+    locationText: parseHeaderText(req.headers["x-location-text"]),
+    locationLatitude: parseCoordinate(req.headers["x-location-latitude"]),
+    locationLongitude: parseCoordinate(req.headers["x-location-longitude"]),
   };
 
   requestContext.run(store, next);
@@ -66,6 +74,20 @@ const updateRequestContext = (updates = {}) => {
   if (Object.prototype.hasOwnProperty.call(updates, "deviceModel")) {
     store.deviceModel =
       parseHeaderText(updates.deviceModel) || store.deviceModel || "";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationText")) {
+    store.locationText =
+      parseHeaderText(updates.locationText) || store.locationText || "";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationLatitude")) {
+    store.locationLatitude =
+      parseCoordinate(updates.locationLatitude) ?? store.locationLatitude ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationLongitude")) {
+    store.locationLongitude =
+      parseCoordinate(updates.locationLongitude) ??
+      store.locationLongitude ??
+      null;
   }
 };
 

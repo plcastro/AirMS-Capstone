@@ -22,6 +22,8 @@ import {
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
 import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
+import { setStoredAccessToken } from "../../utilities/authStorage";
+import { buildLoginLocationHeaders } from "../../utilities/loginLocation";
 
 const getTrustedDeviceStorageKey = (account) => {
   const normalizedAccount = String(account || "")
@@ -131,15 +133,15 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
           "x-platform": "MOBILE",
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
           ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           token,
           otp: code,
           rememberMe,
-          base: route.params?.base,
+          location: route.params?.loginLocation,
           client: route.params?.client || "mobile",
           trustDevice: rememberMe ? trustDevice : false,
           trustedDeviceLabel: "mobile-app",
@@ -170,7 +172,7 @@ export default function OTP() {
         );
       }
 
-      await AsyncStorage.setItem("currentUserToken", String(accessToken));
+      await setStoredAccessToken(String(accessToken));
 
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       if (rememberMe) {
@@ -178,10 +180,8 @@ export default function OTP() {
           "rememberedIdentifier",
           route.params?.identifier || user?.email || "",
         );
-        await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
-        await AsyncStorage.removeItem("rememberedBase");
         await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
@@ -190,7 +190,7 @@ export default function OTP() {
         session:
           session ||
           {
-            base: route.params?.base,
+            location: route.params?.loginLocation,
             sessionId: data.sessionId,
             platform: "MOBILE",
           },
@@ -245,8 +245,8 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
           "x-platform": "MOBILE",
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
           ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify(resendPayload),

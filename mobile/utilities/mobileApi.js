@@ -1,6 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
+import {
+  getStoredAccessToken,
+  getStoredSessionMeta,
+} from "./authStorage";
+import { buildLoginLocationHeaders } from "./loginLocation";
 
 export const CLIENT_ACTIVE_AT_KEY = "clientActiveAt";
 
@@ -85,11 +90,11 @@ export const getClientActiveAt = async () => {
 };
 
 export const getAuthHeaders = async (extraHeaders = {}) => {
-  const token = await AsyncStorage.getItem("currentUserToken");
+  const token = await getStoredAccessToken();
   const clientActiveAt = await getClientActiveAt();
   let sessionMeta = {};
   try {
-    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    const rawSessionMeta = await getStoredSessionMeta();
     sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
   } catch {
     sessionMeta = {};
@@ -102,6 +107,7 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
     "x-platform": sessionMeta?.platform || "MOBILE",
     "x-client-active-at": String(clientActiveAt),
     ...getDeviceAuditHeaders(),
+    ...buildLoginLocationHeaders(sessionMeta?.location),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId
       ? { "x-session-id": sessionMeta.sessionId }
@@ -110,11 +116,11 @@ export const getAuthHeaders = async (extraHeaders = {}) => {
 };
 
 export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
-  const token = await AsyncStorage.getItem("currentUserToken");
+  const token = await getStoredAccessToken();
   const clientActiveAt = await getClientActiveAt();
   let sessionMeta = {};
   try {
-    const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+    const rawSessionMeta = await getStoredSessionMeta();
     sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
   } catch {
     sessionMeta = {};
@@ -126,6 +132,7 @@ export const getMultipartAuthHeaders = async (extraHeaders = {}) => {
     "x-platform": sessionMeta?.platform || "MOBILE",
     "x-client-active-at": String(clientActiveAt),
     ...getDeviceAuditHeaders(),
+    ...buildLoginLocationHeaders(sessionMeta?.location),
     ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
     ...(sessionMeta?.sessionId
       ? { "x-session-id": sessionMeta.sessionId }

@@ -204,6 +204,13 @@ const buildSessionPayload = (session = {}, fallbackBase = "") => ({
   base: session.base || fallbackBase || "UNKNOWN",
   sessionId: session.sessionId || null,
   platform: session.platform || "UNKNOWN",
+  location: {
+    text: session.locationText || "",
+    coordinates: {
+      latitude: session.locationLatitude ?? null,
+      longitude: session.locationLongitude ?? null,
+    },
+  },
 });
 
 const revokeRefreshTokenByHash = async (
@@ -268,6 +275,23 @@ const createUserSession = async (req, userId, platform) => {
   const normalizedPlatform =
     normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
+  const devicePlatform = String(req.headers["x-device-platform"] || "")
+    .trim()
+    .slice(0, 160);
+  const deviceModel = String(req.headers["x-device-model"] || "")
+    .trim()
+    .slice(0, 160);
+  const locationText = String(req.headers["x-location-text"] || "")
+    .trim()
+    .slice(0, 240);
+  const locationLatitude = Number(req.headers["x-location-latitude"]);
+  const locationLongitude = Number(req.headers["x-location-longitude"]);
+  const safeLocationLatitude = Number.isFinite(locationLatitude)
+    ? locationLatitude
+    : null;
+  const safeLocationLongitude = Number.isFinite(locationLongitude)
+    ? locationLongitude
+    : null;
 
   await UserSession.create({
     userId,
@@ -276,6 +300,11 @@ const createUserSession = async (req, userId, platform) => {
     base: normalizedBase,
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
+    devicePlatform,
+    deviceModel,
+    locationText,
+    locationLatitude: safeLocationLatitude,
+    locationLongitude: safeLocationLongitude,
     isActive: true,
   });
 
@@ -283,6 +312,11 @@ const createUserSession = async (req, userId, platform) => {
     sessionId,
     platform: normalizedPlatform,
     base: normalizedBase,
+    devicePlatform,
+    deviceModel,
+    locationText,
+    locationLatitude: safeLocationLatitude,
+    locationLongitude: safeLocationLongitude,
   };
 };
 

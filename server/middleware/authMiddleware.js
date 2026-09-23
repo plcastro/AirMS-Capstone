@@ -105,6 +105,11 @@ const verifyToken = async (req, res, next) => {
       base: req.headers["x-base"] || decoded.base,
       devicePlatform: req.headers["x-device-platform"] || session.devicePlatform,
       deviceModel: req.headers["x-device-model"] || session.deviceModel,
+      locationText: req.headers["x-location-text"] || session.locationText,
+      locationLatitude:
+        req.headers["x-location-latitude"] ?? session.locationLatitude,
+      locationLongitude:
+        req.headers["x-location-longitude"] ?? session.locationLongitude,
     });
     next();
   } catch (err) {

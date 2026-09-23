@@ -82,6 +82,9 @@ const corsOptions = {
     "x-client-active-at",
     "x-device-platform",
     "x-device-model",
+    "x-location-latitude",
+    "x-location-longitude",
+    "x-location-text",
     "x-action-confirmed",
     "x-confirm-action",
   ],
@@ -156,7 +159,7 @@ app.use(
       features: {
         camera: [],
         microphone: [],
-        geolocation: [],
+        geolocation: ["self"],
         gyroscope: [],
         magnetometer: [],
       },

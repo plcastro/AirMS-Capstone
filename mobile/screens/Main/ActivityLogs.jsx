@@ -211,6 +211,16 @@ export default function ActivityLogs() {
             .trim()
             .toUpperCase(),
           deviceModel: String(item.deviceModel || "").trim(),
+          locationText: String(item.locationText || "").trim(),
+          locationCoordinates:
+            item.locationLatitude !== null &&
+            item.locationLatitude !== undefined &&
+            item.locationLongitude !== null &&
+            item.locationLongitude !== undefined
+              ? `${Number(item.locationLatitude).toFixed(6)}, ${Number(
+                  item.locationLongitude,
+                ).toFixed(6)}`
+              : "",
           platformLabel: formatDevicePlatform(
             item.devicePlatform,
             item.platform,
@@ -573,6 +583,8 @@ export default function ActivityLogs() {
               "Action",
               "Platform",
               "Device",
+              "Location",
+              "Coordinates",
               "Base",
             ],
             rows: filteredLogs.map((log) => ({
@@ -581,6 +593,8 @@ export default function ActivityLogs() {
               Action: log.actionMade || "N/A",
               Platform: log.platformLabel || log.platform || "Not captured",
               Device: log.deviceModel || "Not captured",
+              Location: log.locationText || "Not captured",
+              Coordinates: log.locationCoordinates || "Not captured",
               Base: log.base || "Not captured",
             })),
           },
@@ -786,6 +800,17 @@ export default function ActivityLogs() {
                     </View>
                   )}
                 </View>
+                {!!item.locationText && (
+                  <AppText style={styles.locationText}>
+                    Logging in from: {item.locationText}
+                  </AppText>
+                )}
+                {!!item.locationCoordinates && (
+                  <AppText style={styles.locationCoordinateText}>
+                    Latitude and longitude coordinates:{" "}
+                    {item.locationCoordinates}
+                  </AppText>
+                )}
               </View>
             );
           })
@@ -1030,6 +1055,12 @@ const styles = StyleSheet.create({
   },
   userText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
   dateText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  locationText: { marginTop: 8, color: "#111827", fontSize: 12 },
+  locationCoordinateText: {
+    marginTop: 2,
+    color: COLORS.grayDark,
+    fontSize: 11,
+  },
   metaTagsRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -13,6 +13,10 @@ const compactText = (value = "", limit = 160) =>
   String(value || "")
     .trim()
     .slice(0, limit);
+const parseCoordinate = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 
 const getDisplayName = (user = {}, fallback = "Unknown") => {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
@@ -27,7 +31,8 @@ const resolveAuditContext = async (context = {}, userId = null) => {
     isKnownBase(resolved.base) &&
     resolved.sessionId &&
     resolved.devicePlatform &&
-    resolved.deviceModel
+    resolved.deviceModel &&
+    resolved.locationText
   ) {
     return resolved;
   }
@@ -59,6 +64,14 @@ const resolveAuditContext = async (context = {}, userId = null) => {
     compactText(resolved.devicePlatform) || session.devicePlatform || "";
   resolved.deviceModel =
     compactText(resolved.deviceModel) || session.deviceModel || "";
+  resolved.locationText =
+    compactText(resolved.locationText, 240) || session.locationText || "";
+  resolved.locationLatitude =
+    parseCoordinate(resolved.locationLatitude) ?? session.locationLatitude ?? null;
+  resolved.locationLongitude =
+    parseCoordinate(resolved.locationLongitude) ??
+    session.locationLongitude ??
+    null;
 
   return resolved;
 };
@@ -151,6 +164,9 @@ const auditLog = async (
       userAgent: context.userAgent || "",
       devicePlatform: compactText(context.devicePlatform),
       deviceModel: compactText(context.deviceModel),
+      locationText: compactText(context.locationText, 240),
+      locationLatitude: parseCoordinate(context.locationLatitude),
+      locationLongitude: parseCoordinate(context.locationLongitude),
     });
     publishTypedForRecipients(
       { recipientRoles: ["superadmin"], excludedUsers: userId ? [userId] : [] },
@@ -213,6 +229,9 @@ const createAuditLogFromRequest = async (req, res) => {
       userAgent: req.headers["user-agent"] || "",
       devicePlatform: req.headers["x-device-platform"] || "",
       deviceModel: req.headers["x-device-model"] || "",
+      locationText: req.headers["x-location-text"] || "",
+      locationLatitude: req.headers["x-location-latitude"],
+      locationLongitude: req.headers["x-location-longitude"],
     });
 
     return res.status(201).json({
@@ -265,6 +284,7 @@ const getAllUserLogs = async (req, res) => {
         { displayName: pattern },
         { devicePlatform: pattern },
         { deviceModel: pattern },
+        { locationText: pattern },
       ];
     }
 
@@ -286,7 +306,8 @@ const getAllUserLogs = async (req, res) => {
               (!isKnownPlatform(log.platform) ||
                 !isKnownBase(log.base) ||
                 !log.devicePlatform ||
-                !log.deviceModel),
+                !log.deviceModel ||
+                !log.locationText),
           )
           .map((log) => log.sessionId),
       ),
@@ -297,7 +318,9 @@ const getAllUserLogs = async (req, res) => {
         ? new Map(
             (
               await UserSession.find({ sessionId: { $in: sessionIds } })
-                .select("sessionId platform base devicePlatform deviceModel")
+                .select(
+                  "sessionId platform base devicePlatform deviceModel locationText locationLatitude locationLongitude",
+                )
                 .lean()
             ).map((session) => [session.sessionId, session]),
           )
@@ -341,6 +364,14 @@ const getAllUserLogs = async (req, res) => {
       const devicePlatform =
         compactText(log.devicePlatform) || session?.devicePlatform || "";
       const deviceModel = compactText(log.deviceModel) || session?.deviceModel || "";
+      const locationText =
+        compactText(log.locationText, 240) || session?.locationText || "";
+      const locationLatitude =
+        parseCoordinate(log.locationLatitude) ?? session?.locationLatitude ?? null;
+      const locationLongitude =
+        parseCoordinate(log.locationLongitude) ??
+        session?.locationLongitude ??
+        null;
 
       return {
         _id: log._id,
@@ -354,6 +385,9 @@ const getAllUserLogs = async (req, res) => {
         devicePlatform,
         deviceModel,
         base,
+        locationText,
+        locationLatitude,
+        locationLongitude,
         sessionId: log.sessionId || null,
         ipAddress: log.ipAddress || "",
         userAgent: log.userAgent || "",

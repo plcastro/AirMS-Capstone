@@ -7,17 +7,27 @@ import React, {
 } from "react";
 import { AppState, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  secureGetItem,
-  secureSetItem,
-  secureDeleteItem,
-} from "../utilities/secureStorage";
 import { API_BASE } from "../utilities/API_BASE";
 import {
   getClientActiveAt,
   getDeviceAuditHeaders,
   recordClientActivity,
 } from "../utilities/mobileApi";
+import { buildLoginLocationHeaders } from "../utilities/loginLocation";
+import {
+  clearLegacyWebAuthStorage,
+  clearStoredAuthMaterial,
+  getStoredAccessToken,
+  getStoredRefreshToken,
+  getStoredSessionMeta,
+  getStoredUser,
+  IS_WEB_AUTH_STORAGE,
+  removeStoredRefreshToken,
+  setStoredAccessToken,
+  setStoredRefreshToken,
+  setStoredSessionMeta,
+  setStoredUser,
+} from "../utilities/authStorage";
 
 export const AuthContext = createContext();
 
@@ -51,30 +61,20 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const clearStoredAuth = useCallback(async () => {
-    await AsyncStorage.multiRemove([
-      "currentUser",
-      "currentUserToken",
-      "refreshToken",
-      "authSessionMeta",
-      REMEMBERED_SESSION_STARTED_AT_KEY,
-    ]);
-    await secureDeleteItem("accessToken");
-    await secureDeleteItem("refreshToken");
+    await clearStoredAuthMaterial();
+    await AsyncStorage.removeItem(REMEMBERED_SESSION_STARTED_AT_KEY);
   }, []);
 
   const logoutUser = useCallback(
     async ({ broadcast = true } = {}) => {
       try {
         const accessToken =
-          accessTokenRef.current ||
-          (await AsyncStorage.getItem("currentUserToken"));
+          accessTokenRef.current || (await getStoredAccessToken());
         const refreshToken =
-          refreshTokenRef.current ||
-          (await AsyncStorage.getItem("refreshToken")) ||
-          (await secureGetItem("refreshToken"));
+          refreshTokenRef.current || (await getStoredRefreshToken());
         let sessionMeta = {};
         try {
-          const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+          const rawSessionMeta = await getStoredSessionMeta();
           sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
         } catch {
           sessionMeta = {};
@@ -87,6 +87,7 @@ export const AuthProvider = ({ children }) => {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             "x-platform": sessionMeta?.platform || "MOBILE",
             ...getDeviceAuditHeaders(),
+            ...buildLoginLocationHeaders(sessionMeta?.location),
             ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
             ...(sessionMeta?.sessionId
               ? { "x-session-id": sessionMeta.sessionId }
@@ -119,15 +120,16 @@ export const AuthProvider = ({ children }) => {
       base: sessionData.base || "UNKNOWN",
       sessionId: sessionData.sessionId || null,
       platform: "MOBILE",
+      location: sessionData.location || null,
     };
-    await AsyncStorage.setItem("authSessionMeta", JSON.stringify(payload));
+    await setStoredSessionMeta(JSON.stringify(payload));
     setSession(payload);
     return payload;
   }, []);
 
   const getSessionMeta = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem("authSessionMeta");
+      const raw = await getStoredSessionMeta();
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -143,14 +145,14 @@ export const AuthProvider = ({ children }) => {
       refreshPromiseRef.current = (async () => {
       try {
         const inMemoryRefreshToken = refreshTokenRef.current;
-        const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
-        const secureRefreshToken = await secureGetItem("refreshToken");
+        const storedRefreshToken = await getStoredRefreshToken();
         const tokenCandidates = [
           inMemoryRefreshToken,
-          asyncRefreshToken,
-          secureRefreshToken,
+          storedRefreshToken,
         ].filter(Boolean);
-        const uniqueCandidates = [...new Set(tokenCandidates)];
+        const uniqueCandidates = IS_WEB_AUTH_STORAGE
+          ? [...new Set([...tokenCandidates, ""])]
+          : [...new Set(tokenCandidates)];
 
         if (!uniqueCandidates.length)
           throw new Error("No refresh token available");
@@ -167,12 +169,15 @@ export const AuthProvider = ({ children }) => {
               "x-platform": "MOBILE",
               "x-client-active-at": String(clientActiveAt),
               ...getDeviceAuditHeaders(),
+              ...buildLoginLocationHeaders(sessionMeta?.location),
               ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
               ...(sessionMeta?.sessionId
                 ? { "x-session-id": sessionMeta.sessionId }
                 : {}),
             },
-            body: JSON.stringify({ refreshToken }),
+            body: JSON.stringify(
+              refreshToken ? { refreshToken } : {},
+            ),
             credentials: "include",
           });
 
@@ -193,11 +198,11 @@ export const AuthProvider = ({ children }) => {
             accessTokenRef.current = nextAccessToken;
             refreshTokenRef.current = rotatedRefreshToken;
 
-            await secureSetItem("accessToken", nextAccessToken);
-            await AsyncStorage.setItem("currentUserToken", nextAccessToken);
+            await setStoredAccessToken(nextAccessToken);
 
-            await secureSetItem("refreshToken", rotatedRefreshToken);
-            await AsyncStorage.setItem("refreshToken", rotatedRefreshToken);
+            if (rotatedRefreshToken) {
+              await setStoredRefreshToken(rotatedRefreshToken);
+            }
             return nextAccessToken;
           }
 
@@ -291,16 +296,17 @@ export const AuthProvider = ({ children }) => {
         const rememberedPreference = await AsyncStorage.getItem("rememberMe");
         const remembered = rememberedPreference === "true";
         setRememberMePreference(remembered);
-        const storedUser = await AsyncStorage.getItem("currentUser");
-        const accessToken = await AsyncStorage.getItem("currentUserToken");
-        const persistedRefreshToken =
-          (await AsyncStorage.getItem("refreshToken")) ||
-          (await secureGetItem("refreshToken"));
+        clearLegacyWebAuthStorage();
+        const storedUser = await getStoredUser();
+        const accessToken = await getStoredAccessToken();
+        const persistedRefreshToken = await getStoredRefreshToken();
         const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
         const persistedSessionMeta = await getSessionMeta();
         setSession(persistedSessionMeta?.sessionId ? persistedSessionMeta : null);
 
-        const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
+        const hasAuthMaterial = Boolean(
+          accessToken || persistedRefreshToken || IS_WEB_AUTH_STORAGE,
+        );
         if (hasAuthMaterial && parsedStoredUser) {
           setUser(parsedStoredUser);
         } else {
@@ -328,7 +334,7 @@ export const AuthProvider = ({ children }) => {
             });
           }
 
-          if (persistedRefreshToken) {
+          if (persistedRefreshToken || IS_WEB_AUTH_STORAGE) {
             await refreshSession();
           }
         }
@@ -359,23 +365,21 @@ export const AuthProvider = ({ children }) => {
       accessTokenRef.current = accessToken;
       setRememberMePreference(Boolean(rememberMe));
 
-      await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
-      await AsyncStorage.setItem("currentUserToken", accessToken);
-      await secureSetItem("accessToken", accessToken);
+      await setStoredUser(JSON.stringify(userData));
+      await setStoredAccessToken(accessToken);
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       await persistSessionMeta({
         base: sessionData?.base || userData?.base,
         sessionId: sessionData?.sessionId || userData?.sessionId,
+        location: sessionData?.location,
       });
       refreshFailureLoggedRef.current = false;
 
       refreshTokenRef.current = refreshToken || null;
       if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-        await secureSetItem("refreshToken", refreshToken);
+        await setStoredRefreshToken(refreshToken);
       } else {
-        await AsyncStorage.removeItem("refreshToken");
-        await secureDeleteItem("refreshToken");
+        await removeStoredRefreshToken();
       }
     } catch (e) {
       console.error("Login storage error", e);
@@ -389,7 +393,7 @@ export const AuthProvider = ({ children }) => {
           ? updater(prev)
           : { ...(prev || {}), ...(updater || {}) };
 
-      AsyncStorage.setItem("currentUser", JSON.stringify(nextUser)).catch(
+      setStoredUser(JSON.stringify(nextUser)).catch(
         (error) => {
           console.error("Failed to persist updated user:", error);
         },
@@ -404,11 +408,9 @@ export const AuthProvider = ({ children }) => {
     { revokePersistentTokens = false } = {},
   ) => {
     const accessToken =
-      token || (await AsyncStorage.getItem("currentUserToken"));
+      token || (await getStoredAccessToken());
     const refreshToken =
-      refreshTokenRef.current ||
-      (await AsyncStorage.getItem("refreshToken")) ||
-      (await secureGetItem("refreshToken"));
+      refreshTokenRef.current || (await getStoredRefreshToken());
     if (!accessToken || !refreshToken) {
       throw new Error("No active session to update");
     }
@@ -421,6 +423,7 @@ export const AuthProvider = ({ children }) => {
         Authorization: `Bearer ${accessToken}`,
         "x-platform": "MOBILE",
         ...getDeviceAuditHeaders(),
+        ...buildLoginLocationHeaders(sessionMeta?.location),
         ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
         ...(sessionMeta?.sessionId
           ? { "x-session-id": sessionMeta.sessionId }
@@ -443,8 +446,7 @@ export const AuthProvider = ({ children }) => {
     setRememberMePreference(rememberMe);
     await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
-    await AsyncStorage.setItem("refreshToken", nextRefreshToken);
-    await secureSetItem("refreshToken", nextRefreshToken);
+    await setStoredRefreshToken(nextRefreshToken);
     return payload;
   };
 

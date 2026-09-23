@@ -23,6 +23,7 @@ import { navigate, navigationRef } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
 import { showToast } from "../utilities/toast";
 import { consumePushInbox } from "../utilities/pushInbox";
+import { getStoredAccessToken } from "../utilities/authStorage";
 import messaging from "@react-native-firebase/messaging";
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
@@ -72,13 +73,7 @@ export const NotificationContext = createContext({
 });
 
 const getStoredToken = async () => {
-  if (Platform.OS === "web") {
-    const token = window.localStorage.getItem("currentUserToken");
-    // console.log("Fetching stored token:", token);
-    return token;
-  }
-
-  const token = await AsyncStorage.getItem("currentUserToken");
+  const token = await getStoredAccessToken();
   // console.log("Fetching stored token:", token);
   return token;
 };
