@@ -195,6 +195,16 @@ function DrawerNav({ navigation }) {
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
 
+  useEffect(() => {
+    if (loading || user) return;
+    if (navigationRef.isReady()) {
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "login" }],
+      });
+    }
+  }, [loading, user]);
+
   if (loading) {
     return <LoadingScreen />;
   }
