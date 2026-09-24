@@ -25,6 +25,7 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { showToast } from "../../utilities/toast";
+import { API_BASE } from '../../utilities/API_BASE';
 import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
   calculateB412ToDate,
@@ -77,7 +78,9 @@ export default function FlightLogEntry({
   onSave,
   userRole,
   currentUser,
+  initialAircraftRpc = '',
 }) {
+  const lockedAircraftRpc = String(initialAircraftRpc || '').trim();
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -504,12 +507,35 @@ export default function FlightLogEntry({
     }
   }, [visible]);
 
+  // Selecting an aircraft card supplies the same aircraft reference data as
+  // choosing an RP-C manually, including the component brought-forward values.
+  useEffect(() => {
+    if (!visible || !lockedAircraftRpc) return;
+    let active = true;
+    setFormData(previous => ({ ...previous, rpc: lockedAircraftRpc, aircraftType: '' }));
+    const loadAircraft = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedAircraftRpc)}`);
+        const payload = await response.json();
+        if (!active) return;
+        if (!response.ok || !payload?.data) throw new Error('Unable to load the selected aircraft details. Close this entry and try again.');
+        setFormData(previous => ({ ...previous, aircraftType: payload.data.aircraftType || '' }));
+        handleAircraftDataLoaded(payload.data);
+      } catch (error) {
+        if (active) showToast(error.message || 'Unable to load aircraft details.');
+      }
+    };
+    loadAircraft();
+    return () => { active = false; };
+  }, [visible, lockedAircraftRpc]);
+
   // Scroll to top on page change
   useEffect(() => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: false });
   }, [currentPage]);
 
   const updateForm = (field, value) => {
+    if (field === 'rpc' && lockedAircraftRpc && value !== lockedAircraftRpc) return;
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -705,6 +731,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
+            isRPCEditable={!lockedAircraftRpc}
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412Aircraft(formData.aircraftType)}

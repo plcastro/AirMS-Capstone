@@ -1,4 +1,5 @@
 import FlightTimeInput from './FlightTimeInput';
+import FlightStationInput from './FlightStationInput';
 import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../shared/flightLogTimes';
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
@@ -276,7 +277,7 @@ export default function FlightLogModalDestinations({
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <AppText
         style={{
           fontSize: 14,
@@ -358,22 +359,13 @@ export default function FlightLogModalDestinations({
                     marginBottom: 10,
                   }}
                 >
-                  <AppInput
-                    style={{
-                      flex: 1,
-                      backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-                      borderRadius: 4,
-                      height: 38,
-                      paddingHorizontal: 10,
-                      fontSize: 12,
-                      color: isEditable ? COLORS.black : COLORS.grayDark,
-                    }}
+                  <FlightStationInput
                     value={station.from}
                     onChangeText={(text) =>
                       handleFromChange(legIdx, stationIdx, text)
                     }
                     placeholder="From"
-                    placeholderTextColor={COLORS.grayDark}
+                    label={`Leg ${legNumber} station ${stationIdx + 1} from`}
                     editable={isEditable}
                   />
                   <AppText
@@ -385,22 +377,13 @@ export default function FlightLogModalDestinations({
                   >
                     -
                   </AppText>
-                  <AppInput
-                    style={{
-                      flex: 1,
-                      backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-                      borderRadius: 4,
-                      height: 38,
-                      paddingHorizontal: 10,
-                      fontSize: 12,
-                      color: isEditable ? COLORS.black : COLORS.grayDark,
-                    }}
+                  <FlightStationInput
                     value={station.to}
                     onChangeText={(text) =>
                       handleToChange(legIdx, stationIdx, text)
                     }
                     placeholder="To"
-                    placeholderTextColor={COLORS.grayDark}
+                    label={`Leg ${legNumber} station ${stationIdx + 1} to`}
                     editable={isEditable}
                   />
                   {isEditable && leg.stations.length > 1 && (

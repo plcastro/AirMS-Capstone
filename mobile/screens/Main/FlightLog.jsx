@@ -15,6 +15,7 @@ import { NotificationContext } from "../../Context/NotificationContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import FlightLogCards from "../../components/FlightLog/FlightLogCards";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
+import FlightLogPreflightGate from '../../components/FlightLog/FlightLogPreflightGate';
 import FlightLogEditEntry from "../../components/FlightLog/FlightLogEditEntry";
 import FlightLogSignatureModal from "../../components/FlightLog/FlightLogSignatureModal";
 import {
@@ -33,6 +34,7 @@ import { SearchBar } from "../../components/common/MobileModule";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import { flightLogAircraftKey, groupFlightLogsByAircraft } from '../../../shared/flightLogAircraftGroups';
 
 const normalizeFlightLogStatus = (statusValue = "") =>
   String(statusValue || "")
@@ -100,10 +102,13 @@ export default function FlightLog({ route, navigation }) {
   const { fetchNotifications } = useContext(NotificationContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [openedAircraft, setOpenedAircraft] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showNewEntryModal, setShowNewEntryModal] = useState(false);
+  const [preflightGateOpen, setPreflightGateOpen] = useState(false);
+  const [entryPreflight, setEntryPreflight] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [flightLogs, setFlightLogs] = useState([]);
@@ -332,6 +337,7 @@ export default function FlightLog({ route, navigation }) {
     options = { closeOnSave: true, showToast: true },
   ) => {
     try {
+      if (!entryPreflight?.signature) { showToast('Confirm and sign the pre-flight inspection before creating a flight log.'); return false; }
       const authHeaders = await getAuthHeaders({
         "x-action-confirmed": "true",
       });
@@ -340,6 +346,7 @@ export default function FlightLog({ route, navigation }) {
         headers: authHeaders,
         body: JSON.stringify({
           ...newEntry,
+          preFlightInspection: entryPreflight,
           createdByName:
             `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
             "Unknown User",
@@ -531,6 +538,7 @@ export default function FlightLog({ route, navigation }) {
         return;
       }
 
+      setOpenedAircraft(flightLogAircraftKey(matchedLog));
       setSelectedLog(matchedLog);
       setShowEditModal(true);
       navigation?.setParams?.({
@@ -811,7 +819,8 @@ export default function FlightLog({ route, navigation }) {
   };
 
   const handleNewEntry = () => {
-    setShowNewEntryModal(true);
+    setEntryPreflight(null);
+    setPreflightGateOpen(true);
   };
 
   const selectAircraft = (aircraft) => {
@@ -830,11 +839,30 @@ export default function FlightLog({ route, navigation }) {
     fetchNotifications();
   };
 
+  const aircraftGroups = groupFlightLogsByAircraft(filteredLogs);
+  const aircraftLogs = openedAircraft === null ? [] : filteredLogs.filter(log => flightLogAircraftKey(log) === openedAircraft);
+  const openAircraft = aircraft => {
+    setOpenedAircraft(aircraft);
+    setSearchQuery('');
+    setSelectedAircraft('');
+    setSelectedStatus('all');
+    setShowAircraftDropdown(false);
+    setShowStatusDropdown(false);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View style={{ flex: 1, paddingHorizontal: 7, marginTop: 10 }}>
+        {openedAircraft !== null && <View style={{ marginBottom: 12 }}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => openAircraft(null)}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+            <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primaryLight} />
+            <AppText style={{ marginLeft: 8, color: COLORS.primaryLight }}>All Aircraft</AppText>
+          </TouchableOpacity>
+          <AppText style={{ fontSize: 18, fontWeight: '700', color: COLORS.black }}>{openedAircraft} — Flight Logs</AppText>
+        </View>}
         {/* Search Bar Row with New Entry Button */}
         <View style={styles.unifiedControlRow}>
           <SearchBar
@@ -870,7 +898,7 @@ export default function FlightLog({ route, navigation }) {
           }}
         >
           {/* Aircraft Filter Dropdown */}
-          <View style={{ flex: 1 }}>
+          {openedAircraft === null && <View style={{ flex: 1 }}>
             <TouchableOpacity
               style={styles.unifiedFilterButton}
               onPress={() => setShowAircraftDropdown(!showAircraftDropdown)}
@@ -928,10 +956,10 @@ export default function FlightLog({ route, navigation }) {
                 </ScrollView>
               </View>
             )}
-          </View>
+          </View>}
 
           {/* Status Filter Dropdown */}
-          <View style={{ width: 150 }}>
+          {openedAircraft !== null && <View style={{ width: 150 }}>
             <TouchableOpacity
               style={styles.unifiedFilterButton}
               onPress={() => setShowStatusDropdown(!showStatusDropdown)}
@@ -973,7 +1001,7 @@ export default function FlightLog({ route, navigation }) {
                 ))}
               </View>
             )}
-          </View>
+          </View>}
         </View>
 
         {/* Loading Indicator */}
@@ -1006,7 +1034,7 @@ export default function FlightLog({ route, navigation }) {
               />
             }
           >
-            {filteredLogs.length === 0 ? (
+            {(openedAircraft === null ? filteredLogs : aircraftLogs).length === 0 ? (
               <View
                 style={{
                   flex: 1,
@@ -1047,9 +1075,25 @@ export default function FlightLog({ route, navigation }) {
                   </TouchableOpacity>
                 )}
               </View>
-            ) : (
+            ) : openedAircraft === null ? aircraftGroups.map(group => (
+              <TouchableOpacity key={group.aircraft} accessibilityRole="button"
+                accessibilityLabel={`Open flight logs for ${group.aircraft}`}
+                onPress={() => openAircraft(group.aircraft)}
+                style={{ backgroundColor: COLORS.white, borderRadius: 12, borderLeftWidth: 7,
+                  borderLeftColor: COLORS.primaryLight, padding: 18, marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <AppText style={{ fontSize: 18, fontWeight: '700', color: COLORS.black }}>{group.aircraft}</AppText>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.primaryLight} />
+                </View>
+                <AppText style={{ color: COLORS.grayDark, marginTop: 8 }}>{group.aircraftType || 'Aircraft'}</AppText>
+                <AppText style={{ color: COLORS.grayDark, marginTop: 4 }}>{group.logs.length} flight log(s)</AppText>
+                {group.updatedAt > 0 && <AppText style={{ color: COLORS.grayDark, marginTop: 4 }}>
+                  Updated {new Date(group.updatedAt).toLocaleString()}
+                </AppText>}
+              </TouchableOpacity>
+            )) : (
               <FlightLogCards
-                logs={filteredLogs}
+                logs={aircraftLogs}
                 onEdit={handleEdit}
                 onExport={canExportFlightLogs ? handleExport : undefined}
                 onRelease={(log) => openSignedWorkflow("release", log)}
@@ -1065,8 +1109,17 @@ export default function FlightLog({ route, navigation }) {
       </View>
 
       {/* New Entry Modal */}
+      <FlightLogPreflightGate visible={preflightGateOpen}
+        aircraftRpc={openedAircraft === 'Unassigned aircraft' ? '' : openedAircraft || ''}
+        onClose={() => setPreflightGateOpen(false)}
+        onConfirmed={confirmation => {
+          setEntryPreflight(confirmation);
+          setPreflightGateOpen(false);
+          setShowNewEntryModal(true);
+        }} />
       <FlightLogEntry
         visible={showNewEntryModal}
+        initialAircraftRpc={openedAircraft === 'Unassigned aircraft' ? '' : openedAircraft || ''}
         onClose={() => setShowNewEntryModal(false)}
         onSave={handleSaveNewEntry}
         userRole={userRole}

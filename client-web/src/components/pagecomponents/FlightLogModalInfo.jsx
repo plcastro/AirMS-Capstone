@@ -324,6 +324,15 @@ export default function FlightLogModalInfo({
               disabled={!isEditable}
             />
           </div>
+          {formData.preFlightInspection?.signature && <div style={{ marginTop: 16 }}>
+            <strong>Pre-flight inspection confirmed</strong>
+            <div>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</div>
+            <img src={formData.preFlightInspection.signature} alt="Pre-flight confirmation signature" style={{ width: 180, height: 80, objectFit: 'contain' }} />
+            {!!formData.preFlightInspection.remarks && <>
+              <div style={{ whiteSpace: 'pre-wrap' }}>Discrepancies: {formData.preFlightInspection.remarks}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>Resolution: {formData.preFlightInspection.resolution}</div>
+            </>}
+          </div>}
         </div>
       </div>
     </div>

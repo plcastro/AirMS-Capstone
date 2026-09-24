@@ -294,6 +294,18 @@ const flightLogSchema = new mongoose.Schema(
     createdBy: { type: String, default: "" },
     createdByName: { type: String, default: "" },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    preFlightInspection: {
+      type: new mongoose.Schema({
+        status: { type: String, enum: ['confirmed'], required: true },
+        signature: { type: String, required: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+        recordedAt: { type: Date, required: true },
+        remarks: { type: String, default: '' },
+        resolution: { type: String, default: '' },
+      }, { _id: false }),
+      default: undefined,
+    },
     assignedPilot: {
       type: new mongoose.Schema({
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

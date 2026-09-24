@@ -1,5 +1,6 @@
 const FlightLog = require("../models/flightLogModel");
 const { resolveAssignedPilot } = require('../utils/flightLogPilot');
+const { resolvePreflightConfirmation } = require('../utils/flightLogPreflight');
 const { applyFlightLogHours, requiredFlightTimeError } = require('../../shared/flightLogTimes');
 const { syncFlightLogDates } = require('../../shared/flightLogDates');
 const { auditLog } = require("./logsController");
@@ -163,9 +164,6 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    console.log("=== CREATE FLIGHT LOG CALLED ===");
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-
     const flightLogData = pickFlightLogPayloadForRequest(
       req,
       req.body,
@@ -297,6 +295,10 @@ const createFlightLog = async (req, res) => {
       if (pilot.error) return res.status(400).json({ success: false, message: pilot.error });
       flightLogData.assignedPilot = pilot.value;
     }
+    const preflight = await resolvePreflightConfirmation(req.body.preFlightInspection, req.user?.id || req.user?._id);
+    if (preflight.error) return res.status(400).json({ success: false, message: preflight.error });
+    if (preflight.value) flightLogData.preFlightInspection = preflight.value;
+
     const flightLog = new FlightLog(applyFlightLogHours(flightLogData));
     console.log("FlightLog model created");
 

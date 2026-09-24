@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from "antd";
 import {
+  ArrowLeftOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   PlusOutlined,
@@ -34,6 +35,7 @@ import { useDebouncedValue } from "../../../utils/debounce";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
+import FlightLogPreflightGate from '../../../components/pagecomponents/FlightLogPreflightGate';
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
@@ -48,6 +50,7 @@ import {
   mapStandardFlightLogToMonitoringTotals,
 } from "../../../utils/b412FlightLog";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import { flightLogAircraftKey, groupFlightLogsByAircraft } from '../../../../../shared/flightLogAircraftGroups';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -91,6 +94,7 @@ export default function FlightLog() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 350);
   const [selectedAircraft, setSelectedAircraft] = useState("");
+  const [openedAircraft, setOpenedAircraft] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [aircraftFilterOptions, setAircraftFilterOptions] = useState([]);
   const [flightLogs, setFlightLogs] = useState([]);
@@ -99,6 +103,8 @@ export default function FlightLog() {
   const [pageSize, setPageSize] = useState(10);
   const [saving, setSaving] = useState(false);
   const [entryModalVisible, setEntryModalVisible] = useState(false);
+  const [preflightGateOpen, setPreflightGateOpen] = useState(false);
+  const [entryPreflight, setEntryPreflight] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const hasRunRemoteSearchRef = useRef(false);
@@ -425,6 +431,7 @@ export default function FlightLog() {
 
   const handleSaveNew = async (newEntry) => {
     try {
+      if (!entryPreflight?.signature) throw new Error('Confirm and sign the pre-flight inspection before creating a flight log.');
       setSaving(true);
       const authHeader = getAuthHeader ? await getAuthHeader() : {};
 
@@ -437,6 +444,7 @@ export default function FlightLog() {
         },
         body: JSON.stringify({
           ...newEntry,
+          preFlightInspection: entryPreflight,
           createdByName:
             `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
             "Unknown User",
@@ -1130,7 +1138,17 @@ export default function FlightLog() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchQuery, selectedAircraft, selectedStatus]);
+  }, [debouncedSearchQuery, selectedAircraft, selectedStatus, openedAircraft]);
+
+  const aircraftGroups = useMemo(() => groupFlightLogsByAircraft(filteredLogs), [filteredLogs]);
+  const aircraftLogs = openedAircraft === null ? [] : filteredLogs.filter(log => flightLogAircraftKey(log) === openedAircraft);
+  const openAircraft = aircraft => {
+    setOpenedAircraft(aircraft);
+    setSearchQuery('');
+    setSelectedAircraft('');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     const openTargetFlightLog = async () => {
@@ -1151,6 +1169,7 @@ export default function FlightLog() {
         return;
       }
 
+      setOpenedAircraft(flightLogAircraftKey(matchedLog));
       setSelectedLog(matchedLog);
       setEditModalVisible(true);
       navigate("/dashboard/flight-log", { replace: true });
@@ -1459,6 +1478,12 @@ export default function FlightLog() {
 
   return (
     <div className="fl-page">
+      {openedAircraft !== null && (
+        <Space wrap style={{ marginBottom: 12 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => openAircraft(null)}>All Aircraft</Button>
+          <Text strong style={{ fontSize: 18 }}>{openedAircraft} — Flight Logs</Text>
+        </Space>
+      )}
       <Card style={{ marginBottom: 10 }}>
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} md={8}>
@@ -1472,7 +1497,7 @@ export default function FlightLog() {
               allowClear
             />
           </Col>
-          <Col xs={12} sm={12} md={4}>
+          {openedAircraft === null && <Col xs={12} sm={12} md={4}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1486,8 +1511,8 @@ export default function FlightLog() {
                   aircraft === "all" ? "All Aircraft" : `RP/C: ${aircraft}`,
               }))}
             />
-          </Col>
-          <Col xs={12} sm={12} md={5}>
+          </Col>}
+          {openedAircraft !== null && <Col xs={12} sm={12} md={5}>
             <Select
               size="large"
               style={{ width: "100%" }}
@@ -1495,14 +1520,14 @@ export default function FlightLog() {
               onChange={setSelectedStatus}
               options={statusOptions}
             />
-          </Col>
+          </Col>}
           {!isOfficerInCharge && (
             <Col xs={12} md={7}>
               <Button
                 type="primary"
                 size="large"
                 icon={<PlusOutlined />}
-                onClick={() => setEntryModalVisible(true)}
+                onClick={() => { setEntryPreflight(null); setPreflightGateOpen(true); }}
               >
                 New Entry
               </Button>
@@ -1511,9 +1536,35 @@ export default function FlightLog() {
         </Row>
       </Card>
 
-      <FLogTable
+      {openedAircraft === null ? (
+        <Row gutter={[16, 16]}>
+          {loading ? <Col span={24}><Card loading /></Col> : aircraftGroups.length === 0 ? (
+            <Col span={24}><Card><Text type="secondary">No flight logs found.</Text></Card></Col>
+          ) : aircraftGroups.map(group => (
+            <Col xs={24} sm={12} md={8} lg={6} key={group.aircraft}>
+              <Card hoverable onClick={() => openAircraft(group.aircraft)}
+                role="button" tabIndex={0} aria-label={`Open flight logs for ${group.aircraft}`}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openAircraft(group.aircraft); }
+                }}
+                styles={{ body: { padding: 0 } }} style={{ borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', minHeight: 130 }}>
+                  <div style={{ width: 7, background: '#1f5f49' }} />
+                  <div style={{ padding: 16, flex: 1 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{group.aircraft}</div>
+                    <Text type="secondary">{group.aircraftType || 'Aircraft'}</Text><br />
+                    <Text type="secondary">{group.logs.length} flight log(s)</Text><br />
+                    <Text type="secondary">{group.updatedAt ? `Updated ${new Date(group.updatedAt).toLocaleString()}` : 'No update date'}</Text>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      ) : <FLogTable
+        key={openedAircraft}
         columns={columns}
-        dataSource={filteredLogs}
+        dataSource={aircraftLogs}
         loading={loading}
         rowKey={(record) => record._id || record.id}
         renderCard={renderCard}
@@ -1538,17 +1589,26 @@ export default function FlightLog() {
               ? "No flight logs found"
               : "No flight logs yet",
         }}
-      />
+      />}
       <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
         <Col span={24} style={{ textAlign: "right" }}>
           <Text type="secondary">
-            Showing <Text strong>{filteredLogs.length}</Text> Log(s)
+            Showing <Text strong>{openedAircraft === null ? aircraftGroups.length : aircraftLogs.length}</Text> {openedAircraft === null ? 'Aircraft' : 'Log(s)'}
           </Text>
         </Col>
       </Row>
 
+      <FlightLogPreflightGate open={preflightGateOpen}
+        aircraftRpc={openedAircraft === 'Unassigned aircraft' ? '' : openedAircraft || ''}
+        onClose={() => setPreflightGateOpen(false)}
+        onConfirmed={confirmation => {
+          setEntryPreflight(confirmation);
+          setPreflightGateOpen(false);
+          setEntryModalVisible(true);
+        }} />
       <FlightLogEntry
         visible={entryModalVisible}
+        initialAircraftRpc={openedAircraft === 'Unassigned aircraft' ? '' : openedAircraft || ''}
         onClose={() => setEntryModalVisible(false)}
         onSave={handleSaveNew}
         userRole={userRole}

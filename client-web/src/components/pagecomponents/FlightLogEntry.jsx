@@ -254,6 +254,7 @@ export default function FlightLogEntry({
   userRole,
   editMode = false,
   initialData = null,
+  initialAircraftRpc = '',
   initialComponentData = null,
   readOnly = false,
   onRelease,
@@ -266,6 +267,7 @@ export default function FlightLogEntry({
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
+  const lockedAircraftRpc = !editMode ? String(initialAircraftRpc || '').trim() : '';
   const canEnterDestinations = ["pilot", "mechanic", "maintenance manager"].includes(
     String(userRole || "").trim().toLowerCase().replace(/[\s-]+/g, " "),
   );
@@ -286,7 +288,7 @@ export default function FlightLogEntry({
       ? normalizeInitialForm(initialData)
       : {
           aircraftType: "",
-          rpc: "",
+          rpc: lockedAircraftRpc,
           date: new Date(),
           controlNo: "",
           legs: [emptyLeg()],
@@ -519,6 +521,7 @@ export default function FlightLogEntry({
   }, [activeTab, effectiveActiveTab]);
 
   const updateForm = (field, value) => {
+    if (field === 'rpc' && lockedAircraftRpc && value !== lockedAircraftRpc) return;
     if (field === "rpc") {
       setActiveTab("info");
 
@@ -715,7 +718,7 @@ export default function FlightLogEntry({
     !readOnly && (!editMode || formData.createdBy === userRole);
   const isCompletedLog = editMode && formData.status === "completed";
   const isRPCEditable =
-    !editMode || !isReleasedFlightLogStatus(formData.status);
+    !lockedAircraftRpc && (!editMode || !isReleasedFlightLogStatus(formData.status));
   const canEditDestinations =
     !readOnly && !isCompletedLog && canEnterDestinations;
   const canEditComponent = !readOnly && isMechanic;

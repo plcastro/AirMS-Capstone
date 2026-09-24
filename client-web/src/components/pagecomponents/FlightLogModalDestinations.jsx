@@ -1,5 +1,6 @@
 import React from "react";
 import FlightTimeInput from './FlightTimeInput';
+import FlightStationInput from './FlightStationInput';
 import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
 import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
@@ -54,26 +55,20 @@ export default function FlightLogModalDestinations({
                 <div style={{ flex: 1 }}>
                   {stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">
-                      <Input
-                        className="fl-input"
+                      <FlightStationInput
                         value={station?.from || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "from", e.target.value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "from", value)}
                         placeholder="From"
+                        label={`Leg ${n} station ${stIdx + 1} from`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       <span className="fl-station-sep">-</span>
-                      <Input
-                        className="fl-input"
+                      <FlightStationInput
                         value={station?.to || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "to", e.target.value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "to", value)}
                         placeholder="To"
+                        label={`Leg ${n} station ${stIdx + 1} to`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       {isEditable && stations.length > 1 && (
                         <Button

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateInput from "../common/DateInput";
@@ -439,6 +439,16 @@ export default function FlightLogModalInfo({
               editable={isEditable}
             />
           </View>
+          {formData.preFlightInspection?.signature && <View style={{ marginTop: 16 }}>
+            <AppText style={{ fontWeight: '700' }}>Pre-flight inspection confirmed</AppText>
+            <AppText>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</AppText>
+            <Image source={{ uri: formData.preFlightInspection.signature }} accessibilityLabel="Pre-flight confirmation signature"
+              style={{ width: 180, height: 80 }} resizeMode="contain" />
+            {!!formData.preFlightInspection.remarks && <>
+              <AppText>Discrepancies: {formData.preFlightInspection.remarks}</AppText>
+              <AppText>Resolution: {formData.preFlightInspection.resolution}</AppText>
+            </>}
+          </View>}
         </View>
       </View>
     </View>
