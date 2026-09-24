@@ -7,6 +7,7 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import ActionIconButton from "../common/ActionIconButton";
 import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function FlightLogCards({
   logs,
@@ -18,6 +19,7 @@ export default function FlightLogCards({
   onComplete,
   userRole = "",
   readOnly = false,
+  currentUser,
 }) {
   const [exportingLogId, setExportingLogId] = useState(null);
 
@@ -125,7 +127,7 @@ export default function FlightLogCards({
         const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
         const exportLoading = exportingLogId === logKey;
-        const isViewOnly = readOnly || log.status === "completed";
+        const isViewOnly = readOnly || log.status === "completed" || !isAssignedFlightCrew(currentUser, log);
         const normalizedRole = String(userRole || "").toLowerCase();
         const isPilot = normalizedRole === "pilot";
         const isMechanic = [
@@ -136,18 +138,18 @@ export default function FlightLogCards({
           "head of maintenance",
         ].includes(normalizedRole);
         const canRelease =
-          !readOnly && isMechanic && log.status === "pending_release";
+          !isViewOnly && isMechanic && log.status === "pending_release";
         const canAccept =
-          !readOnly &&
+          !isViewOnly &&
           isPilot &&
           ["pending_acceptance", "released"].includes(log.status);
         const canNotify =
-          !readOnly &&
+          !isViewOnly &&
           isPilot &&
           log.status === "accepted" &&
           !log.notifiedForCompletion;
         const canComplete =
-          !readOnly &&
+          !isViewOnly &&
           isMechanic &&
           log.status === "accepted" &&
           log.notifiedForCompletion;

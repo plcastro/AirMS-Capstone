@@ -1,14 +1,14 @@
-import { syncFlightLogDates } from '../../../shared/flightLogDates';
-import { totalFlightHours, FLIGHT_HOUR_FIELDS, flightLandingCycles, requiredFlightTimeError } from '../../../shared/flightLogTimes';
-import Modal from "../common/AppModal";
-import React, { useState, useEffect, useRef } from "react";
-import AppText from "../common/AppText";
+import { syncFlightLogDates } from "../../../shared/flightLogDates";
 import {
-  View,
-  TouchableOpacity,
-  ScrollView,
-  StatusBar,
-} from "react-native";
+  totalFlightHours,
+  FLIGHT_HOUR_FIELDS,
+  flightLandingCycles,
+  requiredFlightTimeError,
+} from "../../../shared/flightLogTimes";
+import Modal from "../common/AppModal";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import AppText from "../common/AppText";
+import { View, TouchableOpacity, ScrollView, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -26,6 +26,7 @@ import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { showToast } from "../../utilities/toast";
 import { API_BASE } from '../../utilities/API_BASE';
+import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
 import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
   calculateB412ToDate,
@@ -74,13 +75,15 @@ const buildSignatureUser = (user = {}, signature, fallbackTitle = "") => {
 
 export default function FlightLogEntry({
   visible,
+  entryConfirmation = null,
   onClose,
   onSave,
   userRole,
   currentUser,
   initialAircraftRpc = '',
+  lockedRpc = "",
 }) {
-  const lockedAircraftRpc = String(initialAircraftRpc || '').trim();
+  const lockedAircraftRpc = String(lockedRpc || initialAircraftRpc || '').trim();
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -97,17 +100,16 @@ export default function FlightLogEntry({
     .toLowerCase()
     .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
-  const isMechanic =
-    [
-      "mechanic",
-      "engineer",
-      "maintenance manager",
-      "head of maintenance",
-      "admin",
-      "superadmin",
-    ].includes(normalizedRole);
+  const isMechanic = [
+    "mechanic",
+    "engineer",
+    "maintenance manager",
+    "head of maintenance",
+    "admin",
+    "superadmin",
+  ].includes(normalizedRole);
 
-  const handleAircraftDataLoaded = (data) => {
+  const handleAircraftDataLoaded = useCallback((data) => {
     setLoadedAircraftData(data);
 
     if (!data) {
@@ -166,12 +168,12 @@ export default function FlightLogEntry({
           : {}),
       };
     });
-  };
+  }, []);
 
   // Start with 1 leg only
   const [formData, setFormData] = useState({
-    aircraftType: "",
-    rpc: "",
+    aircraftType: entryConfirmation?.aircraftType || "",
+    rpc: lockedAircraftRpc,
     date: new Date(),
     controlNo: "",
     legs: [
@@ -194,6 +196,7 @@ export default function FlightLogEntry({
     oilServicing: [],
     workItems: [],
     createdBy: userRole,
+    ...entryConfirmation,
     status: "pending_release",
     notifiedForCompletion: false,
     broughtForwardLocked: false,
@@ -203,7 +206,7 @@ export default function FlightLogEntry({
 
   const isAircraftSelected = Boolean(
     String(formData.rpc || "").trim() &&
-      String(formData.aircraftType || "").trim(),
+    String(formData.aircraftType || "").trim(),
   );
   const [componentData, setComponentData] = useState({
     broughtForwardData: {
@@ -321,8 +324,7 @@ export default function FlightLogEntry({
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
   const hasWorkItems =
     Array.isArray(formData.workItems) && formData.workItems.length > 0;
-  const shouldShowWorkDone =
-    hasWorkItems || (hasDiscrepancy && isMechanic);
+  const shouldShowWorkDone = hasWorkItems || (hasDiscrepancy && isMechanic);
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
@@ -330,11 +332,7 @@ export default function FlightLogEntry({
     }
 
     if (isPilot) {
-      return [
-        "Basic Information",
-        "Destination/s",
-        "Discrepancy/Remarks",
-      ];
+      return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
     }
 
     const nextTabs = [
@@ -430,7 +428,7 @@ export default function FlightLogEntry({
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       setFormData({
         aircraftType: "",
-        rpc: "",
+        rpc: lockedAircraftRpc,
         date: new Date(),
         controlNo: "",
         legs: [
@@ -505,29 +503,38 @@ export default function FlightLogEntry({
       });
       setLoadedAircraftData(null);
     }
-  }, [visible]);
+  }, [visible, lockedAircraftRpc, userRole]);
 
-  // Selecting an aircraft card supplies the same aircraft reference data as
-  // choosing an RP-C manually, including the component brought-forward values.
   useEffect(() => {
     if (!visible || !lockedAircraftRpc) return;
-    let active = true;
-    setFormData(previous => ({ ...previous, rpc: lockedAircraftRpc, aircraftType: '' }));
-    const loadAircraft = async () => {
+
+    let cancelled = false;
+    setFormData((prev) => ({ ...prev, rpc: lockedAircraftRpc, aircraftType: "" }));
+    const loadSelectedAircraft = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedAircraftRpc)}`);
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedAircraftRpc)}`,
+        );
         const payload = await response.json();
-        if (!active) return;
-        if (!response.ok || !payload?.data) throw new Error('Unable to load the selected aircraft details. Close this entry and try again.');
-        setFormData(previous => ({ ...previous, aircraftType: payload.data.aircraftType || '' }));
+        if (cancelled) return;
+        if (!response.ok || !payload?.data) {
+          throw new Error("Unable to load the selected aircraft details. Close this entry and try again.");
+        }
+        setFormData((prev) => ({
+          ...prev,
+          aircraftType: payload.data.aircraftType || "",
+        }));
         handleAircraftDataLoaded(payload.data);
       } catch (error) {
-        if (active) showToast(error.message || 'Unable to load aircraft details.');
+        if (!cancelled) showToast(error.message || "Unable to load aircraft details.");
       }
     };
-    loadAircraft();
-    return () => { active = false; };
-  }, [visible, lockedAircraftRpc]);
+    loadSelectedAircraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, lockedAircraftRpc, handleAircraftDataLoaded]);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -566,6 +573,11 @@ export default function FlightLogEntry({
     setFormData((prev) => ({ ...prev, workItems }));
   };
 
+  useEffect(() => {
+    if (visible && entryConfirmation)
+      setFormData((previous) => ({ ...previous, ...entryConfirmation }));
+  }, [visible, entryConfirmation]);
+
   const formatDateForSave = (date) => {
     return date.toLocaleDateString("en-US", {
       month: "2-digit",
@@ -573,6 +585,30 @@ export default function FlightLogEntry({
       year: "numeric",
     });
   };
+
+  useEffect(() => {
+    if (!visible || !formData || formData.status === "completed") return;
+    const next = populateFlightInputs(formData);
+    // Servicing inherits the inspection date/signature. Flight-hour totals
+    // continue to use the duration conversion below.
+    setFormData((previous) => {
+      const updated = {
+        ...previous,
+        fuelServicing: next.fuelServicing,
+        oilServicing: next.oilServicing,
+        ...(next.b412Data ? {
+          b412Data: {
+            ...previous.b412Data,
+            fuelServicing: next.b412Data.fuelServicing,
+            oilServicing: next.b412Data.oilServicing,
+          },
+        } : {}),
+      };
+      return JSON.stringify(previous) === JSON.stringify(updated)
+        ? previous
+        : updated;
+    });
+  }, [visible, formData]);
 
   const handleNext = () => {
     if (currentPage < totalPages - 1) {
@@ -615,7 +651,12 @@ export default function FlightLogEntry({
       toDateData: finalToDateData,
     };
 
-    const { _id, id, b412Data: sourceB412Data, ...cleanFormData } = nextFormData;
+    const {
+      _id,
+      id,
+      b412Data: sourceB412Data,
+      ...cleanFormData
+    } = nextFormData;
     const shouldIncludeB412Data = isB412Aircraft(nextFormData.aircraftType);
     const normalizedB412Data = shouldIncludeB412Data
       ? syncB412DataFromStandardFlightLog(
@@ -646,7 +687,7 @@ export default function FlightLogEntry({
     const error = requiredFlightTimeError(formData.legs);
     if (!error) return true;
     showToast(error);
-    setCurrentPage(Math.max(tabs.indexOf('Destination/s'), 0));
+    setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
     return false;
   };
 
@@ -703,21 +744,37 @@ export default function FlightLogEntry({
   };
 
   useEffect(() => {
-    if (!visible || formData.status === 'completed') return;
+    if (!visible || formData.status === "completed") return;
     const hours = totalFlightHours(formData.legs);
-    const landingCycle = String(flightLandingCycles(formData.legs, formData.additionalLandings));
-    setComponentData(previous => {
-      if (previous.thisFlightData?.landingCycle === landingCycle && FLIGHT_HOUR_FIELDS.every(key => previous.thisFlightData?.[key] === hours)) return previous;
-      return { ...previous, thisFlightData: { ...previous.thisFlightData,
-        ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map(key => [key, hours])), landingCycle } };
+    const landingCycle = String(
+      flightLandingCycles(formData.legs, formData.additionalLandings),
+    );
+    setComponentData((previous) => {
+      if (
+        previous.thisFlightData?.landingCycle === landingCycle &&
+        FLIGHT_HOUR_FIELDS.every(
+          (key) => previous.thisFlightData?.[key] === hours,
+        )
+      )
+        return previous;
+      return {
+        ...previous,
+        thisFlightData: {
+          ...previous.thisFlightData,
+          ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map((key) => [key, hours])),
+          landingCycle,
+        },
+      };
     });
   }, [visible, formData.legs, formData.status, formData.additionalLandings]);
 
   useEffect(() => {
-    if (!visible || formData.status === 'completed') return;
-    setFormData(previous => {
+    if (!visible || formData.status === "completed") return;
+    setFormData((previous) => {
       const next = syncFlightLogDates(previous);
-      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+      return JSON.stringify(previous) === JSON.stringify(next)
+        ? previous
+        : next;
     });
   }, [visible, formData]);
 
@@ -735,6 +792,8 @@ export default function FlightLogEntry({
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412Aircraft(formData.aircraftType)}
+            assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
+            canAssign={isPilot || isMechanic}
           />
         );
 
@@ -766,7 +825,9 @@ export default function FlightLogEntry({
           <FlightLogModalThisFlight
             legCount={formData.legs?.length || 0}
             additionalLandings={formData.additionalLandings || 0}
-            onAdditionalLandingsChange={additionalLandings => setFormData(previous => ({ ...previous, additionalLandings }))}
+            onAdditionalLandingsChange={(additionalLandings) =>
+              setFormData((previous) => ({ ...previous, additionalLandings }))
+            }
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)
@@ -781,6 +842,9 @@ export default function FlightLogEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
+            signatureInherited={
+              !!formData.initialInspectionSignature?.signature
+            }
             legs={formData.legs}
             fuelServicingData={formData.fuelServicing}
             onUpdateFuelServicing={updateFuelServicing}
@@ -790,6 +854,9 @@ export default function FlightLogEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
+            signatureInherited={
+              !!formData.initialInspectionSignature?.signature
+            }
             legs={formData.legs}
             oilServicingData={formData.oilServicing}
             onUpdateOilServicing={updateOilServicing}
@@ -820,226 +887,238 @@ export default function FlightLogEntry({
   };
 
   const showReleaseButton =
-    isAircraftSelected &&
-    isMechanic &&
-    formData.status === "pending_release";
+    isAircraftSelected && isMechanic && formData.status === "pending_release";
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <IosModalSafeAreaProvider>
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
-        <View style={{ backgroundColor: "#F9F9F9", paddingTop: 16 }}>
-          {/* HEADER ROW */}
+          <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
+          <View style={{ backgroundColor: "#F9F9F9", paddingTop: 16 }}>
+            {/* HEADER ROW */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View>
+                <AppText
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: COLORS.black,
+                  }}
+                >
+                  New Entry - Flight Log
+                </AppText>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: COLORS.grayDark,
+                  }}
+                >
+                  Select Section
+                </AppText>
+              </View>
+
+              <TouchableOpacity
+                onPress={onClose}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={COLORS.grayDark}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* TABS */}
+            <ScrollView
+              ref={tabScrollViewRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                gap: 12,
+                paddingBottom: 12,
+              }}
+            >
+              {tabs.map((tab, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => setCurrentPage(index)}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor:
+                      currentPage === index
+                        ? COLORS.primaryLight
+                        : COLORS.grayMedium,
+                    backgroundColor:
+                      currentPage === index
+                        ? COLORS.primaryLight
+                        : "transparent",
+                  }}
+                >
+                  <AppText
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "500",
+                      color:
+                        currentPage === index ? COLORS.white : COLORS.grayDark,
+                    }}
+                  >
+                    {tab}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* DIVIDER */}
+            <View
+              style={{
+                height: 1,
+                backgroundColor: COLORS.grayMedium,
+              }}
+            />
+          </View>
+
+          <ScrollView
+            ref={scrollViewRef}
+            style={{ flex: 1, paddingHorizontal: 20 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingTop: 16 }}
+          >
+            {renderPage()}
+
+            {false && showReleaseButton && (
+              <View style={{ marginTop: 20, marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setShowReleaseModal(true)}
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <AppText
+                    style={{
+                      color: COLORS.white,
+                      fontWeight: "600",
+                      fontSize: 12,
+                    }}
+                  >
+                    Release
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+
           <View
             style={{
               flexDirection: "row",
+              justifyContent: "flex-end",
               alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 16,
-              marginBottom: 12,
+              padding: 20,
+              backgroundColor: "#F9F9F9",
+              gap: 10,
             }}
           >
-            <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                New Entry - Flight Log
+            <TouchableOpacity
+              onPress={handlePrevious}
+              disabled={currentPage === 0}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 4,
+                backgroundColor: COLORS.white,
+                borderWidth: 1,
+                borderColor: COLORS.grayMedium,
+                opacity: currentPage === 0 ? 0.5 : 1,
+              }}
+            >
+              <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                Previous
               </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
-                Select Section
+            </TouchableOpacity>
+
+            <View
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 4,
+              }}
+            >
+              <AppText
+                style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
+              >
+                {currentPage + 1}
               </AppText>
             </View>
 
             <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={
+                !isAircraftSelected
+                  ? undefined
+                  : currentPage === totalPages - 1
+                    ? handleSave
+                    : handleNext
+              }
+              disabled={!isAircraftSelected}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 24,
+                borderRadius: 4,
+                backgroundColor: COLORS.primaryLight,
+                opacity: isAircraftSelected ? 1 : 0.5,
+              }}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={COLORS.grayDark}
-              />
+              <AppText
+                style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
+              >
+                {!isAircraftSelected
+                  ? "Select Aircraft"
+                  : currentPage === totalPages - 1
+                    ? "Create Draft"
+                    : "Next"}
+              </AppText>
             </TouchableOpacity>
           </View>
 
-          {/* TABS */}
-          <ScrollView
-            ref={tabScrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              gap: 12,
-              paddingBottom: 12,
-            }}
-          >
-            {tabs.map((tab, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setCurrentPage(index)}
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor:
-                    currentPage === index
-                      ? COLORS.primaryLight
-                      : COLORS.grayMedium,
-                  backgroundColor:
-                    currentPage === index ? COLORS.primaryLight : "transparent",
-                }}
-              >
-                <AppText
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "500",
-                    color:
-                      currentPage === index ? COLORS.white : COLORS.grayDark,
-                  }}
-                >
-                  {tab}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <FlightLogSignatureModal
+            visible={showReleaseModal}
+            title="Release Signature"
+            onClose={() => setShowReleaseModal(false)}
+            onSave={handleRelease}
+            aircraftRPC={formData.rpc}
+            useNativeModal={false}
+          />
 
-          {/* DIVIDER */}
-          <View
-            style={{
-              height: 1,
-              backgroundColor: COLORS.grayMedium,
+          <AlertComp
+            visible={feedbackAlert.visible}
+            title={feedbackAlert.title}
+            message={feedbackAlert.message}
+            duration={1400}
+            onFinish={() => {
+              const shouldClose = feedbackAlert.closeOnFinish;
+              setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+              if (shouldClose) {
+                onClose();
+              }
             }}
           />
-        </View>
-
-        <ScrollView
-          ref={scrollViewRef}
-          style={{ flex: 1, paddingHorizontal: 20 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingTop: 16 }}
-        >
-          {renderPage()}
-
-          {showReleaseButton && (
-            <View style={{ marginTop: 20, marginBottom: 12 }}>
-              <TouchableOpacity
-                onPress={() => setShowReleaseModal(true)}
-                style={{
-                  backgroundColor: COLORS.primaryLight,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  alignItems: "center",
-                }}
-              >
-                <AppText
-                  style={{
-                    color: COLORS.white,
-                    fontWeight: "600",
-                    fontSize: 12,
-                  }}
-                >
-                  Release
-                </AppText>
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            padding: 20,
-            backgroundColor: "#F9F9F9",
-            gap: 10,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handlePrevious}
-            disabled={currentPage === 0}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 4,
-              backgroundColor: COLORS.white,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              opacity: currentPage === 0 ? 0.5 : 1,
-            }}
-          >
-            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
-              Previous
-            </AppText>
-          </TouchableOpacity>
-
-          <View
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 4,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
-            >
-              {currentPage + 1}
-            </AppText>
-          </View>
-
-          <TouchableOpacity
-            onPress={
-              !isAircraftSelected
-                ? undefined
-                : currentPage === totalPages - 1
-                  ? handleSave
-                  : handleNext
-            }
-            disabled={!isAircraftSelected}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 4,
-              backgroundColor: COLORS.primaryLight,
-              opacity: isAircraftSelected ? 1 : 0.5,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
-            >
-              {!isAircraftSelected
-                ? "Select Aircraft"
-                : currentPage === totalPages - 1
-                  ? "Add"
-                  : "Next"}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        <FlightLogSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-          useNativeModal={false}
-        />
-
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
         </SafeAreaView>
       </IosModalSafeAreaProvider>
     </Modal>

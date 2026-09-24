@@ -8,12 +8,14 @@ import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import ActionIconButton from "../common/ActionIconButton";
 import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function PostInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
+  currentUser,
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
 
@@ -92,7 +94,7 @@ export default function PostInspectionCards({
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
         const isCompleted = getDisplayStatus(inspection.status) === "completed";
-        const isViewOnly = isOfficerInCharge || isCompleted;
+        const isViewOnly = isOfficerInCharge || isCompleted || !isAssignedFlightCrew(currentUser, inspection);
         const inspectionKey = String(inspection._id || inspection.id || "");
         const exportLoading = exportingInspectionId === inspectionKey;
 

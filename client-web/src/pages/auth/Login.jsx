@@ -10,7 +10,6 @@ import {
   Row,
   Col,
   Form,
-  Select,
 } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
@@ -18,12 +17,17 @@ import LoginLayout from "../../components/layout/LoginLayout";
 import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
+  AimOutlined,
   EnvironmentOutlined,
   LockOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import AirMSLogo from "../../assets/AirMS_web.webp";
 import ResultPopup from "../../components/common/ResultPopup";
+import {
+  buildLoginLocationHeaders,
+  detectLoginLocation,
+} from "../../utils/loginLocation";
 const { Text } = Typography;
 
 const getTrustedDeviceStorageKey = (account) => {
@@ -39,8 +43,9 @@ const Login = () => {
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
-    base: "",
   });
+  const [location, setLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("");
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -55,7 +60,6 @@ const Login = () => {
   // Load saved credentials on component mount
   useEffect(() => {
     const savedIdentifier = localStorage.getItem("rememberedIdentifier");
-    const savedBase = localStorage.getItem("rememberedBase") || "";
     const savedRememberMe = localStorage.getItem("rememberMe") === "true";
 
     setRememberMe(savedRememberMe);
@@ -64,9 +68,29 @@ const Login = () => {
       setFormData({
         identifier: savedIdentifier,
         password: "",
-        base: savedBase,
       });
     }
+  }, []);
+
+  const handleDetectLocation = async () => {
+    try {
+      setLocationStatus("Getting your location...");
+      setError("");
+      const nextLocation = await detectLoginLocation();
+      setLocation(nextLocation);
+      setLocationStatus("Location detected.");
+    } catch (locationError) {
+      console.error("Geolocation error:", locationError);
+      setLocation(null);
+      setLocationStatus(
+        locationError?.message ||
+          "Unable to detect your location. Please allow location access.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    handleDetectLocation();
   }, []);
 
   const handleInputChange = (e) => {
@@ -84,7 +108,6 @@ const Login = () => {
     if (!isChecked) {
       localStorage.setItem("rememberMe", "false");
       localStorage.removeItem("rememberedIdentifier");
-      localStorage.removeItem("rememberedBase");
     } else {
       localStorage.setItem("rememberMe", "true");
     }
@@ -95,7 +118,6 @@ const Login = () => {
 
     const identifier = formData.identifier?.trim();
     const password = formData.password?.trim();
-    const base = formData.base?.trim();
 
     if (!identifier && !password) {
       setError("Username/email and password are required");
@@ -109,8 +131,8 @@ const Login = () => {
       setError("Password is required");
       return;
     }
-    if (!base) {
-      setError("Please select where you are logging in from");
+    if (!location?.text || !location?.coordinateText) {
+      setError("Allow location access so AirMS can detect where you are logging in from.");
       return;
     }
     setLoading(true);
@@ -126,16 +148,17 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
           "x-platform": "WEB",
-          "x-base": base,
+          ...buildLoginLocationHeaders(location),
         },
         body: JSON.stringify({
           identifier,
           password,
           client: "web",
           rememberMe,
-          base,
+          location,
           trustedDeviceToken,
         }),
+
         credentials: "include",
       });
 
@@ -162,7 +185,7 @@ const Login = () => {
               maskedEmail: data.verification.maskedEmail,
               identifier,
               rememberMe,
-              base,
+              loginLocation: location,
               client: "web",
             },
           });
@@ -171,7 +194,7 @@ const Login = () => {
 
         await loginUser(data.user, data.token, {
           rememberMe,
-          base: data.user?.base || base,
+          location: data.session?.location || location,
           sessionId: data.sessionId || data.user?.sessionId,
         });
 
@@ -182,10 +205,8 @@ const Login = () => {
           );
 
           localStorage.setItem("rememberMe", "true");
-          localStorage.setItem("rememberedBase", data.user?.base || base);
         } else {
           localStorage.removeItem("rememberedIdentifier");
-          localStorage.removeItem("rememberedBase");
           localStorage.removeItem("rememberMe");
         }
         handleNavigate(data.user);
@@ -221,7 +242,7 @@ const Login = () => {
         dashboardPath = "/dashboard/user-management/view-users";
         break;
       case "mechanic":
-        dashboardPath = "/dashboard/maintenance-log";
+        dashboardPath = "/dashboard/tasks";
         break;
       case "pilot":
         dashboardPath = "/dashboard/flight-log";
@@ -302,25 +323,37 @@ const Login = () => {
           </Form.Item>
 
           <Form.Item label="Logging in from" required>
-            <Select
-              id="base"
-              aria-label="Logging in from"
-              size="large"
-              placeholder={
-                <span style={{ color: "#595959" }}>Select base</span>
-              }
-              required
-              value={formData.base || undefined}
-              onChange={(value) =>
-                setFormData((prevState) => ({ ...prevState, base: value }))
-              }
-              suffixIcon={<EnvironmentOutlined />}
-              options={[
-                { value: "MANILA", label: "Manila" },
-                { value: "CEBU", label: "Cebu" },
-                { value: "CDO", label: "CDO" },
-              ]}
-            />
+            <div
+              className="login-location-panel"
+              role="status"
+              aria-live="polite"
+            >
+              <EnvironmentOutlined className="login-location-icon" />
+              <div className="login-location-copy">
+                <Text strong>
+                  {location?.text || "Location not detected"}
+                </Text>
+                {location?.coordinateText && (
+                  <Text type="secondary" className="login-location-coordinates">
+                    Latitude and longitude coordinates: {location.coordinateText}
+                  </Text>
+                )}
+                {locationStatus && !location?.text && (
+                  <Text type="secondary" className="login-location-coordinates">
+                    {locationStatus}
+                  </Text>
+                )}
+              </div>
+            </div>
+            <Button
+              type="default"
+              icon={<AimOutlined />}
+              onClick={handleDetectLocation}
+              block
+              style={{ marginTop: 8 }}
+            >
+              Detect location
+            </Button>
             {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 

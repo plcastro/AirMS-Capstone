@@ -1,4 +1,6 @@
-const { hasCompleteFlightLogLegs } = require("../../shared/flightLogLegValidation");
+const {
+  hasCompleteFlightLogLegs,
+} = require("../../shared/flightLogLegValidation");
 
 const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
   "assignedPilot",
@@ -6,6 +8,12 @@ const ALLOWED_FLIGHT_LOG_PAYLOAD_FIELDS = new Set([
   "rpc",
   "date",
   "controlNo",
+  "flightPurpose",
+  "purposeDetails",
+  "noDefectsReported",
+  "additionalLandings",
+  "assignedPilot",
+  "assignedMechanic",
   "sling",
   "remarks",
   "legs",
@@ -75,9 +83,7 @@ const getTrustedFlightLogRole = (req = {}) => {
   const user = req?.user;
   if (!user || typeof user !== "object") return "";
 
-  return normalizeFlightLogRole(
-    user.jobTitle || user.role || user.access,
-  );
+  return normalizeFlightLogRole(user.jobTitle || user.role || user.access);
 };
 
 const isPilotFlightLogRequest = (req = {}) =>
@@ -161,11 +167,7 @@ const mergePilotB412Update = (existingB412Data, pilotB412Update) => {
   return { ...existing, ...pilotB412Update };
 };
 
-const pickFlightLogPayloadForRequest = (
-  req,
-  body,
-  operation = "update",
-) => {
+const pickFlightLogPayloadForRequest = (req, body, operation = "update") => {
   const isPilot = isRestrictedPilotFlightLogRequest(req);
   const pilotAllowedFields =
     operation === "create"

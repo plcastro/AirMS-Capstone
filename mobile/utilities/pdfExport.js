@@ -4,10 +4,12 @@ import { Alert, Image, Platform } from "react-native";
 import { showToast } from "./toast";
 import { saveExportFile } from "./saveExportFile";
 import { openPdfPrintDialogOnWeb } from "./webPdfExport";
+import { flightWorkflowExportRows } from "../../shared/flightWorkflowExport";
 import {
   exportPostInspectionTemplatePdf,
   exportPreInspectionTemplatePdf,
 } from "./documentExport";
+import { getStoredUser } from "./authStorage";
 
 const EXCLUDED_EXPORT_KEYS = new Set([
   "_id",
@@ -94,6 +96,65 @@ const formatValue = (value) => {
     });
   }
   return String(value);
+};
+
+const getExportExecutorName = async (fallback = "Unknown User") => {
+  try {
+    const rawUser = await getStoredUser();
+    const user = rawUser ? JSON.parse(rawUser) : null;
+    const fullName = [user?.firstName, user?.lastName]
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      fullName ||
+      String(user?.displayName || user?.username || user?.email || fallback)
+        .trim()
+    );
+  } catch {
+    return fallback;
+  }
+};
+
+const formatExecutedAt = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const appendExecutionMetadata = (
+  html = "",
+  { executedBy = "Unknown User", executedAt = new Date() } = {},
+) => {
+  const footer = `
+    <style>
+      .export-audit-footer {
+        position: fixed;
+        left: 24px;
+        right: 24px;
+        bottom: 8px;
+        color: #555;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 8px;
+        text-align: right;
+      }
+    </style>
+    <div class="export-audit-footer">
+      Executed By: ${escapeHtml(executedBy || "Unknown User")} |
+      Executed On: ${escapeHtml(formatExecutedAt(executedAt))}
+    </div>
+  `;
+
+  return String(html || "").includes("</body>")
+    ? String(html).replace("</body>", `${footer}</body>`)
+    : `${html}${footer}`;
 };
 
 const buildSafeFileName = (value, fallback = "export") =>
@@ -2946,6 +3007,7 @@ const exportRecordToPdf = async ({
     showToast(`Generating ${title} PDF...`);
     let finalHtml =
       typeof buildHtml === "function" ? await buildHtml() : html;
+    const executedBy = await getExportExecutorName();
 
     if (!finalHtml) {
       const rows = flattenRecord(record);
@@ -2957,6 +3019,8 @@ const exportRecordToPdf = async ({
       const logoDataUri = await getNgcpLogoDataUri();
       finalHtml = buildGenericHtml({ title, subtitle, rows, logoDataUri });
     }
+
+    finalHtml = appendExecutionMetadata(finalHtml, { executedBy });
 
     if (Platform.OS === "web") {
       const result = await openPdfPrintDialogOnWeb(finalHtml, title);
@@ -2998,9 +3062,12 @@ export const exportFlightLogPdf = async (log) => {
     fileName: getFlightLogFileName(log),
     buildHtml: async () => {
       const logoDataUri = await getNgcpLogoDataUri();
-      return isB412FlightLog(log)
+      const html = isB412FlightLog(log)
         ? buildB412FlightLogHtml(log, logoDataUri)
         : buildFlightLogHtml(log, logoDataUri);
+      if (!log.workflowHistory?.length && !log.amendments?.length) return html;
+      const history = `<section style="page-break-before:always"><h2>Flight record history - ${escapeHtml(log.rpc)} / ${escapeHtml(log.controlNo)}</h2><table><thead><tr><th>Step / section</th><th>Record details</th></tr></thead><tbody>${flightWorkflowExportRows(log).map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(value)}</td></tr>`).join('')}</tbody></table></section>`;
+      return html.replace('</body>', `${history}</body>`);
     },
   });
 };

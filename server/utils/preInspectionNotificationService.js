@@ -1,251 +1,36 @@
 const NotificationModel = require("../models/notificationModel");
-const UserModel = require("../models/userModel");
 const { sendPushNotificationToUsers } = require("./mobilePushService");
 
-const ROLE_MANAGER = "maintenance manager";
-const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
-const ROLE_MECHANIC = "mechanic";
+const createPreInspectionNotifications = async ({ previousInspection, inspection, actorUserId = null }) => {
+  if (!inspection?._id) return;
+  const recipientUsers = [...new Set([
+    inspection.assignedPilot?.userId,
+    inspection.assignedMechanic?.userId,
+  ].filter(Boolean).map(String))].filter((id) => id !== String(actorUserId || ""));
+  if (!recipientUsers.length) return;
 
-const normalizeRole = (role = "") => role.trim().toLowerCase();
-
-const uniqueStrings = (values = []) => [
-  ...new Set(
-    values
-      .filter((value) => value !== undefined && value !== null && value !== "")
-      .map((value) => String(value)),
-  ),
-];
-
-const uniqueRoles = (roles = []) => [
-  ...new Set(roles.map((role) => normalizeRole(role)).filter(Boolean)),
-];
-
-const resolveUserIdByFullName = async (fullName) => {
-  const trimmedName = fullName?.trim();
-
-  if (!trimmedName) {
-    return null;
-  }
-
-  const escapedName = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const user = await UserModel.findOne({
-    $expr: {
-      $regexMatch: {
-        input: {
-          $trim: {
-            input: {
-              $concat: ["$firstName", " ", "$lastName"],
-            },
-          },
-        },
-        regex: `^${escapedName}$`,
-        options: "i",
-      },
-    },
-  }).select("_id");
-
-  return user?._id || null;
-};
-
-const getCreatorUserId = async (inspection) => {
-  if (!inspection) {
-    return null;
-  }
-
-  if (inspection.createdByUserId) {
-    return inspection.createdByUserId;
-  }
-
-  return resolveUserIdByFullName(inspection.createdBy);
-};
-
-const getInvolvedUserIds = async (inspection) => {
-  const [creatorUserId, releasedByUserId, acceptedByUserId] = await Promise.all(
-    [
-      getCreatorUserId(inspection),
-      resolveUserIdByFullName(inspection?.releasedBy?.name),
-      resolveUserIdByFullName(inspection?.acceptedBy?.name),
-    ],
-  );
-
-  return uniqueStrings([creatorUserId, releasedByUserId, acceptedByUserId]);
-};
-
-const getRecipientsForStatus = (status, creatorUserId, mechanicRoles) => {
-  switch (status) {
-    case "released":
-      return {
-        recipientRoles: [],
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
-      };
-    case "completed":
-      return {
-        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
-      };
-    case "pending":
-    default:
-      return {
-        recipientRoles: mechanicRoles,
-        recipientUsers: [],
-      };
-  }
-};
-
-const createNotification = async ({
-  title,
-  description,
-  inspection,
-  recipientRoles = [],
-  recipientUsers = [],
-  excludedUsers = [],
-  metadata = {},
-}) => {
-  const normalizedRoles = uniqueRoles(recipientRoles);
-  const normalizedUsers = uniqueStrings(recipientUsers);
-
-  if (normalizedRoles.length === 0 && normalizedUsers.length === 0) {
-    return;
-  }
-
+  const status = inspection.status;
+  const changed = !previousInspection || previousInspection.status !== status;
+  const action = changed ? ({ pending: "is pending release", released: "is ready for pilot acceptance", completed: "was completed" }[status] || "was updated") : "was updated";
+  const notificationType = !previousInspection
+    ? (status === "pending" ? "created-pending-release" : `created-${status}`)
+    : changed ? status : "updated";
+  const title = `Pre-inspection for ${inspection.rpc} ${action}`;
+  const description = `Your assigned pre-flight inspection ${action}.`;
+  const excludedUsers = actorUserId ? [String(actorUserId)] : [];
+  const metadata = { rpc: inspection.rpc, status, aircraftType: inspection.aircraftType, notificationType };
   const notification = await NotificationModel.create({
-    title,
-    description,
-    module: "pre-flight inspections",
-    entityType: "pre-flight inspection",
-    entityId: inspection._id,
-    recipientRoles: normalizedRoles,
-    recipientUsers: normalizedUsers,
-    excludedUsers: uniqueStrings(excludedUsers),
-    metadata: {
-      rpc: inspection.rpc,
-      status: inspection.status,
-      aircraftType: inspection.aircraftType,
-      ...metadata,
-    },
+    title, description, module: "pre-flight inspections", entityType: "pre-flight inspection",
+    entityId: inspection._id, recipientRoles: [], recipientUsers, excludedUsers, metadata,
   });
-
   await sendPushNotificationToUsers({
-    title,
-    body: description,
-    recipientRoles: normalizedRoles,
-    recipientUsers: normalizedUsers,
-    excludedUsers,
+    title, body: description, recipientRoles: [], recipientUsers, excludedUsers,
     data: {
-      _id: String(notification._id),
-      notificationId: String(notification._id),
-      module: "pre-flight inspections",
-      targetScreen: "Pre-Flight Inspection",
-      targetPreInspectionId: String(inspection._id),
-      status: inspection.status,
-      rpc: inspection.rpc,
-      ...metadata,
+      _id: String(notification._id), notificationId: String(notification._id),
+      module: "pre-flight inspections", targetScreen: "Pre-Flight Inspection",
+      targetPreInspectionId: String(inspection._id), ...metadata,
     },
   });
 };
 
-const createPreInspectionNotifications = async ({
-  previousInspection,
-  inspection,
-  actorUserId = null,
-}) => {
-  if (!inspection?._id) {
-    return;
-  }
-
-  const creatorUserId = await getCreatorUserId(inspection);
-  const involvedUserIds = await getInvolvedUserIds(inspection);
-  const mechanicRoles = [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE, ROLE_MECHANIC];
-  const previousStatus = previousInspection?.status;
-  const currentStatus = inspection.status;
-
-  if (!previousInspection) {
-    if (currentStatus === "pending") {
-      await createNotification({
-        title: `Pre-inspection for ${inspection.rpc} is ready for release`,
-        description:
-          "A new pre-flight inspection needs mechanic review and release.",
-        inspection,
-        recipientRoles: mechanicRoles,
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "created-pending-release" },
-      });
-      return;
-    }
-
-    if (currentStatus === "released") {
-      await createNotification({
-        title: `Pre-inspection for ${inspection.rpc} was released`,
-        description: "The pre-flight inspection is ready for pilot acceptance.",
-        inspection,
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "created-released" },
-      });
-      return;
-    }
-
-    if (currentStatus === "completed") {
-      await createNotification({
-        title: `Pre-inspection for ${inspection.rpc} was completed`,
-        description: "The pre-flight inspection has been completed.",
-        inspection,
-        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
-        recipientUsers: involvedUserIds,
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "created-completed" },
-      });
-      return;
-    }
-  }
-
-  if (previousStatus === currentStatus) {
-    const recipients = getRecipientsForStatus(
-      currentStatus,
-      creatorUserId,
-      mechanicRoles,
-    );
-
-    await createNotification({
-      title: `Pre-inspection for ${inspection.rpc} has been updated`,
-      description: "The pre-flight inspection details were updated.",
-      inspection,
-      ...recipients,
-      excludedUsers: actorUserId ? [actorUserId] : [],
-      metadata: { notificationType: "updated" },
-    });
-    return;
-  }
-
-  switch (currentStatus) {
-    case "released":
-      await createNotification({
-        title: `Pre-inspection for ${inspection.rpc} is pending acceptance`,
-        description:
-          "This pre-flight inspection was released and is waiting for pilot acceptance.",
-        inspection,
-        recipientUsers: creatorUserId ? [creatorUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "released" },
-      });
-      break;
-    case "completed":
-      await createNotification({
-        title: `Pre-inspection for ${inspection.rpc} was completed`,
-        description:
-          "The pre-flight inspection has been completed and updated.",
-        inspection,
-        recipientRoles: [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE],
-        recipientUsers: involvedUserIds,
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "completed" },
-      });
-      break;
-    default:
-      break;
-  }
-};
-
-module.exports = {
-  createPreInspectionNotifications,
-};
+module.exports = { createPreInspectionNotifications };

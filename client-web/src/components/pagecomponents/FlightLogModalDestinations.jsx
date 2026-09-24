@@ -28,6 +28,7 @@ export default function FlightLogModalDestinations({
   return (
     <div className="fl-section">
       <div className="fl-section-title">DESTINATION/S</div>
+      <p>Use 24-hour times (HH:mm), consistently in the same time zone. OFF is departure/takeoff; ON is arrival/landing. Enter total durations in hours and minutes.</p>
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
@@ -114,7 +115,7 @@ export default function FlightLogModalDestinations({
                       style={{ width: "100%" }}
                       format="MM/DD/YYYY"
                       inputReadOnly
-                  placeholder="From Basic Information"
+                      placeholder="From Basic Information"
                       value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
                       onChange={(date) =>
                         updateLeg(
@@ -135,7 +136,7 @@ export default function FlightLogModalDestinations({
                   ) : (
                     <Input
                       className="fl-input"
-                      value={leg[key] || ""}
+                      value={leg[key] ?? ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
                       disabled={!isEditable}
                       required={REQUIRED_LEG_FIELDS.has(key)}

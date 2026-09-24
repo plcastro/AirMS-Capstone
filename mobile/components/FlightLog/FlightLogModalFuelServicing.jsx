@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Image
-} from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import DateInput from "../common/DateInput";
@@ -16,8 +11,12 @@ export default function FlightLogModalFuelServicing({
   fuelServicingData,
   onUpdateFuelServicing,
   isEditable = true,
+  lockedRows = 0,
+  signatureInherited = false,
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+
+  const canEditRow = (index) => isEditable && index >= lockedRows;
 
   const getOrdinalSuffix = (num) => {
     const j = num % 10;
@@ -29,6 +28,7 @@ export default function FlightLogModalFuelServicing({
   };
 
   const updateFuelData = (legIndex, field, value) => {
+    if (!canEditRow(legIndex)) return;
     const newFuelData = [...fuelServicingData];
     newFuelData[legIndex] = { ...newFuelData[legIndex], [field]: value };
     onUpdateFuelServicing(legIndex, newFuelData[legIndex]);
@@ -43,9 +43,22 @@ export default function FlightLogModalFuelServicing({
     updateFuelData(legIndex, "signature", "");
   };
 
-  const renderInput = (legIndex, label, fieldKey, placeholder = "", keyboardType = "default") => (
+  const renderInput = (
+    legIndex,
+    label,
+    fieldKey,
+    placeholder = "",
+    keyboardType = "default",
+  ) => (
     <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 6,
+          fontWeight: "500",
+        }}
+      >
         {label}:
       </AppText>
       <AppInput
@@ -62,14 +75,21 @@ export default function FlightLogModalFuelServicing({
         placeholder={placeholder}
         placeholderTextColor={COLORS.grayDark}
         keyboardType={keyboardType}
-        editable={isEditable}
+        editable={canEditRow(legIndex)}
       />
     </View>
   );
 
   const renderDateInput = (legIndex, label, fieldKey) => (
     <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 6,
+          fontWeight: "500",
+        }}
+      >
         {label}:
       </AppText>
       <DateInput
@@ -91,7 +111,7 @@ export default function FlightLogModalFuelServicing({
       visible={showSignatureModal === legIndex}
       title={title}
       description="Draw the refueler signature below."
-      confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+      requirePin={false}
       onClose={onClose}
       onSave={(sig) => onSave(legIndex, sig)}
     />
@@ -100,18 +120,29 @@ export default function FlightLogModalFuelServicing({
   if (!legs || legs.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
-        <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+        <AppText
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: COLORS.grayDark,
+            marginBottom: 16,
+          }}
+        >
           Fuel Servicing
         </AppText>
-        <View style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          padding: 40,
-          alignItems: "center",
-        }}>
-          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No legs available</AppText>
+        <View
+          style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            padding: 40,
+            alignItems: "center",
+          }}
+        >
+          <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+            No legs available
+          </AppText>
         </View>
       </ScrollView>
     );
@@ -119,7 +150,14 @@ export default function FlightLogModalFuelServicing({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Fuel Servicing
       </AppText>
 
@@ -145,63 +183,146 @@ export default function FlightLogModalFuelServicing({
               marginBottom: 20,
             }}
           >
-            <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-              <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
-                {legNumber}{suffix} Leg
+            <View
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <AppText
+                style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+              >
+                {legNumber}
+                {suffix} Leg
               </AppText>
             </View>
 
             <View style={{ padding: 20 }}>
               {renderDateInput(legIndex, "Date", "date")}
-              {renderInput(legIndex, "Cont Check", "contCheck", "Enter contamination check")}
-              {renderInput(legIndex, "Main (REM/G)", "mainRemG", "Remaining/Gallons", "numeric")}
-              {renderInput(legIndex, "Main (ADD)", "mainAdd", "Added Gallons", "numeric")}
-              {renderInput(legIndex, "Main (TOTAL)", "mainTotal", "Total Gallons", "numeric")}
+              {renderInput(
+                legIndex,
+                "Cont Check",
+                "contCheck",
+                "Enter contamination check",
+              )}
+              {renderInput(
+                legIndex,
+                "Main (REM/G)",
+                "mainRemG",
+                "Remaining/Gallons",
+                "numeric",
+              )}
+              {renderInput(
+                legIndex,
+                "Main (ADD)",
+                "mainAdd",
+                "Added Gallons",
+                "numeric",
+              )}
+              {renderInput(
+                legIndex,
+                "Main (TOTAL)",
+                "mainTotal",
+                "Total Gallons",
+                "numeric",
+              )}
 
               <View style={{ marginBottom: 16 }}>
-                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.black,
+                    marginBottom: 6,
+                    fontWeight: "500",
+                  }}
+                >
                   Fuel:
                 </AppText>
                 <View style={{ flexDirection: "row", gap: 20 }}>
                   <TouchableOpacity
-                    onPress={() => isEditable && updateFuelData(legIndex, "fuelType", "drum")}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    disabled={!isEditable}
+                    onPress={() =>
+                      isEditable && updateFuelData(legIndex, "fuelType", "drum")
+                    }
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                    disabled={!canEditRow(legIndex)}
                   >
-                    <View style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 4,
-                      borderWidth: 2,
-                      borderColor: COLORS.primaryLight,
-                      backgroundColor: fuelData.fuelType === "drum" ? COLORS.primaryLight : "transparent",
-                    }} />
-                    <AppText style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>Drum</AppText>
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderColor: COLORS.primaryLight,
+                        backgroundColor:
+                          fuelData.fuelType === "drum"
+                            ? COLORS.primaryLight
+                            : "transparent",
+                      }}
+                    />
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        color: isEditable ? COLORS.black : COLORS.grayDark,
+                      }}
+                    >
+                      Drum
+                    </AppText>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => isEditable && updateFuelData(legIndex, "fuelType", "truck")}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    disabled={!isEditable}
+                    onPress={() =>
+                      isEditable &&
+                      updateFuelData(legIndex, "fuelType", "truck")
+                    }
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                    disabled={!canEditRow(legIndex)}
                   >
-                    <View style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 4,
-                      borderWidth: 2,
-                      borderColor: COLORS.primaryLight,
-                      backgroundColor: fuelData.fuelType === "truck" ? COLORS.primaryLight : "transparent",
-                    }} />
-                    <AppText style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>Truck</AppText>
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderColor: COLORS.primaryLight,
+                        backgroundColor:
+                          fuelData.fuelType === "truck"
+                            ? COLORS.primaryLight
+                            : "transparent",
+                      }}
+                    />
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        color: isEditable ? COLORS.black : COLORS.grayDark,
+                      }}
+                    >
+                      Truck
+                    </AppText>
                   </TouchableOpacity>
                 </View>
               </View>
 
               <View style={{ marginBottom: 16 }}>
-                <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.black,
+                    marginBottom: 6,
+                    fontWeight: "500",
+                  }}
+                >
                   Refueler Name/Sign:
                 </AppText>
-                {isEditable ? (
+                {canEditRow(legIndex) && !signatureInherited ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
                     style={{
@@ -217,41 +338,64 @@ export default function FlightLogModalFuelServicing({
                     {fuelData.signature ? (
                       <Image
                         source={{ uri: fuelData.signature }}
-                        style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          resizeMode: "contain",
+                        }}
                       />
                     ) : (
-                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>Tap to sign</AppText>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                        Tap to sign
+                      </AppText>
                     )}
                   </TouchableOpacity>
                 ) : (
-                  <View style={{
-                    backgroundColor: "#E8E8E8",
-                    borderRadius: 6,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    height: 80,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}>
+                  <View
+                    style={{
+                      backgroundColor: "#E8E8E8",
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: COLORS.grayMedium,
+                      height: 80,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
                     {fuelData.signature ? (
                       <Image
                         source={{ uri: fuelData.signature }}
-                        style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          resizeMode: "contain",
+                        }}
                       />
                     ) : (
-                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>No signature</AppText>
+                      <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                        No signature
+                      </AppText>
                     )}
                   </View>
                 )}
-                {isEditable && fuelData.signature && (
-                  <TouchableOpacity onPress={() => handleClearSignature(legIndex)} style={{ alignSelf: "flex-end", marginTop: 8 }}>
-                    <AppText style={{ color: "#D9534F", fontSize: 12 }}>Clear Signature</AppText>
-                  </TouchableOpacity>
-                )}
+                {canEditRow(legIndex) &&
+                  !signatureInherited &&
+                  fuelData.signature && (
+                    <TouchableOpacity
+                      onPress={() => handleClearSignature(legIndex)}
+                      style={{ alignSelf: "flex-end", marginTop: 8 }}
+                    >
+                      <AppText style={{ color: "#D9534F", fontSize: 12 }}>
+                        Clear Signature
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
               </View>
             </View>
 
-            {renderSignatureModal(legIndex, "Sign Here", handleSignature, () => setShowSignatureModal(null))}
+            {renderSignatureModal(legIndex, "Sign Here", handleSignature, () =>
+              setShowSignatureModal(null),
+            )}
           </View>
         );
       })}

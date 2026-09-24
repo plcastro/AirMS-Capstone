@@ -23,6 +23,52 @@ const NGCP_LOGO_PATH = path.resolve(
 );
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("binary");
 
+const formatExecutorName = (user = {}, fallback = "Unknown User") => {
+  const fullName = [user.firstName, user.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return (
+    fullName ||
+    String(user.displayName || user.username || user.email || fallback).trim()
+  );
+};
+
+const formatExecutedAt = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const drawExecutionFooter = (
+  doc,
+  { executedBy = "Unknown User", executedAt = new Date() } = {},
+) => {
+  const pageRange = doc.bufferedPageRange();
+  const footerText = `Executed By: ${executedBy || "Unknown User"} | Executed On: ${formatExecutedAt(executedAt)}`;
+
+  for (let index = pageRange.start; index < pageRange.start + pageRange.count; index += 1) {
+    doc.switchToPage(index);
+    doc
+      .font("Helvetica")
+      .fontSize(7)
+      .fillColor("#555555")
+      .text(footerText, 36, doc.page.height - 22, {
+        width: doc.page.width - 72,
+        align: "right",
+        lineBreak: false,
+      });
+  }
+
+  doc.fillColor("#000000");
+};
+
 const crcTable = Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit += 1) {
@@ -1353,7 +1399,7 @@ const getB412PreInspectionChecks = (inspection = {}) =>
     ? inspection.b412Data.checks
     : {};
 
-const getB412PreInspectionPdfDirect = async (inspection = {}) => {
+const getB412PreInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
@@ -1370,7 +1416,7 @@ const getB412PreInspectionPdfDirect = async (inspection = {}) => {
     : [];
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", margin: 0 });
+    const doc = new PDFDocument({ size: "LETTER", margin: 0, bufferPages: true });
     const chunks = [];
     const openPdfImage = (buffer) => {
       if (!buffer) return null;
@@ -1733,11 +1779,15 @@ const getB412PreInspectionPdfDirect = async (inspection = {}) => {
     drawChecklistPage(3);
     doc.addPage({ size: "LETTER", margin: 0 });
     drawFooterPage();
+    drawExecutionFooter(doc, {
+      executedBy: formatExecutorName(options.executedBy),
+      executedAt: options.executedAt,
+    });
     doc.end();
   });
 };
 
-const getPreInspectionPdfDirect = async (inspection = {}) => {
+const getPreInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
@@ -1749,7 +1799,7 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
   const ngcpLogo = await getNgcpLogoBuffer();
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", margin: 36 });
+    const doc = new PDFDocument({ size: "LETTER", margin: 36, bufferPages: true });
     const chunks = [];
 
     doc.on("data", (chunk) => chunks.push(chunk));
@@ -1926,16 +1976,20 @@ const getPreInspectionPdfDirect = async (inspection = {}) => {
       lineBreak: false,
     });
 
+    drawExecutionFooter(doc, {
+      executedBy: formatExecutorName(options.executedBy),
+      executedAt: options.executedAt,
+    });
     doc.end();
   });
 };
 
-const getPreInspectionPdf = (inspection) =>
+const getPreInspectionPdf = (inspection, options = {}) =>
   isB412PreInspection(inspection)
-    ? getB412PreInspectionPdfDirect(inspection)
-    : getPreInspectionPdfDirect(inspection);
+    ? getB412PreInspectionPdfDirect(inspection, options)
+    : getPreInspectionPdfDirect(inspection, options);
 
-const getPostInspectionPdfDirect = async (inspection = {}) => {
+const getPostInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
@@ -1944,7 +1998,7 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
   const ngcpLogo = await getNgcpLogoBuffer();
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", margin: 36 });
+    const doc = new PDFDocument({ size: "LETTER", margin: 36, bufferPages: true });
     const chunks = [];
     const itemX = 42;
     const contentRight = doc.page.width - 42;
@@ -2147,6 +2201,10 @@ const getPostInspectionPdfDirect = async (inspection = {}) => {
       .fontSize(11)
       .text("A & P License Nr.", 87, signY + 121);
 
+    drawExecutionFooter(doc, {
+      executedBy: formatExecutorName(options.executedBy),
+      executedAt: options.executedAt,
+    });
     doc.end();
   });
 };
@@ -2159,7 +2217,7 @@ const getB412PostInspectionChecks = (inspection = {}) =>
     ? inspection.b412Data.checks
     : {};
 
-const getB412PostInspectionPdfDirect = async (inspection = {}) => {
+const getB412PostInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
@@ -2173,7 +2231,7 @@ const getB412PostInspectionPdfDirect = async (inspection = {}) => {
     : [];
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", margin: 0 });
+    const doc = new PDFDocument({ size: "LETTER", margin: 0, bufferPages: true });
     const chunks = [];
     const openPdfImage = (buffer) => {
       if (!buffer) return null;
@@ -2510,14 +2568,18 @@ const getB412PostInspectionPdfDirect = async (inspection = {}) => {
     doc.addPage({ size: "LETTER", margin: 0 });
     const finalChecklistY = drawChecklistPage(4);
     drawCheckedByFooter(finalChecklistY);
+    drawExecutionFooter(doc, {
+      executedBy: formatExecutorName(options.executedBy),
+      executedAt: options.executedAt,
+    });
     doc.end();
   });
 };
 
-const getPostInspectionPdf = (inspection) =>
+const getPostInspectionPdf = (inspection, options = {}) =>
   isB412PostInspection(inspection)
-    ? getB412PostInspectionPdfDirect(inspection)
-    : getPostInspectionPdfDirect(inspection);
+    ? getB412PostInspectionPdfDirect(inspection, options)
+    : getPostInspectionPdfDirect(inspection, options);
 
 module.exports = {
   loadTemplate,

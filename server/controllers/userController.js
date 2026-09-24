@@ -174,6 +174,146 @@ const storeRefreshToken = async ({
   });
 };
 
+const buildAccessToken = (user, session = {}) =>
+  jwt.sign(
+    {
+      id: user._id,
+      sessionId: session.sessionId || null,
+      platform: session.platform || "UNKNOWN",
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "30m" },
+  );
+
+const buildClientUserProfile = (user) => ({
+  id: user._id,
+  username: user.username,
+  email: user.email,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  jobTitle: user.jobTitle,
+  access: user.access,
+  licenseNo: user.licenseNo,
+  status: user.status,
+  image: user.image,
+  lastLogin: user.lastLogin,
+});
+
+const buildSessionPayload = (session = {}) => ({
+  sessionId: session.sessionId || null,
+  platform: session.platform || "UNKNOWN",
+  location: {
+    text: session.locationText || "",
+    coordinates: {
+      latitude: session.locationLatitude ?? null,
+      longitude: session.locationLongitude ?? null,
+    },
+  },
+});
+
+const getLoginLocationFromRequest = (req) => {
+  const bodyLocation = req.body?.location || {};
+  const bodyCoordinates = bodyLocation.coordinates || {};
+  const locationText = String(
+    req.headers["x-location-text"] || bodyLocation.text || "",
+  )
+    .trim()
+    .slice(0, 240);
+  const locationLatitude = Number(
+    req.headers["x-location-latitude"] ?? bodyCoordinates.latitude,
+  );
+  const locationLongitude = Number(
+    req.headers["x-location-longitude"] ?? bodyCoordinates.longitude,
+  );
+
+  return {
+    text: locationText,
+    latitude: Number.isFinite(locationLatitude) ? locationLatitude : null,
+    longitude: Number.isFinite(locationLongitude) ? locationLongitude : null,
+  };
+};
+
+const hasDetectedLoginLocation = (req) => {
+  const location = getLoginLocationFromRequest(req);
+  return Boolean(
+    location.text &&
+    Number.isFinite(location.latitude) &&
+    Number.isFinite(location.longitude),
+  );
+};
+
+const formatReverseGeocodeAddress = (address = {}) => {
+  const city =
+    address.city ||
+    address.town ||
+    address.municipality ||
+    address.village ||
+    address.suburb ||
+    address.city_district ||
+    address.county ||
+    "";
+  const region = address.state || address.region || address.province || "";
+  const country = address.country || "";
+  return [city, region, country]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part, index, values) => values.indexOf(part) === index)
+    .join(", ");
+};
+
+const reverseGeocodeLoginLocation = async (req, res) => {
+  try {
+    const latitude = Number(req.query.latitude);
+    const longitude = Number(req.query.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res
+        .status(400)
+        .json({ message: "Valid coordinates are required" });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(latitude));
+    url.searchParams.set("lon", String(longitude));
+    url.searchParams.set("addressdetails", "1");
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "AirMS/1.0",
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!response.ok) {
+      return res.status(502).json({ message: "Reverse geocoding failed" });
+    }
+
+    const payload = await response.json();
+    const text =
+      formatReverseGeocodeAddress(payload?.address) ||
+      String(payload?.display_name || "")
+        .split(",")
+        .slice(0, 3)
+        .join(",");
+
+    return res.status(200).json({
+      text: String(text || "").trim(),
+      coordinates: { latitude, longitude },
+    });
+  } catch (error) {
+    const isAbort = error?.name === "AbortError";
+    return res.status(isAbort ? 504 : 502).json({
+      message: isAbort
+        ? "Reverse geocoding timed out"
+        : "Reverse geocoding failed",
+    });
+  }
+};
+
 const revokeRefreshTokenByHash = async (
   tokenHash,
   reason,
@@ -236,6 +376,16 @@ const createUserSession = async (req, userId, platform) => {
   const normalizedPlatform =
     normalizePlatform(platform || req.headers["x-platform"]) || "UNKNOWN";
   const normalizedBase = normalizeBase(req.headers["x-base"] || req.body?.base);
+  const devicePlatform = String(req.headers["x-device-platform"] || "")
+    .trim()
+    .slice(0, 160);
+  const deviceModel = String(req.headers["x-device-model"] || "")
+    .trim()
+    .slice(0, 160);
+  const detectedLocation = getLoginLocationFromRequest(req);
+  const locationText = detectedLocation.text;
+  const locationLatitude = detectedLocation.latitude;
+  const locationLongitude = detectedLocation.longitude;
 
   await UserSession.create({
     userId,
@@ -244,6 +394,11 @@ const createUserSession = async (req, userId, platform) => {
     base: normalizedBase,
     ipAddress: req.ip || req.socket?.remoteAddress || "",
     userAgent: req.headers["user-agent"] || "",
+    devicePlatform,
+    deviceModel,
+    locationText,
+    locationLatitude,
+    locationLongitude,
     isActive: true,
   });
 
@@ -251,6 +406,11 @@ const createUserSession = async (req, userId, platform) => {
     sessionId,
     platform: normalizedPlatform,
     base: normalizedBase,
+    devicePlatform,
+    deviceModel,
+    locationText,
+    locationLatitude,
+    locationLongitude,
   };
 };
 
@@ -406,7 +566,6 @@ const buildLoginSuccessPayload = async ({
   user,
   loginPlatform,
   rememberMe,
-  loginBase,
 }) => {
   user.failedLoginAttempts = 0;
   user.isLocked = false;
@@ -424,21 +583,7 @@ const buildLoginSuccessPayload = async ({
 
   const session = await createUserSession(req, user._id, loginPlatform);
 
-  const token = jwt.sign(
-    {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      jobTitle: user.jobTitle,
-      access: user.access,
-      licenseNo: user.licenseNo,
-      sessionId: session.sessionId,
-      platform: session.platform,
-      base: session.base,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "15m" },
-  );
+  const token = buildAccessToken(user, session);
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
   const { token: refreshToken, jti } = issueRefreshToken(
@@ -462,16 +607,23 @@ const buildLoginSuccessPayload = async ({
     loginPlatform,
   );
 
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username;
+
   auditLog(
-    `User log in: ${user.username} (actorId: ${user._id})`,
+    `User log in: ${displayName} (actorId: ${user._id})`,
     user._id,
-    user.username,
+    displayName,
     {
       sessionId: session.sessionId,
       platform: session.platform,
-      base: session.base,
       ipAddress: req.ip || req.socket?.remoteAddress || "",
       userAgent: req.headers["user-agent"] || "",
+      locationText: session.locationText,
+      locationLatitude: session.locationLatitude,
+      locationLongitude: session.locationLongitude,
+      devicePlatform: session.devicePlatform,
+      deviceModel: session.deviceModel,
     },
   ).catch((logError) => {
     console.error("Login audit log failed:", logError);
@@ -481,27 +633,9 @@ const buildLoginSuccessPayload = async ({
     message: "Login successful",
     token,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
+    session: buildSessionPayload(session),
     sessionId: session.sessionId,
-    user: {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      jobTitle: user.jobTitle,
-      access: user.access,
-      licenseNo: user.licenseNo,
-      status: user.status,
-      image: user.image,
-      // signature: user.signature,
-      securitySetupCompleted: user.securitySetupCompleted,
-      lastLogin: user.lastLogin,
-      isOnline: user.isOnline,
-      platform: user.platform,
-      base: session.base || loginBase,
-      sessionId: session.sessionId,
-      lastSeenAt: user.lastSeenAt,
-    },
+    user: buildClientUserProfile(user),
   };
 };
 
@@ -535,16 +669,16 @@ const loginUser = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
-    const loginBase = normalizeBase(req.headers["x-base"] || req.body?.base);
 
     if (!identifier || !password) {
       return res
         .status(400)
         .json({ message: "Username/email and password required" });
     }
-    if (loginBase === "UNKNOWN") {
+    if (!hasDetectedLoginLocation(req)) {
       return res.status(400).json({
-        message: "Please select where you are logging in from",
+        message:
+          "Allow location access so AirMS can detect where you are logging in from.",
       });
     }
     if (/[${}]/.test(identifier) || /[$]/.test(password)) {
@@ -553,7 +687,9 @@ const loginUser = async (req, res) => {
 
     const user = await UserModel.findOne({
       $or: [{ username: identifier }, { email: identifier }],
-    }).select("+password +tempPasswordExpires +skipFirstLoginOtp +loginOtpExempt");
+    }).select(
+      "+password +tempPasswordExpires +skipFirstLoginOtp +loginOtpExempt",
+    );
 
     if (!user) {
       return res.status(401).json({ message: "Account does not exist" });
@@ -656,7 +792,11 @@ const loginUser = async (req, res) => {
       user,
       UserModel,
     );
-    if (validTrustedDevice || isLoginOtpExemptUser(user) || firstLoginOtpExempt) {
+    if (
+      validTrustedDevice ||
+      isLoginOtpExemptUser(user) ||
+      firstLoginOtpExempt
+    ) {
       if (validTrustedDevice) {
         validTrustedDevice.lastUsedAt = new Date();
       }
@@ -667,7 +807,6 @@ const loginUser = async (req, res) => {
         user,
         loginPlatform,
         rememberMe: Boolean(rememberMe),
-        loginBase,
       });
 
       return res.status(200).json({
@@ -707,7 +846,6 @@ const loginUser = async (req, res) => {
       loginContext: {
         loginPlatform,
         rememberMe: Boolean(rememberMe),
-        base: loginBase,
       },
     });
   } catch (err) {
@@ -774,7 +912,12 @@ const verifyLoginOtp = async (req, res) => {
         : normalizedClient === "mobile"
           ? "MOBILE"
           : "UNKNOWN";
-    const loginBase = normalizeBase(req.headers["x-base"] || base);
+    if (!hasDetectedLoginLocation(req)) {
+      return res.status(400).json({
+        message:
+          "Allow location access so AirMS can detect where you are logging in from.",
+      });
+    }
 
     const payload = await buildLoginSuccessPayload({
       req,
@@ -782,7 +925,6 @@ const verifyLoginOtp = async (req, res) => {
       user,
       loginPlatform,
       rememberMe: Boolean(rememberMe),
-      loginBase,
     });
 
     if (trustDevice) {
@@ -1004,21 +1146,10 @@ const refreshToken = async (req, res) => {
       return res.status(403).json({ message: "Account deactivated" });
     }
 
-    const newAccessToken = jwt.sign(
-      {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        jobTitle: user.jobTitle,
-        access: user.access,
-        licenseNo: user.licenseNo,
-        sessionId: req.headers["x-session-id"] || payload.sessionId || null,
-        platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
-        base: req.headers["x-base"] || payload.base || "UNKNOWN",
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m" },
-    );
+    const newAccessToken = buildAccessToken(user, {
+      sessionId: req.headers["x-session-id"] || payload.sessionId || null,
+      platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+    });
 
     const { token: newRefreshToken, jti } = issueRefreshToken(
       user._id.toString(),
@@ -1411,7 +1542,9 @@ const createUser = async (req, res) => {
       tempPasswordExpires,
       loginOtpExempt: creationPolicy.loginOtpExempt,
       invitationStatus: "pending",
-      invitationSentAt: creationPolicy.suppressInvitationEmail ? null : new Date(),
+      invitationSentAt: creationPolicy.suppressInvitationEmail
+        ? null
+        : new Date(),
       invitationExpiresAt: new Date(tempPasswordExpires),
       status: "inactive",
       image: imagePath,
@@ -2043,42 +2176,6 @@ const verifyPIN = async (req, res) => {
   }
 };
 
-// const updateSignature = async (req, res) => {
-//   try {
-//     const user = await UserModel.findById(req.params.id);
-//     if (!user) return res.status(404).json({ message: "User not found" });
-//
-//     if (user.signature) {
-//       return res.status(400).json({
-//         message: "Signature specimen has already been uploaded.",
-//       });
-//     }
-//
-//     const signature = req.file?.savedPath || req.body.signature;
-//     if (!signature) {
-//       return res.status(400).json({ message: "Signature is required" });
-//     }
-//
-//     const updatedUser = await UserModel.findByIdAndUpdate(
-//       req.params.id,
-//       { signature },
-//       { returnDocument: "after" },
-//     );
-//
-//     const audit = withActorId(
-//       req,
-//       `Signature updated for ${updatedUser.username}`,
-//       updatedUser._id,
-//     );
-//     await auditLog(audit.action, audit.actorId);
-//
-//     res.status(200).json({ message: "Signature updated", user: updatedUser });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
-
 const activateUser = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -2331,4 +2428,5 @@ module.exports = {
   revokeInvitation,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
+  reverseGeocodeLoginLocation,
 };

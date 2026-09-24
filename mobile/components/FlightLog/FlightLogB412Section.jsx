@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Picker } from '@react-native-picker/picker';
 import { Image, TouchableOpacity, View } from "react-native";
 import AppInput from "../common/AppInput";
 import AppText from "../common/AppText";
@@ -47,7 +48,7 @@ function Field({
       >
         {label}
       </AppText>
-      <AppInput
+      {['Remaining', 'Total'].includes(label) ? !isEditable ? <AppText>{value || '?'}</AppText> : <Picker enabled={isEditable} selectedValue={value || ''} onValueChange={onChangeText}><Picker.Item label="MIN / MAX" value="" /><Picker.Item label="MIN" value="MIN" /><Picker.Item label="MAX" value="MAX" /></Picker> : <AppInput
         value={String(value ?? "")}
         onChangeText={onChangeText}
         editable={isEditable}
@@ -64,7 +65,7 @@ function Field({
           fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
         }}
-      />
+      />}
     </View>
   );
 }
@@ -76,6 +77,7 @@ function SignatureField({
   isEditable,
   description,
   confirmDescription,
+  requirePin = true,
 }) {
   const [isSigning, setIsSigning] = useState(false);
   const signature = String(value || "");
@@ -160,6 +162,7 @@ function SignatureField({
         title="Sign Here"
         description={description}
         confirmDescription={confirmDescription}
+        requirePin={requirePin}
         onClose={() => setIsSigning(false)}
         onSave={(nextSignature) => {
           onChange(nextSignature);
@@ -245,7 +248,7 @@ function ComponentTotals({
         label="Airframe"
         value={values.airframe}
         onChangeText={(value) => onFieldChange(["airframe"], value)}
-        isEditable={isEditable}
+        isEditable={false}
       />
 
       <AppText style={{ fontSize: 12, fontWeight: "600", marginBottom: 8 }}>
@@ -258,7 +261,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["mrGearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -266,7 +269,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["mrGearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -280,7 +283,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr90Gearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -288,7 +291,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr90Gearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -302,7 +305,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr42Gearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -310,7 +313,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr42Gearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -318,7 +321,7 @@ function ComponentTotals({
         label="Landing Cycle"
         value={values.landingCycle}
         onChangeText={(value) => onFieldChange(["landingCycle"], value)}
-        isEditable={isEditable}
+        isEditable={false}
       />
 
       {[1, 2].map((engineNumber) => {
@@ -337,7 +340,7 @@ function ComponentTotals({
                 onChangeText={(value) =>
                   onFieldChange([engineKey, "tsn"], value)
                 }
-                isEditable={isEditable}
+                isEditable={false}
               />
               <Field
                 label="TSO"
@@ -345,7 +348,7 @@ function ComponentTotals({
                 onChangeText={(value) =>
                   onFieldChange([engineKey, "tso"], value)
                 }
-                isEditable={isEditable}
+                isEditable={false}
               />
               <Field
                 label="Cycle"
@@ -489,7 +492,7 @@ function FuelServicing({ data, update, isEditable }) {
               }
               isEditable={isEditable}
               description="Draw the refueller signature below."
-              confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+              requirePin={false}
             />
           </Row>
         </Card>

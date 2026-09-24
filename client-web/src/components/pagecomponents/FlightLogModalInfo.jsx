@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
-import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
+import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
 
 export default function FlightLogModalInfo({
   formData,
@@ -12,7 +12,10 @@ export default function FlightLogModalInfo({
   isRPCEditable = true,
   isActive = true,
   onAircraftDataLoaded,
+  assignmentRole,
+  canAssign = false,
 }) {
+  const { getAuthHeader } = useContext(AuthContext);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
   const rpcRequestId = useRef(0);
@@ -100,11 +103,20 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeader();
+        const statuses = [
+          "pending_release",
+          "pending_acceptance",
+          "accepted",
+          "submitted",
+          "returned_to_pilot",
+          "returned_to_mechanic",
+        ];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
               `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -125,7 +137,7 @@ export default function FlightLogModalInfo({
     };
 
     fetchOngoingAircraftRpcs();
-  }, []);
+  }, [getAuthHeader]);
 
   const parseDatePickerValue = (value) => {
     if (!value) return null;
@@ -264,6 +276,13 @@ export default function FlightLogModalInfo({
       <div className="fl-card">
         <div className="fl-card-header">{aircraftClassLabel}</div>
         <div className="fl-card-body">
+          <FlightLogCrewAssignment
+            formData={formData}
+            updateForm={updateForm}
+            assignmentRole={assignmentRole}
+            canAssign={canAssign}
+            isActive={isActive}
+          />
           <div className="fl-field-row">
             <span className="fl-label">RP-C: *</span>
             <div className="fl-dropdown-container">
@@ -310,8 +329,12 @@ export default function FlightLogModalInfo({
 
           <div className="fl-field-row">
             <span className="fl-label">Assigned Pilot:</span>
-            <FlightAssignedPilotSelect value={formData.assignedPilot} onChange={value => updateForm('assignedPilot', value)}
-              disabled={!isEditable} isActive={isActive} />
+            <FlightAssignedPilotSelect
+              value={formData.assignedPilot}
+              onChange={(value) => updateForm("assignedPilot", value)}
+              disabled={!isEditable}
+              isActive={isActive}
+            />
           </div>
 
           <div className="fl-field-row">

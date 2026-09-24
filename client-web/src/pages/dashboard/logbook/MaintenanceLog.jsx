@@ -13,6 +13,10 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  addPdfExecutionFooter,
+  getExportExecutorName,
+} from "../../../components/common/ExportFile";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
@@ -709,6 +713,7 @@ export default function MaintenanceLog() {
         doc.lastAutoTable?.finalY || header.startY,
       );
 
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
       doc.save(`${fileName}.pdf`);
       setPopup({
         open: true,

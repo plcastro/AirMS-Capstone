@@ -4,6 +4,7 @@ import AppInput from "../../components/common/AppInput";
 import {
   View,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -30,12 +31,12 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
-
-const BASE_OPTIONS = [
-  { label: "Manila", value: "MANILA" },
-  { label: "Cebu", value: "CEBU" },
-  { label: "CDO", value: "CDO" },
-];
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
+import { setStoredAccessToken } from "../../utilities/authStorage";
+import {
+  buildLoginLocationHeaders,
+  detectLoginLocation,
+} from "../../utilities/loginLocation";
 
 const getTrustedDeviceStorageKey = (account) => {
   const normalizedAccount = String(account || "")
@@ -51,15 +52,17 @@ export default function Login() {
   const { loginUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
-  const [selectedBase, setSelectedBase] = useState("");
+  const [loginLocation, setLoginLocation] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  const loginClient = Platform.OS === "web" ? "web" : "mobile";
+  const loginPlatform = Platform.OS === "web" ? "WEB" : "MOBILE";
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
@@ -76,7 +79,6 @@ export default function Login() {
             identifier: savedIdentifier || "",
             password: savedPassword || "",
           });
-          setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
         }
       } catch (err) {
         console.error(err);
@@ -96,8 +98,8 @@ export default function Login() {
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Password is required");
-    if (!selectedBase) {
-      return setMessage("Please select where you are logging in from");
+    if (!loginLocation?.text) {
+      return setMessage("Detect your login location before signing in.");
     }
 
     login();
@@ -126,15 +128,16 @@ export default function Login() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-platform": "MOBILE",
-          "x-base": selectedBase,
+          "x-platform": loginPlatform,
+          ...buildLoginLocationHeaders(loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
-          client: "mobile",
+          client: loginClient,
           rememberMe,
-          base: selectedBase,
+          location: loginLocation,
           trustedDeviceToken,
         }),
       });
@@ -171,13 +174,13 @@ export default function Login() {
           maskedEmail: data.verification.maskedEmail,
           identifier: formData.identifier.trim(),
           rememberMe,
-          base: selectedBase,
-          client: "mobile",
+          loginLocation,
+          client: loginClient,
         });
         return;
       }
 
-      const { user, token, refreshToken } = data;
+      const { user, token, refreshToken, session } = data;
       if (!user || !token) {
         setMessage(data.message || "Invalid login response");
         return;
@@ -189,7 +192,7 @@ export default function Login() {
       }
 
       // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
-      await AsyncStorage.setItem("currentUserToken", String(token));
+      await setStoredAccessToken(String(token));
 
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       if (rememberMe) {
@@ -197,11 +200,9 @@ export default function Login() {
           "rememberedIdentifier",
           formData.identifier.trim(),
         );
-        await AsyncStorage.setItem("rememberedBase", selectedBase);
         await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
-        await AsyncStorage.removeItem("rememberedBase");
         await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
@@ -218,6 +219,13 @@ export default function Login() {
 
       await loginUser({
         user,
+        session:
+          session ||
+          {
+            location: loginLocation,
+            sessionId: data.sessionId,
+            platform: loginPlatform,
+          },
         accessToken: token,
         refreshToken,
         rememberMe,
@@ -253,14 +261,23 @@ export default function Login() {
     nav.navigate("forgotPassword", { email });
   };
 
-  const selectedBaseLabel =
-    BASE_OPTIONS.find((option) => option.value === selectedBase)?.label ||
-    "Select base";
-
-  const selectBase = (base) => {
-    setSelectedBase(base);
-    setShowBaseDropdown(false);
+  const handleDetectLocation = async () => {
+    try {
+      setDetectingLocation(true);
+      setMessage("");
+      const nextLocation = await detectLoginLocation();
+      setLoginLocation(nextLocation);
+    } catch (error) {
+      setLoginLocation(null);
+      setMessage(error.message || "Could not detect your login location.");
+    } finally {
+      setDetectingLocation(false);
+    }
   };
+
+  useEffect(() => {
+    handleDetectLocation();
+  }, []);
 
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
@@ -323,50 +340,48 @@ export default function Login() {
             </TouchableOpacity>
           </View>
           <AppText style={styles.label}>Logging in from</AppText>
-          <View style={loginDropdownStyles.wrap}>
-            <TouchableOpacity
-              style={loginDropdownStyles.button}
-              activeOpacity={0.82}
-              onPress={() => setShowBaseDropdown((open) => !open)}
-            >
-              <AppText
-                style={[
-                  loginDropdownStyles.buttonText,
-                  { color: selectedBase ? "#111827" : "gray" },
-                ]}
-                numberOfLines={1}
-              >
-                {selectedBaseLabel}
-              </AppText>
+          <View style={loginLocationStyles.wrap}>
+            <View style={loginLocationStyles.panel}>
               <MaterialCommunityIcons
-                name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+                name={loginLocation?.text ? "map-marker-check" : "map-marker"}
                 size={22}
-                color="gray"
+                color={loginLocation?.text ? "#059670" : "gray"}
               />
-            </TouchableOpacity>
-
-            {showBaseDropdown && (
-              <View style={loginDropdownStyles.menu}>
-                <ScrollView nestedScrollEnabled>
-                  {BASE_OPTIONS.map((option, index) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        loginDropdownStyles.item,
-                        index < BASE_OPTIONS.length - 1
-                          ? loginDropdownStyles.itemBordered
-                          : null,
-                      ]}
-                      onPress={() => selectBase(option.value)}
-                    >
-                      <AppText style={loginDropdownStyles.itemText}>
-                        {option.label}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={loginLocationStyles.textWrap}>
+                <AppText
+                  style={[
+                    loginLocationStyles.locationText,
+                    { color: loginLocation?.text ? "#111827" : "gray" },
+                  ]}
+                >
+                  {loginLocation?.text || "Location not detected"}
+                </AppText>
+                {!!loginLocation?.coordinateText && (
+                  <AppText style={loginLocationStyles.coordinateText}>
+                    Latitude and longitude coordinates:{" "}
+                    {loginLocation.coordinateText}
+                  </AppText>
+                )}
               </View>
-            )}
+            </View>
+            <TouchableOpacity
+              style={[
+                loginLocationStyles.detectButton,
+                detectingLocation && loginLocationStyles.detectButtonDisabled,
+              ]}
+              activeOpacity={0.82}
+              disabled={detectingLocation}
+              onPress={handleDetectLocation}
+            >
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={18}
+                color={COLORS.white}
+              />
+              <AppText style={loginLocationStyles.detectButtonText}>
+                {detectingLocation ? "Detecting..." : "Detect location"}
+              </AppText>
+            </TouchableOpacity>
           </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>
@@ -389,7 +404,7 @@ export default function Login() {
           <Button
             onPress={validate}
             label="LOGIN"
-            disabled={loading}
+            disabled={loading || detectingLocation}
             buttonStyle={[styles.primaryBtn]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
@@ -431,11 +446,11 @@ export default function Login() {
   );
 }
 
-const loginDropdownStyles = StyleSheet.create({
+const loginLocationStyles = StyleSheet.create({
   wrap: {
     marginBottom: 12,
   },
-  button: {
+  panel: {
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: COLORS.grayMedium,
@@ -444,35 +459,37 @@ const loginDropdownStyles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     minHeight: 48,
   },
-  buttonText: {
+  textWrap: {
     flex: 1,
+    marginLeft: 10,
+  },
+  locationText: {
     fontSize: 12,
     fontWeight: "600",
-    marginRight: 8,
   },
-  menu: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: COLORS.grayMedium,
+  coordinateText: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  detectButton: {
+    marginTop: 8,
+    backgroundColor: "#059670",
     borderRadius: 8,
-    marginTop: 6,
-    overflow: "hidden",
-    zIndex: 1000,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    columnGap: 8,
   },
-  item: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+  detectButtonDisabled: {
+    opacity: 0.65,
   },
-  itemBordered: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayMedium,
-  },
-  itemText: {
-    color: "#111827",
+  detectButtonText: {
+    color: COLORS.white,
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "700",
   },
 });

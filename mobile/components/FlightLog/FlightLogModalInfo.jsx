@@ -8,6 +8,8 @@ import DateInput from "../common/DateInput";
 import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
+import FlightLogCrewAssignment from "./FlightLogCrewAssignment";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
 export default function FlightLogModalInfo({
   formData,
@@ -17,6 +19,8 @@ export default function FlightLogModalInfo({
   isActive = true,
   onAircraftDataLoaded,
   isB412 = false,
+  assignmentRole,
+  canAssign = false,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -108,11 +112,13 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeaders();
+        const statuses = ["pending_release", "pending_acceptance", "accepted", "submitted", "returned_to_pilot", "returned_to_mechanic"];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
               `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -362,6 +368,13 @@ export default function FlightLogModalInfo({
         </View>
 
         <View style={{ padding: 20 }}>
+          <FlightLogCrewAssignment
+            formData={formData}
+            updateForm={updateForm}
+            assignmentRole={assignmentRole}
+            canAssign={canAssign}
+            isActive={isActive}
+          />
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{

@@ -71,11 +71,47 @@ const verifyToken = async (req, res, next) => {
       { lastActivityAt: new Date() },
     );
 
-    req.user = decoded;
+    const user = await UserModel.findById(userId)
+      .select("username email firstName lastName jobTitle access licenseNo status")
+      .lean();
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    if (user.status === "deactivated") {
+      return res.status(403).json({ message: "Account deactivated" });
+    }
+
+    req.user = {
+      ...decoded,
+      id: String(user._id),
+      _id: String(user._id),
+      userId: String(user._id),
+      sub: String(user._id),
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      jobTitle: user.jobTitle,
+      access: user.access,
+      licenseNo: user.licenseNo,
+      status: user.status,
+      sessionId,
+      platform,
+      base: req.headers["x-base"] || decoded.base,
+    };
     updateRequestContext({
       sessionId,
       platform,
       base: req.headers["x-base"] || decoded.base,
+      devicePlatform: req.headers["x-device-platform"] || session.devicePlatform,
+      deviceModel: req.headers["x-device-model"] || session.deviceModel,
+      locationText: req.headers["x-location-text"] || session.locationText,
+      locationLatitude:
+        req.headers["x-location-latitude"] ?? session.locationLatitude,
+      locationLongitude:
+        req.headers["x-location-longitude"] ?? session.locationLongitude,
     });
     next();
   } catch (err) {

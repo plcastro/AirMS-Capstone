@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { isB412Aircraft } from "./b412PostInspectionData";
 import DateInput from "../common/DateInput";
+import FlightLogCrewAssignment from "../FlightLog/FlightLogCrewAssignment";
 
 export default function PostInspectionModalInfo({
   formData,
@@ -219,6 +220,8 @@ export default function PostInspectionModalInfo({
         </View>
 
         <View style={{ padding: 20 }}>
+          <AppText style={{ marginBottom: 12 }}>Linked Flight Log: {formData.flightLogControlNo || formData.flightLogId || "Not linked"}</AppText>
+          <FlightLogCrewAssignment formData={formData} updateForm={updateForm} canAssign={false} isActive={false} />
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{

@@ -1,15 +1,15 @@
 import React, { useState } from "react";
-import { FLIGHT_HOUR_FIELDS, normalizeAdditionalLandings } from '../../../shared/flightLogTimes';
+import {
+  FLIGHT_HOUR_FIELDS,
+  normalizeAdditionalLandings,
+} from "../../../shared/flightLogTimes";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity
-} from "react-native";
+import { View, ScrollView, TouchableOpacity } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
+import { HOUR_FIELDS } from "../../../shared/flightAutomaticInputs";
 
 export default function FlightLogModalThisFlight({
   componentData,
@@ -40,87 +40,129 @@ export default function FlightLogModalThisFlight({
       field === "airframeNextInsp" || field === "engineNextInsp";
 
     return (
-    <View style={{ marginBottom: 16 }}>
-      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 4, fontWeight: "500" }}>
-        {label}
-      </AppText>
-      {field === 'landingCycle' ? (
-        <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {[-1, 1].map(delta => {
-              const disabled = !isEditable || !onAdditionalLandingsChange || (delta < 0 && normalizeAdditionalLandings(additionalLandings) === 0);
-              return <React.Fragment key={delta}>
-                {delta === 1 && <AppText accessibilityLabel="This flight landing cycles" style={{ paddingHorizontal: 16 }}>{componentData[field]}</AppText>}
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={delta < 0 ? 'Decrease landing cycles' : 'Increase landing cycles'}
-                  accessibilityState={{ disabled }} disabled={disabled}
-                  onPress={() => onAdditionalLandingsChange(normalizeAdditionalLandings(additionalLandings) + delta)}
-                  style={{ paddingHorizontal: 18, paddingVertical: 12, borderRadius: 6, backgroundColor: disabled ? '#eee' : '#dcefe7' }}>
-                  <AppText>{delta < 0 ? '−' : '+'}</AppText>
-                </TouchableOpacity>
-              </React.Fragment>;
-            })}
+      <View style={{ marginBottom: 16 }}>
+        <AppText
+          style={{
+            fontSize: 12,
+            color: COLORS.black,
+            marginBottom: 4,
+            fontWeight: "500",
+          }}
+        >
+          {label}
+        </AppText>
+        {field === "landingCycle" ? (
+          <View>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              {[-1, 1].map((delta) => {
+                const disabled =
+                  !isEditable ||
+                  !onAdditionalLandingsChange ||
+                  (delta < 0 &&
+                    normalizeAdditionalLandings(additionalLandings) === 0);
+                return (
+                  <React.Fragment key={delta}>
+                    {delta === 1 && (
+                      <AppText
+                        accessibilityLabel="This flight landing cycles"
+                        style={{ paddingHorizontal: 16 }}
+                      >
+                        {componentData[field]}
+                      </AppText>
+                    )}
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        delta < 0
+                          ? "Decrease landing cycles"
+                          : "Increase landing cycles"
+                      }
+                      accessibilityState={{ disabled }}
+                      disabled={disabled}
+                      onPress={() =>
+                        onAdditionalLandingsChange(
+                          normalizeAdditionalLandings(additionalLandings) +
+                            delta,
+                        )
+                      }
+                      style={{
+                        paddingHorizontal: 18,
+                        paddingVertical: 12,
+                        borderRadius: 6,
+                        backgroundColor: disabled ? "#eee" : "#dcefe7",
+                      }}
+                    >
+                      <AppText>{delta < 0 ? "−" : "+"}</AppText>
+                    </TouchableOpacity>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+            <AppText style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+              Minimum: {legCount} (one per leg)
+            </AppText>
           </View>
-          <AppText style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Minimum: {legCount} (one per leg)</AppText>
-        </View>
-      ) : isNextDueDateField ? (
-        <>
-          <TouchableOpacity
-            onPress={() => isEditable && setActiveDateField(field)}
-            disabled={!isEditable}
+        ) : isNextDueDateField ? (
+          <>
+            <TouchableOpacity
+              onPress={() => isEditable && setActiveDateField(field)}
+              disabled={!isEditable}
+              style={{
+                backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+                borderRadius: 4,
+                height: 38,
+                paddingHorizontal: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <AppText
+                style={{
+                  fontSize: 12,
+                  color: componentData[field] ? COLORS.black : COLORS.grayDark,
+                }}
+              >
+                {componentData[field] || "Select date"}
+              </AppText>
+              <MaterialCommunityIcons
+                name="calendar-blank"
+                size={18}
+                color={COLORS.grayDark}
+              />
+            </TouchableOpacity>
+            {activeDateField === field && (
+              <DateTimePicker
+                value={parseDate(componentData[field])}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setActiveDateField(null);
+                  if (event.type === "dismissed" || !selectedDate) return;
+                  onUpdateComponent(field, formatDate(selectedDate));
+                }}
+              />
+            )}
+          </>
+        ) : (
+          <AppInput
             style={{
               backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
               borderRadius: 4,
               height: 38,
               paddingHorizontal: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
+              fontSize: 12,
+              color: isEditable ? COLORS.black : COLORS.grayDark,
             }}
-          >
-            <AppText
-              style={{
-                fontSize: 12,
-                color: componentData[field] ? COLORS.black : COLORS.grayDark,
-              }}
-            >
-              {componentData[field] || "Select date"}
-            </AppText>
-            <MaterialCommunityIcons
-              name="calendar-blank"
-              size={18}
-              color={COLORS.grayDark}
-            />
-          </TouchableOpacity>
-          {activeDateField === field && (
-            <DateTimePicker
-              value={parseDate(componentData[field])}
-              mode="date"
-              display="default"
-              onChange={(event, selectedDate) => {
-                setActiveDateField(null);
-                if (event.type === "dismissed" || !selectedDate) return;
-                onUpdateComponent(field, formatDate(selectedDate));
-              }}
-            />
-          )}
-        </>
-      ) : (
-        <AppInput
-          style={{
-            backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-            borderRadius: 4,
-            height: 38,
-            paddingHorizontal: 10,
-            fontSize: 12,
-            color: isEditable ? COLORS.black : COLORS.grayDark,
-          }}
-          value={componentData[field] || ""}
-          onChangeText={(text) => isEditable && onUpdateComponent(field, text)}
-          editable={isEditable && !FLIGHT_HOUR_FIELDS.includes(field)}
-          keyboardType="numeric"
-        />
-      )}
-    </View>
+            value={componentData[field] || ""}
+            onChangeText={(text) =>
+              isEditable && onUpdateComponent(field, text)
+            }
+            editable={isEditable && !FLIGHT_HOUR_FIELDS.includes(field)}
+            keyboardType="numeric"
+          />
+        )}
+      </View>
     );
   };
 
@@ -148,7 +190,9 @@ export default function FlightLogModalThisFlight({
             paddingHorizontal: 16,
           }}
         >
-          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
+          <AppText
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+          >
             This Flight
           </AppText>
         </View>

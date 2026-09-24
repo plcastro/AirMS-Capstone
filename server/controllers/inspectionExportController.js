@@ -5,6 +5,13 @@ const {
 const PreInspection = require("../models/preInspectionModel");
 const PostInspection = require("../models/postInspectionModel");
 
+const getExecutorFromRequest = (req) => ({
+  firstName: req.user?.firstName || "",
+  lastName: req.user?.lastName || "",
+  username: req.user?.username || "",
+  email: req.user?.email || "",
+});
+
 const exportPreInspectionPdf = async (req, res) => {
   try {
     const { id } = req.params;
@@ -14,7 +21,9 @@ const exportPreInspectionPdf = async (req, res) => {
       return res.status(404).json({ error: "Pre-inspection not found" });
     }
 
-    const pdfBuffer = await getPreInspectionPdf(inspection);
+    const pdfBuffer = await getPreInspectionPdf(inspection, {
+      executedBy: getExecutorFromRequest(req),
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -40,7 +49,9 @@ const exportPostInspectionPdf = async (req, res) => {
       return res.status(404).json({ error: "Post-inspection not found" });
     }
 
-    const pdfBuffer = await getPostInspectionPdf(inspection);
+    const pdfBuffer = await getPostInspectionPdf(inspection, {
+      executedBy: getExecutorFromRequest(req),
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(

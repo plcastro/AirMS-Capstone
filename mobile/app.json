@@ -24,6 +24,7 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Allow AirMS to detect and record your login location.",
         "UIBackgroundModes": ["fetch", "remote-notification"]
       }
     },
@@ -37,7 +38,9 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
@@ -64,6 +67,12 @@
         }
       ],
       "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow AirMS to detect and record your login location."
+        }
+      ],
       [
         "expo-file-system",
         {
