@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Image,
   View,
-  Modal,
   TouchableOpacity,
   ScrollView
 } from "react-native";
@@ -13,6 +12,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SignatureCanvas from "react-native-signature-canvas";
 import Button from "../Button";
+import AlertComp from "../AlertComp";
 import CodeInputField from "../CodeInputField";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
@@ -20,8 +20,26 @@ import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.taskName ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
 export default function ReviewTask({
-  visible,
   onClose,
   onConfirm,
   mode = "return",
@@ -35,6 +53,7 @@ export default function ReviewTask({
   const [itemsToUncheck, setItemsToUncheck] = useState([]);
   const [step, setStep] = useState("signature");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
   const signatureRef = useRef(null);
 
@@ -45,6 +64,7 @@ export default function ReviewTask({
     setItemsToUncheck([]);
     setStep("signature");
     setAdvanceAfterSignature(false);
+    setConfirmationVisible(false);
   };
 
   const verifyPin = async () => {
@@ -84,23 +104,13 @@ export default function ReviewTask({
     signatureRef.current?.readSignature();
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (mode === "return") {
       if (!note.trim()) {
         showToast("Please enter return remarks before returning this task.");
         return;
       }
-
-      try {
-        setSubmitting(true);
-        await onConfirm({ note, signature, itemsToUncheck });
-        resetForm();
-        onClose();
-      } catch (error) {
-        showToast(error.message || "Could not return this task.");
-      } finally {
-        setSubmitting(false);
-      }
+      setConfirmationVisible(true);
       return;
     }
 
@@ -119,20 +129,33 @@ export default function ReviewTask({
       return;
     }
 
+    setConfirmationVisible(true);
+  };
+
+  const submitConfirmedAction = async () => {
+    setConfirmationVisible(false);
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await verifyPin();
-      await onConfirm({ signature });
-      resetForm();
-      onClose();
+      if (mode === "approve") await verifyPin();
+      await onConfirm(
+        mode === "return"
+          ? { note, signature, itemsToUncheck }
+          : { signature },
+      );
     } catch (error) {
-      showToast(error.message || "Could not approve this task.");
+      showToast(
+        error.message ||
+          (mode === "return"
+            ? "Could not return this task."
+            : "Could not approve this task."),
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancel = () => {
+    if (submitting) return;
     resetForm();
     onClose();
   };
@@ -145,14 +168,20 @@ export default function ReviewTask({
     );
   };
 
-  const checkedChecklistItems = checklistItems
+  const safeChecklistItems = Array.isArray(checklistItems)
+    ? checklistItems
+    : [];
+  const safeChecklistState = Array.isArray(checklistState)
+    ? checklistState
+    : [];
+
+  const checkedChecklistItems = safeChecklistItems
     .map((item, index) => ({ item, index }))
-    .filter(({ index }) => checklistState[index] === true);
+    .filter(({ index }) => safeChecklistState[index] === true);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.alertOverlay}>
-        <View style={[styles.alertContainer, { width: 400, padding: 24 }]}>
+    <View style={[styles.alertOverlay, { width: "100%" }]}>
+        <View style={[styles.alertContainer, { width: 400, maxWidth: "95%", padding: 24 }]}>
           <AppText
             style={[
               styles.alertTitle,
@@ -195,7 +224,10 @@ export default function ReviewTask({
                     <ScrollView nestedScrollEnabled>
                       {checkedChecklistItems.map(({ item, index }) => {
                         const selected = itemsToUncheck.includes(index);
-                        const meta = [item.taskId, item.inspectionTypeFull]
+                        const meta = [
+                          getDisplayText(item.taskId, ""),
+                          getDisplayText(item.inspectionTypeFull, ""),
+                        ]
                           .filter(Boolean)
                           .join(" | ");
 
@@ -253,7 +285,10 @@ export default function ReviewTask({
                                   color: COLORS.black,
                                 }}
                               >
-                                {item.taskName || "Checklist item"}
+                                {getDisplayText(
+                                  item.taskName,
+                                  "Checklist item",
+                                )}
                               </AppText>
                             </View>
                           </TouchableOpacity>
@@ -312,6 +347,7 @@ export default function ReviewTask({
               >
                 <SignatureCanvas
                   ref={signatureRef}
+                  webviewProps={{ androidLayerType: "software" }}
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
                     setAdvanceAfterSignature(false);
@@ -377,6 +413,7 @@ export default function ReviewTask({
               <Button
                 label="CANCEL"
                 onPress={handleCancel}
+                disabled={submitting}
                 buttonStyle={[styles.secondaryBtn, { width: 100 }]}
                 buttonTextStyle={styles.secondaryBtnTxt}
               />
@@ -414,7 +451,19 @@ export default function ReviewTask({
             {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
           </View>
         </View>
-      </View>
-    </Modal>
+        <AlertComp
+          embedded
+          visible={confirmationVisible}
+          title={mode === "return" ? "Return Task" : "Approve Task"}
+          message={
+            mode === "return"
+              ? "Return this task to the mechanic for revision? It will rejoin their active workload."
+              : "Confirm approval and submit this task review?"
+          }
+          confirmText={mode === "return" ? "Return" : "Approve"}
+          onConfirm={submitConfirmedAction}
+          onCancel={() => setConfirmationVisible(false)}
+        />
+    </View>
   );
 }

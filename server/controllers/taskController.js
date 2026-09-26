@@ -534,13 +534,18 @@ const updateTask = async (req, res) => {
       return res.status(400).json({ message: scheduleError });
     }
 
-    const workloadError = await validateMechanicWorkload({
-      assignedTo: nextTask.assignedTo,
-      excludeTaskIdentifier: existingTask.id || existingTask._id,
-      confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
-    });
-    if (workloadError) {
-      return res.status(workloadError.status).json(workloadError.body);
+    if (
+      String(nextTask.assignedTo || "").trim() !==
+      String(existingTask.assignedTo || "").trim()
+    ) {
+      const workloadError = await validateMechanicWorkload({
+        assignedTo: nextTask.assignedTo,
+        excludeTaskIdentifier: existingTask.id || existingTask._id,
+        confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
+      });
+      if (workloadError) {
+        return res.status(workloadError.status).json(workloadError.body);
+      }
     }
 
     existingTask.set(buildWritableTaskUpdate(nextTask));

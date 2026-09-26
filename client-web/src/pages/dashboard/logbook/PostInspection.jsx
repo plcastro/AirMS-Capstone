@@ -24,6 +24,7 @@ import {
   DatePicker,
 } from "antd";
 import {
+  ArrowLeftOutlined,
   EditOutlined,
   ExportOutlined,
   EyeOutlined,
@@ -35,11 +36,15 @@ import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
+import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
+import { isAssignedFlightCrew } from "../../../../../shared/flightCrewAccess";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
+import { getLogAircraftRegistration } from "../../../../../shared/aircraftLogGroups";
 import PostInspectionB412Checklist from "../../../components/pagecomponents/PostInspectionB412Checklist";
 import {
   B412_POST_INSPECTION_SECTIONS,
@@ -100,7 +105,8 @@ export default function PostInspection() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
-  const [aircraft, setAircraft] = useState("all");
+  const [aircraftQuery, setAircraftQuery] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [signatureMode, setSignatureMode] = useState(null);
@@ -126,7 +132,7 @@ export default function PostInspection() {
   const isCompletedRecord = (record) =>
     getDisplayStatus(String(record?.status || "").toLowerCase()) ===
     "completed";
-  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record);
+  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record) || !isAssignedFlightCrew(user, record);
 
   const load = useCallback(async () => {
     try {
@@ -162,7 +168,9 @@ export default function PostInspection() {
     const notificationStatus = params.get("notificationStatus");
     if (notificationStatus) {
       setStatus(String(notificationStatus).toLowerCase());
-      setAircraft("all");
+      setSelectedAircraft(null);
+      setQuery("");
+      setAircraftQuery("");
     }
   }, [location.search]);
 
@@ -176,27 +184,38 @@ export default function PostInspection() {
     );
     if (!match) return;
 
+    setSelectedAircraft(getLogAircraftRegistration(match));
+    setQuery("");
+    setStatus("all");
     setEditTab("basic");
     setEditing(match);
     navigate("/dashboard/post-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
-  const aircraftOptions = useMemo(
-    () => ["all", ...new Set(records.map((item) => item.rpc).filter(Boolean))],
-    [records],
-  );
+  const openAircraft = (rpc) => {
+    setSelectedAircraft(rpc);
+    setQuery("");
+    setStatus("all");
+  };
+
+  const backToAircraft = () => {
+    setSelectedAircraft(null);
+    setQuery("");
+    setStatus("all");
+  };
 
   const filtered = useMemo(
     () =>
       records.filter((item) => {
         const matchesQuery = matchesSearch(debouncedQuery, item);
-        const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
+        const matchesAircraft =
+          getLogAircraftRegistration(item) === selectedAircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, debouncedQuery, aircraft, status],
+    [records, debouncedQuery, selectedAircraft, status],
   );
 
   const booleanFields = useMemo(
@@ -314,19 +333,10 @@ export default function PostInspection() {
 
     const station1 = byPrefix("station1_");
     const station2 = byPrefix("station2_");
-    const engine = booleanFields.filter(
-      (field) =>
-        field.startsWith("station3_") ||
-        field.startsWith("engine_") ||
-        field.includes("gimbal") ||
-        field.includes("hydraulic"),
-    );
+    const engine = byPrefix("engine_");
     const mainRotor = booleanFields.filter(
       (field) =>
-        field.startsWith("mainRotor_") ||
-        field.includes("rotor") ||
-        field.includes("swash") ||
-        field.includes("pitchChange"),
+        field.startsWith("station3_") || field.startsWith("mainRotor_"),
     );
     const cabin = booleanFields.filter(
       (field) =>
@@ -354,15 +364,29 @@ export default function PostInspection() {
     };
   }, [booleanFields]);
 
-  const formatFieldLabel = (field = "") =>
-    String(field)
-      .replace(/^station\d+_/, "")
-      .replace(/^mainRotor_/, "")
-      .replace(/^cabin_/, "")
-      .replace(/^interior_/, "")
-      .replace(/^engine_/, "")
+  const formatChecklistText = (value = "") =>
+    String(value)
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .replace(/_/g, " ")
+      .replace(/\b(mgb|oat|elt|gpu|rh|lh|vemd|scu)\b/gi, (word) =>
+        word.toUpperCase(),
+      )
       .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const getChecklistFieldMeta = (field = "") => {
+    const normalizedField = String(field).replace(
+      /^(?:station\d+|mainRotor|cabin|interior|engine)_/,
+      "",
+    );
+    const fieldParts = normalizedField.split("_");
+    const description =
+      fieldParts.length > 1 ? fieldParts.pop() : "checked";
+
+    return {
+      title: formatChecklistText(fieldParts.join("_")),
+      description: formatChecklistText(description),
+    };
+  };
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
@@ -394,6 +418,10 @@ export default function PostInspection() {
         );
       setEditing(data.data);
       await load();
+      const savedAircraft = getLogAircraftRegistration(data.data || nextPayload);
+      if (savedAircraft !== selectedAircraft) {
+        openAircraft(savedAircraft);
+      }
       setPopup({
         open: true,
         status: "success",
@@ -476,9 +504,32 @@ export default function PostInspection() {
 
   return (
     <div style={{ padding: isMobile ? 12 : 20 }}>
+      {!selectedAircraft ? (
+        <AircraftLogGroups
+          records={records}
+          sortBy="latestActivity"
+          loading={loading}
+          query={aircraftQuery}
+          onQueryChange={setAircraftQuery}
+          onSelect={openAircraft}
+          emptyText="No post-flight inspections found."
+        />
+      ) : (
+        <>
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={backToAircraft}
+            style={{ paddingInline: 0 }}
+          >
+            Back to Aircraft
+          </Button>
+          <Typography.Title level={4} style={{ margin: "8px 0 16px" }}>
+            {selectedAircraft} — Post-Flight Inspections
+          </Typography.Title>
       <Card>
         <Row gutter={[12, 12]}>
-          <Col xs={24} md={9}>
+          <Col xs={24} md={16}>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -488,19 +539,7 @@ export default function PostInspection() {
               allowClear
             />
           </Col>
-          <Col xs={12} md={7}>
-            <Select
-              style={{ width: "100%" }}
-              value={aircraft}
-              onChange={setAircraft}
-              options={aircraftOptions.map((value) => ({
-                value,
-                label: value === "all" ? "All Aircraft" : `RP/C: ${value}`,
-              }))}
-              size="large"
-            />
-          </Col>
-          <Col xs={12} md={6}>
+          <Col xs={24} md={8}>
             <Select
               style={{ width: "100%" }}
               value={status}
@@ -516,6 +555,7 @@ export default function PostInspection() {
       </Card>
 
       <ResponsiveTable
+        key={selectedAircraft}
         style={{ marginTop: 12 }}
         rowKey="_id"
         loading={loading}
@@ -570,9 +610,11 @@ export default function PostInspection() {
           </Text>
         </Col>
       </Row>
+        </>
+      )}
 
       <Modal
-        open={Boolean(editing)}
+        open={Boolean(editing) && !editing?.flightLogId}
         onCancel={() => {
           setEditTab("basic");
           setEditing(null);
@@ -620,6 +662,7 @@ export default function PostInspection() {
                     label: tab.label,
                     children: (
                       <Row gutter={[10, 10]}>
+                        <Col span={24}><Text type="secondary">Linked Flight Log: {editing.flightLogControlNo || editing.flightLogId || "Not linked"} · Pilot: {editing.assignedPilot?.name || "Not assigned"} · Mechanic: {editing.assignedMechanic?.name || "Not assigned"}</Text></Col>
                         <Col xs={24} md={8}>
                           <Text strong>RP/C</Text>
                           <Input
@@ -631,7 +674,7 @@ export default function PostInspection() {
                               }))
                             }
                             disabled={isRecordReadOnly(editing)}
-                            readOnly={Boolean(editing.linkedFromPreFlight)}
+                            readOnly={Boolean(editing.linkedFromPreFlight || editing.flightLogId)}
                           />
                         </Col>
                         <Col xs={24} md={8}>
@@ -726,57 +769,79 @@ export default function PostInspection() {
                   key: tab.key,
                   label: tab.label,
                   children: (
-                    <Space
-                      orientation="vertical"
-                      size={12}
-                      style={{ width: "100%" }}
-                    >
-                      {fields.length ? (
-                        <>
+                    <Card
+                      size="small"
+                      title={tab.label}
+                      extra={
+                        fields.length ? (
                           <Checkbox
                             checked={allFieldsChecked}
                             indeterminate={partiallyChecked}
                             disabled={recordReadOnly}
-                            onChange={(e) =>
+                            onChange={(event) =>
                               setEditing((prev) => {
-                                const checked = e.target.checked;
-                                return fields.reduce(
-                                  (next, field) => ({
-                                    ...next,
-                                    [field]: checked,
-                                  }),
-                                  { ...prev },
-                                );
+                                const checked = event.target.checked;
+                                const next = { ...prev };
+
+                                fields.forEach((field) => {
+                                  next[field] = checked;
+                                });
+
+                                return next;
                               })
                             }
                           >
-                            Select All {tab.label}
+                            Select All
                           </Checkbox>
-                          <Row gutter={[8, 8]}>
-                            {fields.map((field) => (
-                              <Col xs={24} md={12} lg={8} key={field}>
-                                <Checkbox
-                                  checked={Boolean(editing[field])}
-                                  disabled={recordReadOnly}
-                                  onChange={(e) =>
-                                    setEditing((prev) => ({
-                                      ...prev,
-                                      [field]: e.target.checked,
-                                    }))
-                                  }
+                        ) : null
+                      }
+                      styles={{
+                        header: { backgroundColor: "#0A7D37", color: "#fff" },
+                      }}
+                    >
+                      {fields.length ? (
+                        <Row gutter={[12, 12]}>
+                          {fields.map((field) => {
+                            const fieldMeta = getChecklistFieldMeta(field);
+
+                            return (
+                              <Col xs={24} md={12} key={field}>
+                                <Card
+                                  size="small"
+                                  style={{ height: "100%" }}
+                                  styles={{ body: { padding: 10 } }}
                                 >
-                                  {formatFieldLabel(field)}
-                                </Checkbox>
+                                  <Space
+                                    orientation="vertical"
+                                    size={6}
+                                    style={{ width: "100%" }}
+                                  >
+                                    <Text strong>{fieldMeta.title}</Text>
+                                    <Text>{fieldMeta.description}</Text>
+                                    <Checkbox
+                                      checked={Boolean(editing[field])}
+                                      disabled={recordReadOnly}
+                                      onChange={(event) =>
+                                        setEditing((prev) => ({
+                                          ...prev,
+                                          [field]: event.target.checked,
+                                        }))
+                                      }
+                                    >
+                                      Checked
+                                    </Checkbox>
+                                  </Space>
+                                </Card>
                               </Col>
-                            ))}
-                          </Row>
-                        </>
+                            );
+                          })}
+                        </Row>
                       ) : (
                         <Text type="secondary">
                           No checklist items in this section.
                         </Text>
                       )}
-                    </Space>
+                    </Card>
                   ),
                 };
               })}

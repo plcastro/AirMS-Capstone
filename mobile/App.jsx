@@ -26,7 +26,6 @@ import Dashboard from "./Layout/Dashboard";
 import DrawerContent from "./components/DrawerContent";
 import useResponsiveWeb from "./Layout/useResponsiveWeb";
 import LinkingConfig from "./utilities/LinkingConfig";
-import { API_BASE } from "./utilities/API_BASE";
 import OTP from "./screens/Auth/OTP";
 import LoadingScreen from "./screens/LoadingScreen";
 import NotificationBell from "./components/Notifications/NotificationBell";
@@ -59,13 +58,13 @@ const getRoleHomeRoute = (role = "") => {
     case "superadmin":
       return "Manage Users";
     case "mechanic":
-      return "Maintenance Logs";
+      return "Tasks";
     case "pilot":
       return "Flight Logs";
     case "maintenance manager":
     case "officer-in-charge":
       return "Reports and Analytics";
-    case "warehouse staff":
+    case "warehouse personnel":
       return "Parts Requisition";
     default:
       return "Profile";
@@ -141,7 +140,7 @@ function DrawerNav({ navigation }) {
     "maintenance manager",
     "mechanic",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
     "superadmin",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
@@ -170,7 +169,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ].includes(normalizedRole);
   const canAccessProfile = [
     "superadmin",
@@ -178,7 +177,7 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "pilot",
     "officer-in-charge",
-    "warehouse staff",
+    "warehouse personnel",
   ].includes(normalizedRole);
   const canAccessUserManagement = normalizedRole === "superadmin";
   const canAccessActivityLogs = normalizedRole === "superadmin";
@@ -186,7 +185,7 @@ function DrawerNav({ navigation }) {
   const canAccessInitialRoute =
     (roleHomeRoute === "Reports and Analytics" && canAccessReports) ||
     (roleHomeRoute === "Manage Users" && canAccessUserManagement) ||
-    (roleHomeRoute === "Maintenance Logs" && canAccessMaintenanceLog) ||
+    (roleHomeRoute === "Tasks" && canAccessTasks) ||
     (roleHomeRoute === "Flight Logs" && canAccessFlightAndPreInspection) ||
     (roleHomeRoute === "Parts Requisition" && canAccessPartsRequisition) ||
     roleHomeRoute === "Profile";
@@ -194,6 +193,16 @@ function DrawerNav({ navigation }) {
   const profileImage = getUserImageUri(user?.image);
   const isWeb = Platform.OS === "web";
   const isWide = useResponsiveWeb();
+
+  useEffect(() => {
+    if (loading || user) return;
+    if (navigationRef.isReady()) {
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "login" }],
+      });
+    }
+  }, [loading, user]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -225,6 +234,7 @@ function DrawerNav({ navigation }) {
           <View
             style={{
               paddingHorizontal: 7,
+              paddingBottom: 6,
               flexDirection: "row",
               alignItems: "center",
             }}
@@ -238,17 +248,23 @@ function DrawerNav({ navigation }) {
               onPress={() => navigation.navigate("Profile")}
             >
               {profileImage ? (
-                <Image
-                  source={{
-                    uri: profileImage,
-                  }}
+                <View
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    marginRight: 5,
+                    height: 48,
+                    justifyContent: "center",
+                    paddingBottom: 7,
                   }}
-                />
+                >
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      marginRight: 5,
+                    }}
+                  />
+                </View>
               ) : (
                 <View
                   style={{
@@ -259,6 +275,7 @@ function DrawerNav({ navigation }) {
                     backgroundColor: "#E6F4F1",
                     alignItems: "center",
                     justifyContent: "center",
+                    paddingBottom: 7,
                   }}
                 >
                   <AppText style={{ color: "#26866F", fontWeight: "700" }}>

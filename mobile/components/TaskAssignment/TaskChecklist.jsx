@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Image,
   TouchableOpacity
@@ -16,6 +16,33 @@ import CheckBox from "../CheckBox";
 import { showToast } from "../../utilities/toast";
 import { COLORS } from "../../stylesheets/colors";
 import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
+import AlertComp from "../AlertComp";
+
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
+const normalizeStatus = (status) =>
+  String(getDisplayText(status, ""))
+    .trim()
+    .toLowerCase();
 
 export default function TaskChecklist({
   visible,
@@ -26,6 +53,7 @@ export default function TaskChecklist({
   onTurnIn,
   onApprove,
   onReturn,
+  confirmation,
   isHeadView = false,
 }) {
   const [checklistState, setChecklistState] = useState([]);
@@ -35,16 +63,20 @@ export default function TaskChecklist({
   const [reviewMode, setReviewMode] = useState("return");
 
   useEffect(() => {
-    if (task?.checklistItems) {
-      const normalizedChecklistState = task.checklistItems.map((_, index) => {
+    const checklistItems = Array.isArray(task?.checklistItems)
+      ? task.checklistItems
+      : [];
+
+    if (task) {
+      const normalizedChecklistState = checklistItems.map((_, index) => {
         if (Array.isArray(task.checklistState)) {
           return task.checklistState[index] === true;
         }
 
         if (
-          task.status === "Completed" ||
-          task.status === "Turned in" ||
-          task.status === "Approved"
+          normalizeStatus(task.status) === "completed" ||
+          normalizeStatus(task.status) === "turned in" ||
+          normalizeStatus(task.status) === "approved"
         ) {
           return true;
         }
@@ -55,13 +87,16 @@ export default function TaskChecklist({
       setChecklistState(normalizedChecklistState);
 
       if (
-        task.status === "Completed" ||
-        task.status === "Turned in" ||
-        task.status === "Approved"
+        normalizeStatus(task.status) === "completed" ||
+        normalizeStatus(task.status) === "turned in" ||
+        normalizeStatus(task.status) === "approved"
       ) {
         setIsStarted(true);
       } else {
-        setIsStarted(task.status === "Ongoing" || task.status === "Returned");
+        setIsStarted(
+          normalizeStatus(task.status) === "ongoing" ||
+            normalizeStatus(task.status) === "returned",
+        );
       }
 
       setFindings(task.findings || "");
@@ -71,9 +106,9 @@ export default function TaskChecklist({
   const toggleItem = (index) => {
     if (!isStarted || isHeadView) return;
     if (
-      task.status === "Completed" ||
-      task.status === "Turned in" ||
-      task.status === "Approved"
+      normalizeStatus(task.status) === "completed" ||
+      normalizeStatus(task.status) === "turned in" ||
+      normalizeStatus(task.status) === "approved"
     ) {
       return;
     }
@@ -97,8 +132,10 @@ export default function TaskChecklist({
   const handleTurnIn = async (options = {}) => {
     if (isHeadView) return;
 
+    let completed = false;
+
     if (options.undo) {
-      await onTurnIn?.(task, checklistState, findings, {
+      completed = await onTurnIn?.(task, checklistState, findings, {
         undo: true,
         newStatus: "Ongoing",
       });
@@ -108,22 +145,32 @@ export default function TaskChecklist({
         return;
       }
 
-      await onTurnIn?.(task, checklistState, findings);
+      completed = await onTurnIn?.(task, checklistState, findings);
     }
 
-    onClose();
+    if (completed !== false) {
+      onClose();
+    }
   };
 
   const handleReturnConfirm = async ({ note, signature, itemsToUncheck }) => {
-    await onReturn?.(task, { comments: note, signature, itemsToUncheck });
+    const completed = await onReturn?.(task, {
+      comments: note,
+      signature,
+      itemsToUncheck,
+    });
+    if (completed === false) return false;
     setShowReviewModal(false);
     onClose();
+    return true;
   };
 
   const handleApproveConfirm = async ({ signature }) => {
-    await onApprove?.(task, { signature });
+    const completed = await onApprove?.(task, { signature });
+    if (completed === false) return false;
     setShowReviewModal(false);
     onClose();
+    return true;
   };
 
   const handleReviewCancel = () => {
@@ -140,23 +187,25 @@ export default function TaskChecklist({
     setShowReviewModal(true);
   };
 
-  if (!task) return null;
+  if (!task || !visible) return null;
 
   const checklistItems = Array.isArray(task.checklistItems)
     ? task.checklistItems
     : [];
 
-  const isReturned = task.status === "Returned";
-  const isTurnedIn = task.status === "Turned in";
+  const taskStatus = normalizeStatus(task.status);
+  const isReturned = taskStatus === "returned";
+  const isTurnedIn = taskStatus === "turned in" || taskStatus === "completed";
   const isCompleted =
-    task.status === "Completed" ||
-    task.status === "Turned in" ||
-    task.status === "Approved";
+    taskStatus === "completed" ||
+    taskStatus === "turned in" ||
+    taskStatus === "approved";
 
-  const isApproved = task.isApproved || task.status === "Approved" || false;
-  const approvedBy = task.approvedBy || "";
+  const isApproved = task.isApproved || taskStatus === "approved" || false;
+  const approvedBy = getDisplayText(task.approvedBy, "");
   const approvedDate = task.approvedAt || task.approvedDate || "";
-  const approvedSignature = task.approvedSignature || "";
+  const approvedSignature =
+    typeof task.approvedSignature === "string" ? task.approvedSignature : "";
 
   const allCheckboxesChecked =
     checklistItems.length > 0 &&
@@ -196,10 +245,13 @@ export default function TaskChecklist({
 
   const renderChecklistTitle = (item, isDisabled) => {
     if (isHeadView) {
-      return item.taskName;
+      return getDisplayText(item.taskName, "Checklist item");
     }
 
-    const checklistMeta = [item.taskId, item.inspectionTypeFull]
+    const checklistMeta = [
+      getDisplayText(item.taskId, ""),
+      getDisplayText(item.inspectionTypeFull, ""),
+    ]
       .filter(Boolean)
       .join(" | ");
 
@@ -225,7 +277,7 @@ export default function TaskChecklist({
             marginBottom: item.description ? 2 : 0,
           }}
         >
-          {item.taskName}
+          {getDisplayText(item.taskName, "Checklist item")}
         </AppText>
         {!!item.documentation && (
           <AppText
@@ -236,7 +288,7 @@ export default function TaskChecklist({
               marginBottom: item.description ? 2 : 0,
             }}
           >
-            AMM: {item.documentation}
+            AMM: {getDisplayText(item.documentation, "")}
           </AppText>
         )}
         {!!item.description && (
@@ -247,7 +299,7 @@ export default function TaskChecklist({
               color: isDisabled ? "#999" : "#555",
             }}
           >
-            {item.description}
+            {getDisplayText(item.description, "")}
           </AppText>
         )}
       </View>
@@ -255,14 +307,20 @@ export default function TaskChecklist({
   };
 
   return (
-    <>
-      <Modal
-        visible={visible && !showReviewModal}
-        animationType="none"
-        transparent={true}
-        onRequestClose={onClose}
-      >
+    <Modal
+      visible
+      animationType="none"
+      transparent={true}
+      onRequestClose={
+        confirmation?.visible
+          ? confirmation.onCancel
+          : showReviewModal
+            ? handleReviewCancel
+            : onClose
+      }
+    >
         <IosModalSafeAreaView style={styles.modalOverlay}>
+          {!showReviewModal && (
           <View
             style={{
               maxWidth: "95%",
@@ -306,12 +364,12 @@ export default function TaskChecklist({
                 marginRight: 42,
               }}
             >
-              {task.title}
+              {getDisplayText(task.title, "Maintenance Task")}
             </AppText>
 
             <AppText style={{ fontSize: 12, color: "#666", marginBottom: 20 }}>
               End {formatScheduleDateTime(task.endDateTime || task.dueDate)} |
-              {" "}Aircraft {task.aircraft}
+              {" "}Aircraft {getDisplayText(task.aircraft, "N/A")}
             </AppText>
 
             {isHeadView && isReturned && (
@@ -337,7 +395,7 @@ export default function TaskChecklist({
                 </AppText>
                 {task.returnComments && (
                   <AppText style={{ fontSize: 12, color: "#b71c1c" }}>
-                    {task.returnComments}
+                    {getDisplayText(task.returnComments, "")}
                   </AppText>
                 )}
               </View>
@@ -367,8 +425,10 @@ export default function TaskChecklist({
                 <AppText
                   style={{ fontSize: 12, color: "#b71c1c", marginBottom: 12 }}
                 >
-                  {task.returnComments ||
-                    "Finding details are incomplete. Please update findings."}
+                  {getDisplayText(
+                    task.returnComments,
+                    "Finding details are incomplete. Please update findings.",
+                  )}
                 </AppText>
                 <AppText style={{ fontSize: 12, color: "#e57373" }}>
                   Returned on{" "}
@@ -641,14 +701,14 @@ export default function TaskChecklist({
 
                   {!isStarted ? (
                     <Button
-                      label="Start Task"
+                      label="Start"
                       onPress={handleStartTask}
                       buttonStyle={[styles.primaryAlertBtn, { width: 100 }]}
                       buttonTextStyle={styles.primaryBtnTxt}
                     />
                   ) : (
                     <Button
-                      label={allCheckboxesChecked ? "Turn in" : "Save"}
+                      label={allCheckboxesChecked ? "Turn In" : "Save"}
                       onPress={
                         allCheckboxesChecked ? () => handleTurnIn() : handleSave
                       }
@@ -660,19 +720,29 @@ export default function TaskChecklist({
               )}
             </View>
           </View>
+          )}
+          {showReviewModal && (
+            <ReviewTask
+              onClose={handleReviewCancel}
+              onConfirm={
+                reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
+              }
+              mode={reviewMode}
+              checklistItems={checklistItems}
+              checklistState={checklistState}
+            />
+          )}
+          <AlertComp
+            embedded
+            visible={Boolean(confirmation?.visible)}
+            title={confirmation?.title}
+            message={confirmation?.message}
+            confirmText={confirmation?.confirmText}
+            cancelText={confirmation?.cancelText}
+            onConfirm={confirmation?.onConfirm}
+            onCancel={confirmation?.onCancel}
+          />
         </IosModalSafeAreaView>
-      </Modal>
-
-      <ReviewTask
-        visible={showReviewModal}
-        onClose={handleReviewCancel}
-        onConfirm={
-          reviewMode === "return" ? handleReturnConfirm : handleApproveConfirm
-        }
-        mode={reviewMode}
-        checklistItems={checklistItems}
-        checklistState={checklistState}
-      />
-    </>
+    </Modal>
   );
 }

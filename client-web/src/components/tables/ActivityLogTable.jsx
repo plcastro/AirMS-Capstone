@@ -11,13 +11,6 @@ const getPlatformColor = (platform) => {
   return "geekblue";
 };
 
-const getBaseColor = (base) => {
-  if (base.toUpperCase().includes("MANILA")) return "green";
-  if (base.toUpperCase().includes("CEBU")) return "orange";
-  if (base.toUpperCase().includes("CDO")) return "brown";
-  return "cyan";
-};
-
 const renderContextValue = (value, getColor) => {
   const normalized = String(value || "")
     .trim()
@@ -45,9 +38,9 @@ const headers = [
   },
   {
     title: "Performed by",
-    dataIndex: "username",
-    key: "username",
-    width: 120,
+    dataIndex: "displayName",
+    key: "displayName",
+    width: 150,
     render: (text) => <b style={{ color: "#1890ff" }}>{text}</b>,
   },
   {
@@ -58,11 +51,39 @@ const headers = [
     render: (text) => renderContextValue(text, getPlatformColor),
   },
   {
-    title: "Base",
-    dataIndex: "base",
-    key: "base",
-    width: 100,
-    render: (text) => renderContextValue(text, getBaseColor),
+    title: "Device Model",
+    dataIndex: "deviceModel",
+    key: "deviceModel",
+    width: 140,
+    render: (text) =>
+      String(text || "").trim() ? (
+        <Text>{text}</Text>
+      ) : (
+        <Text type="secondary">Not captured</Text>
+      ),
+  },
+  {
+    title: "Location",
+    dataIndex: "locationText",
+    key: "locationText",
+    width: 180,
+    render: (text, record) => {
+      const location = String(text || "").trim();
+      const coordinates = String(record.locationCoordinates || "").trim();
+      if (!location && !coordinates) {
+        return <Text type="secondary">Not captured</Text>;
+      }
+      return (
+        <div>
+          <Text>{location || coordinates}</Text>
+          {location && coordinates ? (
+            <div>
+              <Text type="secondary">{coordinates}</Text>
+            </div>
+          ) : null}
+        </div>
+      );
+    },
   },
   {
     title: "Date and Time",
@@ -97,7 +118,7 @@ export default function ActivityLogTable({ data = [], loading }) {
       rowKey={(record) => record._id || record.index}
       loading={loading}
       size={"small"}
-      scroll={{ x: 980 }}
+      scroll={{ x: 1120 }}
       pagination={{
         current: currentPage,
         pageSize,

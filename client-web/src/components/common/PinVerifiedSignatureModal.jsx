@@ -1,4 +1,4 @@
-import React, { useContext, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Alert, Button, Input, Modal, Typography } from "antd";
 import SignatureCanvas from "react-signature-canvas";
 import { AuthContext } from "../../context/AuthContext";
@@ -15,6 +15,9 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
+  requirePin = true,
+  initialSignature = '',
+  pinOnly = false,
   zIndex = 3100,
   onCancel,
   onSave,
@@ -28,6 +31,9 @@ export default function PinVerifiedSignatureModal({
   const [showPin, setShowPin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  useEffect(() => {
+    if (open && initialSignature) { setSignature(initialSignature); setStep('pin'); setPin(''); setErrorMessage(''); }
+  }, [open, initialSignature]);
 
   const reset = () => {
     setStep("signature");
@@ -83,6 +89,7 @@ export default function PinVerifiedSignatureModal({
   };
 
   const handleOk = async () => {
+    if (saving) return;
     if (step === "signature") {
       if (!signature || signatureRef.current?.isEmpty()) {
         const error = "Please draw your signature before continuing.";
@@ -91,11 +98,13 @@ export default function PinVerifiedSignatureModal({
       }
 
       setErrorMessage("");
-      setStep("pin");
-      return;
+      if (requirePin) {
+        setStep("pin");
+        return;
+      }
     }
 
-    if (!/^\d{6}$/.test(pin)) {
+    if (requirePin && !/^\d{6}$/.test(pin)) {
       const error = "Enter your 6-digit PIN to confirm this signature.";
       setErrorMessage(error);
       return;
@@ -103,12 +112,13 @@ export default function PinVerifiedSignatureModal({
 
     try {
       setSaving(true);
-      await verifyPin();
-      await onSave?.(signature);
+      if (requirePin) await verifyPin();
+      const saveResult = await onSave?.(signature, { pin: requirePin ? pin : undefined });
+      if (saveResult === false) return;
       reset();
       onCancel?.();
     } catch (error) {
-      const errorText = error.message || "Could not verify your PIN.";
+      const errorText = error.message || "Could not save your signature.";
       setErrorMessage(errorText);
     } finally {
       setSaving(false);
@@ -132,15 +142,16 @@ export default function PinVerifiedSignatureModal({
                 danger
                 icon={<ClearOutlined />}
                 onClick={handleClearSignature}
+                disabled={saving}
               >
                 Clear
               </Button>,
-              <Button key="continue" type="primary" onClick={handleOk}>
-                Continue
+              <Button key="continue" type="primary" loading={saving} onClick={handleOk}>
+                {requirePin ? "Continue" : "Save Signature"}
               </Button>,
             ]
           : [
-              <Button
+              !pinOnly && <Button
                 key="redraw"
                 onClick={() => {
                   setErrorMessage("");

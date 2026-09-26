@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
+import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
 
 export default function FlightLogModalInfo({
   formData,
@@ -11,22 +13,21 @@ export default function FlightLogModalInfo({
   isRPCEditable = true,
   isActive = true,
   onAircraftDataLoaded,
-  serialNumber = "",
-  onUpdateSerialNumber,
 }) {
+  const { getAuthHeader } = useContext(AuthContext);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
   const rpcRequestId = useRef(0);
   const autoResolveRpc = useRef("");
   const isActiveRef = useRef(isActive);
   const callbacksRef = useRef({ updateForm, onAircraftDataLoaded });
-  isActiveRef.current = isActive;
 
   useEffect(() => {
     callbacksRef.current = { updateForm, onAircraftDataLoaded };
   }, [updateForm, onAircraftDataLoaded]);
 
   useEffect(() => {
+    isActiveRef.current = isActive;
     if (!isActive) {
       rpcRequestId.current += 1;
       autoResolveRpc.current = "";
@@ -101,11 +102,20 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeader();
+        const statuses = [
+          "pending_release",
+          "pending_acceptance",
+          "accepted",
+          "submitted",
+          "returned_to_pilot",
+          "returned_to_mechanic",
+        ];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
               `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -126,7 +136,7 @@ export default function FlightLogModalInfo({
     };
 
     fetchOngoingAircraftRpcs();
-  }, []);
+  }, [getAuthHeader]);
 
   const parseDatePickerValue = (value) => {
     if (!value) return null;
@@ -201,9 +211,7 @@ export default function FlightLogModalInfo({
     }
   };
 
-  // Older records can predate the aircraftType field. Resolve their existing
-  // RP-C when the edit modal opens so the correct aircraft-specific tabs can
-  // still be generated.
+  // Load monitoring totals even when the confirmation already supplied a type.
   useEffect(() => {
     const rpc = String(formData.rpc || "")
       .trim()
@@ -211,7 +219,6 @@ export default function FlightLogModalInfo({
     if (
       !isActive ||
       !rpc ||
-      formData.aircraftType ||
       autoResolveRpc.current === rpc
     ) {
       return;
@@ -256,7 +263,7 @@ export default function FlightLogModalInfo({
         autoResolveRpc.current = "";
       }
     };
-  }, [formData.rpc, formData.aircraftType, isActive]);
+  }, [formData.rpc, isActive]);
 
   return (
     <div className="fl-section">
@@ -289,21 +296,6 @@ export default function FlightLogModalInfo({
             <Input className="fl-input" value={aircraftTypeLabel} disabled />
           </div>
 
-          {isB412 && (
-            <div className="fl-field-row">
-              <span className="fl-label">Serial Number:</span>
-              <Input
-                className="fl-input"
-                value={serialNumber}
-                onChange={(event) =>
-                  onUpdateSerialNumber?.(event.target.value)
-                }
-                placeholder="Enter aircraft serial number"
-                disabled={!isEditable}
-              />
-            </div>
-          )}
-
           <div className="fl-field-row">
             <span className="fl-label">Date: *</span>
             <DatePicker
@@ -325,6 +317,16 @@ export default function FlightLogModalInfo({
           </div>
 
           <div className="fl-field-row">
+            <span className="fl-label">Assigned Pilot:</span>
+            <FlightAssignedPilotSelect
+              value={formData.assignedPilot}
+              onChange={(value) => updateForm("assignedPilot", value)}
+              disabled={!isEditable}
+              isActive={isActive}
+            />
+          </div>
+
+          <div className="fl-field-row">
             <span className="fl-label">Control No.:</span>
             <Input
               className="fl-input"
@@ -334,6 +336,15 @@ export default function FlightLogModalInfo({
               disabled={!isEditable}
             />
           </div>
+          {formData.preFlightInspection?.signature && <div style={{ marginTop: 16 }}>
+            <strong>Pre-flight inspection confirmed</strong>
+            <div>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</div>
+            <img src={formData.preFlightInspection.signature} alt="Pre-flight confirmation signature" style={{ width: 180, height: 80, objectFit: 'contain' }} />
+            {!!formData.preFlightInspection.remarks && <>
+              <div style={{ whiteSpace: 'pre-wrap' }}>Discrepancies: {formData.preFlightInspection.remarks}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>Resolution: {formData.preFlightInspection.resolution}</div>
+            </>}
+          </div>}
         </div>
       </div>
     </div>

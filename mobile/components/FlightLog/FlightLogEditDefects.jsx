@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView
 } from "react-native";

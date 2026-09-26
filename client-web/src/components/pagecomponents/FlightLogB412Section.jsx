@@ -83,7 +83,7 @@ function Field({
       <div style={{ color: "#555", fontSize: 12, marginBottom: 5 }}>
         {label}
       </div>
-      {multiline ? (
+      {['Remaining', 'Total'].includes(label) ? <Select style={{ width: '100%' }} value={value || undefined} placeholder="MIN / MAX" options={['MIN', 'MAX'].map(value => ({ value }))} disabled={disabled} onChange={onChange} /> : multiline ? (
         <Input.TextArea
           value={String(value ?? "")}
           onChange={(event) => onChange(event.target.value)}
@@ -111,6 +111,7 @@ function SignatureField({
   disabled,
   description,
   confirmDescription,
+  requirePin = true,
 }) {
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
   const signature = String(value || "");
@@ -157,6 +158,7 @@ function SignatureField({
         title={label}
         description={description}
         confirmDescription={confirmDescription}
+        requirePin={requirePin}
         zIndex={11000}
         onCancel={() => setIsSignatureOpen(false)}
         onSave={(nextSignature) => onChange(nextSignature)}
@@ -172,7 +174,7 @@ function ComponentTotals({ values, update, disabled }) {
         label="Airframe"
         value={values.airframe}
         onChange={(value) => update(["airframe"], value)}
-        disabled={disabled}
+        disabled={true}
       />
       <div style={{ height: 12 }} />
 
@@ -190,13 +192,13 @@ function ComponentTotals({ values, update, disabled }) {
               label="TSN"
               value={values[key]?.tsn}
               onChange={(value) => update([key, "tsn"], value)}
-              disabled={disabled}
+              disabled={true}
             />
             <Field
               label="TSO"
               value={values[key]?.tso}
               onChange={(value) => update([key, "tso"], value)}
-              disabled={disabled}
+              disabled={true}
             />
           </Grid>
         </div>
@@ -206,7 +208,7 @@ function ComponentTotals({ values, update, disabled }) {
         label="Landing Cycle"
         value={values.landingCycle}
         onChange={(value) => update(["landingCycle"], value)}
-        disabled={disabled}
+        disabled={true}
       />
       <div style={{ height: 12 }} />
 
@@ -222,13 +224,13 @@ function ComponentTotals({ values, update, disabled }) {
                 label="TSN"
                 value={values[engineKey]?.tsn}
                 onChange={(value) => update([engineKey, "tsn"], value)}
-                disabled={disabled}
+                disabled={true}
               />
               <Field
                 label="TSO"
                 value={values[engineKey]?.tso}
                 onChange={(value) => update([engineKey, "tso"], value)}
-                disabled={disabled}
+                disabled={true}
               />
               <Field
                 label="Cycle"
@@ -391,7 +393,7 @@ function FuelServicing({ data, update, disabled }) {
           }
           disabled={disabled}
           description="Draw the refueller signature below."
-          confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+          requirePin={false}
         />
       </Grid>
     </Card>

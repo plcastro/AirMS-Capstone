@@ -1,8 +1,16 @@
+import { monitoringBroughtForward } from "../../../shared/flightLogBroughtForward";
+import { syncFlightLogDates } from "../../../shared/flightLogDates";
+import {
+  totalFlightHours,
+  FLIGHT_HOUR_FIELDS,
+  flightLandingCycles,
+  requiredFlightTimeError,
+} from "../../../shared/flightLogTimes";
+import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
@@ -21,25 +29,22 @@ import FlightLogModalOilServicing from "./FlightLogModalOilServicing";
 import FlightLogDiscrepancyRemarks from "./FlightLogDiscrepancyRemarks";
 import FlightLogModalWorkDone from "./FlightLogModalWorkDone";
 import FlightLogSignatureModal from "./FlightLogSignatureModal";
-import FlightLogB412Legs from "./FlightLogB412Legs";
-import FlightLogB412Section from "./FlightLogB412Section";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { showToast } from "../../utilities/toast";
+import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
-  B412_FLIGHT_LOG_TABS,
   calculateB412ToDate,
   createEmptyB412Data,
   createEmptyB412Leg,
-  ensureSixB412Legs,
-  hasCompleteB412BroughtForward,
+  hydrateStandardFlightLogFromLegacyB412,
   isB412Aircraft,
   mapAircraftReferenceToB412,
-  mapAircraftReferenceToBroughtForward,
   mapB412FlightLogToMonitoringTotals,
   mapStandardFlightLogToMonitoringTotals,
+  syncB412DataFromStandardFlightLog,
 } from "./b412FlightLogData";
 
 const parseDate = (dateValue) => {
@@ -148,6 +153,13 @@ const getSignerLabel = (signatureData = {}) =>
         .filter(Boolean)
         .join(" - ");
 
+function EntryShell({ embedded, children, ...props }) {
+  return embedded ? (
+    <View style={{ flex: 1 }}>{children}</View>
+  ) : (
+    <Modal {...props}>{children}</Modal>
+  );
+}
 export default function FlightLogEditEntry({
   visible,
   logData,
@@ -157,6 +169,10 @@ export default function FlightLogEditEntry({
   userRole,
   currentUser,
   readOnly = false,
+  embedded = false,
+  onDraftChange,
+  permissions,
+  initialTab,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -174,15 +190,14 @@ export default function FlightLogEditEntry({
     .toLowerCase()
     .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
-  const isMechanic =
-    [
-      "mechanic",
-      "engineer",
-      "maintenance manager",
-      "head of maintenance",
-      "admin",
-      "superadmin",
-    ].includes(normalizedRole);
+  const isMechanic = [
+    "mechanic",
+    "engineer",
+    "maintenance manager",
+    "head of maintenance",
+    "admin",
+    "superadmin",
+  ].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
   const [componentData, setComponentData] = useState({});
@@ -193,26 +208,21 @@ export default function FlightLogEditEntry({
   // Load log data
   useEffect(() => {
     if (logData) {
-      const logIsB412 = isB412Aircraft(logData.aircraftType);
+      const hydratedLog = hydrateStandardFlightLogFromLegacyB412(logData);
       setFormData({
-        ...logData,
-        date: parseDate(logData.date),
-        status: normalizeEditableFlightLogStatus(logData.status),
-        legs: logIsB412
-          ? ensureSixB412Legs(logData.legs)
-          : logData.legs || [createEmptyB412Leg()],
-        ...(logIsB412
-          ? { b412Data: createEmptyB412Data(logData.b412Data) }
-          : {}),
+        ...hydratedLog,
+        date: parseDate(hydratedLog.date),
+        status: normalizeEditableFlightLogStatus(hydratedLog.status),
+        legs: hydratedLog.legs || [createEmptyB412Leg()],
       });
       setComponentData(
-        logData.componentData || {
+        hydratedLog.componentData || {
           broughtForwardData: {},
           thisFlightData: {},
           toDateData: {},
         },
       );
-      setWorkItems(logData.workItems || []);
+      setWorkItems(hydratedLog.workItems || []);
       setIsLoading(false);
     }
   }, [logData]);
@@ -220,7 +230,7 @@ export default function FlightLogEditEntry({
   const isB412 = isB412Aircraft(formData.aircraftType);
   const isAircraftSelected = Boolean(
     String(formData.rpc || "").trim() &&
-      String(formData.aircraftType || "").trim(),
+    String(formData.aircraftType || "").trim(),
   );
 
   // Calculate toDateData whenever broughtForwardData or thisFlightData changes
@@ -251,36 +261,16 @@ export default function FlightLogEditEntry({
     setComponentData((prev) => ({ ...prev, toDateData: calculated }));
   }, [componentData.broughtForwardData, componentData.thisFlightData]);
 
-  useEffect(() => {
-    if (!isB412 || !formData.b412Data?.componentData) return;
-
-    const broughtForward =
-      formData.b412Data.componentData.broughtForwardData || {};
-    const thisFlight = formData.b412Data.componentData.thisFlightData || {};
-
-    setFormData((prev) => ({
-      ...prev,
-      b412Data: {
-        ...prev.b412Data,
-        componentData: {
-          ...prev.b412Data.componentData,
-          toDateData: calculateB412ToDate(broughtForward, thisFlight),
-        },
-      },
-    }));
-  }, [
-    formData.b412Data?.componentData?.broughtForwardData,
-    formData.b412Data?.componentData?.thisFlightData,
-    isB412,
-  ]);
-
   // Reset page when modal opens
   useEffect(() => {
     if (visible) {
-      setCurrentPage(0);
+      setCurrentPage(
+        { component: 2, destinations: 1, workdone: 8, info: 0 }[initialTab] ||
+          0,
+      );
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     }
-  }, [visible]);
+  }, [visible, initialTab]);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -289,16 +279,15 @@ export default function FlightLogEditEntry({
 
   const hasDiscrepancy = Boolean(String(formData.remarks || "").trim());
   const hasWorkItems = Array.isArray(workItems) && workItems.length > 0;
-  const shouldShowWorkDone = hasDiscrepancy || hasWorkItems;
+  const shouldShowWorkDone = embedded || hasDiscrepancy || hasWorkItems;
 
   const getFlightLogTabs = () => {
     if (!isAircraftSelected) {
       return ["Basic Information"];
     }
 
-    if (isB412) {
-      return B412_FLIGHT_LOG_TABS;
-    }
+    if (isPilot && !embedded)
+      return ["Basic Information", "Destination/s", "Discrepancy/Remarks"];
 
     const nextTabs = [
       "Basic Information",
@@ -324,23 +313,34 @@ export default function FlightLogEditEntry({
   const isCompletedLog = formData.status === "completed";
 
   // Keep edit permissions aligned with FlightLogEntry role rules.
-  const isBasicInfoEditable = !readOnly && !isCompletedLog;
+  const isBasicInfoEditable = !readOnly && isMechanic && !isCompletedLog;
   const isRPCEditable = !isReleasedFlightLogStatus(formData.status);
-  const isDestinationsEditable = !readOnly && !isCompletedLog && isPilot;
+  const isDestinationsEditable =
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic;
   const isComponentEditable = !readOnly && !isCompletedLog && isMechanic;
   const isBroughtForwardLocked = formData.broughtForwardLocked === true;
 
-  const isFuelOilEditable = !readOnly && !isCompletedLog && isMechanic;
-  const isDiscrepancyEditable = !readOnly && !isCompletedLog;
+  const isFuelOilEditable =
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic &&
+    (!permissions || permissions.maintenance);
+  const isDiscrepancyEditable =
+    !readOnly && isMechanic && !isCompletedLog && (!permissions || permissions.flight);
   const isWorkDoneEditable =
-    !readOnly && !isCompletedLog && !isB412 && shouldShowWorkDone;
-  const isB412CorrectionEditable = isDiscrepancyEditable;
+    !readOnly &&
+    !isCompletedLog &&
+    isMechanic &&
+    shouldShowWorkDone &&
+    (!permissions || permissions.maintenance);
 
   useEffect(() => {
-    if (shouldShowWorkDone && !isB412) {
+    if (shouldShowWorkDone) {
       tabScrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [shouldShowWorkDone, isB412]);
+  }, [shouldShowWorkDone]);
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -357,27 +357,24 @@ export default function FlightLogEditEntry({
     setFormData(updatedLegData);
   };
 
-  const updateB412Legs = (legs) => {
-    setFormData((prev) => ({ ...prev, legs: ensureSixB412Legs(legs) }));
-  };
-
-  const updateB412Data = (b412Data) => {
-    setFormData((prev) => ({ ...prev, b412Data }));
-  };
-
   const handleAircraftDataLoaded = (data) => {
     if (!data) {
-      setFormData((prev) => ({
-        ...prev,
-        legs: [createEmptyB412Leg()],
-        fuelServicing: [],
-        oilServicing: [],
-        remarks: "",
-        sling: "",
-        workItems: [],
-        broughtForwardLocked: false,
-        b412Data: createEmptyB412Data(),
-      }));
+      setCurrentPage(0);
+      setFormData((prev) => {
+        const { b412Data, ...commonData } = prev;
+        return {
+          ...commonData,
+          b412Data: null,
+          legs: [createEmptyB412Leg()],
+          fuelServicing: [],
+          oilServicing: [],
+          remarks: "",
+          sling: "",
+          serialNumber: "",
+          workItems: [],
+          broughtForwardLocked: false,
+        };
+      });
       setComponentData({
         broughtForwardData: {},
         thisFlightData: {},
@@ -396,36 +393,24 @@ export default function FlightLogEditEntry({
     if (loadedRpc && originalRpc && loadedRpc === originalRpc) {
       const resolvedAircraftType =
         data.aircraftType || logData.aircraftType || "";
-      const originalIsB412 = isB412Aircraft(resolvedAircraftType);
-      setFormData({
+      const hydratedLog = hydrateStandardFlightLogFromLegacyB412({
         ...logData,
         aircraftType: resolvedAircraftType,
-        date: parseDate(logData.date),
-        status: normalizeEditableFlightLogStatus(logData.status),
-        legs: originalIsB412
-          ? ensureSixB412Legs(logData.legs)
-          : logData.legs || [createEmptyB412Leg()],
-        ...(originalIsB412
-          ? { b412Data: createEmptyB412Data(logData.b412Data) }
-          : {}),
+      });
+      setFormData({
+        ...hydratedLog,
+        date: parseDate(hydratedLog.date),
+        status: normalizeEditableFlightLogStatus(hydratedLog.status),
+        legs: hydratedLog.legs || [createEmptyB412Leg()],
       });
       setComponentData(
-        logData.componentData || {
+        hydratedLog.componentData || {
           broughtForwardData: {},
           thisFlightData: {},
           toDateData: {},
         },
       );
-      setWorkItems(logData.workItems || []);
-      return;
-    }
-
-    if (!isB412Aircraft(data.aircraftType)) {
-      setComponentData((prev) => ({
-        ...prev,
-        broughtForwardData:
-          mapAircraftReferenceToBroughtForward(data),
-      }));
+      setWorkItems(hydratedLog.workItems || []);
       return;
     }
 
@@ -436,31 +421,36 @@ export default function FlightLogEditEntry({
       data.aircraftSerialNumber ||
       data.referenceData?.serialNumber ||
       "";
-    const carried = mapAircraftReferenceToB412(data);
+    const nextIsB412 = isB412Aircraft(data.aircraftType);
+    const carriedB412 = nextIsB412 ? mapAircraftReferenceToB412(data) : null;
+
+    setComponentData((prev) => ({
+      ...prev,
+      broughtForwardData: monitoringBroughtForward(data),
+    }));
 
     setFormData((prev) => {
-      const currentB412Data = createEmptyB412Data(prev.b412Data);
-      const broughtForwardData = createEmptyB412Data({
-        componentData: {
-          broughtForwardData: carried.broughtForwardData,
-        },
-      }).componentData.broughtForwardData;
+      const { b412Data, ...commonData } = prev;
 
       return {
-        ...prev,
-        legs: ensureSixB412Legs(prev.legs),
-        b412Data: {
-          ...currentB412Data,
-          serialNumber: serialNumber || currentB412Data.serialNumber,
-          componentData: {
-            ...currentB412Data.componentData,
-            broughtForwardData,
-            airframeNextInspectionDueAt:
-              carried.airframeNextInspectionDueAt,
-            engineNextInspectionDueAt:
-              carried.engineNextInspectionDueAt,
-          },
-        },
+        ...commonData,
+        serialNumber,
+        ...(nextIsB412
+          ? {
+              b412Data: createEmptyB412Data({
+                ...b412Data,
+                serialNumber: serialNumber || b412Data?.serialNumber,
+                componentData: {
+                  ...(b412Data?.componentData || {}),
+                  broughtForwardData: carriedB412.broughtForwardData,
+                  airframeNextInspectionDueAt:
+                    carriedB412.airframeNextInspectionDueAt,
+                  engineNextInspectionDueAt:
+                    carriedB412.engineNextInspectionDueAt,
+                },
+              }),
+            }
+          : { b412Data: null }),
       };
     });
   };
@@ -491,6 +481,20 @@ export default function FlightLogEditEntry({
   };
 
   const persistLog = async (updatedFormData, closeOnSave = false) => {
+    if (!isMechanic) return false;
+    const timeError = requiredFlightTimeError(updatedFormData.legs);
+    if (timeError) {
+      showToast(timeError);
+      setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
+      return false;
+    }
+
+    if (isPilot && !hasCompleteFlightLogLegs(updatedFormData.legs)) {
+      showToast("Each leg must include complete station route and date");
+      setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
+      return false;
+    }
+
     const bf = componentData.broughtForwardData || {};
     const tf = componentData.thisFlightData || {};
     const calculatedToDate = {
@@ -518,17 +522,19 @@ export default function FlightLogEditEntry({
       toDateData: calculatedToDate,
     };
 
-    const {
-      b412Data: sourceB412Data,
-      ...nonB412FormData
-    } = updatedFormData;
-    const shouldIncludeB412Data = isB412Aircraft(
-      updatedFormData.aircraftType,
-    );
+    const { b412Data: sourceB412Data, ...nonB412FormData } = updatedFormData;
+    const shouldIncludeB412Data = isB412Aircraft(updatedFormData.aircraftType);
     const shouldClearB412Data =
       !shouldIncludeB412Data && sourceB412Data !== undefined;
     const normalizedB412Data = shouldIncludeB412Data
-      ? createEmptyB412Data(sourceB412Data)
+      ? syncB412DataFromStandardFlightLog(
+          {
+            ...updatedFormData,
+            componentData: finalComponentData,
+            workItems,
+          },
+          sourceB412Data,
+        )
       : null;
 
     if (normalizedB412Data) {
@@ -538,16 +544,11 @@ export default function FlightLogEditEntry({
       );
     }
 
-    const b412BroughtForward =
-      normalizedB412Data?.componentData?.broughtForwardData;
-    const allFieldsFilled = b412BroughtForward
-      ? hasCompleteB412BroughtForward(b412BroughtForward)
-      : componentData.broughtForwardData &&
-        Object.values(componentData.broughtForwardData).every(
-          (value) => String(value ?? "").trim() !== "",
-        );
-    const shouldLockB412ForWorkflow =
-      normalizedB412Data && updatedFormData.status !== "pending_release";
+    const allFieldsFilled =
+      componentData.broughtForwardData &&
+      Object.values(componentData.broughtForwardData).every(
+        (value) => String(value ?? "").trim() !== "",
+      );
 
     const payload = {
       ...nonB412FormData,
@@ -559,7 +560,7 @@ export default function FlightLogEditEntry({
       componentData: finalComponentData,
       workItems,
       broughtForwardLocked: isMechanic
-        ? Boolean(allFieldsFilled || shouldLockB412ForWorkflow)
+        ? Boolean(allFieldsFilled)
         : formData.broughtForwardLocked === true,
     };
 
@@ -589,9 +590,7 @@ export default function FlightLogEditEntry({
       ...formData,
       releasedBy: buildSignatureUser(currentUser, signature, userRole),
       status: "pending_acceptance",
-      broughtForwardLocked: isB412
-        ? true
-        : formData.broughtForwardLocked,
+      broughtForwardLocked: formData.broughtForwardLocked,
     };
     const saved = await persistLog(updated, false);
     if (!saved) return false;
@@ -601,7 +600,7 @@ export default function FlightLogEditEntry({
     return true;
   };
 
-  const handleAccept = async (signature) => {
+  const handleAccept = async (signature, { pin } = {}) => {
     if (!formData.releasedBy?.signature && !formData.releasedBy?.name) {
       showToast(
         "This flight log must be released by a mechanic before acceptance.",
@@ -609,35 +608,45 @@ export default function FlightLogEditEntry({
       return;
     }
 
-    const updated = {
-      ...formData,
-      acceptedBy: buildSignatureUser(currentUser, signature, userRole),
-      status: "accepted",
-    };
-    const saved = await persistLog(updated, false);
-    if (!saved) return false;
-    setShowAcceptModal(false);
-    setFormData(updated);
-    showFeedbackAlert("Flight log has been accepted");
-    return true;
-  };
-
-  const handleNotifyMechanic = async () => {
-    if (!hasDestinationInfo(formData)) {
-      showToast(
-        "Add at least one complete From-To station in Destination/s before notifying for completion.",
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/flightlogs/${formData._id}/accept`,
+        {
+          method: "PUT",
+          headers: await getAuthHeaders({
+            Accept: "application/json",
+            "x-action-confirmed": "true",
+          }),
+          body: JSON.stringify({
+            signature,
+            pin,
+            expectedVersion: formData.__v || 0,
+          }),
+        },
       );
-      return;
-    }
+      const result = await response.json();
 
-    const updated = {
-      ...formData,
-      notifiedForCompletion: true,
-    };
-    const saved = await persistLog(updated, false);
-    if (!saved) return;
-    setFormData(updated);
-    showFeedbackAlert("Mechanic has been notified to complete the flight log");
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to accept flight log");
+      }
+
+      const acceptedLog = hydrateStandardFlightLogFromLegacyB412(
+        result.data || {
+          ...formData,
+          acceptedBy: buildSignatureUser(currentUser, signature, userRole),
+          status: "accepted",
+        },
+      );
+      setShowAcceptModal(false);
+      setFormData({ ...acceptedLog, date: parseDate(acceptedLog.date) });
+      await onCompleted?.(result.data || acceptedLog);
+      showFeedbackAlert("Flight log has been accepted");
+      return true;
+    } catch (error) {
+      console.error("Accept flight log failed:", error);
+      showToast(error.message || "Failed to accept flight log");
+      return false;
+    }
   };
 
   const handleComplete = async () => {
@@ -648,18 +657,10 @@ export default function FlightLogEditEntry({
         return;
       }
 
-      const b412ComponentData = formData.b412Data?.componentData || {};
-      const b412ToDate = calculateB412ToDate(
-        b412ComponentData.broughtForwardData,
-        b412ComponentData.thisFlightData,
-      );
-      const standardBroughtForward =
-        componentData.broughtForwardData || {};
+      const standardBroughtForward = componentData.broughtForwardData || {};
       const standardThisFlight = componentData.thisFlightData || {};
       const sumStandardValue = (field) => {
-        const broughtValue = String(
-          standardBroughtForward[field] ?? "",
-        ).trim();
+        const broughtValue = String(standardBroughtForward[field] ?? "").trim();
         const flightValue = String(standardThisFlight[field] ?? "").trim();
         if (!broughtValue && !flightValue) return "";
         return (parseFloat(broughtValue) || 0) + (parseFloat(flightValue) || 0);
@@ -684,6 +685,24 @@ export default function FlightLogEditEntry({
           standardBroughtForward.engineNextInsp ||
           "",
       };
+      const adaptedB412Data = isB412
+        ? syncB412DataFromStandardFlightLog(
+            {
+              ...formData,
+              componentData: {
+                ...componentData,
+                toDateData: standardToDate,
+              },
+              workItems,
+            },
+            formData.b412Data,
+          )
+        : null;
+      const b412ComponentData = adaptedB412Data?.componentData || {};
+      const b412ToDate = calculateB412ToDate(
+        b412ComponentData.broughtForwardData,
+        b412ComponentData.thisFlightData,
+      );
       const requiredNumber = (value, label) => {
         const rawValue = String(value ?? "").trim();
         const parsedValue = Number(rawValue);
@@ -734,7 +753,7 @@ export default function FlightLogEditEntry({
           ? {
               ...formData,
               b412Data: {
-                ...(formData.b412Data || {}),
+                ...adaptedB412Data,
                 componentData: {
                   ...b412ComponentData,
                   toDateData: b412ToDate,
@@ -816,6 +835,7 @@ export default function FlightLogEditEntry({
   };
 
   const handleSave = async () => {
+    if (!isMechanic) { onClose(); return; }
     if (isCompletedLog) {
       showToast("Completed flight logs cannot be edited.");
       return;
@@ -854,13 +874,6 @@ export default function FlightLogEditEntry({
     isPilot &&
     formData.status === "pending_acceptance" &&
     Boolean(formData.releasedBy?.signature || formData.releasedBy?.name);
-  const showNotifyButton =
-    isAircraftSelected &&
-    !readOnly &&
-    !isCompletedLog &&
-    isPilot &&
-    formData.status === "accepted" &&
-    !formData.notifiedForCompletion;
   const showCompleteButton =
     isAircraftSelected &&
     !readOnly &&
@@ -871,52 +884,47 @@ export default function FlightLogEditEntry({
   const showActionButtons =
     showReleaseButton ||
     showAcceptButton ||
-    showNotifyButton ||
     showCompleteButton ||
     Boolean(formData.releasedBy?.signature) ||
     Boolean(formData.acceptedBy?.signature);
 
+  useEffect(() => {
+    if (!visible || formData.status === "completed") return;
+    const hours = totalFlightHours(formData.legs);
+    const landingCycle = String(
+      flightLandingCycles(formData.legs, formData.additionalLandings),
+    );
+    setComponentData((previous) => {
+      if (
+        previous.thisFlightData?.landingCycle === landingCycle &&
+        FLIGHT_HOUR_FIELDS.every(
+          (key) => previous.thisFlightData?.[key] === hours,
+        )
+      )
+        return previous;
+      return {
+        ...previous,
+        thisFlightData: {
+          ...previous.thisFlightData,
+          ...Object.fromEntries(FLIGHT_HOUR_FIELDS.map((key) => [key, hours])),
+          landingCycle,
+        },
+      };
+    });
+  }, [visible, formData.legs, formData.status, formData.additionalLandings]);
+
+  useEffect(() => {
+    if (!visible || formData.status === "completed") return;
+    setFormData((previous) => {
+      const next = syncFlightLogDates(previous);
+      return JSON.stringify(previous) === JSON.stringify(next)
+        ? previous
+        : next;
+    });
+  }, [visible, formData]);
+
   const renderPage = () => {
     const currentTab = tabs[currentPage];
-
-    if (isB412 && currentTab !== "Basic Information") {
-      if (currentTab === "Flight Legs") {
-        return (
-          <FlightLogB412Legs
-            legs={ensureSixB412Legs(formData.legs)}
-            onUpdateLegs={updateB412Legs}
-            isEditable={isDestinationsEditable}
-          />
-        );
-      }
-
-      return (
-        <FlightLogB412Section
-          section={currentTab}
-          data={createEmptyB412Data(formData.b412Data)}
-          onChange={updateB412Data}
-          isEditable={
-            currentTab === "Passengers"
-              ? isDestinationsEditable
-              : [
-                    "BRT FORWARD",
-                    "This Flight",
-                    "To Date",
-                    "Fuel Servicing",
-                    "Oil Servicing",
-                  ].includes(currentTab)
-                ? isComponentEditable
-                : isDiscrepancyEditable
-          }
-          totalsEditable={
-            currentTab !== "To Date" &&
-            isComponentEditable &&
-            !(currentTab === "BRT FORWARD" && isBroughtForwardLocked)
-          }
-          correctionEditable={isB412CorrectionEditable}
-        />
-      );
-    }
 
     switch (currentTab) {
       case "Basic Information":
@@ -929,12 +937,12 @@ export default function FlightLogEditEntry({
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412}
-            serialNumber={formData.b412Data?.serialNumber || ""}
-            onUpdateSerialNumber={(serialNumber) =>
-              updateB412Data({
-                ...formData.b412Data,
-                serialNumber,
-              })
+            assignmentRole={isPilot ? "Mechanic" : isMechanic ? "Pilot" : null}
+            canAssign={
+              !readOnly &&
+              !isCompletedLog &&
+              (isPilot || isMechanic) &&
+              (!permissions || permissions.preparation)
             }
           />
         );
@@ -946,6 +954,7 @@ export default function FlightLogEditEntry({
             onUpdateLeg={updateLeg}
             isEditable={isDestinationsEditable}
             userRole={userRole}
+            maxLegs={isB412 ? 6 : undefined}
           />
         );
 
@@ -964,6 +973,11 @@ export default function FlightLogEditEntry({
       case "This Flight":
         return (
           <FlightLogModalThisFlight
+            legCount={formData.legs?.length || 0}
+            additionalLandings={formData.additionalLandings || 0}
+            onAdditionalLandingsChange={(additionalLandings) =>
+              setFormData((previous) => ({ ...previous, additionalLandings }))
+            }
             componentData={componentData.thisFlightData}
             onUpdateComponent={(field, value) =>
               updateComponent("thisFlightData", field, value)
@@ -986,6 +1000,18 @@ export default function FlightLogEditEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
+            lockedRows={
+              formData.inspectionFlow !== "confirmation" &&
+              permissions &&
+              !permissions.preparation
+                ? (logData?.workflowHistory?.findLast(
+                    (event) => event.action === "release",
+                  )?.snapshot?.fuelServicing?.length ??
+                  logData?.fuelServicing?.length ??
+                  0)
+                : 0
+            }
             legs={formData.legs || []}
             fuelServicingData={formData.fuelServicing || []}
             onUpdateFuelServicing={updateFuelServicing}
@@ -996,6 +1022,18 @@ export default function FlightLogEditEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
+            lockedRows={
+              formData.inspectionFlow !== "confirmation" &&
+              permissions &&
+              !permissions.preparation
+                ? (logData?.workflowHistory?.findLast(
+                    (event) => event.action === "release",
+                  )?.snapshot?.oilServicing?.length ??
+                  logData?.oilServicing?.length ??
+                  0)
+                : 0
+            }
             legs={formData.legs || []}
             oilServicingData={formData.oilServicing || []}
             onUpdateOilServicing={updateOilServicing}
@@ -1020,6 +1058,11 @@ export default function FlightLogEditEntry({
             workItems={workItems}
             onUpdateWorkItems={updateWorkItems}
             isEditable={isWorkDoneEditable}
+            phase={
+              permissions && !permissions.preparation
+                ? "post_flight"
+                : "preparation"
+            }
           />
         );
 
@@ -1028,466 +1071,495 @@ export default function FlightLogEditEntry({
     }
   };
 
+  useEffect(() => {
+    if (!embedded || !formData?._id) return;
+    const payload = {
+      ...formData,
+      date:
+        formData.date instanceof Date
+          ? formData.date.toLocaleDateString("en-US")
+          : formData.date,
+      componentData,
+      workItems,
+    };
+    if (isB412Aircraft(formData.aircraftType))
+      payload.b412Data = syncB412DataFromStandardFlightLog(
+        payload,
+        formData.b412Data,
+      );
+    onDraftChange?.(payload);
+  }, [embedded, formData, componentData, workItems, onDraftChange]);
+
   if (isLoading || !formData) {
     return null;
   }
 
   return (
     <>
-      <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+      <EntryShell
+        embedded={embedded}
+        visible={visible}
+        animationType="fade"
+        onRequestClose={onClose}
+      >
         <IosModalSafeAreaProvider>
           <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
+            <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-        <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 16,
-              marginBottom: 12,
-            }}
-          >
-            <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
-                {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
-              </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
-                Select Section
-              </AppText>
+            <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  marginBottom: 12,
+                }}
+              >
+                <View>
+                  <AppText
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "700",
+                      color: COLORS.black,
+                    }}
+                  >
+                    {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
+                  </AppText>
+                  <AppText
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color: COLORS.grayDark,
+                    }}
+                  >
+                    Select Section
+                  </AppText>
+                </View>
+
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.grayDark}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                ref={tabScrollViewRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingHorizontal: 16,
+                  gap: 12,
+                  paddingBottom: 12,
+                }}
+              >
+                {tabs.map((tab, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => setCurrentPage(index)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor:
+                        currentPage === index
+                          ? COLORS.primaryLight
+                          : COLORS.grayMedium,
+                      backgroundColor:
+                        currentPage === index
+                          ? COLORS.primaryLight
+                          : "transparent",
+                    }}
+                  >
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        fontWeight: "500",
+                        color:
+                          currentPage === index
+                            ? COLORS.white
+                            : COLORS.grayDark,
+                      }}
+                    >
+                      {tab}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: COLORS.grayMedium,
+                  marginTop: 12,
+                }}
+              />
             </View>
 
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <ScrollView
+              ref={scrollViewRef}
+              style={{ flex: 1, paddingHorizontal: 20 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={24}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-          </View>
+              {renderPage()}
 
-          <ScrollView
-            ref={tabScrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              gap: 12,
-              paddingBottom: 12,
-            }}
-          >
-            {tabs.map((tab, index) => (
+              {!embedded && showActionButtons && (
+                <View style={{ marginTop: 20, marginBottom: 20 }}>
+                  {showReleaseButton && (
+                    <TouchableOpacity
+                      onPress={() => setShowReleaseModal(true)}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Release
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {showAcceptButton && (
+                    <TouchableOpacity
+                      onPress={() => setShowAcceptModal(true)}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Accept
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {showCompleteButton && (
+                    <TouchableOpacity
+                      onPress={handleComplete}
+                      style={{
+                        backgroundColor: COLORS.primaryLight,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        alignItems: "center",
+                        marginBottom: 20,
+                      }}
+                    >
+                      <AppText
+                        style={{
+                          color: COLORS.white,
+                          fontWeight: "600",
+                          fontSize: 12,
+                        }}
+                      >
+                        Complete
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+
+                  {(formData.releasedBy?.name ||
+                    formData.releasedBy?.signature) && (
+                    <View
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.grayMedium,
+                        marginBottom: 20,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryLight,
+                          paddingVertical: 14,
+                          paddingHorizontal: 16,
+                        }}
+                      >
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.white,
+                            fontWeight: "600",
+                          }}
+                        >
+                          RELEASED BY:
+                        </AppText>
+                      </View>
+                      <View style={{ padding: 20 }}>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.black,
+                            marginBottom: 4,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {getSignerLabel(formData.releasedBy)}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {["maintenance manager", "superadmin"].includes(
+                            normalizedRole,
+                          )
+                            ? "MAINTENANCE MANAGER"
+                            : "MECHANIC"}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            marginTop: 8,
+                          }}
+                        >
+                          {formatSignatureDate(formData.releasedBy?.timestamp)}
+                        </AppText>
+                        {!!formData.releasedBy?.signature && (
+                          <Image
+                            source={{ uri: formData.releasedBy.signature }}
+                            style={{
+                              width: "100%",
+                              height: 80,
+                              resizeMode: "contain",
+                              marginTop: 12,
+                              backgroundColor: COLORS.white,
+                            }}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {(formData.acceptedBy?.name ||
+                    formData.acceptedBy?.signature) && (
+                    <View
+                      style={{
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: COLORS.grayMedium,
+                        marginBottom: 20,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          backgroundColor: COLORS.primaryLight,
+                          paddingVertical: 14,
+                          paddingHorizontal: 16,
+                        }}
+                      >
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.white,
+                            fontWeight: "600",
+                          }}
+                        >
+                          ACCEPTED BY:
+                        </AppText>
+                      </View>
+                      <View style={{ padding: 20 }}>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.black,
+                            marginBottom: 4,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {getSignerLabel(formData.acceptedBy)}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          PILOT
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            color: COLORS.grayDark,
+                            marginTop: 8,
+                          }}
+                        >
+                          {formatSignatureDate(formData.acceptedBy?.timestamp)}
+                        </AppText>
+                        {!!formData.acceptedBy?.signature && (
+                          <Image
+                            source={{ uri: formData.acceptedBy.signature }}
+                            style={{
+                              width: "100%",
+                              height: 80,
+                              resizeMode: "contain",
+                              marginTop: 12,
+                              backgroundColor: COLORS.white,
+                            }}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            <View
+              style={{
+                display: embedded ? "none" : "flex",
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                padding: 20,
+                backgroundColor: "#F9F9F9",
+                gap: 10,
+              }}
+            >
               <TouchableOpacity
-                key={index}
-                onPress={() => setCurrentPage(index)}
+                onPress={handlePrevious}
+                disabled={currentPage === 0}
                 style={{
                   paddingVertical: 8,
                   paddingHorizontal: 16,
-                  borderRadius: 20,
+                  borderRadius: 4,
+                  backgroundColor: COLORS.white,
                   borderWidth: 1,
-                  borderColor:
-                    currentPage === index
-                      ? COLORS.primaryLight
-                      : COLORS.grayMedium,
-                  backgroundColor:
-                    currentPage === index ? COLORS.primaryLight : "transparent",
+                  borderColor: COLORS.grayMedium,
+                  opacity: currentPage === 0 ? 0.5 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
+                  Previous
+                </AppText>
+              </TouchableOpacity>
+
+              <View
+                style={{
+                  backgroundColor: COLORS.primaryLight,
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderRadius: 4,
                 }}
               >
                 <AppText
                   style={{
-                    fontSize: 12,
-                    fontWeight: "500",
-                    color:
-                      currentPage === index ? COLORS.white : COLORS.grayDark,
+                    color: COLORS.white,
+                    fontWeight: "600",
+                    fontSize: 14,
                   }}
                 >
-                  {tab}
+                  {currentPage + 1}
+                </AppText>
+              </View>
+
+              <TouchableOpacity
+                onPress={
+                  !isAircraftSelected && !readOnly && !isCompletedLog
+                    ? undefined
+                    : isLastPage
+                      ? readOnly || isPilot || isCompletedLog
+                        ? onClose
+                        : handleSave
+                      : handleNext
+                }
+                disabled={!isAircraftSelected && !readOnly && !isCompletedLog}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 24,
+                  borderRadius: 4,
+                  backgroundColor: COLORS.primaryLight,
+                  opacity:
+                    !isAircraftSelected && !readOnly && !isCompletedLog
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                <AppText
+                  style={{
+                    color: COLORS.white,
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  {!isAircraftSelected && !readOnly && !isCompletedLog
+                    ? "Select Aircraft"
+                    : isLastPage
+                      ? readOnly || isPilot || isCompletedLog
+                        ? "Close"
+                        : "Save"
+                      : "Next"}
                 </AppText>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: COLORS.grayMedium,
-              marginTop: 12,
-            }}
-          />
-
-        </View>
-
-        <ScrollView
-          ref={scrollViewRef}
-          style={{ flex: 1, paddingHorizontal: 20 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
-        >
-          {renderPage()}
-
-          {showActionButtons && (
-            <View style={{ marginTop: 20, marginBottom: 20 }}>
-              {showReleaseButton && (
-                <TouchableOpacity
-                  onPress={() => setShowReleaseModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Release
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showAcceptButton && (
-                <TouchableOpacity
-                  onPress={() => setShowAcceptModal(true)}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Accept
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showNotifyButton && (
-                <TouchableOpacity
-                  onPress={handleNotifyMechanic}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Notify Mechanic for Completing Flights
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {showCompleteButton && (
-                <TouchableOpacity
-                  onPress={handleComplete}
-                  style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    alignItems: "center",
-                    marginBottom: 20,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontWeight: "600",
-                      fontSize: 12,
-                    }}
-                  >
-                    Complete
-                  </AppText>
-                </TouchableOpacity>
-              )}
-
-              {(formData.releasedBy?.name ||
-                formData.releasedBy?.signature) && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    marginBottom: 20,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.white,
-                        fontWeight: "600",
-                      }}
-                    >
-                      RELEASED BY:
-                    </AppText>
-                  </View>
-                  <View style={{ padding: 20 }}>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.black,
-                        marginBottom: 4,
-                        fontWeight: "500",
-                      }}
-                    >
-                      {getSignerLabel(formData.releasedBy)}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {["maintenance manager", "superadmin"].includes(normalizedRole)
-                        ? "MAINTENANCE MANAGER"
-                        : "MECHANIC"}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        marginTop: 8,
-                      }}
-                    >
-                      {formatSignatureDate(formData.releasedBy?.timestamp)}
-                    </AppText>
-                    {!!formData.releasedBy?.signature && (
-                      <Image
-                        source={{ uri: formData.releasedBy.signature }}
-                        style={{
-                          width: "100%",
-                          height: 80,
-                          resizeMode: "contain",
-                          marginTop: 12,
-                          backgroundColor: COLORS.white,
-                        }}
-                      />
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {(formData.acceptedBy?.name ||
-                formData.acceptedBy?.signature) && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    marginBottom: 20,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.white,
-                        fontWeight: "600",
-                      }}
-                    >
-                      ACCEPTED BY:
-                    </AppText>
-                  </View>
-                  <View style={{ padding: 20 }}>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.black,
-                        marginBottom: 4,
-                        fontWeight: "500",
-                      }}
-                    >
-                      {getSignerLabel(formData.acceptedBy)}
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      PILOT
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        color: COLORS.grayDark,
-                        marginTop: 8,
-                      }}
-                    >
-                      {formatSignatureDate(formData.acceptedBy?.timestamp)}
-                    </AppText>
-                    {!!formData.acceptedBy?.signature && (
-                      <Image
-                        source={{ uri: formData.acceptedBy.signature }}
-                        style={{
-                          width: "100%",
-                          height: 80,
-                          resizeMode: "contain",
-                          marginTop: 12,
-                          backgroundColor: COLORS.white,
-                        }}
-                      />
-                    )}
-                  </View>
-                </View>
-              )}
             </View>
-          )}
-        </ScrollView>
 
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            padding: 20,
-            backgroundColor: "#F9F9F9",
-            gap: 10,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handlePrevious}
-            disabled={currentPage === 0}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 4,
-              backgroundColor: COLORS.white,
-              borderWidth: 1,
-              borderColor: COLORS.grayMedium,
-              opacity: currentPage === 0 ? 0.5 : 1,
-            }}
-          >
-            <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
-              Previous
-            </AppText>
-          </TouchableOpacity>
+            <FlightLogSignatureModal
+              visible={showReleaseModal}
+              title="Release Signature"
+              onClose={() => setShowReleaseModal(false)}
+              onSave={handleRelease}
+              aircraftRPC={formData.rpc}
+              useNativeModal={false}
+            />
 
-          <View
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              borderRadius: 4,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontWeight: "600", fontSize: 14 }}
-            >
-              {currentPage + 1}
-            </AppText>
-          </View>
+            <FlightLogSignatureModal
+              visible={showAcceptModal}
+              title="Accept Signature"
+              onClose={() => setShowAcceptModal(false)}
+              onSave={handleAccept}
+              aircraftRPC={formData.rpc}
+              useNativeModal={false}
+            />
 
-          <TouchableOpacity
-            onPress={
-              !isAircraftSelected && !readOnly && !isCompletedLog
-                ? undefined
-                : isLastPage
-                ? readOnly || isCompletedLog
-                  ? onClose
-                  : handleSave
-                : handleNext
-            }
-            disabled={!isAircraftSelected && !readOnly && !isCompletedLog}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 4,
-              backgroundColor: COLORS.primaryLight,
-              opacity:
-                !isAircraftSelected && !readOnly && !isCompletedLog ? 0.5 : 1,
-            }}
-          >
-            <AppText
-              style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
-            >
-              {!isAircraftSelected && !readOnly && !isCompletedLog
-                ? "Select Aircraft"
-                : isLastPage
-                ? readOnly || isCompletedLog
-                  ? "Close"
-                  : "Save"
-                : "Next"}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        <FlightLogSignatureModal
-          visible={showReleaseModal}
-          title="Release Signature"
-          onClose={() => setShowReleaseModal(false)}
-          onSave={handleRelease}
-          aircraftRPC={formData.rpc}
-          useNativeModal={false}
-        />
-
-        <FlightLogSignatureModal
-          visible={showAcceptModal}
-          title="Accept Signature"
-          onClose={() => setShowAcceptModal(false)}
-          onSave={handleAccept}
-          aircraftRPC={formData.rpc}
-          useNativeModal={false}
-        />
-
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
+            <AlertComp
+              visible={feedbackAlert.visible}
+              title={feedbackAlert.title}
+              message={feedbackAlert.message}
+              duration={1400}
+              onFinish={() => {
+                const shouldClose = feedbackAlert.closeOnFinish;
+                setFeedbackAlert((prev) => ({ ...prev, visible: false }));
+                if (shouldClose) {
+                  onClose();
+                }
+              }}
+            />
           </SafeAreaView>
         </IosModalSafeAreaProvider>
-      </Modal>
+      </EntryShell>
     </>
   );
 }

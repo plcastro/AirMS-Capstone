@@ -4,11 +4,7 @@ const UserModel = require("../models/userModel");
 const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
-
-const isMobilePlatform = (platform) =>
-  String(platform || "").toUpperCase() === "MOBILE";
+const { SESSION_IDLE_LIMIT_MS, sessionActivityAt } = require('../utils/sessionIdle');
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -38,44 +34,62 @@ const verifyToken = async (req, res, next) => {
     }
 
     const now = Date.now();
-    const lastActivityAt = new Date(
-      session.lastActivityAt || session.loginAt || now,
-    ).getTime();
-    const platform =
-      req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
-
-    if (!isMobilePlatform(platform)) {
-      const clientActiveAt = Number(req.headers["x-client-active-at"]);
-      const hasRecentClientActivity =
-        Number.isFinite(clientActiveAt) &&
-        clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
-        now - clientActiveAt <= DEFAULT_SESSION_IDLE_LIMIT_MS;
-      const effectiveLastActivityAt = hasRecentClientActivity
-        ? Math.max(lastActivityAt, clientActiveAt)
-        : lastActivityAt;
-      const inactiveForMs = now - effectiveLastActivityAt;
-
-      if (inactiveForMs > DEFAULT_SESSION_IDLE_LIMIT_MS) {
-        await UserSession.findOneAndUpdate(
-          { userId, sessionId, isActive: true },
-          { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-        );
-        return res
-          .status(401)
-          .json({ message: "Session timed out due to inactivity" });
-      }
+    const platform = req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
+    const activityAt = sessionActivityAt(session, req.headers["x-client-active-at"], now);
+    if (now - activityAt >= SESSION_IDLE_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(now) },
+      );
+      return res.status(401).json({ message: "Session timed out due to inactivity" });
     }
-
+    req.sessionActivityAt = activityAt;
     await UserSession.findOneAndUpdate(
       { userId, sessionId, isActive: true },
-      { lastActivityAt: new Date() },
+      { $max: { lastActivityAt: new Date(activityAt) } },
     );
 
-    req.user = decoded;
+    const user = await UserModel.findById(userId)
+      .select("username email firstName lastName jobTitle access licenseNo status")
+      .lean();
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    if (user.status === "deactivated") {
+      return res.status(403).json({ message: "Account deactivated" });
+    }
+
+    req.user = {
+      ...decoded,
+      id: String(user._id),
+      _id: String(user._id),
+      userId: String(user._id),
+      sub: String(user._id),
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      jobTitle: user.jobTitle,
+      access: user.access,
+      licenseNo: user.licenseNo,
+      status: user.status,
+      sessionId,
+      platform,
+      base: req.headers["x-base"] || decoded.base,
+    };
     updateRequestContext({
       sessionId,
       platform,
       base: req.headers["x-base"] || decoded.base,
+      devicePlatform: req.headers["x-device-platform"] || session.devicePlatform,
+      deviceModel: req.headers["x-device-model"] || session.deviceModel,
+      locationText: req.headers["x-location-text"] || session.locationText,
+      locationLatitude:
+        req.headers["x-location-latitude"] ?? session.locationLatitude,
+      locationLongitude:
+        req.headers["x-location-longitude"] ?? session.locationLongitude,
     });
     next();
   } catch (err) {

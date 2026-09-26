@@ -1,8 +1,8 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
@@ -279,7 +279,7 @@ export default function PostInspectionEditEntry({
             updateForm={updateForm}
             isEditable={isFormEditable}
             isAircraftEditable={
-              isFormEditable && !formData.linkedFromPreFlight
+              isFormEditable && !formData.linkedFromPreFlight && !formData.flightLogId
             }
             rpcOptions={rpcOptions}
           />
@@ -742,6 +742,7 @@ export default function PostInspectionEditEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
 
         <AlertComp

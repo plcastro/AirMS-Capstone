@@ -34,12 +34,15 @@ const signatureSchema = new mongoose.Schema(
 
 const preInspectionSchema = new mongoose.Schema(
   {
+    flightLogId: { type: mongoose.Schema.Types.ObjectId, ref: "FlightLog", default: null, index: true },
     aircraftType: { type: String, required: true, trim: true },
     rpc: { type: String, required: true, trim: true },
     base: { type: String, default: "", trim: true, uppercase: true },
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    confirmation: { type: mongoose.Schema.Types.Mixed, default: null },
     status: {
       type: String,
       enum: ["pending", "released", "completed"],

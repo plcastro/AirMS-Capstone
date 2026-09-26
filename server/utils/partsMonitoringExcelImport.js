@@ -1,4 +1,93 @@
+const fs = require("fs");
 const path = require("path");
+const JSZip = require("jszip");
+
+const spreadsheetNamespacePattern =
+  /xmlns:([A-Za-z_][\w.-]*)=(['"])(?:http:\/\/schemas\.openxmlformats\.org\/spreadsheetml\/2006\/main|http:\/\/purl\.oclc\.org\/ooxml\/spreadsheetml\/main)\2/g;
+
+const escapeRegExp = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const isNamespaceCompatibilityError = (error) =>
+  /Cannot (?:read propert(?:y|ies) of undefined \(reading ['"]sheets['"]\)|set propert(?:y|ies) of undefined \(setting ['"]sheetNo['"]\))/i.test(
+    String(error?.message || ""),
+  );
+
+const createWorkbookReadError = (cause) => {
+  const error = new Error(
+    "Unable to read the Excel workbook. Make sure it is a valid, unprotected .xlsx or .xlsm file.",
+  );
+  error.cause = cause;
+  return error;
+};
+
+const normalizeSpreadsheetNamespacePrefixes = async (buffer) => {
+  const archive = await JSZip.loadAsync(buffer);
+  let changed = false;
+
+  await Promise.all(
+    Object.values(archive.files)
+      .filter((entry) => !entry.dir && /\.(?:xml|rels)$/i.test(entry.name))
+      .map(async (entry) => {
+        const xml = await entry.async("string");
+        const prefixes = new Set(
+          Array.from(xml.matchAll(spreadsheetNamespacePattern), (match) => match[1]),
+        );
+        let normalizedXml = xml;
+        prefixes.forEach((prefix) => {
+          normalizedXml = normalizedXml.replace(
+            new RegExp(`<(/?)${escapeRegExp(prefix)}:`, "g"),
+            "<$1",
+          );
+        });
+
+        // Some OpenXML writers use valid package-absolute relationship targets.
+        // ExcelJS expects these particular worksheet relationships to be relative.
+        normalizedXml = normalizedXml
+          .replace(
+            /\bTarget=(['"])\/xl\/comments(\d+)\.xml\1/gi,
+            (match, quote, index) =>
+              `Target=${quote}../comments${index}.xml${quote}`,
+          )
+          .replace(
+            /\bTarget=(['"])\/xl\/tables\/(table\d+\.xml)\1/gi,
+            (match, quote, name) =>
+              `Target=${quote}../tables/${name}${quote}`,
+          )
+          .replace(
+            /\bTarget=(['"])\/xl\/drawings\/vmldrawing(\d*)\.vml\1/gi,
+            (match, quote, index) =>
+              `Target=${quote}../drawings/vmlDrawing${index || "1"}.vml${quote}`,
+          );
+
+        if (normalizedXml !== xml) {
+          archive.file(entry.name, normalizedXml);
+          changed = true;
+        }
+      }),
+  );
+
+  for (const entry of Object.values(archive.files)) {
+    const match = entry.name.match(/^xl\/drawings\/vmldrawing(\d*)\.vml$/i);
+    if (!entry.dir && match) {
+      const normalizedName = `xl/drawings/vmlDrawing${match[1] || "1"}.vml`;
+      if (entry.name !== normalizedName) {
+        archive.file(normalizedName, await entry.async("nodebuffer"));
+        archive.remove(entry.name);
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) {
+    return null;
+  }
+
+  return archive.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+  });
+};
 
 const getExcelJS = () => {
   try {
@@ -97,6 +186,32 @@ const toNumber = (value) => {
   }
   const parsed = Number(String(value).replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const loadWorkbook = async (ExcelJS, buffer) => {
+  const workbook = new ExcelJS.Workbook();
+
+  try {
+    await workbook.xlsx.load(buffer);
+    return workbook;
+  } catch (error) {
+    if (!isNamespaceCompatibilityError(error)) {
+      throw createWorkbookReadError(error);
+    }
+
+    try {
+      const normalizedBuffer = await normalizeSpreadsheetNamespacePrefixes(buffer);
+      if (!normalizedBuffer) {
+        throw error;
+      }
+
+      const normalizedWorkbook = new ExcelJS.Workbook();
+      await normalizedWorkbook.xlsx.load(normalizedBuffer);
+      return normalizedWorkbook;
+    } catch (fallbackError) {
+      throw createWorkbookReadError(fallbackError);
+    }
+  }
 };
 
 const toOptionalNumber = (value) => {
@@ -270,12 +385,12 @@ const extractRows = (worksheet) => {
 
 const readWorkbookData = async ({ buffer, filePath, aircraft, sheetName }) => {
   const ExcelJS = getExcelJS();
-  const workbook = new ExcelJS.Workbook();
-  if (buffer) {
-    await workbook.xlsx.load(buffer);
-  } else {
-    await workbook.xlsx.readFile(filePath);
+  if (!buffer && !filePath) {
+    throw new Error("Excel workbook data is required");
   }
+
+  const workbookBuffer = buffer || (await fs.promises.readFile(filePath));
+  const workbook = await loadWorkbook(ExcelJS, workbookBuffer);
 
   const worksheet =
     (sheetName && workbook.getWorksheet(sheetName)) ||

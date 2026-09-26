@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateInput from "../common/DateInput";
+import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
 export default function FlightLogModalInfo({
   formData,
@@ -15,8 +18,6 @@ export default function FlightLogModalInfo({
   isActive = true,
   onAircraftDataLoaded,
   isB412 = false,
-  serialNumber = "",
-  onUpdateSerialNumber,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -108,11 +109,13 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeaders();
+        const statuses = ["pending_release", "pending_acceptance", "accepted", "submitted", "returned_to_pilot", "returned_to_mechanic"];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
               `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -146,38 +149,6 @@ export default function FlightLogModalInfo({
       rpc,
     };
   });
-
-  const formatDate = (date) => {
-    if (!date) return "";
-
-    let dateObj;
-
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-
-    if (isNaN(dateObj.getTime())) return "";
-
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const toggleRPCDropdown = () => {
     if (canEditRPC) {
@@ -422,34 +393,6 @@ export default function FlightLogModalInfo({
             {renderAircraftType()}
           </View>
 
-          {isB412 && (
-            <View style={{ marginBottom: 16 }}>
-              <AppText
-                style={{
-                  fontSize: 12,
-                  color: COLORS.black,
-                  marginBottom: 6,
-                  fontWeight: "500",
-                }}
-              >
-                Serial No.:
-              </AppText>
-              <AppInput
-                style={{
-                  backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
-                  borderRadius: 6,
-                  height: 42,
-                  paddingHorizontal: 12,
-                  fontSize: 12,
-                  color: isEditable ? COLORS.black : COLORS.grayDark,
-                }}
-                value={serialNumber}
-                onChangeText={onUpdateSerialNumber}
-                editable={isEditable}
-              />
-            </View>
-          )}
-
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{
@@ -461,26 +404,17 @@ export default function FlightLogModalInfo({
             >
               Date: *
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
-                borderRadius: 6,
-                height: 42,
-                paddingHorizontal: 12,
-              }}
-            >
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons
-                name="calendar-blank"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: '500' }}>Assigned Pilot:</AppText>
+            <FlightAssignedPilotSelect value={formData.assignedPilot} onChange={value => updateForm('assignedPilot', value)}
+              disabled={!isEditable} isActive={isActive} />
           </View>
 
           <View style={{ marginBottom: 8 }}>
@@ -508,6 +442,16 @@ export default function FlightLogModalInfo({
               editable={isEditable}
             />
           </View>
+          {formData.preFlightInspection?.signature && <View style={{ marginTop: 16 }}>
+            <AppText style={{ fontWeight: '700' }}>Pre-flight inspection confirmed</AppText>
+            <AppText>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</AppText>
+            <Image source={{ uri: formData.preFlightInspection.signature }} accessibilityLabel="Pre-flight confirmation signature"
+              style={{ width: 180, height: 80 }} resizeMode="contain" />
+            {!!formData.preFlightInspection.remarks && <>
+              <AppText>Discrepancies: {formData.preFlightInspection.remarks}</AppText>
+              <AppText>Resolution: {formData.preFlightInspection.resolution}</AppText>
+            </>}
+          </View>}
         </View>
       </View>
     </View>

@@ -1,4 +1,8 @@
 import React from "react";
+import FlightTimeInput from './FlightTimeInput';
+import FlightStationInput from './FlightStationInput';
+import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
+import { defaultPassengerCount } from '../../../../shared/flightLegTimes';
 import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -11,15 +15,21 @@ const getOrdinalSuffix = (n) => {
   return "th";
 };
 
-const REQUIRED_LEG_FIELDS = new Set(["date"]);
+const REQUIRED_LEG_FIELDS = new Set(["date", "totalTimeOff"]);
 
-export default function FlightLogModalDestinations({ formData, handlers, isEditable = true }) {
+export default function FlightLogModalDestinations({
+  formData,
+  handlers,
+  isEditable = true,
+  maxLegs,
+}) {
   const { updateLeg, addLeg, removeLeg, addStation, removeStation, updateStation } = handlers;
   const legs = formData.legs || [];
 
   return (
     <div className="fl-section">
       <div className="fl-section-title">DESTINATION/S</div>
+      <p>Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm) if entered. Total Time (FLIGHT) is required for component hours. Passengers default to 0.</p>
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
@@ -47,26 +57,20 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                 <div style={{ flex: 1 }}>
                   {stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">
-                      <Input
-                        className="fl-input"
+                      <FlightStationInput
                         value={station?.from || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "from", e.target.value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "from", value)}
                         placeholder="From"
+                        label={`Leg ${n} station ${stIdx + 1} from`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       <span className="fl-station-sep">-</span>
-                      <Input
-                        className="fl-input"
+                      <FlightStationInput
                         value={station?.to || ""}
-                        onChange={(e) => updateStation(legIdx, stIdx, "to", e.target.value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "to", value)}
                         placeholder="To"
+                        label={`Leg ${n} station ${stIdx + 1} to`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       {isEditable && stations.length > 1 && (
                         <Button
@@ -112,6 +116,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                       style={{ width: "100%" }}
                       format="MM/DD/YYYY"
                       inputReadOnly
+                      placeholder="From Basic Information"
                       value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
                       onChange={(date) =>
                         updateLeg(
@@ -122,14 +127,17 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
                             : "",
                         )
                       }
-                      disabled={!isEditable}
+                      disabled
                       required
                       aria-required="true"
                     />
+                  ) : FLIGHT_TIME_FIELDS.includes(key) ? (
+                    <FlightTimeInput label={label} value={leg[key]} duration={isTotalTimeField(key)} required={key === 'totalTimeOff'}
+                      disabled={!isEditable} onChange={value => updateLeg(legIdx, key, value)} />
                   ) : (
                     <Input
                       className="fl-input"
-                      value={leg[key] || ""}
+                      value={key === 'passengers' ? defaultPassengerCount(leg[key]) : leg[key] ?? ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
                       disabled={!isEditable}
                       required={REQUIRED_LEG_FIELDS.has(key)}
@@ -143,7 +151,7 @@ export default function FlightLogModalDestinations({ formData, handlers, isEdita
         );
       })}
 
-      {isEditable && (
+      {isEditable && (!Number.isFinite(maxLegs) || legs.length < maxLegs) && (
         <Button className="fl-add-btn" icon={<PlusOutlined />} onClick={addLeg} block>
           Add Leg
         </Button>

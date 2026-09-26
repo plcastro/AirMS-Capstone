@@ -1,10 +1,10 @@
+import Modal from "../common/AppModal";
 import React, { useEffect, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,

@@ -39,7 +39,7 @@ const ROLE_MAP = {
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
   Mechanic: "User",
-  "Warehouse Staff": "User",
+  "Warehouse Personnel": "User",
 };
 
 const resizeImage = (file, size = 128) =>
@@ -586,8 +586,8 @@ export default function UserForm({
                         },
                         { label: "Mechanic", value: "Mechanic" },
                         {
-                          label: "Warehouse Staff",
-                          value: "Warehouse Staff",
+                          label: "Warehouse Personnel",
+                          value: "Warehouse Personnel",
                         },
                       ]}
                     />

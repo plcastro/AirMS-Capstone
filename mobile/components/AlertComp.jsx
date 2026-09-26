@@ -1,8 +1,8 @@
+import Modal from "./common/AppModal";
 import React, { useEffect, useRef } from "react";
 import AppText from "./common/AppText";
 import {
   View,
-  Modal,
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
@@ -96,6 +96,7 @@ export default function AlertComp({
 const localStyles = StyleSheet.create({
   embeddedOverlay: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 2000,
     elevation: 24,
   },
 });

@@ -6,6 +6,7 @@ import { getAuthHeaders } from "./mobileApi";
 import { saveExportFile } from "./saveExportFile";
 import { showToast } from "./toast";
 import { openPdfPrintDialogOnWeb } from "./webPdfExport";
+import { getStoredUser } from "./authStorage";
 
 const NGCP_LOGO_ASSET = require("../assets/ngcp-logo.png");
 let cachedNgcpLogoDataUri = "";
@@ -65,6 +66,25 @@ const asDate = () =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+const getExportExecutorName = async (fallback = "Unknown User") => {
+  try {
+    const rawUser = await getStoredUser();
+    const user = rawUser ? JSON.parse(rawUser) : null;
+    const fullName = [user?.firstName, user?.lastName]
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      fullName ||
+      String(user?.displayName || user?.username || user?.email || fallback)
+        .trim()
+    );
+  } catch {
+    return fallback;
+  }
+};
 const buildModuleName = (value) =>
   String(value || "Reports and Analytics")
     .trim()
@@ -137,6 +157,7 @@ const buildHtml = (
   logoDataUri = "",
   summaryCards = [],
   barCharts = [],
+  executedBy = "Unknown User",
 ) => `
 <!doctype html>
 <html>
@@ -172,6 +193,7 @@ ${logoDataUri ? `<img src="${logoDataUri}" alt="NGCP" />` : ""}
 <div>
 <h1>${safe(title)}</h1>
 <p>Generated: ${safe(asDate())}</p>
+<p>Executed By: ${safe(executedBy)}</p>
 </div>
 </div>
 ${
@@ -259,12 +281,14 @@ export const exportReportPdf = async ({
 }) => {
   const normalizedSections = normalizeSections(sections);
   const logoDataUri = await getNgcpLogoDataUri();
+  const executedBy = await getExportExecutorName();
   const html = buildHtml(
     title,
     normalizedSections,
     logoDataUri,
     summaryCards,
     barCharts,
+    executedBy,
   );
 
   if (Platform.OS === "web") {

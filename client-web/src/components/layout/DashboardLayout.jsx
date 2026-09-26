@@ -30,6 +30,7 @@ const PushNotificationsCard = lazy(
 const ResultPopup = lazy(() => import("../common/ResultPopup"));
 const WEB_SETTINGS_KEY = "webProfileSettings";
 const MODULE_NAMES = {
+  sessions: "Sessions",
   messages: "Messages",
   tasks: "Tasks",
   maintenance: "Maintenance",

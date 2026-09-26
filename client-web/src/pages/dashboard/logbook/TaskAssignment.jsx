@@ -45,6 +45,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
+import { formatTaskInspectionLabel } from "../../../utils/taskInspectionLabel";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
@@ -672,10 +673,7 @@ export default function TaskAssignment() {
       ...toUniqueSelectOptions(
         inspectionOptions,
         (inspection) => inspection.id,
-        (inspection) =>
-          inspection.aircraftModel
-            ? `${inspection.name} (${inspection.aircraftModel})`
-            : inspection.name,
+        formatTaskInspectionLabel,
       ),
     ],
     [inspectionOptions],

@@ -23,6 +23,7 @@ import { navigate, navigationRef } from "../utilities/navigationRef";
 import { savePendingRedirect } from "../utilities/pendingRedirect";
 import { showToast } from "../utilities/toast";
 import { consumePushInbox } from "../utilities/pushInbox";
+import { getStoredAccessToken } from "../utilities/authStorage";
 import messaging from "@react-native-firebase/messaging";
 const __DEV_LOG__ = __DEV__;
 const log = (...args) => {
@@ -37,6 +38,7 @@ const NAV_QUEUE_MAX_ATTEMPTS = 40;
 const ACTIVE_NOTIFICATION_POLL_MS = 10000;
 
 const VALID_MODULES = new Set([
+  "sessions",
   "flight-logs",
   "pre-flight inspections",
   "post-inspections",
@@ -72,13 +74,7 @@ export const NotificationContext = createContext({
 });
 
 const getStoredToken = async () => {
-  if (Platform.OS === "web") {
-    const token = window.localStorage.getItem("currentUserToken");
-    // console.log("Fetching stored token:", token);
-    return token;
-  }
-
-  const token = await AsyncStorage.getItem("currentUserToken");
+  const token = await getStoredAccessToken();
   // console.log("Fetching stored token:", token);
   return token;
 };
@@ -169,6 +165,7 @@ const buildTargetNavigation = (notificationPayload) => {
           notificationPayload?.entityId ||
           notificationPayload?.targetFlightLogId ||
           notificationPayload?.data?.targetFlightLogId,
+        targetSection: notificationPayload?.metadata?.targetSection || notificationPayload?.targetSection || notificationPayload?.data?.targetSection || 'flight',
         notificationStatus:
           notificationPayload?.metadata?.status ||
           notificationPayload?.status ||
@@ -351,7 +348,7 @@ export function NotificationProvider({ children }) {
   );
 
   const showForegroundBanner = useCallback(({ title, body, payload }) => {
-    if (Platform.OS === "web") {
+    if (Platform.OS === "web" && getModuleName(payload) !== "sessions") {
       showToast(title || body);
       return;
     }
@@ -622,7 +619,7 @@ export function NotificationProvider({ children }) {
         "maintenance manager",
         "mechanic",
         "officer-in-charge",
-        "warehouse staff",
+        "warehouse personnel",
       ].includes(normalizedRole);
       const canAccessMessages = canAccessRequisitions;
 
@@ -1003,6 +1000,11 @@ export function NotificationProvider({ children }) {
           return;
         }
 
+        if (getModuleName(notificationPayload) === "sessions") {
+          const notificationId = notificationPayload?._id || notificationPayload?.notificationId || notificationPayload?.data?.notificationId;
+          if (user?.id && notificationId) await markAsRead(notificationId);
+          return;
+        }
         const targetNavigation = buildTargetNavigation(notificationPayload);
         if (!targetNavigation) return;
 
@@ -1055,6 +1057,8 @@ export function NotificationProvider({ children }) {
       );
       if (latestNavigable?.data) {
         const payload = normalizePushData(latestNavigable.data);
+        // Session warnings are already stored in the notification inbox.
+        if (getModuleName(payload) === "sessions") return;
         const title =
           latestNavigable?.notification?.title ||
           payload?.title ||
@@ -1267,7 +1271,7 @@ export function NotificationProvider({ children }) {
             remoteMessage?.notification?.body ||
             "You have a new update. Tap view to open.";
 
-          pushInAppNotification({
+          if (getModuleName(payload) !== "sessions") pushInAppNotification({
             title,
             description: body,
             module: getModuleName(payload) || "parts-requisition",

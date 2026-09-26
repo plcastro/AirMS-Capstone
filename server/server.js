@@ -33,6 +33,7 @@ const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
 const { startSessionRetentionJob } = require("./utils/sessionRetentionService");
+const { startFlightNotificationJob, drainFlightNotifications } = require("./utils/flightWorkflowNotificationOutbox");
 const {
   subscribeSSE,
   publishEvent,
@@ -79,6 +80,11 @@ const corsOptions = {
     "x-base",
     "x-session-id",
     "x-client-active-at",
+    "x-device-platform",
+    "x-device-model",
+    "x-location-latitude",
+    "x-location-longitude",
+    "x-location-text",
     "x-action-confirmed",
     "x-confirm-action",
   ],
@@ -153,7 +159,7 @@ app.use(
       features: {
         camera: [],
         microphone: [],
-        geolocation: [],
+        geolocation: ["self"],
         gyroscope: [],
         magnetometer: [],
       },
@@ -182,6 +188,7 @@ connectToDatabase()
     }
     startInvitationLifecycleJob();
     startSessionRetentionJob();
+    startFlightNotificationJob();
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -190,6 +197,8 @@ connectToDatabase()
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
+    // Also retry delivery on requests in serverless deployments where timers pause.
+    if (req.path.startsWith('/api/notifications')) await drainFlightNotifications().catch(() => {});
     next();
   } catch (error) {
     console.error("Database unavailable for request:", error.message);
@@ -266,6 +275,8 @@ app.use(
 );
 
 app.set("trust proxy", 1);
+
+app.use("/api", require("./middleware/apiNotFound"));
 
 app.use((err, req, res, next) => {
   const statusCode = err.status || 500;

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { Picker } from '@react-native-picker/picker';
 import { Image, TouchableOpacity, View } from "react-native";
 import AppInput from "../common/AppInput";
 import AppText from "../common/AppText";
+import DateInput from "../common/DateInput";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -46,7 +48,7 @@ function Field({
       >
         {label}
       </AppText>
-      <AppInput
+      {['Remaining', 'Total'].includes(label) ? !isEditable ? <AppText>{value || '?'}</AppText> : <Picker enabled={isEditable} selectedValue={value || ''} onValueChange={onChangeText}><Picker.Item label="MIN / MAX" value="" /><Picker.Item label="MIN" value="MIN" /><Picker.Item label="MAX" value="MAX" /></Picker> : <AppInput
         value={String(value ?? "")}
         onChangeText={onChangeText}
         editable={isEditable}
@@ -63,7 +65,7 @@ function Field({
           fontSize: 12,
           color: isEditable ? COLORS.black : COLORS.grayDark,
         }}
-      />
+      />}
     </View>
   );
 }
@@ -75,6 +77,7 @@ function SignatureField({
   isEditable,
   description,
   confirmDescription,
+  requirePin = true,
 }) {
   const [isSigning, setIsSigning] = useState(false);
   const signature = String(value || "");
@@ -159,10 +162,40 @@ function SignatureField({
         title="Sign Here"
         description={description}
         confirmDescription={confirmDescription}
+        requirePin={requirePin}
         onClose={() => setIsSigning(false)}
         onSave={(nextSignature) => {
           onChange(nextSignature);
           setIsSigning(false);
+        }}
+      />
+    </View>
+  );
+}
+
+function DateField({ label, value, onChangeText, isEditable, flex = 1 }) {
+  return (
+    <View style={{ flex, marginBottom: 13 }}>
+      <AppText
+        style={{
+          fontSize: 12,
+          color: COLORS.black,
+          marginBottom: 5,
+          fontWeight: "500",
+        }}
+      >
+        {label}
+      </AppText>
+      <DateInput
+        value={value}
+        onChangeText={onChangeText}
+        editable={isEditable}
+        style={{
+          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 4,
+          minHeight: 38,
+          height: 38,
+          paddingHorizontal: 10,
         }}
       />
     </View>
@@ -215,7 +248,7 @@ function ComponentTotals({
         label="Airframe"
         value={values.airframe}
         onChangeText={(value) => onFieldChange(["airframe"], value)}
-        isEditable={isEditable}
+        isEditable={false}
       />
 
       <AppText style={{ fontSize: 12, fontWeight: "600", marginBottom: 8 }}>
@@ -228,7 +261,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["mrGearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -236,7 +269,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["mrGearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -250,7 +283,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr90Gearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -258,7 +291,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr90Gearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -272,7 +305,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr42Gearbox", "tsn"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
         <Field
           label="TSO"
@@ -280,7 +313,7 @@ function ComponentTotals({
           onChangeText={(value) =>
             onFieldChange(["tr42Gearbox", "tso"], value)
           }
-          isEditable={isEditable}
+          isEditable={false}
         />
       </Row>
 
@@ -288,7 +321,7 @@ function ComponentTotals({
         label="Landing Cycle"
         value={values.landingCycle}
         onChangeText={(value) => onFieldChange(["landingCycle"], value)}
-        isEditable={isEditable}
+        isEditable={false}
       />
 
       {[1, 2].map((engineNumber) => {
@@ -307,7 +340,7 @@ function ComponentTotals({
                 onChangeText={(value) =>
                   onFieldChange([engineKey, "tsn"], value)
                 }
-                isEditable={isEditable}
+                isEditable={false}
               />
               <Field
                 label="TSO"
@@ -315,7 +348,7 @@ function ComponentTotals({
                 onChangeText={(value) =>
                   onFieldChange([engineKey, "tso"], value)
                 }
-                isEditable={isEditable}
+                isEditable={false}
               />
               <Field
                 label="Cycle"
@@ -459,7 +492,7 @@ function FuelServicing({ data, update, isEditable }) {
               }
               isEditable={isEditable}
               description="Draw the refueller signature below."
-              confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+              requirePin={false}
             />
           </Row>
         </Card>
@@ -566,7 +599,7 @@ function DiscrepancyCorrection({
             isEditable={correctionEditable}
           />
           <Row>
-            <Field
+            <DateField
               label="Date"
               value={item.date}
               onChangeText={(value) =>
@@ -652,7 +685,7 @@ export default function FlightLogB412Section({
         />
         {section === "To Date" && (
           <Card title="Next Inspection Due At">
-            <Field
+            <DateField
               label="Airframe Next Inspection Due At"
               value={data.componentData.airframeNextInspectionDueAt}
               onChangeText={(value) =>
@@ -663,7 +696,7 @@ export default function FlightLogB412Section({
               }
               isEditable={isEditable}
             />
-            <Field
+            <DateField
               label="Engine Next Inspection Due At"
               value={data.componentData.engineNextInspectionDueAt}
               onChangeText={(value) =>

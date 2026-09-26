@@ -1,3 +1,4 @@
+import Modal from "../common/AppModal";
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
@@ -5,7 +6,6 @@ import {
   ActivityIndicator,
   Image,
   Linking,
-  Modal,
   ScrollView,
   TouchableOpacity,
   View,
@@ -47,9 +47,6 @@ export default function ChatView({
   selectedGroupMembers,
   renderAvatar,
   getDisplayName,
-  onLeaveGroup,
-  onRemoveGroupMember,
-  groupActionLoadingId,
 }) {
   const isNearBottomRef = useRef(true);
   const lastConversationIdRef = useRef(null);
@@ -560,10 +557,6 @@ export default function ChatView({
             selectedGroupMembers={selectedGroupMembers}
             renderAvatar={renderAvatar}
             getDisplayName={getDisplayName}
-            currentUserId={currentUserId}
-            onLeaveGroup={onLeaveGroup}
-            onRemoveGroupMember={onRemoveGroupMember}
-            groupActionLoadingId={groupActionLoadingId}
           />
 
           <Modal

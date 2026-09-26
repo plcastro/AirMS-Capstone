@@ -5,86 +5,96 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  secureGetItem,
-  secureSetItem,
-  secureDeleteItem,
-} from "../utilities/secureStorage";
 import { API_BASE } from "../utilities/API_BASE";
 import {
   getClientActiveAt,
+  getDeviceAuditHeaders,
   recordClientActivity,
 } from "../utilities/mobileApi";
+import { buildLoginLocationHeaders } from "../utilities/loginLocation";
+import {
+  clearLegacyWebAuthStorage,
+  clearStoredAuthMaterial,
+  getStoredAccessToken,
+  getStoredRefreshToken,
+  getStoredSessionMeta,
+  getStoredUser,
+  IS_WEB_AUTH_STORAGE,
+  removeStoredRefreshToken,
+  setStoredAccessToken,
+  setStoredRefreshToken,
+  setStoredSessionMeta,
+  setStoredUser,
+} from "../utilities/authStorage";
+
+import {
+  createIdleSession,
+  SESSION_IDLE_LIMIT_MS,
+} from "../../shared/sessionIdle";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const REMEMBERED_SESSION_STARTED_AT_KEY = "rememberedSessionStartedAt";
-  const ACCESS_TOKEN_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+  const ACCESS_TOKEN_REFRESH_INTERVAL_MS = 20 * 60 * 1000;
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rememberMePreference, setRememberMePreference] = useState(false);
+  const [session, setSession] = useState(null);
+  const defaultPlatform = Platform.OS === "web" ? "WEB" : "MOBILE";
   const accessTokenRef = useRef(null);
   const refreshTokenRef = useRef(null);
   const refreshPromiseRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
   const lastActivityWriteRef = useRef(0);
+  const lastActivityRef = useRef(0);
+  const idleSessionRef = useRef(null);
+  const sessionEndedRef = useRef(false);
 
-  const markClientActivity = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastActivityWriteRef.current < 30 * 1000) return;
-
-    lastActivityWriteRef.current = now;
-    try {
-      await recordClientActivity(now);
-    } catch (error) {
-      console.warn(
-        "Failed to record mobile activity:",
-        error?.message || error,
-      );
-    }
+  const markClientActivity = useCallback(() => {
+    if (sessionEndedRef.current) return;
+    idleSessionRef.current?.activity();
   }, []);
 
   const clearStoredAuth = useCallback(async () => {
-    await AsyncStorage.multiRemove([
-      "currentUser",
-      "currentUserToken",
-      "refreshToken",
-      "authSessionMeta",
-      REMEMBERED_SESSION_STARTED_AT_KEY,
-    ]);
-    await secureDeleteItem("accessToken");
-    await secureDeleteItem("refreshToken");
+    await clearStoredAuthMaterial();
+    await AsyncStorage.removeItem(REMEMBERED_SESSION_STARTED_AT_KEY);
   }, []);
 
   const logoutUser = useCallback(
-    async ({ broadcast = true } = {}) => {
+    async () => {
+      sessionEndedRef.current = true;
+      idleSessionRef.current?.stop();
+      setUser(null);
+      setToken(null);
+      setSession(null);
       try {
         const accessToken =
-          accessTokenRef.current ||
-          (await AsyncStorage.getItem("currentUserToken"));
+          accessTokenRef.current || (await getStoredAccessToken());
         const refreshToken =
-          refreshTokenRef.current ||
-          (await AsyncStorage.getItem("refreshToken")) ||
-          (await secureGetItem("refreshToken"));
+          refreshTokenRef.current || (await getStoredRefreshToken());
         let sessionMeta = {};
         try {
-          const rawSessionMeta = await AsyncStorage.getItem("authSessionMeta");
+          const rawSessionMeta = await getStoredSessionMeta();
           sessionMeta = rawSessionMeta ? JSON.parse(rawSessionMeta) : {};
         } catch {
           sessionMeta = {};
         }
 
+        accessTokenRef.current = null;
+        refreshTokenRef.current = null;
+        await clearStoredAuth();
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-            "x-platform": sessionMeta?.platform || "MOBILE",
-            ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+            "x-platform": sessionMeta?.platform || defaultPlatform,
+            ...getDeviceAuditHeaders(),
+            ...buildLoginLocationHeaders(sessionMeta?.location),
             ...(sessionMeta?.sessionId
               ? { "x-session-id": sessionMeta.sessionId }
               : {}),
@@ -96,15 +106,6 @@ export const AuthProvider = ({ children }) => {
         });
       } catch (error) {
         console.error("Mobile logout API error:", error);
-      } finally {
-        setUser(null);
-        setToken(null);
-        accessTokenRef.current = null;
-        refreshTokenRef.current = null;
-        await clearStoredAuth();
-        setRememberMePreference(
-          (await AsyncStorage.getItem("rememberMe")) === "true",
-        );
       }
     },
     [clearStoredAuth],
@@ -112,17 +113,18 @@ export const AuthProvider = ({ children }) => {
 
   const persistSessionMeta = useCallback(async (sessionData = {}) => {
     const payload = {
-      base: sessionData.base || "UNKNOWN",
       sessionId: sessionData.sessionId || null,
-      platform: "MOBILE",
+      platform: sessionData.platform || defaultPlatform,
+      location: sessionData.location || null,
     };
-    await AsyncStorage.setItem("authSessionMeta", JSON.stringify(payload));
+    await setStoredSessionMeta(JSON.stringify(payload));
+    setSession(payload);
     return payload;
   }, []);
 
   const getSessionMeta = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem("authSessionMeta");
+      const raw = await getStoredSessionMeta();
       return raw ? JSON.parse(raw) : {};
     } catch {
       return {};
@@ -131,6 +133,11 @@ export const AuthProvider = ({ children }) => {
 
   const refreshSession = useCallback(
     async () => {
+      if (sessionEndedRef.current) return null;
+      if (lastActivityRef.current && Date.now() - lastActivityRef.current >= SESSION_IDLE_LIMIT_MS) {
+        void logoutUser();
+        return null;
+      }
       if (refreshPromiseRef.current) {
         return refreshPromiseRef.current;
       }
@@ -138,14 +145,14 @@ export const AuthProvider = ({ children }) => {
       refreshPromiseRef.current = (async () => {
       try {
         const inMemoryRefreshToken = refreshTokenRef.current;
-        const asyncRefreshToken = await AsyncStorage.getItem("refreshToken");
-        const secureRefreshToken = await secureGetItem("refreshToken");
+        const storedRefreshToken = await getStoredRefreshToken();
         const tokenCandidates = [
           inMemoryRefreshToken,
-          asyncRefreshToken,
-          secureRefreshToken,
+          storedRefreshToken,
         ].filter(Boolean);
-        const uniqueCandidates = [...new Set(tokenCandidates)];
+        const uniqueCandidates = IS_WEB_AUTH_STORAGE
+          ? [...new Set([...tokenCandidates, ""])]
+          : [...new Set(tokenCandidates)];
 
         if (!uniqueCandidates.length)
           throw new Error("No refresh token available");
@@ -159,14 +166,17 @@ export const AuthProvider = ({ children }) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-platform": "MOBILE",
+              "x-platform": sessionMeta?.platform || defaultPlatform,
               "x-client-active-at": String(clientActiveAt),
-              ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+              ...getDeviceAuditHeaders(),
+              ...buildLoginLocationHeaders(sessionMeta?.location),
               ...(sessionMeta?.sessionId
                 ? { "x-session-id": sessionMeta.sessionId }
                 : {}),
             },
-            body: JSON.stringify({ refreshToken }),
+            body: JSON.stringify(
+              refreshToken ? { refreshToken } : {},
+            ),
             credentials: "include",
           });
 
@@ -181,17 +191,18 @@ export const AuthProvider = ({ children }) => {
           }
 
           const nextAccessToken = data?.token || data?.accessToken;
+          if (sessionEndedRef.current) return null;
           if (response.ok && nextAccessToken) {
             const rotatedRefreshToken = data.refreshToken || refreshToken;
             setToken(nextAccessToken);
             accessTokenRef.current = nextAccessToken;
             refreshTokenRef.current = rotatedRefreshToken;
 
-            await secureSetItem("accessToken", nextAccessToken);
-            await AsyncStorage.setItem("currentUserToken", nextAccessToken);
+            await setStoredAccessToken(nextAccessToken);
 
-            await secureSetItem("refreshToken", rotatedRefreshToken);
-            await AsyncStorage.setItem("refreshToken", rotatedRefreshToken);
+            if (rotatedRefreshToken) {
+              await setStoredRefreshToken(rotatedRefreshToken);
+            }
             return nextAccessToken;
           }
 
@@ -203,7 +214,9 @@ export const AuthProvider = ({ children }) => {
         const refreshMessage = String(err?.message || "");
         const isInvalidRefreshToken =
           refreshMessage.toLowerCase().includes("invalid refresh token") ||
-          refreshMessage.toLowerCase().includes("refresh token");
+          refreshMessage.toLowerCase().includes("refresh token") ||
+          refreshMessage.toLowerCase().includes("session timed out") ||
+          refreshMessage.toLowerCase().includes("session is no longer active");
 
         if (!refreshFailureLoggedRef.current) {
           if (isInvalidRefreshToken) {
@@ -218,8 +231,11 @@ export const AuthProvider = ({ children }) => {
 
         // Stale/invalid refresh token should be cleared locally to stop retry loops.
         if (isInvalidRefreshToken) {
+          sessionEndedRef.current = true;
+          idleSessionRef.current?.stop();
           setUser(null);
           setToken(null);
+          setSession(null);
           accessTokenRef.current = null;
           refreshTokenRef.current = null;
           await clearStoredAuth();
@@ -237,20 +253,61 @@ export const AuthProvider = ({ children }) => {
         refreshPromiseRef.current = null;
       }
     },
-    [clearStoredAuth, getSessionMeta],
+    [clearStoredAuth, getSessionMeta, logoutUser],
   );
 
+  const activeSessionId = user ? (session?.sessionId || user.sessionId || user.id || user._id) : null;
   useEffect(() => {
-    markClientActivity();
-
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        markClientActivity();
-      }
+    if (!activeSessionId) return undefined;
+    const idle = createIdleSession({
+      getLastActivity: () => lastActivityRef.current,
+      onActivity: timestamp => {
+        lastActivityRef.current = timestamp;
+        if (timestamp - lastActivityWriteRef.current >= 1000) {
+          lastActivityWriteRef.current = timestamp;
+          recordClientActivity(timestamp).catch(error => console.warn("Activity storage failed:", error));
+        }
+      },
+      onWarning: (_minutes, warning) => {
+        void (async () => {
+          const accessToken = accessTokenRef.current || (await getStoredAccessToken());
+          const sessionMeta = await getSessionMeta();
+          if (!accessToken || sessionEndedRef.current) return;
+          const response = await fetch(API_BASE + "/api/notifications/session-warning", {
+            method: "POST", credentials: "include",
+            headers: {
+              Authorization: "Bearer " + accessToken,
+              "Content-Type": "application/json",
+              "x-session-id": sessionMeta.sessionId,
+              "x-platform": sessionMeta.platform || defaultPlatform,
+              "x-client-active-at": String(lastActivityRef.current),
+            },
+            body: JSON.stringify(warning),
+          });
+          if (!response.ok) throw new Error("Failed to create session notification");
+        })().catch(error => console.error("Session notification failed:", error));
+      },
+      onExpire: () => { void logoutUser(); },
     });
-
-    return () => subscription.remove();
-  }, [markClientActivity]);
+    idleSessionRef.current = idle;
+    idle.check();
+    const subscription = AppState.addEventListener("change", nextState => {
+      if (nextState === "active") idle.check();
+      else recordClientActivity(lastActivityRef.current).catch(() => {});
+    });
+    const webEvents = ["keydown", "pointerdown", "scroll", "wheel"];
+    if (Platform.OS === "web") {
+      webEvents.forEach(name => window.addEventListener(name, markClientActivity, true));
+    }
+    return () => {
+      idle.stop();
+      idleSessionRef.current = null;
+      subscription.remove();
+      if (Platform.OS === "web") {
+        webEvents.forEach(name => window.removeEventListener(name, markClientActivity, true));
+      }
+    };
+  }, [activeSessionId, logoutUser, markClientActivity]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -284,14 +341,22 @@ export const AuthProvider = ({ children }) => {
         const rememberedPreference = await AsyncStorage.getItem("rememberMe");
         const remembered = rememberedPreference === "true";
         setRememberMePreference(remembered);
-        const storedUser = await AsyncStorage.getItem("currentUser");
-        const accessToken = await AsyncStorage.getItem("currentUserToken");
-        const persistedRefreshToken =
-          (await AsyncStorage.getItem("refreshToken")) ||
-          (await secureGetItem("refreshToken"));
+        clearLegacyWebAuthStorage();
+        const storedUser = await getStoredUser();
+        const accessToken = await getStoredAccessToken();
+        const persistedRefreshToken = await getStoredRefreshToken();
         const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+        lastActivityRef.current = (await getClientActiveAt()) || Date.now();
+        if (parsedStoredUser && Date.now() - lastActivityRef.current >= SESSION_IDLE_LIMIT_MS) {
+          void logoutUser();
+          return;
+        }
+        const persistedSessionMeta = await getSessionMeta();
+        setSession(persistedSessionMeta?.sessionId ? persistedSessionMeta : null);
 
-        const hasAuthMaterial = Boolean(accessToken || persistedRefreshToken);
+        const hasAuthMaterial = Boolean(
+          accessToken || persistedRefreshToken || IS_WEB_AUTH_STORAGE,
+        );
         if (hasAuthMaterial && parsedStoredUser) {
           setUser(parsedStoredUser);
         } else {
@@ -308,18 +373,14 @@ export const AuthProvider = ({ children }) => {
         refreshTokenRef.current = persistedRefreshToken;
 
         if (parsedStoredUser && (accessToken || persistedRefreshToken)) {
-          const sessionMeta = await getSessionMeta();
-          if (
-            !sessionMeta?.sessionId &&
-            (parsedStoredUser?.sessionId || parsedStoredUser?.base)
-          ) {
+          const sessionMeta = persistedSessionMeta;
+          if (!sessionMeta?.sessionId && parsedStoredUser?.sessionId) {
             await persistSessionMeta({
-              base: parsedStoredUser?.base,
               sessionId: parsedStoredUser?.sessionId,
             });
           }
 
-          if (persistedRefreshToken) {
+          if (persistedRefreshToken || IS_WEB_AUTH_STORAGE) {
             await refreshSession();
           }
         }
@@ -335,37 +396,40 @@ export const AuthProvider = ({ children }) => {
     getSessionMeta,
     persistSessionMeta,
     refreshSession,
+    logoutUser,
   ]);
 
   const loginUser = async ({
     user: userData,
+    session: sessionData,
     accessToken,
     refreshToken,
     rememberMe = true,
   }) => {
     try {
+      sessionEndedRef.current = false;
+      lastActivityRef.current = Date.now();
+      lastActivityWriteRef.current = lastActivityRef.current;
+      await recordClientActivity(lastActivityRef.current);
       setUser(userData);
       setToken(accessToken);
       accessTokenRef.current = accessToken;
       setRememberMePreference(Boolean(rememberMe));
 
-      await AsyncStorage.setItem("currentUser", JSON.stringify(userData));
-      await AsyncStorage.setItem("currentUserToken", accessToken);
-      await secureSetItem("accessToken", accessToken);
+      await setStoredUser(JSON.stringify(userData));
+      await setStoredAccessToken(accessToken);
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       await persistSessionMeta({
-        base: userData?.base,
-        sessionId: userData?.sessionId,
+        sessionId: sessionData?.sessionId || userData?.sessionId,
+        location: sessionData?.location,
       });
       refreshFailureLoggedRef.current = false;
 
       refreshTokenRef.current = refreshToken || null;
       if (refreshToken) {
-        await AsyncStorage.setItem("refreshToken", refreshToken);
-        await secureSetItem("refreshToken", refreshToken);
+        await setStoredRefreshToken(refreshToken);
       } else {
-        await AsyncStorage.removeItem("refreshToken");
-        await secureDeleteItem("refreshToken");
+        await removeStoredRefreshToken();
       }
     } catch (e) {
       console.error("Login storage error", e);
@@ -379,7 +443,7 @@ export const AuthProvider = ({ children }) => {
           ? updater(prev)
           : { ...(prev || {}), ...(updater || {}) };
 
-      AsyncStorage.setItem("currentUser", JSON.stringify(nextUser)).catch(
+      setStoredUser(JSON.stringify(nextUser)).catch(
         (error) => {
           console.error("Failed to persist updated user:", error);
         },
@@ -394,11 +458,9 @@ export const AuthProvider = ({ children }) => {
     { revokePersistentTokens = false } = {},
   ) => {
     const accessToken =
-      token || (await AsyncStorage.getItem("currentUserToken"));
+      token || (await getStoredAccessToken());
     const refreshToken =
-      refreshTokenRef.current ||
-      (await AsyncStorage.getItem("refreshToken")) ||
-      (await secureGetItem("refreshToken"));
+      refreshTokenRef.current || (await getStoredRefreshToken());
     if (!accessToken || !refreshToken) {
       throw new Error("No active session to update");
     }
@@ -409,8 +471,9 @@ export const AuthProvider = ({ children }) => {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
-        "x-platform": "MOBILE",
-        ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
+        "x-platform": sessionMeta?.platform || defaultPlatform,
+        ...getDeviceAuditHeaders(),
+        ...buildLoginLocationHeaders(sessionMeta?.location),
         ...(sessionMeta?.sessionId
           ? { "x-session-id": sessionMeta.sessionId }
           : {}),
@@ -432,8 +495,7 @@ export const AuthProvider = ({ children }) => {
     setRememberMePreference(rememberMe);
     await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
-    await AsyncStorage.setItem("refreshToken", nextRefreshToken);
-    await secureSetItem("refreshToken", nextRefreshToken);
+    await setStoredRefreshToken(nextRefreshToken);
     return payload;
   };
 
@@ -441,6 +503,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        session,
         token,
         loginUser,
         updateUser,
@@ -452,7 +515,7 @@ export const AuthProvider = ({ children }) => {
         markClientActivity,
       }}
     >
-      <View style={{ flex: 1 }} onTouchStart={markClientActivity}>
+      <View style={{ flex: 1 }} onTouchStart={markClientActivity} onTouchMove={markClientActivity}>
         {children}
       </View>
     </AuthContext.Provider>

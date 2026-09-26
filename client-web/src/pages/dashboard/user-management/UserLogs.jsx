@@ -39,7 +39,9 @@ import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import {
+  addPdfExecutionFooter,
   drawPdfReportHeader,
+  getExportExecutorName,
   loadNgcpLogoDataUrl,
 } from "../../../components/common/ExportFile";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -72,6 +74,14 @@ const formatFileDate = (value = new Date()) => {
 
 const buildReportFileName = (moduleName, extension) =>
   `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
+
+const getPerformedByName = (log = {}) => {
+  const fullName = [log.firstName, log.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || log.displayName || "Unknown";
+};
 
 export default function UserLogs() {
   const screens = useBreakpoint();
@@ -136,18 +146,34 @@ export default function UserLogs() {
           setAllUserLogs([]);
           return;
         }
-        const mappedLogs = json.data.map((log, index) => ({
-          _id: log._id,
-          index: index + 1,
-          dateTime: log.dateTime,
-          displayDateTime: log.dateTime
-            ? dayjs(log.dateTime).format("MM/DD/YYYY hh:mm A")
-            : "N/A",
-          actionMade: log.actionMade || log.action || "N/A",
-          username: log.username || "Unknown",
-          platform: log.platform || "",
-          base: log.base || "",
-        }));
+        const mappedLogs = json.data.map((log, index) => {
+          const performedByName = getPerformedByName(log);
+          return {
+            _id: log._id,
+            index: index + 1,
+            dateTime: log.dateTime,
+            displayDateTime: log.dateTime
+              ? dayjs(log.dateTime).format("MM/DD/YYYY hh:mm A")
+              : "N/A",
+            actionMade: log.actionMade || log.action || "N/A",
+            username: performedByName,
+            displayName: performedByName,
+            firstName: log.firstName || "",
+            lastName: log.lastName || "",
+            platform: log.platform || "",
+            deviceModel: log.deviceModel || "",
+            locationText: log.locationText || "",
+            locationCoordinates:
+              log.locationLatitude !== null &&
+              log.locationLatitude !== undefined &&
+              log.locationLongitude !== null &&
+              log.locationLongitude !== undefined
+                ? `${Number(log.locationLatitude).toFixed(6)}, ${Number(
+                    log.locationLongitude,
+                  ).toFixed(6)}`
+                : "",
+          };
+        });
 
         setAllUserLogs(mappedLogs);
       } catch (error) {
@@ -224,9 +250,7 @@ export default function UserLogs() {
 
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
       filtered = filtered.filter((log) =>
-        selectedScope === "base"
-          ? String(log.base || "").toUpperCase() === selectedScopeValue
-          : String(log.platform || "").toUpperCase() === selectedScopeValue,
+        String(log.platform || "").toUpperCase() === selectedScopeValue,
       );
     }
 
@@ -240,24 +264,6 @@ export default function UserLogs() {
   ]);
 
   const scopeValueOptions = useMemo(() => {
-    if (selectedScope === "base") {
-      const values = Array.from(
-        new Set(
-          allUserLogs
-            .map((log) =>
-              String(log.base || "")
-                .trim()
-                .toUpperCase(),
-            )
-            .filter(Boolean),
-        ),
-      ).sort();
-      return [
-        { label: "All Base", value: "all" },
-        ...values.map((value) => ({ label: value, value })),
-      ];
-    }
-
     if (selectedScope === "platform") {
       const values = Array.from(
         new Set(
@@ -308,10 +314,12 @@ export default function UserLogs() {
         "Date / Time": log.dateTime
           ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
           : "N/A",
-        User: log.username || "Unknown",
+        "Performed By": log.displayName || "Unknown",
         Action: log.actionMade || "N/A",
         Platform: log.platform || "Not captured",
-        Base: log.base || "Not captured",
+        "Device Model": log.deviceModel || "Not captured",
+        Location: log.locationText || "Not captured",
+        Coordinates: log.locationCoordinates || "Not captured",
       })),
     [filteredLogs],
   );
@@ -340,6 +348,7 @@ export default function UserLogs() {
         title: "Activity Logs Report",
         subtitle: generatedAt,
         logoDataUrl,
+        executedBy: getExportExecutorName(),
       });
 
       autoTable(doc, {
@@ -359,6 +368,7 @@ export default function UserLogs() {
         },
         margin: { left: 40, right: 40 },
       });
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
       doc.save(fileName);
 
       setPopup({
@@ -499,7 +509,6 @@ export default function UserLogs() {
             }}
             options={[
               { label: "All Scope", value: "all" },
-              { label: "Base", value: "base" },
               { label: "Platform", value: "platform" },
             ]}
             size="large"

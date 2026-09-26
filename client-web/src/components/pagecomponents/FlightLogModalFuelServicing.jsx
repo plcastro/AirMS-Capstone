@@ -57,7 +57,7 @@ function LegSignaturePad({ value, onChange, disabled }) {
         open={isSignatureOpen}
         title="Fuel Servicing Signature"
         description="Draw the refueler signature below."
-        confirmDescription="Enter your 6-digit PIN to save this fuel servicing signature."
+        requirePin={false}
         onCancel={() => {
           setIsSignatureOpen(false);
           setIsReplacing(false);
@@ -71,7 +71,7 @@ function LegSignaturePad({ value, onChange, disabled }) {
   );
 }
 
-export default function FlightLogModalFuelServicing({ formData, updateFuel, isEditable = true }) {
+export default function FlightLogModalFuelServicing({ formData, updateFuel, isEditable = true, lockedRows = 0 }) {
   const legs = formData.legs || [];
 
   if (legs.length === 0) {
@@ -93,11 +93,12 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
 
       {legs.map((_, legIdx) => {
         const n = legIdx + 1;
+        const rowEditable = isEditable && legIdx >= lockedRows;
         const fuel = formData.fuelServicing?.[legIdx] || {};
 
         return (
           <div key={legIdx} className="fl-card" style={{ marginBottom: 16 }}>
-            <div className="fl-card-header">{n}{getOrdinalSuffix(n)} LEG</div>
+            <div className="fl-card-header">{n}{getOrdinalSuffix(n)} LEG{legIdx < lockedRows ? " - Signed at release" : ""}</div>
             <div className="fl-card-body">
               <div className="fl-field-row">
                 <span className="fl-label">Date:</span>
@@ -106,6 +107,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
                   inputReadOnly
+                  placeholder="From Basic Information"
                   value={fuel.date ? dayjs(fuel.date) : null}
                   onChange={(date) =>
                     updateFuel(
@@ -114,7 +116,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                       date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
                     )
                   }
-                  disabled={!isEditable}
+                  disabled
                 />
               </div>
               <div className="fl-field-row">
@@ -123,7 +125,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   className="fl-input"
                   value={fuel.contCheck || ""}
                   onChange={(e) => updateFuel(legIdx, "contCheck", e.target.value)}
-                  disabled={!isEditable}
+                  disabled={!rowEditable}
                 />
               </div>
               <div className="fl-field-row">
@@ -132,7 +134,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   className="fl-input"
                   value={fuel.mainRemG || ""}
                   onChange={(e) => updateFuel(legIdx, "mainRemG", e.target.value)}
-                  disabled={!isEditable}
+                  disabled={!rowEditable}
                 />
               </div>
               <div className="fl-field-row">
@@ -141,7 +143,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   className="fl-input"
                   value={fuel.mainAdd || ""}
                   onChange={(e) => updateFuel(legIdx, "mainAdd", e.target.value)}
-                  disabled={!isEditable}
+                  disabled={!rowEditable}
                 />
               </div>
               <div className="fl-field-row">
@@ -150,7 +152,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   className="fl-input"
                   value={fuel.mainTotal || ""}
                   onChange={(e) => updateFuel(legIdx, "mainTotal", e.target.value)}
-                  disabled={!isEditable}
+                  disabled={!rowEditable}
                 />
               </div>
               <div className="fl-field-row">
@@ -160,7 +162,7 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                   value={fuel.refuelerName || ""}
                   onChange={(e) => updateFuel(legIdx, "refuelerName", e.target.value)}
                   placeholder="Refueler name"
-                  disabled={!isEditable}
+                  disabled={!rowEditable}
                 />
               </div>
               <div className="fl-field-row">
@@ -171,8 +173,8 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                       <input
                         type="radio"
                         checked={fuel.fuelType === type}
-                        onChange={() => isEditable && updateFuel(legIdx, "fuelType", type)}
-                        disabled={!isEditable}
+                        onChange={() => rowEditable && updateFuel(legIdx, "fuelType", type)}
+                        disabled={!rowEditable}
                         style={{ accentColor: "#26866F" }}
                       />
                       {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -184,9 +186,9 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                 <span className="fl-label">Signature:</span>
                 <div style={{ flex: 1 }}>
                   <LegSignaturePad
-                    value={fuel.signature || ""}
+                    value={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || fuel.signature || ""}
                     onChange={(val) => updateFuel(legIdx, "signature", val)}
-                    disabled={!isEditable}
+                    disabled={!rowEditable || !!(formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature)}
                   />
                 </div>
               </div>

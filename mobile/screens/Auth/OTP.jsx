@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import AppText from "../../components/common/AppText";
 import {
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   View,
   Pressable,
@@ -21,6 +22,9 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
+import { setStoredAccessToken } from "../../utilities/authStorage";
+import { buildLoginLocationHeaders } from "../../utilities/loginLocation";
 
 const getTrustedDeviceStorageKey = (account) => {
   const normalizedAccount = String(account || "")
@@ -123,6 +127,11 @@ export default function OTP() {
       return;
     }
 
+    const loginClient =
+      route.params?.client || (Platform.OS === "web" ? "web" : "mobile");
+    const loginPlatform =
+      String(loginClient).toLowerCase() === "web" ? "WEB" : "MOBILE";
+
     try {
       setIsVerifying(true);
       setMessageStatus("error");
@@ -130,17 +139,19 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
-          "x-platform": "MOBILE",
+          "x-platform": loginPlatform,
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           token,
           otp: code,
           rememberMe,
-          base: route.params?.base,
-          client: route.params?.client || "mobile",
+          location: route.params?.loginLocation,
+          client: loginClient,
           trustDevice: rememberMe ? trustDevice : false,
-          trustedDeviceLabel: "mobile-app",
+          trustedDeviceLabel:
+            String(loginClient).toLowerCase() === "web" ? "web-app" : "mobile-app",
         }),
       });
 
@@ -160,7 +171,7 @@ export default function OTP() {
         return;
       }
 
-      const { user, token: accessToken, refreshToken } = data;
+      const { user, token: accessToken, refreshToken, session } = data;
       if (data?.trustedDeviceToken) {
         await storeTrustedDeviceTokenForAccounts(
           [route.params?.identifier, user?.email, user?.username],
@@ -168,7 +179,7 @@ export default function OTP() {
         );
       }
 
-      await AsyncStorage.setItem("currentUserToken", String(accessToken));
+      await setStoredAccessToken(String(accessToken));
 
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       if (rememberMe) {
@@ -176,15 +187,20 @@ export default function OTP() {
           "rememberedIdentifier",
           route.params?.identifier || user?.email || "",
         );
-        await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
-        await AsyncStorage.removeItem("rememberedBase");
         await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       await loginUser({
         user,
+        session:
+          session ||
+          {
+            location: route.params?.loginLocation,
+            sessionId: data.sessionId,
+            platform: loginPlatform,
+          },
         accessToken,
         refreshToken,
         rememberMe,
@@ -236,8 +252,9 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
-          "x-platform": "MOBILE",
+          "x-platform": Platform.OS === "web" ? "WEB" : "MOBILE",
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify(resendPayload),
       });

@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   ScrollView,
   Dimensions,
   TouchableOpacity,
@@ -37,6 +37,25 @@ const clampToNow = (date) => {
   return date < now ? now : date;
 };
 
+const getDisplayText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.taskName ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
 const getPickerValue = (event) => {
   if (event?.type === "dismissed") {
     return null;
@@ -49,7 +68,7 @@ const dedupeChecklistItems = (items = []) => {
   const seen = new Set();
 
   return items.filter((item) => {
-    const key = `${item.taskId || ""}|${item.taskName || ""}|${item.inspectionTypeFull || ""}`;
+    const key = `${getDisplayText(item.taskId, "")}|${getDisplayText(item.taskName, "")}|${getDisplayText(item.inspectionTypeFull, "")}`;
 
     if (seen.has(key)) {
       return false;
@@ -366,6 +385,7 @@ export default function AddTask({
       item.component,
       item.description,
     ]
+      .map((value) => getDisplayText(value, ""))
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -515,7 +535,7 @@ export default function AddTask({
       : [];
 
     return dedupeChecklistItems(normalizedTasks).filter(
-      (item) => item.taskName.length > 0,
+      (item) => getDisplayText(item.taskName, "").length > 0,
     );
   };
 
@@ -634,7 +654,7 @@ export default function AddTask({
       : inspectionOptions.find((i) => i.id === inspectionType)?.name || "";
 
     const filteredChecklist = checklistItems
-      .filter((item) => item.taskName && item.taskName.trim() !== "")
+      .filter((item) => getDisplayText(item.taskName, "").trim() !== "")
       .map((item, index) => ({
         ...item,
         inspectionName: selectedInspectionName,
@@ -829,7 +849,9 @@ export default function AddTask({
       setEndDateManuallyAdjusted(true);
     }
 
-    closePicker();
+    if (Platform.OS === "android") {
+      closePicker();
+    }
 
     if (Platform.OS === "android") {
       setAndroidPickerMode("date");
@@ -1069,8 +1091,9 @@ export default function AddTask({
 
   return (
     <>
+      {visible && !showDiscardAlert && (
       <Modal
-        visible={visible}
+        visible
         animationType="fade"
         transparent
         onRequestClose={handleCloseWithWarning}
@@ -1285,13 +1308,20 @@ export default function AddTask({
               </TouchableOpacity>
 
               {showStartPicker && (
-                <DateTimePicker
-                  value={startDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onStartChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={startDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onStartChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowStartPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText
@@ -1337,13 +1367,20 @@ export default function AddTask({
               </AppText>
 
               {showEndPicker && (
-                <DateTimePicker
-                  value={endDate}
-                  mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
-                  display="default"
-                  onChange={onEndChange}
-                  minimumDate={getNow()}
-                />
+                <>
+                  <DateTimePicker
+                    value={endDate}
+                    mode={Platform.OS === "ios" ? "datetime" : androidPickerMode}
+                    display="default"
+                    onChange={onEndChange}
+                    minimumDate={getNow()}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 16 }} onPress={() => setShowEndPicker(false)}>
+                      <AppText style={{ color: COLORS.primaryLight, fontWeight: "600" }}>Done</AppText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <AppText
@@ -1354,7 +1391,7 @@ export default function AddTask({
 
               {checklistItems.map((item, index) => (
                 <View
-                  key={item.taskId || index}
+                  key={getDisplayText(item.taskId, String(index))}
                   style={{ flexDirection: "row", marginTop: 10 }}
                 >
                   <View style={{ paddingTop: 2 }}>
@@ -1363,7 +1400,10 @@ export default function AddTask({
 
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <AppText style={{ fontSize: 12, color: "#888" }}>
-                      {[item.taskId, item.inspectionTypeFull]
+                      {[
+                        getDisplayText(item.taskId, ""),
+                        getDisplayText(item.inspectionTypeFull, ""),
+                      ]
                         .filter(Boolean)
                         .join(" | ")}
                     </AppText>
@@ -1371,7 +1411,7 @@ export default function AddTask({
                     {isCustomTask ? (
                       <>
                         <AppInput
-                          value={item.taskName || ""}
+                          value={getDisplayText(item.taskName, "")}
                           onChangeText={(value) =>
                             updateChecklistItem(index, "taskName", value)
                           }
@@ -1385,7 +1425,7 @@ export default function AddTask({
                           }}
                         />
                         <AppInput
-                          value={item.description || ""}
+                          value={getDisplayText(item.description, "")}
                           onChangeText={(value) =>
                             updateChecklistItem(index, "description", value)
                           }
@@ -1417,7 +1457,7 @@ export default function AddTask({
                       <AppText
                         style={{ borderBottomWidth: 1, paddingVertical: 6 }}
                       >
-                        {item.taskName}
+                        {getDisplayText(item.taskName, "Checklist item")}
                       </AppText>
                     )}
                   </View>
@@ -1462,20 +1502,6 @@ export default function AddTask({
                   {addTaskWarning}
                 </AppText>
               ) : null}
-              {selectedEmployeeRecord?.activeTaskCount > 0 ? (
-                <AppText
-                  style={{
-                    color: COLORS.warning || "#ad6800",
-                    marginBottom: 8,
-                    fontSize: 12,
-                  }}
-                >
-                  {selectedEmployeeRecord.name} has{" "}
-                  {selectedEmployeeRecord.activeTaskCount} active task
-                  {selectedEmployeeRecord.activeTaskCount === 1 ? "" : "s"}.
-                  You will be asked to confirm before assigning.
-                </AppText>
-              ) : null}
             </ScrollView>
 
             <View
@@ -1503,6 +1529,7 @@ export default function AddTask({
           </View>
         </IosModalSafeAreaView>
       </Modal>
+      )}
       <AlertComp
         visible={showDiscardAlert}
         title="Discard changes?"
@@ -1511,9 +1538,9 @@ export default function AddTask({
         confirmText="Discard"
         onCancel={() => setShowDiscardAlert(false)}
         onConfirm={() => {
+          onClose?.();
           setShowDiscardAlert(false);
           resetForm();
-          onClose?.();
         }}
       />
     </>

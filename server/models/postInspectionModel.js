@@ -34,6 +34,7 @@ const signatureSchema = new mongoose.Schema(
 
 const postInspectionSchema = new mongoose.Schema(
   {
+    flightLogId: { type: mongoose.Schema.Types.ObjectId, ref: "FlightLog", default: null, index: true },
     preInspectionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PreInspection",
@@ -50,6 +51,8 @@ const postInspectionSchema = new mongoose.Schema(
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    confirmation: { type: mongoose.Schema.Types.Mixed, default: null },
     notes: { type: String, default: "" },
     status: {
       type: String,

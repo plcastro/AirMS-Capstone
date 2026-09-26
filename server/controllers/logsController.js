@@ -8,15 +8,29 @@ const {
 const { publishTypedForRecipients } = require("../utils/realtimeEvents");
 
 const isKnownPlatform = (value) => ["WEB", "MOBILE"].includes(value);
-const isKnownBase = (value) => ["MANILA", "CEBU", "CDO"].includes(value);
+const compactText = (value = "", limit = 160) =>
+  String(value || "")
+    .trim()
+    .slice(0, limit);
+const parseCoordinate = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const getDisplayName = (user = {}, fallback = "Unknown") => {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return compactText(fullName || user.displayName || user.username || fallback);
+};
 
 const resolveAuditContext = async (context = {}, userId = null) => {
   const resolved = { ...context };
 
   if (
     isKnownPlatform(resolved.platform) &&
-    isKnownBase(resolved.base) &&
-    resolved.sessionId
+    resolved.sessionId &&
+    resolved.devicePlatform &&
+    resolved.deviceModel &&
+    resolved.locationText
   ) {
     return resolved;
   }
@@ -41,9 +55,18 @@ const resolveAuditContext = async (context = {}, userId = null) => {
   resolved.platform = isKnownPlatform(resolved.platform)
     ? resolved.platform
     : session.platform || null;
-  resolved.base = isKnownBase(resolved.base)
-    ? resolved.base
-    : session.base || null;
+  resolved.devicePlatform =
+    compactText(resolved.devicePlatform) || session.devicePlatform || "";
+  resolved.deviceModel =
+    compactText(resolved.deviceModel) || session.deviceModel || "";
+  resolved.locationText =
+    compactText(resolved.locationText, 240) || session.locationText || "";
+  resolved.locationLatitude =
+    parseCoordinate(resolved.locationLatitude) ?? session.locationLatitude ?? null;
+  resolved.locationLongitude =
+    parseCoordinate(resolved.locationLongitude) ??
+    session.locationLongitude ??
+    null;
 
   return resolved;
 };
@@ -51,22 +74,27 @@ const resolveAuditContext = async (context = {}, userId = null) => {
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const sanitizeActionText = (rawAction, username) => {
+const sanitizeActionText = (rawAction, actorNames = []) => {
   if (typeof rawAction !== "string") return rawAction;
 
   let action = rawAction.trim();
 
   action = action.replace(/\s*\(actorId:\s*[^)]+\)/gi, "");
 
-  if (username && username !== "System" && username !== "Unknown") {
-    const safeUsername = escapeRegex(username);
+  actorNames
+    .filter((name) => name && name !== "System" && name !== "Unknown")
+    .forEach((name) => {
+      const safeUsername = escapeRegex(name);
 
-    action = action.replace(new RegExp(`(:\\s*)${safeUsername}\\b`, "gi"), "");
-    action = action.replace(
-      new RegExp(`(for\\s+)${safeUsername}\\b`, "gi"),
-      "$1user",
-    );
-  }
+      action = action.replace(
+        new RegExp(`(:\\s*)${safeUsername}\\b`, "gi"),
+        "",
+      );
+      action = action.replace(
+        new RegExp(`(for\\s+)${safeUsername}\\b`, "gi"),
+        "$1user",
+      );
+    });
 
   // Remove API endpoint fragments from stored audit messages.
   action = action
@@ -92,18 +120,25 @@ const auditLog = async (
     markAuditLogged();
 
     let username = usernameSnapshot || "System";
+    let firstName = "";
+    let lastName = "";
+    let displayName = username;
     if (userId) {
-      if (!usernameSnapshot) {
-        const user = await UserModel.findById(userId).select("username");
-        if (user) {
-          username = user.username;
-        } else {
-          username = `Unknown (ID: ${userId})`;
-        }
+      const user = await UserModel.findById(userId).select(
+        "username firstName lastName",
+      );
+      if (user) {
+        username = usernameSnapshot || user.username;
+        firstName = user.firstName || "";
+        lastName = user.lastName || "";
+        displayName = getDisplayName(user, username);
+      } else if (!usernameSnapshot) {
+        username = `Unknown (ID: ${userId})`;
+        displayName = username;
       }
     }
 
-    const sanitizedAction = sanitizeActionText(action, username);
+    const sanitizedAction = sanitizeActionText(action, [username, displayName]);
 
     const context = await resolveAuditContext(
       { ...getRequestContext(), ...requestMeta },
@@ -114,11 +149,18 @@ const auditLog = async (
       action: sanitizedAction,
       performedBy: userId,
       username,
+      firstName,
+      lastName,
+      displayName,
       sessionId: context.sessionId || null,
       platform: context.platform || null,
-      base: context.base || null,
       ipAddress: context.ipAddress || "",
       userAgent: context.userAgent || "",
+      devicePlatform: compactText(context.devicePlatform),
+      deviceModel: compactText(context.deviceModel),
+      locationText: compactText(context.locationText, 240),
+      locationLatitude: parseCoordinate(context.locationLatitude),
+      locationLongitude: parseCoordinate(context.locationLongitude),
     });
     publishTypedForRecipients(
       { recipientRoles: ["superadmin"], excludedUsers: userId ? [userId] : [] },
@@ -153,7 +195,11 @@ const getLatestLog = async (req, res) => {
       id: latestLog._id,
       dateTime: latestLog.dateTime,
       actionMade: latestLog.action,
-      username: latestLog.username || "Unknown",
+      username: latestLog.displayName || latestLog.username || "Unknown",
+      displayName: latestLog.displayName || latestLog.username || "Unknown",
+      performedByName: latestLog.displayName || latestLog.username || "Unknown",
+      firstName: latestLog.firstName || "",
+      lastName: latestLog.lastName || "",
     });
   } catch (err) {
     console.error(err);
@@ -173,9 +219,13 @@ const createAuditLogFromRequest = async (req, res) => {
     const log = await auditLog(action.trim(), actorId, username || null, {
       sessionId: req.headers["x-session-id"] || null,
       platform: req.headers["x-platform"] || null,
-      base: req.headers["x-base"] || null,
       ipAddress: req.ip || req.socket?.remoteAddress || null,
       userAgent: req.headers["user-agent"] || "",
+      devicePlatform: req.headers["x-device-platform"] || "",
+      deviceModel: req.headers["x-device-model"] || "",
+      locationText: req.headers["x-location-text"] || "",
+      locationLatitude: req.headers["x-location-latitude"],
+      locationLongitude: req.headers["x-location-longitude"],
     });
 
     return res.status(201).json({
@@ -220,7 +270,16 @@ const getAllUserLogs = async (req, res) => {
 
     if (typeof search === "string" && search.trim()) {
       const pattern = new RegExp(search.trim(), "i");
-      filter.$or = [{ action: pattern }, { username: pattern }];
+      filter.$or = [
+        { action: pattern },
+        { username: pattern },
+        { firstName: pattern },
+        { lastName: pattern },
+        { displayName: pattern },
+        { devicePlatform: pattern },
+        { deviceModel: pattern },
+        { locationText: pattern },
+      ];
     }
 
     const [logs, total] = await Promise.all([
@@ -238,7 +297,10 @@ const getAllUserLogs = async (req, res) => {
           .filter(
             (log) =>
               log.sessionId &&
-              (!isKnownPlatform(log.platform) || !isKnownBase(log.base)),
+              (!isKnownPlatform(log.platform) ||
+                !log.devicePlatform ||
+                !log.deviceModel ||
+                !log.locationText),
           )
           .map((log) => log.sessionId),
       ),
@@ -249,9 +311,29 @@ const getAllUserLogs = async (req, res) => {
         ? new Map(
             (
               await UserSession.find({ sessionId: { $in: sessionIds } })
-                .select("sessionId platform base")
+                .select(
+                  "sessionId platform devicePlatform deviceModel locationText locationLatitude locationLongitude",
+                )
                 .lean()
             ).map((session) => [session.sessionId, session]),
+          )
+        : new Map();
+
+    const userIds = [
+      ...new Set(
+        logs
+          .filter((log) => log.performedBy && !log.displayName)
+          .map((log) => String(log.performedBy)),
+      ),
+    ];
+    const userMap =
+      userIds.length > 0
+        ? new Map(
+            (
+              await UserModel.find({ _id: { $in: userIds } })
+                .select("username firstName lastName")
+                .lean()
+            ).map((user) => [String(user._id), user]),
           )
         : new Map();
 
@@ -260,15 +342,44 @@ const getAllUserLogs = async (req, res) => {
       const platform = isKnownPlatform(log.platform)
         ? log.platform
         : session?.platform || null;
-      const base = isKnownBase(log.base) ? log.base : session?.base || null;
+      const user = log.performedBy ? userMap.get(String(log.performedBy)) : null;
+      const displayName =
+        log.displayName ||
+        getDisplayName(
+          {
+            firstName: log.firstName || user?.firstName,
+            lastName: log.lastName || user?.lastName,
+            username: log.username || user?.username,
+          },
+          "Unknown",
+        );
+      const devicePlatform =
+        compactText(log.devicePlatform) || session?.devicePlatform || "";
+      const deviceModel = compactText(log.deviceModel) || session?.deviceModel || "";
+      const locationText =
+        compactText(log.locationText, 240) || session?.locationText || "";
+      const locationLatitude =
+        parseCoordinate(log.locationLatitude) ?? session?.locationLatitude ?? null;
+      const locationLongitude =
+        parseCoordinate(log.locationLongitude) ??
+        session?.locationLongitude ??
+        null;
 
       return {
         _id: log._id,
         dateTime: log.dateTime,
         actionMade: log.action,
-        username: log.username || "Unknown",
+        username: displayName,
+        displayName,
+        performedByName: displayName,
+        firstName: log.firstName || user?.firstName || "",
+        lastName: log.lastName || user?.lastName || "",
         platform,
-        base,
+        devicePlatform,
+        deviceModel,
+        locationText,
+        locationLatitude,
+        locationLongitude,
         sessionId: log.sessionId || null,
         ipAddress: log.ipAddress || "",
         userAgent: log.userAgent || "",

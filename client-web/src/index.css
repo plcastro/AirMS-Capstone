@@ -8,6 +8,12 @@ body {
   --airms-danger: #d9363e;
   --airms-danger-hover: #b8202a;
   --airms-modal-z-index: 3000;
+  --airms-toast-z-index: 12000;
+}
+
+.ant-message,
+.ant-notification {
+  z-index: var(--airms-toast-z-index) !important;
 }
 
 .ant-modal-root .ant-modal-mask,

@@ -1,10 +1,11 @@
+import Modal from "../common/AppModal";
 import react, { useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
+import DateInput from "../common/DateInput";
 
 import {
   View,
-  Modal,
   TouchableOpacity,
   Platform,
   Dimensions,
@@ -130,18 +131,19 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                 >
                   Date
                 </AppText>
-                <AppInput
+                <DateInput
                   style={[
                     styles.verificationInput,
                     {
                       height: isMobile ? 44 : 40,
-                      fontSize: isMobile ? 14 : 16,
+                      minHeight: isMobile ? 44 : 40,
                       paddingHorizontal: isMobile ? 12 : 16,
                     },
                   ]}
+                  textStyle={{ fontSize: isMobile ? 14 : 16 }}
                   value={data.date}
-                  onChangeText={(t) => update("date", t)}
                   placeholder="Date"
+                  onChangeText={(t) => update("date", t)}
                 />
 
                 <AppText
@@ -196,18 +198,19 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                 >
                   Due next
                 </AppText>
-                <AppInput
+                <DateInput
                   style={[
                     styles.verificationInput,
                     {
                       height: isMobile ? 44 : 40,
-                      fontSize: isMobile ? 14 : 16,
+                      minHeight: isMobile ? 44 : 40,
                       paddingHorizontal: isMobile ? 12 : 16,
                     },
                   ]}
+                  textStyle={{ fontSize: isMobile ? 14 : 16 }}
                   value={data.dueNext}
-                  onChangeText={(t) => update("dueNext", t)}
                   placeholder="Due"
+                  onChangeText={(t) => update("dueNext", t)}
                 />
               </View>
 
@@ -285,18 +288,19 @@ export default function FlightLogApprove({ visible, onConfirm, onCancel }) {
                   )}
                 </View>
 
-                <AppInput
+                <DateInput
                   style={[
                     styles.verificationInput,
                     {
                       height: isMobile ? 44 : 40,
-                      fontSize: isMobile ? 14 : 16,
+                      minHeight: isMobile ? 44 : 40,
                       paddingHorizontal: isMobile ? 12 : 16,
                     },
                   ]}
+                  textStyle={{ fontSize: isMobile ? 14 : 16 }}
                   value={data.preFlightDate}
-                  onChangeText={(t) => update("preFlightDate", t)}
                   placeholder="PreFlight Release Date"
+                  onChangeText={(t) => update("preFlightDate", t)}
                 />
 
                 <AppInput

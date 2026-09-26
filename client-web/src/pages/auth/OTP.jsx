@@ -5,6 +5,7 @@ import { Button, Input, Typography, Row, Col, Checkbox } from "antd";
 import { API_BASE } from "../../utils/API_BASE";
 import { useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
+import { buildLoginLocationHeaders } from "../../utils/loginLocation";
 
 import "./login.css";
 import "../../App.css";
@@ -13,7 +14,9 @@ import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
 
 const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "").trim().toLowerCase();
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
   return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
 };
 
@@ -97,7 +100,7 @@ export default function OTP() {
               token,
               otp: code,
               rememberMe: Boolean(params.rememberMe),
-              base: params.base,
+              location: params.loginLocation,
               client: params.client || "web",
               trustDevice,
               trustedDeviceLabel:
@@ -107,7 +110,15 @@ export default function OTP() {
 
       const res = await fetch(verifyEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(mode === "login-2fa"
+            ? {
+                "x-platform": "WEB",
+                ...buildLoginLocationHeaders(params.loginLocation),
+              }
+            : {}),
+        },
         body: JSON.stringify(payload),
         credentials: "include",
       });
@@ -125,7 +136,7 @@ export default function OTP() {
           }
           await loginUser(data.user, data.token, {
             rememberMe: Boolean(params.rememberMe),
-            base: data.user?.base || params.base,
+            location: data.session?.location || params.loginLocation,
             sessionId: data.sessionId || data.user?.sessionId,
           });
 
@@ -137,13 +148,8 @@ export default function OTP() {
                 String(params.identifier).trim(),
               );
             }
-            localStorage.setItem(
-              "rememberedBase",
-              data.user?.base || params.base || "",
-            );
           } else {
             localStorage.removeItem("rememberedIdentifier");
-            localStorage.removeItem("rememberedBase");
             localStorage.removeItem("rememberMe");
           }
 
@@ -152,13 +158,13 @@ export default function OTP() {
           if (role === "superadmin") {
             dashboardPath = "/dashboard/user-management/view-users";
           } else if (role === "mechanic") {
-            dashboardPath = "/dashboard/maintenance-log";
+            dashboardPath = "/dashboard/tasks";
           } else if (
             role === "maintenance manager" ||
             role === "officer-in-charge"
           ) {
             dashboardPath = "/dashboard/maintenance-dashboard";
-          } else if (role === "warehouse staff") {
+          } else if (role === "warehouse personnel") {
             dashboardPath = "/dashboard/parts-requisition";
           }
 
@@ -229,7 +235,15 @@ export default function OTP() {
 
       const res = await fetch(resendEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(mode === "login-2fa"
+            ? {
+                "x-platform": "WEB",
+                ...buildLoginLocationHeaders(params.loginLocation),
+              }
+            : {}),
+        },
         body: JSON.stringify(resendPayload),
       });
 

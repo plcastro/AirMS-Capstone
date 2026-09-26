@@ -4,12 +4,15 @@ const ROLE_TO_JOB_TITLE = {
   "maintenance manager": "Maintenance Manager",
   "officer-in-charge": "Officer-In-Charge",
   mechanic: "Mechanic",
-  "warehouse staff": "Warehouse Staff",
+  "warehouse personnel": "Warehouse Personnel",
   pilot: "Pilot",
   superadmin: "Superadmin",
 };
 
-const normalizeRole = (role = "") => String(role || "").trim().toLowerCase();
+const normalizeRole = (role = "") =>
+  String(role || "")
+    .trim()
+    .toLowerCase();
 
 const uniqueStrings = (values = []) => [
   ...new Set(

@@ -16,6 +16,7 @@ import {
   estimateInspectionSchedule,
   formatEstimatedDuration,
 } from "../../utils/inspectionTiming";
+import { formatTaskInspectionLabel } from "../../utils/taskInspectionLabel";
 import dayjs from "dayjs";
 
 const { Text, Title } = Typography;
@@ -170,10 +171,7 @@ export default function CreateTaskModal({
                   ...toUniqueSelectOptions(
                     inspectionOptions,
                     (inspection) => inspection.id,
-                    (inspection) =>
-                      inspection.aircraftModel
-                        ? `${inspection.name} (${inspection.aircraftModel})`
-                        : inspection.name,
+                    formatTaskInspectionLabel,
                   ),
                 ]}
               />

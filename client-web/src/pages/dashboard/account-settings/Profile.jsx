@@ -23,7 +23,10 @@ import {
   EditOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
-import { AuthContext } from "../../../context/AuthContext";
+import {
+  AuthContext,
+  buildStoredUserProfile,
+} from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import UpdateSecurity from "./UpdateSecurity";
 import ResultPopup from "../../../components/common/ResultPopup";
@@ -114,13 +117,14 @@ export default function Profile() {
   const persistUser = (nextUser) => {
     setUser(nextUser);
     try {
+      const storedUser = buildStoredUserProfile(nextUser);
       const storedKeys = ["currentUser"];
       storedKeys.forEach((key) => {
         if (sessionStorage.getItem(key)) {
-          sessionStorage.setItem(key, JSON.stringify(nextUser));
+          sessionStorage.setItem(key, JSON.stringify(storedUser));
         }
         if (localStorage.getItem(key)) {
-          localStorage.setItem(key, JSON.stringify(nextUser));
+          localStorage.setItem(key, JSON.stringify(storedUser));
         }
       });
     } catch {

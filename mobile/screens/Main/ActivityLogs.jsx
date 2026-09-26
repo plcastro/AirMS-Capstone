@@ -16,7 +16,6 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
@@ -33,6 +32,7 @@ import {
   getAuditActionCategory,
   getAuditActionCategoryOptions,
 } from "../../utilities/auditActions";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
 const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
@@ -41,7 +41,6 @@ const DATE_RANGE_OPTIONS = [
 ];
 const SCOPE_TYPE_OPTIONS = [
   { label: "All Scope", value: "all" },
-  { label: "Base", value: "base" },
   { label: "Platform", value: "platform" },
 ];
 const LOGS_PER_PAGE = 10;
@@ -61,6 +60,26 @@ const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
 );
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDevicePlatform = (devicePlatform, platform) => {
+  const normalizedDevice = String(devicePlatform || "")
+    .trim()
+    .toUpperCase();
+  if (normalizedDevice === "MOBILE_IOS") return "IOS";
+  if (normalizedDevice === "MOBILE_ANDROID") return "ANDROID";
+  if (normalizedDevice) return normalizedDevice.replace(/_/g, " ");
+  return String(platform || "unknown")
+    .trim()
+    .toUpperCase();
+};
+
+const getPerformedByName = (item = {}) => {
+  const fullName = [item.firstName, item.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || item.displayName || "Unknown";
+};
 
 const startOfDay = (date) => {
   const next = new Date(date);
@@ -153,7 +172,6 @@ export default function ActivityLogs() {
     async ({ silent = false } = {}) => {
       try {
         if (!silent) setLoading(true);
-        const token = await AsyncStorage.getItem("currentUserToken");
         const query = new URLSearchParams({ page: "1", limit: "1000" });
 
         if (dateRangeFilter !== "all") {
@@ -171,9 +189,7 @@ export default function ActivityLogs() {
         const response = await fetch(
           `${API_BASE}/api/logs/getAllUserLogs?${query.toString()}`,
           {
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
+            headers: await getAuthHeaders(),
           },
         );
 
@@ -183,19 +199,40 @@ export default function ActivityLogs() {
         }
 
         const responseLogs = Array.isArray(json.data) ? json.data : [];
-        const mapped = responseLogs.map((item, index) => ({
-          _id: item._id || String(index),
-          index: index + 1,
-          dateTime: item.dateTime,
-          actionMade: item.actionMade || item.action || "N/A",
-          username: item.username || "Unknown",
-          base: String(item.base || item.loginBase || "unknown")
-            .trim()
-            .toUpperCase(),
-          platform: String(item.platform || "unknown")
-            .trim()
-            .toUpperCase(),
-        }));
+        const mapped = responseLogs.map((item, index) => {
+          const performedByName = getPerformedByName(item);
+          return {
+            _id: item._id || String(index),
+            index: index + 1,
+            dateTime: item.dateTime,
+            actionMade: item.actionMade || item.action || "N/A",
+            username: performedByName,
+            displayName: performedByName,
+            firstName: item.firstName || "",
+            lastName: item.lastName || "",
+            platform: String(item.platform || "unknown")
+              .trim()
+              .toUpperCase(),
+            devicePlatform: String(item.devicePlatform || "")
+              .trim()
+              .toUpperCase(),
+            deviceModel: String(item.deviceModel || "").trim(),
+            locationText: String(item.locationText || "").trim(),
+            locationCoordinates:
+              item.locationLatitude !== null &&
+              item.locationLatitude !== undefined &&
+              item.locationLongitude !== null &&
+              item.locationLongitude !== undefined
+                ? `${Number(item.locationLatitude).toFixed(6)}, ${Number(
+                    item.locationLongitude,
+                  ).toFixed(6)}`
+                : "",
+            platformLabel: formatDevicePlatform(
+              item.devicePlatform,
+              item.platform,
+            ),
+          };
+        });
 
         setLogs(mapped);
       } catch (error) {
@@ -252,17 +289,13 @@ export default function ActivityLogs() {
     }
 
     if (scopeType !== "all" && scopeValue !== "all") {
-      if (scopeType === "base") {
-        next = next.filter(
-          (item) =>
-            String(item.base || "unknown").toUpperCase() ===
-            String(scopeValue).toUpperCase(),
-        );
-      } else if (scopeType === "platform") {
+      if (scopeType === "platform") {
         next = next.filter(
           (item) =>
             String(item.platform || "unknown").toUpperCase() ===
-            String(scopeValue).toUpperCase(),
+              String(scopeValue).toUpperCase() ||
+            String(item.platformLabel || "unknown").toUpperCase() ===
+              String(scopeValue).toUpperCase(),
         );
       }
     }
@@ -302,7 +335,7 @@ export default function ActivityLogs() {
     const byUser = {};
     const byModule = {};
     filteredLogs.forEach((item) => {
-      const userKey = String(item.username || "Unknown");
+      const userKey = String(item.displayName || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
       const module = actionText.includes("task")
@@ -328,37 +361,20 @@ export default function ActivityLogs() {
   }, [filteredLogs]);
 
   const scopeValueOptions = useMemo(() => {
-    if (scopeType === "base") {
-      const values = Array.from(
-        new Set([
-          "MANILA",
-          "CEBU",
-          "CDO",
-          ...logs
-            .map((item) =>
-              String(item.base || "")
-                .trim()
-                .toUpperCase(),
-            )
-            .filter(Boolean),
-        ]),
-      ).sort();
-      return [
-        { label: "All Base", value: "all" },
-        ...values.map((value) => ({ label: value, value })),
-      ];
-    }
     if (scopeType === "platform") {
       const values = Array.from(
         new Set([
           "WEB",
           "MOBILE",
           ...logs
-            .map((item) =>
+            .flatMap((item) => [
               String(item.platform || "")
                 .trim()
                 .toUpperCase(),
-            )
+              String(item.platformLabel || "")
+                .trim()
+                .toUpperCase(),
+            ])
             .filter(Boolean),
         ]),
       ).sort();
@@ -381,7 +397,7 @@ export default function ActivityLogs() {
     "Scope";
   const selectedScopeValueLabel =
     scopeValueOptions.find((option) => option.value === scopeValue)?.label ||
-    (scopeType === "base" ? "All Base" : "All Platform");
+    "All Platform";
   const visibleTrendSeries = useMemo(
     () =>
       actionType === "all"
@@ -507,7 +523,7 @@ export default function ActivityLogs() {
       : [
           {
             filterKey: "scopeValue",
-            label: scopeType === "base" ? "Base" : "Platform",
+            label: "Platform",
             selectedLabel: selectedScopeValueLabel,
             options: scopeValueOptions,
             onSelect: (value) => selectFilterValue(setScopeValue, value),
@@ -542,13 +558,23 @@ export default function ActivityLogs() {
         sections: [
           {
             title: "Activity Logs",
-            columns: ["Date / Time", "User", "Action", "Platform", "Base"],
+            columns: [
+              "Date / Time",
+              "Performed By",
+              "Action",
+              "Platform",
+              "Device Model",
+              "Location",
+              "Coordinates",
+            ],
             rows: filteredLogs.map((log) => ({
               "Date / Time": formatDisplayDate(log.dateTime),
-              User: log.username || "Unknown",
+              "Performed By": log.displayName || "Unknown",
               Action: log.actionMade || "N/A",
-              Platform: log.platform || "Not captured",
-              Base: log.base || "Not captured",
+              Platform: log.platformLabel || log.platform || "Not captured",
+              "Device Model": log.deviceModel || "Not captured",
+              Location: log.locationText || "Not captured",
+              Coordinates: log.locationCoordinates || "Not captured",
             })),
           },
         ],
@@ -728,24 +754,37 @@ export default function ActivityLogs() {
                 </View>
 
                 <AppText style={styles.userText}>
-                  User: {item.username || "Unknown"}
+                  Performed by: {item.displayName || "Unknown"}
                 </AppText>
                 <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
                 </AppText>
 
                 <View style={styles.metaTagsRow}>
-                  <View style={[styles.tag, styles.baseTag]}>
-                    <AppText style={[styles.tagText, styles.baseTagText]}>
-                      BASE: {item.base || "UNKNOWN"}
-                    </AppText>
-                  </View>
                   <View style={[styles.tag, styles.platformTag]}>
                     <AppText style={[styles.tagText, styles.platformTagText]}>
-                      {String(item.platform || "unknown").toUpperCase()}
+                      {item.platformLabel || "UNKNOWN"}
                     </AppText>
                   </View>
+                  {!!item.deviceModel && (
+                    <View style={[styles.tag, styles.deviceTag]}>
+                      <AppText style={[styles.tagText, styles.deviceTagText]}>
+                        Device: {item.deviceModel}
+                      </AppText>
+                    </View>
+                  )}
                 </View>
+                {!!item.locationText && (
+                  <AppText style={styles.locationText}>
+                    Logging in from: {item.locationText}
+                  </AppText>
+                )}
+                {!!item.locationCoordinates && (
+                  <AppText style={styles.locationCoordinateText}>
+                    Latitude and longitude coordinates:{" "}
+                    {item.locationCoordinates}
+                  </AppText>
+                )}
               </View>
             );
           })
@@ -990,6 +1029,12 @@ const styles = StyleSheet.create({
   },
   userText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
   dateText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  locationText: { marginTop: 8, color: "#111827", fontSize: 12 },
+  locationCoordinateText: {
+    marginTop: 2,
+    color: COLORS.grayDark,
+    fontSize: 11,
+  },
   metaTagsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1003,10 +1048,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tagText: { fontSize: 10, fontWeight: "700" },
-  baseTag: { backgroundColor: "#EEF4FF", borderColor: "#D5E3FF" },
-  baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
+  deviceTag: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  deviceTagText: { color: "#9A3412" },
   paginationRow: {
     marginTop: 4,
     flexDirection: "row",
