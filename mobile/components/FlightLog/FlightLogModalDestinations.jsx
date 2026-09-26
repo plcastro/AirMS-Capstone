@@ -9,7 +9,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateInput from "../common/DateInput";
-import { isLegTotal, legFieldDisplay } from "../../../shared/flightLegTimes";
+import { isLegTotal, legFieldDisplay, defaultPassengerCount } from "../../../shared/flightLegTimes";
 
 const formatDate = (date) =>
   date.toLocaleDateString("en-US", {
@@ -84,7 +84,7 @@ export default function FlightLogModalDestinations({
         totalTimeOn: "",
         totalTimeOff: "",
         date: "",
-        passengers: "",
+        passengers: "0",
       },
     ],
   );
@@ -102,7 +102,7 @@ export default function FlightLogModalDestinations({
           totalTimeOn: "",
           totalTimeOff: "",
           date: "",
-          passengers: "",
+          passengers: "0",
         },
       ],
     );
@@ -175,7 +175,7 @@ export default function FlightLogModalDestinations({
       totalTimeOn: "",
       totalTimeOff: "",
       date: "",
-      passengers: "",
+      passengers: "0",
     };
     const newLegs = [...legs, newLeg];
     setLegs(newLegs);
@@ -232,7 +232,7 @@ export default function FlightLogModalDestinations({
             color: isEditable ? COLORS.black : COLORS.grayDark,
           }}
           value={String(
-            isEditable
+            fieldKey === 'passengers' ? defaultPassengerCount(legs[legIdx][fieldKey]) : isEditable
               ? legFieldDisplay(legs[legIdx], fieldKey)
               : (legs[legIdx][fieldKey] ?? ""),
           )}
@@ -312,9 +312,9 @@ export default function FlightLogModalDestinations({
         Destination/s
       </AppText>
       <AppText style={{ marginBottom: 16 }}>
-        Use 24-hour times (HH:mm) in the same time zone. OFF is
-        departure/takeoff; ON is arrival/landing. Totals are decimal hours. ON
-        before OFF means the following day.
+        Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm)
+        if entered. Total Time (FLIGHT) is required for component hours.
+        Passengers default to 0.
       </AppText>
 
       {legs.map((leg, legIdx) => {

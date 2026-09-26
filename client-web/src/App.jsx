@@ -3,7 +3,6 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import React, {
   Suspense,
@@ -13,7 +12,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { App as AntdApp, Button, ConfigProvider, Modal, Spin } from "antd";
+import { App as AntdApp, ConfigProvider, Spin } from "antd";
 import { AuthContext, AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./pages/auth/ProtectedRoute";
 
@@ -133,22 +132,7 @@ const getUserHomePath = (user) => {
 };
 
 const AppRouter = () => {
-  const navigate = useNavigate();
-  const {
-    user,
-    loading,
-    showSessionTimeoutWarning,
-    warningSecondsRemaining,
-    continueSession,
-    logoutUser,
-  } = useContext(AuthContext);
-
-  const handleSignOutNow = () => {
-    logoutUser().catch((error) => {
-      console.error("Sign out failed:", error);
-    });
-    navigate("/login", { replace: true });
-  };
+  const { user, loading } = useContext(AuthContext);
 
   if (loading) {
     return <LoadingScreen />;
@@ -156,40 +140,6 @@ const AppRouter = () => {
 
   return (
     <>
-      <Modal
-        open={showSessionTimeoutWarning}
-        title="Session Timeout Warning"
-        closable={false}
-        mask={{ closable: false }}
-        keyboard={false}
-        centered
-        footer={null}
-      >
-        <p style={{ marginBottom: 8 }}>
-          You&apos;ve been inactive for a while. For your security, you&apos;ll
-          be signed out unless you continue.
-        </p>
-
-        <p style={{ marginBottom: 20 }}>
-          Auto sign-out in <strong>{warningSecondsRemaining}</strong> seconds.
-        </p>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-          }}
-        >
-          <Button danger href="/login" onClick={handleSignOutNow}>
-            Sign out now
-          </Button>
-
-          <Button type="primary" htmlType="button" onClick={continueSession}>
-            Continue session
-          </Button>
-        </div>
-      </Modal>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route

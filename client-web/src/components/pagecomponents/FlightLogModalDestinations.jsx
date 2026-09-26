@@ -2,6 +2,7 @@ import React from "react";
 import FlightTimeInput from './FlightTimeInput';
 import FlightStationInput from './FlightStationInput';
 import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
+import { defaultPassengerCount } from '../../../../shared/flightLegTimes';
 import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -28,7 +29,7 @@ export default function FlightLogModalDestinations({
   return (
     <div className="fl-section">
       <div className="fl-section-title">DESTINATION/S</div>
-      <p>Use 24-hour times (HH:mm), consistently in the same time zone. OFF is departure/takeoff; ON is arrival/landing. Enter total durations in hours and minutes.</p>
+      <p>Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm) if entered. Total Time (FLIGHT) is required for component hours. Passengers default to 0.</p>
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
@@ -136,7 +137,7 @@ export default function FlightLogModalDestinations({
                   ) : (
                     <Input
                       className="fl-input"
-                      value={leg[key] ?? ""}
+                      value={key === 'passengers' ? defaultPassengerCount(leg[key]) : leg[key] ?? ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
                       disabled={!isEditable}
                       required={REQUIRED_LEG_FIELDS.has(key)}

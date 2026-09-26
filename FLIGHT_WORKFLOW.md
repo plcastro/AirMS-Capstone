@@ -12,11 +12,11 @@ selected aircraft, including **Needs My Action**.
 - Use MongoDB Atlas or a replica set. Closing a flight record, changing a linked
   inspection, and recording a defect use transactions. A standalone MongoDB
   instance receives an explicit error; there is no partial-save fallback.
-- A maintenance manager or Superadmin opens **Flight Logs → Crew Authorizations**
-  on the web. Record the verified license type, account license number, approved
-  aircraft registrations, expiry, and supporting authorization reference for
-  each pilot and mechanic. Assignment determines responsibility; the current
-  authorization and account PIN determine whether that person can certify.
+- Pilots and mechanics sign using their active accounts, signatures and six-digit
+  PINs. The initial Pre-Flight confirmation is signed by the creating mechanic;
+  later workflow actions require the assigned crew member and appropriate role.
+  No separate manager approval, aircraft authorization record, license expiry,
+  or account license number is required by the signing flow.
 - Set up the aircraft's Parts Monitoring record and its actual brought-forward
   values. Missing values are not interpreted as zero.
 - Existing records and their history are retained. Records without an assigned
@@ -38,15 +38,26 @@ selected aircraft, including **Needs My Action**.
    release. The initial confirmation is bound to its mechanic and aircraft and
    can only create one flight log; an unused confirmation expires after 24 hours.
 3. **Release and pilot acceptance.** The mechanic uses **Save & Release to Pilot**.
+   Release appends the current mechanic's saved Pre-Flight signature and asks
+   only for the six-digit PIN. The server verifies the PIN and sources the
+   signature from the linked inspection before recording the release.
+   Flight purpose is optional. Overdue Parts Lifespan Monitoring
+   items appear as expandable warnings and do not block release or acceptance.
    The assigned pilot reviews and signs **Accept Pre-Flight**, then **Accept
    Aircraft** for the flight log. Pilots have no data-entry, creation, defect,
    correction or amendment permissions in this flight workflow.
+   Their only editable inputs are the signature and six-digit PIN for each
+   acceptance. The server retains the mechanic's form data and ignores any
+   extra form fields or comments sent with pilot acceptance requests.
 4. **Mechanic enters flight results.** Enter routes, times, passenger counts,
    discrepancies and applicable work. The mechanic can save incomplete drafts.
-   Hour-based This Flight values calculate from the sum of airborne minutes;
-   B412 includes both engines. Engine cycles, sling usage and other non-hour
-   counters remain manual. Missing leg times leave calculated hours blank.
-   Times use 24-hour HH:mm: OFF means departure/takeoff and ON means
+   Component Times uses the original Brought Forward, This Flight and To Date
+   fields for both aircraft layouts. Hour values sum each leg's entered
+   Total Time (FLIGHT), converted with the original tenths-of-an-hour table.
+   Engine cycles, sling usage and other non-hour counters remain manual.
+   Missing flight durations leave calculated hours blank.
+   Flight and block ON/OFF times are optional; passengers default to 0.
+   Supplied times use 24-hour HH:mm: OFF means departure/takeoff and ON means
    arrival/landing; an ON time earlier than OFF means the following day.
 5. **Review and confirm Post-Flight.** **Complete Flight Log** opens the totals
    review, followed by **Were all post-flight inspection items satisfactory?**
@@ -136,8 +147,9 @@ cryptographic signatures from an independent certificate authority.
 
 Use test aircraft and accounts, never operational records:
 
-1. Configure a licensed pilot/mechanic pair and a valid aircraft authorization;
-   confirm an unassigned user and an expired authorization cannot sign.
+1. Configure active pilot/mechanic accounts with PINs and assign them to a test
+   flight. Confirm they can sign without separate authorization records, and
+   that unassigned users, inactive accounts, and incorrect PINs are rejected.
 2. Create an incomplete mechanic draft through each Pre-Flight answer; verify
    all-checked vs discrepancy-hold behavior, RP-C locking and pilot assignment.
    Verify a pilot cannot create or edit a log.

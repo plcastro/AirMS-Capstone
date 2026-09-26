@@ -8,16 +8,13 @@ const {
 } = require("../middleware/actionConfirmation");
 const workflow = require("../controllers/flightWorkflowController");
 const inspectionWorkflow = require("../controllers/flightInspectionWorkflowController");
+const confirmFlightEntry = require("../controllers/flightEntryConfirmationController");
 router.use(verifyToken);
 const {
   createFlightLog,
   getFlightLogs,
   getFlightLogById,
   getFlightLogsByAircraft,
-  updateFlightLog,
-  releaseFlightLog,
-  acceptFlightLog,
-  completeFlightLog,
   getFlightLogStats,
   searchFlightLogs,
   getFlightLogCrewOptions,
@@ -36,6 +33,13 @@ router
 // Statistics and search routes
 router.get("/stats", getFlightLogStats);
 router.get("/search", searchFlightLogs);
+router.get("/crew-options", getFlightLogCrewOptions);
+router.post(
+  "/preflight-confirmations",
+  touchSessionActivity,
+  requireActionConfirmation,
+  confirmFlightEntry,
+);
 router.get(
   "/pilot-options",
   verifyToken,
@@ -45,7 +49,21 @@ router.get(
 // Aircraft-specific routes
 router.get("/aircraft/:rpc", getFlightLogsByAircraft);
 
+// Register the workspace endpoints used by both web and mobile. Named routes
+// above must precede /:id so crew lookups are not treated as flight-log IDs.
+router.get("/:id/workspace", workflow.workspace);
+router.post("/:id/review", touchSessionActivity, requireActionConfirmation, workflow.review);
+router.put("/:id/reconcile", touchSessionActivity, requireActionConfirmation, workflow.reconcile);
+router.put("/:id/amend", touchSessionActivity, requireActionConfirmation, workflow.amend);
+router.post("/:id/defects", touchSessionActivity, requireActionConfirmation, workflow.defects);
+router.put("/:id/defects/:defectId", touchSessionActivity, requireActionConfirmation, workflow.defects);
+router.post("/:id/inspections", touchSessionActivity, requireActionConfirmation, inspectionWorkflow.create);
+router.put("/:flightId/inspections/pre/:id", touchSessionActivity, requireActionConfirmation, inspectionWorkflow.edit("pre"));
+router.put("/:flightId/inspections/post/:id", touchSessionActivity, requireActionConfirmation, inspectionWorkflow.edit("post"));
+
 // Status workflow routes
+router.put("/:id/submit", touchSessionActivity, requireActionConfirmation, workflow.action("submit"));
+router.put("/:id/return", touchSessionActivity, requireActionConfirmation, workflow.action("return"));
 router.put(
   "/:id/release",
   verifyToken,

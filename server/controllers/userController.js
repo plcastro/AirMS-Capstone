@@ -61,8 +61,7 @@ const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years;
 const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
-const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
+const { SESSION_IDLE_LIMIT_MS, sessionActivityAt } = require('../utils/sessionIdle');
 const ROLES_REQUIRING_LICENSE = new Set([
   "maintenance manager",
   "pilot",
@@ -102,10 +101,6 @@ const getRefreshTokenTtlMs = (isPersistent, platform = "") =>
     : isPersistent
       ? REMEMBER_ME_REFRESH_TOKEN_TTL_MS
       : REFRESH_TOKEN_TTL_MS;
-
-const getSessionIdleLimitMs = () => SESSION_IDLE_LIMIT_MS;
-const isMobilePlatform = (platform = "") =>
-  normalizePlatform(platform) === "MOBILE";
 
 const getRefreshTokenCleanupDate = (expiresAt) =>
   new Date(new Date(expiresAt).getTime() + REFRESH_TOKEN_RECORD_RETENTION_MS);
@@ -1085,7 +1080,7 @@ const refreshToken = async (req, res) => {
       return res.status(401).json({ message: "Session context missing" });
     }
 
-    let activeSession = await UserSession.findOne({
+    const activeSession = await UserSession.findOne({
       userId: user._id,
       sessionId,
     });
@@ -1095,51 +1090,23 @@ const refreshToken = async (req, res) => {
     }
 
     if (!activeSession.isActive) {
-      if (!tokenRecord.isPersistent) {
-        return res.status(401).json({ message: "Session is no longer active" });
-      }
-
-      activeSession = await UserSession.findOneAndUpdate(
-        { userId: user._id, sessionId },
-        { isActive: true, lastActivityAt: new Date(), logoutAt: null },
-        { new: true },
-      );
+      return res.status(401).json({ message: "Session is no longer active" });
     }
-
     const requestPlatform = normalizePlatform(
       req.headers["x-platform"] || activeSession.platform || payload.platform,
     );
     const now = Date.now();
-    if (!isMobilePlatform(requestPlatform)) {
-      const sessionIdleLimitMs = getSessionIdleLimitMs(requestPlatform);
-      const clientActiveAt = Number(req.headers["x-client-active-at"]);
-      const hasRecentClientActivity =
-        Number.isFinite(clientActiveAt) &&
-        clientActiveAt <= now + CLIENT_ACTIVITY_GRACE_MS &&
-        now - clientActiveAt <= sessionIdleLimitMs;
-      const lastActivityAt = new Date(
-        activeSession.lastActivityAt || activeSession.loginAt || now,
-      ).getTime();
-      const effectiveLastActivityAt = hasRecentClientActivity
-        ? Math.max(lastActivityAt, clientActiveAt)
-        : lastActivityAt;
-      if (
-        !tokenRecord.isPersistent &&
-        now - effectiveLastActivityAt > sessionIdleLimitMs
-      ) {
-        await UserSession.findOneAndUpdate(
-          { userId: user._id, sessionId, isActive: true },
-          { isActive: false, logoutAt: new Date(), lastActivityAt: new Date() },
-        );
-        return res
-          .status(401)
-          .json({ message: "Session timed out due to inactivity" });
-      }
+    const activityAt = sessionActivityAt(activeSession, req.headers["x-client-active-at"], now);
+    if (now - activityAt >= SESSION_IDLE_LIMIT_MS) {
+      await UserSession.findOneAndUpdate(
+        { userId: user._id, sessionId, isActive: true },
+        { isActive: false, logoutAt: new Date(now) },
+      );
+      return res.status(401).json({ message: "Session timed out due to inactivity" });
     }
-
     await UserSession.findOneAndUpdate(
       { userId: user._id, sessionId, isActive: true },
-      { lastActivityAt: new Date() },
+      { $max: { lastActivityAt: new Date(activityAt) } },
     );
 
     if (user.status === "deactivated") {

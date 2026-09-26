@@ -14,8 +14,10 @@ export default function FlightLogModalOilServicing({
   isEditable = true,
   lockedRows = 0,
   signatureInherited = false,
+  inheritedSignature = "",
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+  const hasInheritedSignature = signatureInherited || Boolean(inheritedSignature);
 
   const canEditRow = (index) => isEditable && index >= lockedRows;
 
@@ -198,7 +200,7 @@ export default function FlightLogModalOilServicing({
       {legs.map((leg, legIndex) => {
         const legNumber = legIndex + 1;
         const suffix = getOrdinalSuffix(legNumber);
-        const oilData = oilServicingData[legIndex] || {};
+        const oilData = { ...oilServicingData[legIndex], signature: inheritedSignature || oilServicingData[legIndex]?.signature || "" };
 
         return (
           <View
@@ -325,7 +327,7 @@ export default function FlightLogModalOilServicing({
                 >
                   Sign:
                 </AppText>
-                {canEditRow(legIndex) && !signatureInherited ? (
+                {canEditRow(legIndex) && !hasInheritedSignature ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
                     style={{
@@ -382,7 +384,7 @@ export default function FlightLogModalOilServicing({
                   </View>
                 )}
                 {canEditRow(legIndex) &&
-                  !signatureInherited &&
+                  !hasInheritedSignature &&
                   oilData.signature && (
                     <TouchableOpacity
                       onPress={() => handleClearSignature(legIndex)}

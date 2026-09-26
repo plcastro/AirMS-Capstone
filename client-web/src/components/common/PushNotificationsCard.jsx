@@ -375,6 +375,8 @@ export default function PushNotificationsCard({ open, onClose }) {
 
     const moduleName = notification?.module || notification?.metadata?.module;
 
+    if (moduleName === "sessions") return;
+
     if (moduleName === "flight-logs") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({

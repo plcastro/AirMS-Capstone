@@ -16,7 +16,7 @@ const legSchema = new mongoose.Schema({
   totalTimeOn: { type: String, default: "" },
   totalTimeOff: { type: String, default: "" },
   date: { type: String, default: "" },
-  passengers: { type: String, default: "" },
+  passengers: { type: String, default: "0" },
 });
 
 // Fuel Servicing Schema
@@ -255,6 +255,7 @@ const b412FlightLogDataSchema = new mongoose.Schema(
 // Person Signature Schema
 const personSignatureSchema = new mongoose.Schema({
   scope: { type: String, default: '' },
+  // Optional historical metadata only; new signatures do not require or set it.
   authorizationId: { type: String, default: '' },
   authorizationReference: { type: String, default: '' },
   licenseType: { type: String, default: '' },

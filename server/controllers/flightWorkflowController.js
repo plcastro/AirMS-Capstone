@@ -1,5 +1,7 @@
 const { b412WorkflowComponents } = require('../../shared/b412WorkflowComponents');
 const { populateFlightInputs } = require('../../shared/flightAutomaticInputs');
+const { syncFlightLogDates } = require('../../shared/flightLogDates');
+const { populateMonitoringBroughtForward } = require('../../shared/flightLogBroughtForward');
 const { confirmInspection } = require('../utils/flightInspectionConfirmation');
 const mongoose = require('mongoose');
 const FlightLog = require('../models/flightLogModel');
@@ -7,8 +9,6 @@ const Pre = require('../models/preInspectionModel');
 const Post = require('../models/postInspectionModel');
 const Parts = require('../models/partsMonitoringModel');
 const Defect = require('../models/flightDefectModel');
-const Authorization = require('../models/flightCrewAuthorizationModel');
-const User = require('../models/userModel');
 const {
   fail,
   plain,
@@ -33,7 +33,8 @@ const {
   isB412AircraftType
 } = require('../utils/flightLogPayload');
 const {
-  flightStage
+  flightStage,
+  preflightSignatureForRelease
 } = require('../../shared/flightWorkflow');
 const {
   isAssignedFlightCrew,
@@ -114,10 +115,10 @@ const related = async (record, session = null) => {
 };
 const readiness = (record, links) => {
   const missing = [],
-    warnings = [];
+    warnings = [],
+    maintenanceDue = [];
   if (!record.assignedPilot?.userId) missing.push('Assign a pilot.');
   if (!record.assignedMechanic?.userId) missing.push('Assign a mechanic.');
-  if (!record.flightPurpose) missing.push('Choose the flight purpose.');
   if (!record.controlNo?.trim()) missing.push('Enter a control number.');
   if (!record.date || Number.isNaN(new Date(record.date).getTime())) missing.push('Enter a valid flight date.');
   if (!links.monitoring) missing.push('Create the aircraft Parts Monitoring record.');else {
@@ -135,14 +136,16 @@ const readiness = (record, links) => {
   }) : [];
   for (const item of currentParts) {
     if (item.rowType === 'header') continue;
-    if (numeric(item.timeRemaining) !== null && numeric(item.timeRemaining) <= 0 || numeric(item.daysRemaining) !== null && numeric(item.daysRemaining) < 0) missing.push(`Maintenance due: ${item.componentName}.`);
+    if (numeric(item.timeRemaining) !== null && numeric(item.timeRemaining) <= 0 || numeric(item.daysRemaining) !== null && numeric(item.daysRemaining) < 0) maintenanceDue.push(`Maintenance due: ${item.componentName}.`);
   }
+  if (maintenanceDue.length) warnings.push(`${maintenanceDue.length} overdue maintenance item(s) in Parts Lifespan Monitoring for ${record.rpc}. These warnings do not block release.`);
   if (!links.preInspections.length) warnings.push('Create and complete the linked Pre-Flight inspection.');
   if (!links.postInspections.length) warnings.push('A linked Post-Flight inspection is required for closure.');
   if (links.defects.some(d => d.status === 'deferred')) warnings.push('Review deferred defect limitations before flight.');
   return {
     missing,
     warnings,
+    maintenanceDue,
     monitoringAvailable: Boolean(links.monitoring),
     aircraftStatus: [...links.preInspections, ...links.postInspections].some(record => record.confirmation?.allGood === false) ? 'Inspection discrepancy hold' : blockingDefects.length ? 'Maintenance hold' : links.defects.some(d => d.status === 'deferred') ? 'Deferred defects — review limitations' : 'No open defects recorded'
   };
@@ -161,7 +164,9 @@ const applyChanges = async (record, req) => {
     record.set(key, value);
   }
   if (getAssignedCrewField(req.user) === 'assignedMechanic') {
-    const populated = populateFlightInputs(record.toObject());
+    const rpc = String(record.rpc).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const monitoring = record.monitoringBaseline?.referenceData ? null : await Parts.findOne({ aircraft: { $regex: `^${rpc}$`, $options: 'i' } }).lean();
+    const populated = populateFlightInputs(populateMonitoringBroughtForward(record.toObject(), monitoring));
     for (const key of ['componentData', 'b412Data', 'fuelServicing', 'oilServicing']) if (populated[key] !== undefined) record.set(key, populated[key]);
   }
   return Object.fromEntries(Object.keys(changes).map(key => [key, {
@@ -212,10 +217,19 @@ const notify = async (_previous, saved) => {
 const workspace = catchRequest(async (req, res) => {
   const flightLog = await load(req.params.id);
   const links = await related(flightLog);
+  const displayLog = populateMonitoringBroughtForward(plain(flightLog), plain(links.monitoring));
+  // Earlier confirmation-flow logs omitted the initial signer from the flight
+  // record. Recover it for display from their verified linked inspection.
+  if (!displayLog.initialInspectionSignature?.signature) {
+    const pre = links.preInspections.find(record => record.confirmation?.allGood === true &&
+      record.releasedBy?.signature && String(record.releasedBy.userId) === String(flightLog.assignedMechanic?.userId));
+    if (pre) displayLog.initialInspectionSignature = plain(pre.releasedBy);
+  }
+  const displayedServicing = syncFlightLogDates(displayLog);
   res.json({
     success: true,
     data: {
-      flightLog,
+      flightLog: { ...displayLog, fuelServicing: displayedServicing.fuelServicing, oilServicing: displayedServicing.oilServicing },
       preInspections: links.preInspections,
       postInspections: links.postInspections,
       defects: links.defects,
@@ -278,13 +292,19 @@ const action = actionName => catchRequest(async (req, res) => {
   const next = transition(log, req.user, actionName);
   const previous = plain(log);
   const version = log.__v || 0;
-  const changes = await applyChanges(log, req);
-  const comment = String(req.body.comment || '').trim();
+  const mechanic = getAssignedCrewField(req.user) === 'assignedMechanic';
+  const changes = mechanic ? await applyChanges(log, req) : {};
+  const comment = mechanic ? String(req.body.comment || '').trim() : '';
   if (actionName === 'return' && !comment) throw fail('Explain what needs correcting.');
-  const signingRequest = actionName === 'complete' && req.body.postFlightConfirmation?.appendSignature && log.initialInspectionSignature?.signature
-    ? { ...req, body: { ...req.body, signature: log.initialInspectionSignature.signature } } : req;
-  const signer = actionName === 'return' ? null : await verifyWorkflowSigner(signingRequest, log, actionName);
   const links = await related(log);
+  let signingRequest = actionName === 'complete' && req.body.postFlightConfirmation?.appendSignature && log.initialInspectionSignature?.signature
+    ? { ...req, body: { ...req.body, signature: log.initialInspectionSignature.signature } } : req;
+  if (actionName === 'release') {
+    const signature = preflightSignatureForRelease(log, links.preInspections);
+    if (!signature) throw fail('Complete and sign the linked Pre-Flight inspection before releasing the flight log.');
+    signingRequest = { ...req, body: { ...req.body, signature } };
+  }
+  const signer = actionName === 'return' ? null : await verifyWorkflowSigner(signingRequest, log, actionName);
   if (['release', 'accept'].includes(actionName)) {
     const missing = readiness(log, links).missing;
     missing.push(...inspectionSignoffErrors(log, links, actionName === 'accept'));
@@ -353,7 +373,7 @@ const action = actionName => catchRequest(async (req, res) => {
         });
         if (monitoringReconciliation(current, currentLinks.monitoring).required) throw fail('Parts Monitoring usage changed since release. Review and sign the monitoring reconciliation before closing.', 409);
         log.legs = review.legs;
-        if (isB412AircraftType(log.aircraftType)) { log.b412Data.componentData = review.componentData; log.componentData = b412WorkflowComponents(review.componentData); } else log.componentData = review.componentData;
+        if (isB412AircraftType(log.aircraftType)) { log.b412Data.componentData = review.componentData; log.componentData = b412WorkflowComponents(review.componentData, plain(log.componentData)); } else log.componentData = review.componentData;
         const monitoring = currentLinks.monitoring;
         const refs = {
           ...plain(monitoring.referenceData),
@@ -557,60 +577,6 @@ const defects = catchRequest(async (req, res) => {
     data: defect
   });
 });
-const canManageAuthority = req => ['superadmin', 'maintenance manager'].includes(String(req.user?.jobTitle || '').toLowerCase()) || String(req.user?.access || '').toLowerCase() === 'superadmin';
-const authorizations = catchRequest(async (req, res) => {
-  if (!canManageAuthority(req)) throw fail('Only the maintenance manager or superadmin can manage signing authorizations.', 403);
-  if (req.method === 'GET') {
-    const [records, crew] = await Promise.all([Authorization.find().lean(), User.find({
-      jobTitle: {
-        $in: ['Pilot', 'Mechanic']
-      },
-      status: 'active'
-    }).select('firstName lastName jobTitle licenseNo').lean()]);
-    return res.json({
-      success: true,
-      data: {
-        records,
-        crew
-      }
-    });
-  }
-  const user = await User.findById(req.body.userId);
-  if (!user || !['Pilot', 'Mechanic'].includes(user.jobTitle) || !user.licenseNo) throw fail('Choose an active pilot or mechanic with an account license number.');
-  if (user.status !== 'active' && req.body.active !== false || !String(req.body.reference || '').trim() || !String(req.body.licenseType || '').trim() || !Number.isFinite(new Date(req.body.validUntil).getTime()) || req.body.active !== false && !(new Date(req.body.validUntil).getTime() > Date.now())) throw fail('Enter the license type, verified authority reference, and future expiry for active authorizations.');
-  const aircraft = (req.body.aircraft || []).map(rpc => String(rpc).trim().toUpperCase()).filter(rpc => /^RP-C\d+$/.test(rpc));
-  if (!aircraft.length) throw fail('Specify at least one authorized RP-C registration.');
-  let record = await Authorization.findOne({
-    userId: user._id
-  });
-  if (record) checkVersion(record, req.body.expectedVersion);else record = new Authorization({
-    userId: user._id
-  });
-  record.history.push({
-    at: new Date().toISOString(),
-    actorId: req.user.id,
-    previous: {
-      aircraft: record.aircraft,
-      validUntil: record.validUntil,
-      active: record.active,
-      reference: record.reference
-    }
-  });
-  Object.assign(record, {
-    aircraft,
-    licenseNo: user.licenseNo,
-    licenseType: req.body.licenseType,
-    validUntil: req.body.validUntil,
-    reference: req.body.reference,
-    active: req.body.active !== false,
-    recordedBy: req.user.id
-  });
-  await record.save();
-  res.json({
-    success: true,
-    data: record
-  });
-});
 module.exports = {
   workspace,
   review,
@@ -619,7 +585,6 @@ module.exports = {
   amend,
   reconcile,
   defects,
-  authorizations,
   readiness,
   related,
   persistVersion,

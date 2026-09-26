@@ -186,9 +186,9 @@ export default function FlightLogModalFuelServicing({ formData, updateFuel, isEd
                 <span className="fl-label">Signature:</span>
                 <div style={{ flex: 1 }}>
                   <LegSignaturePad
-                    value={fuel.signature || ""}
+                    value={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || fuel.signature || ""}
                     onChange={(val) => updateFuel(legIdx, "signature", val)}
-                    disabled={!rowEditable || !!formData.initialInspectionSignature?.signature}
+                    disabled={!rowEditable || !!(formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature)}
                   />
                 </div>
               </div>

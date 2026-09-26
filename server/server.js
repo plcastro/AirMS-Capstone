@@ -276,6 +276,8 @@ app.use(
 
 app.set("trust proxy", 1);
 
+app.use("/api", require("./middleware/apiNotFound"));
+
 app.use((err, req, res, next) => {
   const statusCode = err.status || 500;
   console.error("Error: ", err);

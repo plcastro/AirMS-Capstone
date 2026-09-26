@@ -11,7 +11,7 @@ import { AuthContext } from '../../Context/AuthContext';
 import { getAuthHeaders } from '../../utilities/mobileApi';
 import { API_BASE } from '../../utilities/API_BASE';
 import { isAssignedFlightCrew, getAssignedCrewField } from '../../../shared/flightCrewAccess';
-import { FLIGHT_PURPOSES, nextFlightStep, needsMyFlightAction, flightEditPermissions, flightDraftBaseChanged } from '../../../shared/flightWorkflow';
+import { FLIGHT_PURPOSES, preflightSignatureForRelease, pilotAcceptance, nextFlightStep, needsMyFlightAction, flightEditPermissions, flightDraftBaseChanged } from '../../../shared/flightWorkflow';
 import AS from '../../../shared/as350InspectionChecklist.json';
 import BP from '../../../shared/b412PreInspectionChecklist.json';
 import BO from '../../../shared/b412PostInspectionChecklist.json';
@@ -87,6 +87,7 @@ export default function FlightWorkspace({
     [recovery, setRecovery] = useState(null),
     [saveState, setSaveState] = useState('Saved on server');
   const [inspectionPrompt, setInspectionPrompt] = useState(null);
+  const [showMaintenanceDue, setShowMaintenanceDue] = useState(false);
   const storageKey = `flight-draft:${user?.id || user?._id}:${id}`;
   const api = useCallback(async (path, body, method = 'PUT') => {
     const response = await fetch(`${API_BASE}/api/flightlogs/${path}`, {
@@ -121,6 +122,7 @@ export default function FlightWorkspace({
     if (!visible || !id) return;
     let active = true;
     setWorkspace(null);
+    setShowMaintenanceDue(false);
     setBusy(true);
     setError('');
     setTab(['flight', 'pre', 'post', 'defects', 'history'].includes(initialSection) ? initialSection : 'flight');
@@ -177,6 +179,7 @@ export default function FlightWorkspace({
       setBusy(false);
     }
   };
+  const acceptance = pilotAcceptance(user, log || {}, workspace?.preInspections || []);
   const advance = async () => {
     if (step.action === 'complete') {
       setBusy(true);
@@ -192,10 +195,18 @@ export default function FlightWorkspace({
       }
       return;
     }
+    const releaseSignature = step.action === 'release' ? preflightSignatureForRelease(log, workspace.preInspections) : '';
+    if (step.action === 'release' && !releaseSignature) {
+      setTab('pre');
+      setError('Complete and sign the linked Pre-Flight inspection before releasing the flight log.');
+      return;
+    }
     setSign({
+      initialSignature: releaseSignature,
+      reusePreflight: step.action === 'release',
       path: `${id}/${step.action}`,
       body: {
-        changes: draft,
+        ...(mechanic ? { changes: draft } : {}),
         expectedVersion: log.__v || 0
       },
       title: step.button
@@ -218,7 +229,7 @@ export default function FlightWorkspace({
     const task = {
       path: `${id}/inspections/${kind}/${record._id}`,
       body: {
-        changes: values,
+        ...(mechanic ? { changes: values } : {}),
         status,
         expectedVersion: record.__v || 0
       },
@@ -268,6 +279,12 @@ export default function FlightWorkspace({
             }}>{step.next}{step.crew ? ` — ${log[step.crew]?.name || 'Unassigned'}` : ''}</AppText><AppText>Pilot: {log.assignedPilot?.name || 'Unassigned'}{'\n'}Mechanic: {log.assignedMechanic?.name || 'Unassigned'}</AppText><AppText>{workspace.readiness.aircraftStatus}</AppText><AppText>{saveState}</AppText>
           {workspace.history.filter(e => e.action === 'return').slice(-1).map((e, i) => <AppText key={i}>Correction requested: {e.comment}</AppText>)}
         </View>
+        {acceptance && <View style={panel}>
+          <AppText style={{ fontWeight: '700' }}>Pilot acceptance</AppText>
+          <AppText>{acceptance.message}</AppText>
+          <Action disabled={busy || !acceptance.preInspection} onPress={() => saveInspection('pre', acceptance.preInspection, {}, 'completed')}>Accept Pre-Flight</Action>
+          <Action disabled={busy || !acceptance.canAcceptFlight} onPress={advance}>Accept Flight Log</Action>
+        </View>}
         {recovery && mechanic && <View style={panel}><AppText>Local draft from {when(recovery.savedAt)}. {recovery.version !== log.__v ? 'The server record has changed; review restored fields before saving.' : ''}</AppText><Action onPress={() => {
               setSource({
                 ...log,
@@ -283,7 +300,7 @@ export default function FlightWorkspace({
             }}>Discard Local Draft</Action></View>}
         <Choice values={[['flight', 'Flight Record'], ['pre', 'Pre-Flight'], ['post', 'Post-Flight'], ['defects', 'Aircraft Defects'], ['history', 'History']]} value={tab} onChange={setTab} />
         {tab === 'flight' && <>
-          <AppText>Flight purpose</AppText><Choice disabled={!permissions.preparation} values={FLIGHT_PURPOSES} value={draft?.flightPurpose} onChange={value => setSource({
+          <AppText>Flight purpose (optional)</AppText><Choice disabled={!permissions.preparation} values={FLIGHT_PURPOSES} value={draft?.flightPurpose} onChange={value => setSource({
               ...draft,
               flightPurpose: value
             })} />
@@ -338,7 +355,12 @@ export default function FlightWorkspace({
         {permissions.preparation && [...workspace.readiness.missing, ...workspace.readiness.warnings].map((message, i) => <AppText key={i} style={{
             marginVertical: 4
           }}>• {message}</AppText>)}
-        {needsMyFlightAction(user, log) && <Action disabled={busy} onPress={advance}>{step.button}</Action>}
+        {!!workspace.readiness.maintenanceDue?.length && <View style={panel}>
+          <AppText>{workspace.readiness.maintenanceDue.length} maintenance warnings — release is allowed</AppText>
+          <Action onPress={() => setShowMaintenanceDue(value => !value)}>{showMaintenanceDue ? 'Hide overdue items' : 'View overdue items from Parts Lifespan Monitoring'}</Action>
+          {showMaintenanceDue && workspace.readiness.maintenanceDue.map((item, i) => <AppText key={i} style={{ marginVertical: 4 }}>{item}</AppText>)}
+        </View>}
+        {mechanic && needsMyFlightAction(user, log) && <Action disabled={busy} onPress={advance}>{step.button}</Action>}
         {permissions.canSave && <Action disabled={busy} onPress={() => execute(id, {
             changes: draft,
             expectedVersion: log.__v || 0
@@ -445,7 +467,7 @@ export default function FlightWorkspace({
           }}>Cancel</Action>
     </ScrollView></View>}
     {inspectionPrompt && <InspectionConfirmationPrompt {...inspectionPrompt} error={error} busy={busy} onCancel={() => setInspectionPrompt(null)} onYes={resolution => confirmInspection(true, '', resolution)} onNo={remarks => confirmInspection(false, remarks)} />}
-    <PinVerifiedSignatureModal initialSignature={sign?.appendSignature ? log?.initialInspectionSignature?.signature : ''} useNativeModal={false} visible={!!sign} title={sign?.title || 'Sign'} description="Review the submitted information. Your signature certifies this record under your recorded crew authorization." onClose={() => setSign(null)} onSave={async (signature, {
+    <PinVerifiedSignatureModal pinOnly={sign?.reusePreflight === true} confirmDescription={sign?.reusePreflight ? 'Your Pre-Flight signature will be appended. Enter your six-digit PIN to release the flight log.' : undefined} initialSignature={sign?.initialSignature || (sign?.appendSignature ? log?.initialInspectionSignature?.signature : '')} useNativeModal={false} visible={!!sign} title={sign?.title || 'Sign'} description="Review the submitted information, then confirm your signature with your six-digit PIN." onClose={() => setSign(null)} onSave={async (signature, {
         pin
       }) => {
         const ok = await execute(sign.path, {
@@ -480,10 +502,11 @@ function Inspection({
       fontWeight: '700'
     }}>{kind === 'pre' ? 'Pre-Flight' : 'Post-Flight'} · {record.date} · {record.status}</AppText>
     {record.releasedBy?.name && <AppText>Certified by {record.releasedBy.name} · {when(record.releasedBy.timestamp)}</AppText>}
-    <TextInput style={input} editable={writable} placeholder={kind === 'pre' ? 'Fuel on board' : 'Notes'} value={String((kind === 'pre' ? values.fob : values.notes) || '')} onChangeText={value => setValues({
+    {!mechanic && <AppText>{kind === 'pre' ? 'Fuel on board' : 'Notes'}: {(kind === 'pre' ? values.fob : values.notes) ?? 'Not recorded'}</AppText>}
+    {mechanic && <TextInput style={input} editable={writable} placeholder={kind === 'pre' ? 'Fuel on board' : 'Notes'} value={String((kind === 'pre' ? values.fob : values.notes) || '')} onChangeText={value => setValues({
       ...values,
       [kind === 'pre' ? 'fob' : 'notes']: value
-    })} />
+    })} />}
     {checks.map(item => {
       const checked = b412 ? values.b412Data?.checks?.[item.key] === true : values[item.key] === true;
       return <TouchableOpacity key={item.key} accessibilityRole="checkbox" accessibilityState={{

@@ -57,6 +57,7 @@ const edit = kind => catchRequest(async (req, res) => {
   const previous = plain(record),
     version = record.__v || 0;
   const mechanic = getAssignedCrewField(req.user) === 'assignedMechanic';
+  const comment = mechanic ? String(req.body.comment || '').trim() : '';
   const stage = flightStage(log);
   const preparation = ['pending_release', 'returned_to_mechanic'].includes(stage);
   if (!isB412AircraftType(record.aircraftType) && !isAS350AircraftType(record.aircraftType)) throw fail('No supported checklist is configured for this aircraft type.');
@@ -115,7 +116,7 @@ const edit = kind => catchRequest(async (req, res) => {
       record[kind === 'pre' && next === 'completed' ? 'acceptedBy' : 'releasedBy'] = signer;
       record.status = next;
       record.workflowHistory.push({
-        ...eventFor(record, `${kind}_${next}`, req.user, changes, req.body.comment, signer),
+        ...eventFor(record, `${kind}_${next}`, req.user, changes, comment, signer),
         flightLogId: String(log._id)
       });
     }
@@ -128,7 +129,7 @@ const edit = kind => catchRequest(async (req, res) => {
     ...flightChanges,
     inspectionId: String(record._id),
     inspectionVersion: version + 1
-  }, req.body.comment || req.body.confirmation?.remarks || req.body.confirmation?.resolution || ''));
+  }, mechanic ? comment || req.body.confirmation?.remarks || req.body.confirmation?.resolution || '' : ''));
   const session = await mongoose.startSession();
   let saved;
   try {

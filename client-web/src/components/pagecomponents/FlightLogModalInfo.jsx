@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
 import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
 
@@ -12,8 +13,6 @@ export default function FlightLogModalInfo({
   isRPCEditable = true,
   isActive = true,
   onAircraftDataLoaded,
-  assignmentRole,
-  canAssign = false,
 }) {
   const { getAuthHeader } = useContext(AuthContext);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -212,9 +211,7 @@ export default function FlightLogModalInfo({
     }
   };
 
-  // Older records can predate the aircraftType field. Resolve their existing
-  // RP-C when the edit modal opens so the correct aircraft-specific tabs can
-  // still be generated.
+  // Load monitoring totals even when the confirmation already supplied a type.
   useEffect(() => {
     const rpc = String(formData.rpc || "")
       .trim()
@@ -222,7 +219,6 @@ export default function FlightLogModalInfo({
     if (
       !isActive ||
       !rpc ||
-      formData.aircraftType ||
       autoResolveRpc.current === rpc
     ) {
       return;
@@ -267,7 +263,7 @@ export default function FlightLogModalInfo({
         autoResolveRpc.current = "";
       }
     };
-  }, [formData.rpc, formData.aircraftType, isActive]);
+  }, [formData.rpc, isActive]);
 
   return (
     <div className="fl-section">
@@ -276,13 +272,6 @@ export default function FlightLogModalInfo({
       <div className="fl-card">
         <div className="fl-card-header">{aircraftClassLabel}</div>
         <div className="fl-card-body">
-          <FlightLogCrewAssignment
-            formData={formData}
-            updateForm={updateForm}
-            assignmentRole={assignmentRole}
-            canAssign={canAssign}
-            isActive={isActive}
-          />
           <div className="fl-field-row">
             <span className="fl-label">RP-C: *</span>
             <div className="fl-dropdown-container">

@@ -74,6 +74,7 @@ function creationHarness() {
     return document;
   }
   const dependencies = {
+    "../models/partsMonitoringModel": { findOne: () => ({ lean: async () => ({ aircraftType: "AS350B3e", referenceData: { acftTT: 123, engTT: 234, mrbTT: 345, landings: 0 } }) }) },
     mongoose: { isValidObjectId: mongoose.isValidObjectId, startSession: async () => session },
     "../models/userModel": users,
     "../models/flightLogModel": StoredFlightLog,
@@ -128,6 +129,7 @@ function creationHarness() {
         body: {
           rpc: "RP-CTEST", aircraftType: "AS350B3e", date: "09/24/2026", confirmationId,
           assignedPilot: { userId: pilotId, name: "Forged pilot name" },
+          initialInspectionSignature: { signature: "forged", userId: pilotId },
           legs: [{ totalTimeOff: "01:00", stations: [{ from: "Manila", to: "Local" }] }],
           ...(legacy ? { preFlightInspection: legacy } : {}),
         },
@@ -156,6 +158,15 @@ test("flight creation retries atomically with ticket confirmation and optional l
       assert.equal(flight.workflowHistory.length, 1);
       assert.equal(flight.workflowHistory[0].action, "created");
       assert.equal(flight.assignedPilot.name, "Actual Pilot");
+      assert.equal(flight.componentData.broughtForwardData.airframe, '123');
+      assert.equal(flight.componentData.broughtForwardData.engine, '234');
+      assert.equal(flight.componentData.broughtForwardData.rotorMain, '345');
+      assert.equal(flight.componentData.broughtForwardData.landingCycle, '0');
+      assert.equal(flight.inspectionFlow, "confirmation");
+      assert.equal(flight.initialInspectionSignature.signature, signature);
+      assert.equal(String(flight.initialInspectionSignature.userId), mechanicId);
+      assert.equal(flight.fuelServicing[0].signature, signature);
+      assert.equal(flight.oilServicing[0].signature, signature);
       assert.equal(String(flight.assignedMechanic.userId), mechanicId);
       assert.equal(String(pre.flightLogId), String(flight._id));
       assert.equal(pre.status, "released");

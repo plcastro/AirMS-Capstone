@@ -8,7 +8,6 @@ import DateInput from "../common/DateInput";
 import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
-import FlightLogCrewAssignment from "./FlightLogCrewAssignment";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 
 export default function FlightLogModalInfo({
@@ -19,8 +18,6 @@ export default function FlightLogModalInfo({
   isActive = true,
   onAircraftDataLoaded,
   isB412 = false,
-  assignmentRole,
-  canAssign = false,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -368,13 +365,6 @@ export default function FlightLogModalInfo({
         </View>
 
         <View style={{ padding: 20 }}>
-          <FlightLogCrewAssignment
-            formData={formData}
-            updateForm={updateForm}
-            assignmentRole={assignmentRole}
-            canAssign={canAssign}
-            isActive={isActive}
-          />
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{

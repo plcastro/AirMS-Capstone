@@ -36,3 +36,30 @@ test('server-calculated dates persist for both aircraft types alongside times an
     assert.equal(restored.componentData.thisFlightData.airframe, '1.6');
   }
 });
+
+test('fuel and oil inherit the preflight signature on existing and newly added leg rows', () => {
+  const signature = 'data:image/png;base64,verified';
+  for (const field of ['initialInspectionSignature', 'preFlightInspection']) {
+    const original = { date: '09/24/2026', legs: [{}, {}], [field]: { signature }, fuelServicing: [{ mainAdd: '40' }], oilServicing: [{ engineAdd: '1' }] };
+    const next = syncFlightLogDates(original);
+    for (const key of ['fuelServicing', 'oilServicing']) {
+      assert.equal(next[key].length, 2);
+      assert.ok(next[key].every(row => row.signature === signature));
+      assert.equal(original[key][0].signature, undefined);
+    }
+    assert.equal(next.fuelServicing[0].mainAdd, '40');
+    assert.equal(next.oilServicing[0].engineAdd, '1');
+    assert.deepEqual(syncFlightLogDates(next), next);
+  }
+});
+
+
+test('new and existing blank passenger counts default to zero while entered counts are preserved', async () => {
+  const source = { date: '09/25/2026', legs: [undefined, null, '', '  ', 0, '0', '7'].map(passengers => ({ passengers, totalTimeOff: '00:30' })) };
+  const result = syncFlightLogDates(source);
+  assert.deepEqual(result.legs.map(leg => leg.passengers), ['0', '0', '0', '0', '0', '0', '7']);
+  assert.equal(source.legs[2].passengers, '');
+  assert.deepEqual(syncFlightLogDates(result), result);
+  const flight = new FlightLog({ rpc: 'RP-CTEST', aircraftType: 'AS350B3e', legs: [{}] });
+  assert.equal(flight.legs[0].passengers, '0');
+});

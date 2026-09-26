@@ -6,7 +6,7 @@ import { API_BASE } from '../../utils/API_BASE';
 import FlightLogEntry from './FlightLogEntry';
 import PinVerifiedSignatureModal from '../common/PinVerifiedSignatureModal';
 import { isAssignedFlightCrew, getAssignedCrewField } from '../../../../shared/flightCrewAccess';
-import { FLIGHT_PURPOSES, flightStage, nextFlightStep, needsMyFlightAction, flightEditPermissions, flightDraftBaseChanged } from '../../../../shared/flightWorkflow';
+import { FLIGHT_PURPOSES, preflightSignatureForRelease, pilotAcceptance, flightStage, nextFlightStep, needsMyFlightAction, flightEditPermissions, flightDraftBaseChanged } from '../../../../shared/flightWorkflow';
 import AS from '../../../../shared/as350InspectionChecklist.json';
 import BP from '../../../../shared/b412PreInspectionChecklist.json';
 import BO from '../../../../shared/b412PostInspectionChecklist.json';
@@ -122,6 +122,7 @@ export default function FlightWorkspace({
   const log = workspace?.flightLog;
   const permissions = flightEditPermissions(user, log || {});
   const step = nextFlightStep(log || {});
+  const acceptance = pilotAcceptance(user, log || {}, workspace?.preInspections || []);
   const assigned = isAssignedFlightCrew(user, log);
   const mechanic = getAssignedCrewField(user) === 'assignedMechanic';
   const finish = async (preserve = false) => {
@@ -165,10 +166,18 @@ export default function FlightWorkspace({
       }
       return;
     }
+    const releaseSignature = action === 'release' ? preflightSignatureForRelease(log, workspace.preInspections) : '';
+    if (action === 'release' && !releaseSignature) {
+      setTab('pre');
+      setError('Complete and sign the linked Pre-Flight inspection before releasing the flight log.');
+      return;
+    }
     setSignedAction({
+      initialSignature: releaseSignature,
+      reusePreflight: action === 'release',
       path: `${id}/${action}`,
       body: {
-        changes: draft,
+        ...(mechanic ? { changes: draft } : {}),
         expectedVersion: log.__v || 0
       },
       title: step.button
@@ -191,7 +200,7 @@ export default function FlightWorkspace({
     const action = {
       path: `${id}/inspections/${kind}/${record._id}`,
       body: {
-        changes: values,
+        ...(mechanic ? { changes: values } : {}),
         status,
         expectedVersion: record.__v || 0
       },
@@ -260,6 +269,13 @@ export default function FlightWorkspace({
         {log.acceptedBy?.name && <p>Accepted by {log.acceptedBy.name} at {labelTime(log.acceptedBy.timestamp)}</p>}
         {!!workspace.history.filter(e => e.action === 'return').length && <Alert type="warning" title={`Correction requested: ${workspace.history.filter(e => e.action === 'return').at(-1).comment}`} />}
       </Card>
+      {acceptance && <Card size="small" title="Pilot acceptance" style={{ marginBottom: 12 }}>
+        <p>{acceptance.message}</p>
+        <Space wrap>
+          <Button type="primary" disabled={busy || !acceptance.preInspection} onClick={() => saveInspection('pre', acceptance.preInspection, {}, 'completed')}>Accept Pre-Flight</Button>
+          <Button type="primary" disabled={busy || !acceptance.canAcceptFlight} onClick={() => prepareAction('accept')}>Accept Flight Log</Button>
+        </Space>
+      </Card>}
       {recovery && mechanic && <Alert type="info" title={`A local draft from ${labelTime(recovery.savedAt)} is available${recovery.version !== log.__v ? '; the server record has since changed. Review restored fields before saving.' : '.'}`} action={<Space><Button onClick={() => {
             setSource({
               ...log,
@@ -280,7 +296,7 @@ export default function FlightWorkspace({
           <Space wrap style={{
               marginBottom: 12
             }}>
-            <Select aria-label="Flight purpose" placeholder="Flight purpose" style={{
+            <Select aria-label="Flight purpose" placeholder="Flight purpose (optional)" style={{
                 width: 210
               }} value={draft?.flightPurpose || undefined} disabled={!permissions.preparation} options={FLIGHT_PURPOSES.map(([value, label]) => ({
                 value,
@@ -364,8 +380,9 @@ export default function FlightWorkspace({
           zIndex: 2
         }}>
         {(workspace.readiness.missing.length > 0 || workspace.readiness.warnings.length > 0) && permissions.preparation && <details><summary>Preparation checks</summary><ul>{[...workspace.readiness.missing, ...workspace.readiness.warnings].map((message, i) => <li key={i}>{message}</li>)}</ul></details>}
+        {!!workspace.readiness.maintenanceDue?.length && <Alert type="warning" showIcon title={`${workspace.readiness.maintenanceDue.length} maintenance warnings — release is allowed`} description={<details><summary>View overdue items from Parts Lifespan Monitoring</summary><ul>{workspace.readiness.maintenanceDue.map((item, i) => <li key={i}>{item}</li>)}</ul></details>} />}
         <Space wrap>
-          {needsMyFlightAction(user, log) && <Button type="primary" loading={busy} onClick={() => prepareAction(step.action)}>{step.button}</Button>}
+          {mechanic && needsMyFlightAction(user, log) && <Button type="primary" loading={busy} onClick={() => prepareAction(step.action)}>{step.button}</Button>}
           {permissions.canSave && <Button disabled={busy} onClick={() => execute(id, {
               changes: draft,
               expectedVersion: log.__v || 0
@@ -493,7 +510,7 @@ export default function FlightWorkspace({
           comment: e.target.value
         })} /></Space>}
     </Modal>
-    <PinVerifiedSignatureModal initialSignature={signedAction?.appendSignature ? log?.initialInspectionSignature?.signature : ''} open={!!signedAction} title={signedAction?.title || 'Sign'} description="Review the information being submitted. Your signature certifies this record under your recorded crew authorization." onCancel={() => setSignedAction(null)} onSave={async (signature, {
+    <PinVerifiedSignatureModal pinOnly={signedAction?.reusePreflight === true} confirmDescription={signedAction?.reusePreflight ? 'Your Pre-Flight signature will be appended. Enter your six-digit PIN to release the flight log.' : undefined} initialSignature={signedAction?.initialSignature || (signedAction?.appendSignature ? log?.initialInspectionSignature?.signature : '')} open={!!signedAction} title={signedAction?.title || 'Sign'} description="Review the information being submitted, then confirm your signature with your six-digit PIN." onCancel={() => setSignedAction(null)} onSave={async (signature, {
       pin
     }) => {
       const ok = await execute(signedAction.path, {
@@ -532,7 +549,8 @@ function InspectionEditor({
   }} title={`${kind === 'pre' ? 'Pre-Flight' : 'Post-Flight'} · ${record.date} · ${record.status}`}>
     {kind === 'pre' && record.acceptedBy?.name && <p>Accepted by {record.acceptedBy.name} - {labelTime(record.acceptedBy.timestamp)}</p>}
     {record.releasedBy?.name && <p>Certified by {record.releasedBy.name} · {labelTime(record.releasedBy.timestamp)}</p>}
-    {kind === 'pre' && <Input placeholder="Fuel on board" aria-label="Fuel on board" disabled={!writable} value={values.fob} onChange={e => setValues({
+    {kind === 'pre' && !mechanic && <p>Fuel on board: {values.fob ?? 'Not recorded'}</p>}
+    {kind === 'pre' && mechanic && <Input placeholder="Fuel on board" aria-label="Fuel on board" disabled={!writable} value={values.fob} onChange={e => setValues({
       ...values,
       fob: e.target.value
     })} />}

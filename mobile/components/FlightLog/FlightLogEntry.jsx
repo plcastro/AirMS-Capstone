@@ -1,3 +1,4 @@
+import { monitoringBroughtForward } from "../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../shared/flightLogDates";
 import {
   totalFlightHours,
@@ -34,8 +35,6 @@ import {
   createEmptyB412Leg,
   isB412Aircraft,
   mapAircraftReferenceToB412,
-  mapAircraftReferenceToBroughtForward,
-  mapB412CarriedToStandardBroughtForward,
   syncB412DataFromStandardFlightLog,
 } from "./b412FlightLogData";
 
@@ -186,7 +185,7 @@ export default function FlightLogEntry({
         totalTimeOn: "",
         totalTimeOff: "",
         date: "",
-        passengers: "",
+        passengers: "0",
       },
     ],
     remarks: "",
@@ -304,13 +303,7 @@ export default function FlightLogEntry({
       return;
     }
 
-    const broughtForwardData = isB412Aircraft(
-      loadedAircraftData.aircraftType || formData.aircraftType,
-    )
-      ? mapB412CarriedToStandardBroughtForward(
-          mapAircraftReferenceToB412(loadedAircraftData),
-        )
-      : mapAircraftReferenceToBroughtForward(loadedAircraftData);
+    const broughtForwardData = monitoringBroughtForward({ ...loadedAircraftData, aircraftType: loadedAircraftData.aircraftType || formData.aircraftType });
 
     setComponentData((prev) => ({
       ...prev,
@@ -355,13 +348,12 @@ export default function FlightLogEntry({
 
   const tabs = getFlightLogTabs();
   const totalPages = tabs.length;
-  const isBasicInfoEditable = true;
-  const isDestinationsEditable =
-    isPilot || ["mechanic", "maintenance manager"].includes(normalizedRole);
+  const isBasicInfoEditable = isMechanic;
+  const isDestinationsEditable = isMechanic;
   const isMechanicSectionEditable = isMechanic;
   const isWorkDoneEditable =
     isMechanic && formData.status === "pending_release";
-  const isDiscrepancyEditable = true;
+  const isDiscrepancyEditable = isMechanic;
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -441,7 +433,7 @@ export default function FlightLogEntry({
             totalTimeOn: "",
             totalTimeOff: "",
             date: "",
-            passengers: "",
+            passengers: "0",
           },
         ],
         remarks: "",
@@ -728,6 +720,7 @@ export default function FlightLogEntry({
   };
 
   const handleSave = () => {
+    if (!isMechanic) return;
     if (!isAircraftSelected) {
       showToast("Select an aircraft and wait for its type to load");
       return;
@@ -842,9 +835,7 @@ export default function FlightLogEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
-            signatureInherited={
-              !!formData.initialInspectionSignature?.signature
-            }
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
             legs={formData.legs}
             fuelServicingData={formData.fuelServicing}
             onUpdateFuelServicing={updateFuelServicing}
@@ -854,9 +845,7 @@ export default function FlightLogEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
-            signatureInherited={
-              !!formData.initialInspectionSignature?.signature
-            }
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
             legs={formData.legs}
             oilServicingData={formData.oilServicing}
             onUpdateOilServicing={updateOilServicing}

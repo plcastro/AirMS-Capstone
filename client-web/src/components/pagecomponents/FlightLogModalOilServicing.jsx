@@ -231,11 +231,11 @@ export default function FlightLogModalOilServicing({
                 <span className="fl-label">Sign:</span>
                 <div style={{ flex: 1 }}>
                   <LegSignaturePad
-                    value={oil.signature || ""}
+                    value={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || oil.signature || ""}
                     onChange={(val) => updateOil(legIdx, "signature", val)}
                     disabled={
                       !rowEditable ||
-                      !!formData.initialInspectionSignature?.signature
+                      !!(formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature)
                     }
                   />
                 </div>

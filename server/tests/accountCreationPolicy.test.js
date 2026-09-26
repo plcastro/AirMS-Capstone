@@ -102,6 +102,7 @@ const createAccount = async (email, bodyOverrides = {}) => {
     "../utils/generateOTP": () => assert.fail("Account creation must not generate an OTP"),
     "../utils/loginOtpExemptions": require("../utils/loginOtpExemptions"),
     "../utils/accountCreationPolicy": require("../utils/accountCreationPolicy"),
+    "../utils/sessionIdle": require("../utils/sessionIdle"),
     "../middleware/requestContext": {},
     "../middleware/rateLimiter": {},
   };

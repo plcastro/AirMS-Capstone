@@ -29,11 +29,16 @@ import {
   setStoredUser,
 } from "../utilities/authStorage";
 
+import {
+  createIdleSession,
+  SESSION_IDLE_LIMIT_MS,
+} from "../../shared/sessionIdle";
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const REMEMBERED_SESSION_STARTED_AT_KEY = "rememberedSessionStartedAt";
-  const ACCESS_TOKEN_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+  const ACCESS_TOKEN_REFRESH_INTERVAL_MS = 20 * 60 * 1000;
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,20 +50,13 @@ export const AuthProvider = ({ children }) => {
   const refreshPromiseRef = useRef(null);
   const refreshFailureLoggedRef = useRef(false);
   const lastActivityWriteRef = useRef(0);
+  const lastActivityRef = useRef(0);
+  const idleSessionRef = useRef(null);
+  const sessionEndedRef = useRef(false);
 
-  const markClientActivity = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastActivityWriteRef.current < 30 * 1000) return;
-
-    lastActivityWriteRef.current = now;
-    try {
-      await recordClientActivity(now);
-    } catch (error) {
-      console.warn(
-        "Failed to record mobile activity:",
-        error?.message || error,
-      );
-    }
+  const markClientActivity = useCallback(() => {
+    if (sessionEndedRef.current) return;
+    idleSessionRef.current?.activity();
   }, []);
 
   const clearStoredAuth = useCallback(async () => {
@@ -67,7 +65,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logoutUser = useCallback(
-    async ({ broadcast = true } = {}) => {
+    async () => {
+      sessionEndedRef.current = true;
+      idleSessionRef.current?.stop();
+      setUser(null);
+      setToken(null);
+      setSession(null);
       try {
         const accessToken =
           accessTokenRef.current || (await getStoredAccessToken());
@@ -81,6 +84,9 @@ export const AuthProvider = ({ children }) => {
           sessionMeta = {};
         }
 
+        accessTokenRef.current = null;
+        refreshTokenRef.current = null;
+        await clearStoredAuth();
         await fetch(`${API_BASE}/api/user/logout`, {
           method: "POST",
           headers: {
@@ -100,16 +106,6 @@ export const AuthProvider = ({ children }) => {
         });
       } catch (error) {
         console.error("Mobile logout API error:", error);
-      } finally {
-        setUser(null);
-        setToken(null);
-        setSession(null);
-        accessTokenRef.current = null;
-        refreshTokenRef.current = null;
-        await clearStoredAuth();
-        setRememberMePreference(
-          (await AsyncStorage.getItem("rememberMe")) === "true",
-        );
       }
     },
     [clearStoredAuth],
@@ -137,6 +133,11 @@ export const AuthProvider = ({ children }) => {
 
   const refreshSession = useCallback(
     async () => {
+      if (sessionEndedRef.current) return null;
+      if (lastActivityRef.current && Date.now() - lastActivityRef.current >= SESSION_IDLE_LIMIT_MS) {
+        void logoutUser();
+        return null;
+      }
       if (refreshPromiseRef.current) {
         return refreshPromiseRef.current;
       }
@@ -190,6 +191,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           const nextAccessToken = data?.token || data?.accessToken;
+          if (sessionEndedRef.current) return null;
           if (response.ok && nextAccessToken) {
             const rotatedRefreshToken = data.refreshToken || refreshToken;
             setToken(nextAccessToken);
@@ -212,7 +214,9 @@ export const AuthProvider = ({ children }) => {
         const refreshMessage = String(err?.message || "");
         const isInvalidRefreshToken =
           refreshMessage.toLowerCase().includes("invalid refresh token") ||
-          refreshMessage.toLowerCase().includes("refresh token");
+          refreshMessage.toLowerCase().includes("refresh token") ||
+          refreshMessage.toLowerCase().includes("session timed out") ||
+          refreshMessage.toLowerCase().includes("session is no longer active");
 
         if (!refreshFailureLoggedRef.current) {
           if (isInvalidRefreshToken) {
@@ -227,6 +231,8 @@ export const AuthProvider = ({ children }) => {
 
         // Stale/invalid refresh token should be cleared locally to stop retry loops.
         if (isInvalidRefreshToken) {
+          sessionEndedRef.current = true;
+          idleSessionRef.current?.stop();
           setUser(null);
           setToken(null);
           setSession(null);
@@ -247,20 +253,61 @@ export const AuthProvider = ({ children }) => {
         refreshPromiseRef.current = null;
       }
     },
-    [clearStoredAuth, getSessionMeta],
+    [clearStoredAuth, getSessionMeta, logoutUser],
   );
 
+  const activeSessionId = user ? (session?.sessionId || user.sessionId || user.id || user._id) : null;
   useEffect(() => {
-    markClientActivity();
-
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        markClientActivity();
-      }
+    if (!activeSessionId) return undefined;
+    const idle = createIdleSession({
+      getLastActivity: () => lastActivityRef.current,
+      onActivity: timestamp => {
+        lastActivityRef.current = timestamp;
+        if (timestamp - lastActivityWriteRef.current >= 1000) {
+          lastActivityWriteRef.current = timestamp;
+          recordClientActivity(timestamp).catch(error => console.warn("Activity storage failed:", error));
+        }
+      },
+      onWarning: (_minutes, warning) => {
+        void (async () => {
+          const accessToken = accessTokenRef.current || (await getStoredAccessToken());
+          const sessionMeta = await getSessionMeta();
+          if (!accessToken || sessionEndedRef.current) return;
+          const response = await fetch(API_BASE + "/api/notifications/session-warning", {
+            method: "POST", credentials: "include",
+            headers: {
+              Authorization: "Bearer " + accessToken,
+              "Content-Type": "application/json",
+              "x-session-id": sessionMeta.sessionId,
+              "x-platform": sessionMeta.platform || defaultPlatform,
+              "x-client-active-at": String(lastActivityRef.current),
+            },
+            body: JSON.stringify(warning),
+          });
+          if (!response.ok) throw new Error("Failed to create session notification");
+        })().catch(error => console.error("Session notification failed:", error));
+      },
+      onExpire: () => { void logoutUser(); },
     });
-
-    return () => subscription.remove();
-  }, [markClientActivity]);
+    idleSessionRef.current = idle;
+    idle.check();
+    const subscription = AppState.addEventListener("change", nextState => {
+      if (nextState === "active") idle.check();
+      else recordClientActivity(lastActivityRef.current).catch(() => {});
+    });
+    const webEvents = ["keydown", "pointerdown", "scroll", "wheel"];
+    if (Platform.OS === "web") {
+      webEvents.forEach(name => window.addEventListener(name, markClientActivity, true));
+    }
+    return () => {
+      idle.stop();
+      idleSessionRef.current = null;
+      subscription.remove();
+      if (Platform.OS === "web") {
+        webEvents.forEach(name => window.removeEventListener(name, markClientActivity, true));
+      }
+    };
+  }, [activeSessionId, logoutUser, markClientActivity]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -299,6 +346,11 @@ export const AuthProvider = ({ children }) => {
         const accessToken = await getStoredAccessToken();
         const persistedRefreshToken = await getStoredRefreshToken();
         const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+        lastActivityRef.current = (await getClientActiveAt()) || Date.now();
+        if (parsedStoredUser && Date.now() - lastActivityRef.current >= SESSION_IDLE_LIMIT_MS) {
+          void logoutUser();
+          return;
+        }
         const persistedSessionMeta = await getSessionMeta();
         setSession(persistedSessionMeta?.sessionId ? persistedSessionMeta : null);
 
@@ -344,6 +396,7 @@ export const AuthProvider = ({ children }) => {
     getSessionMeta,
     persistSessionMeta,
     refreshSession,
+    logoutUser,
   ]);
 
   const loginUser = async ({
@@ -354,6 +407,10 @@ export const AuthProvider = ({ children }) => {
     rememberMe = true,
   }) => {
     try {
+      sessionEndedRef.current = false;
+      lastActivityRef.current = Date.now();
+      lastActivityWriteRef.current = lastActivityRef.current;
+      await recordClientActivity(lastActivityRef.current);
       setUser(userData);
       setToken(accessToken);
       accessTokenRef.current = accessToken;
@@ -458,7 +515,7 @@ export const AuthProvider = ({ children }) => {
         markClientActivity,
       }}
     >
-      <View style={{ flex: 1 }} onTouchStart={markClientActivity}>
+      <View style={{ flex: 1 }} onTouchStart={markClientActivity} onTouchMove={markClientActivity}>
         {children}
       </View>
     </AuthContext.Provider>
