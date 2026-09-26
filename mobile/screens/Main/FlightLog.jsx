@@ -1,6 +1,6 @@
 import FlightEntryInspectionPrompt from '../../components/FlightLog/FlightEntryInspectionPrompt';
-import React, { useCallback, useContext, useEffect, useState } from "react";
-import { View, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { FlatList, View, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AppText from "../../components/common/AppText";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
@@ -132,7 +132,7 @@ export default function FlightLog({
       return false;
     }
   };
-  const filtered = logs.filter(log => getLogAircraftRegistration(log) === aircraft && (status === "all" || flightStage(log) === status) && (!onlyMine || needsMyFlightAction(user, log)) && matchesSearch(query, log));
+  const filtered = useMemo(() => logs.filter(log => getLogAircraftRegistration(log) === aircraft && (status === "all" || flightStage(log) === status) && (!onlyMine || needsMyFlightAction(user, log)) && matchesSearch(query, log)), [logs, aircraft, status, onlyMine, user, query]);
   return <View style={{
     flex: 1,
     padding: 12,
@@ -161,10 +161,19 @@ export default function FlightLog({
       }} onPress={() => setOnlyMine(value => !value)} style={{
         padding: 10
       }}><AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText></TouchableOpacity></>}
-    <ScrollView refreshControl={<RefreshControl refreshing={loading} onRefresh={() => refresh(true)} />} contentContainerStyle={{
-      paddingBottom: 100
-    }}>
-      {!aircraft ? <AircraftLogGroups records={logs} loading={loading} sortBy="latestActivity" query={aircraftQuery} onQueryChange={setAircraftQuery} onSelect={chooseAircraft} /> : filtered.length ? filtered.map(log => {
+    {!aircraft ? <AircraftLogGroups refreshing={loading} onRefresh={() => refresh(true)} records={logs} loading={loading} sortBy="latestActivity" query={aircraftQuery} onQueryChange={setAircraftQuery} onSelect={chooseAircraft} /> : <FlatList
+                                                                                                                                                                                                                                          ListEmptyComponent={<EmptyState text="No flight logs match your filters." />}
+                                                                                                                                                                                                                                          refreshing={loading}
+                                                                                                                                                                                                                                          onRefresh={() => refresh(true)}
+                                                                                                                                                                                                                                          style={{ flex: 1 }}
+                                                                                                                                                                                                                                          contentContainerStyle={{ paddingBottom: 110 }}
+                                                                                                                                                                                                                                          keyboardShouldPersistTaps="handled"
+                                                                                                                                                                                                                                          data={filtered}
+                                                                                                                                                                                                                                          keyExtractor={(item, index) => String(item._id || item.id || index)}
+                                                                                                                                                                                                                                          initialNumToRender={12}
+                                                                                                                                                                                                                                          maxToRenderPerBatch={8}
+                                                                                                                                                                                                                                          windowSize={7}
+                                                                                                                                                                                                                                          renderItem={({ item: log }) => {
         const step = nextFlightStep(log);
         return <InfoCard key={log._id} title={log.controlNo || "Flight Log"} subtitle={step.label} onPress={() => setOpened(log._id)}>
           <FieldRow label="Date" value={log.date} /><FieldRow label="Latest update" value={formatDateTime(log.updatedAt || log.createdAt)} />
@@ -172,8 +181,8 @@ export default function FlightLog({
           <Action onPress={() => setOpened(log._id)}>{needsMyFlightAction(user, log) ? "Continue Workflow" : "Open Record"}</Action>
           {canExportModule(userRole, "flightLogs") && <Action onPress={() => exportFlightLogPdf(log).catch(error => showToast(error.message))}>Export PDF</Action>}
         </InfoCard>;
-      }) : <EmptyState text="No flight logs match your filters." />}
-    </ScrollView>
+      }}
+                                                                                                                                                                                                                                        />}
     <FlightEntryInspectionPrompt visible={entryPrompt} lockedRpc={aircraft === "Unassigned aircraft" ? "" : aircraft} onClose={() => setEntryPrompt(false)} onConfirmed={data => { setEntryConfirmation(data); setEntryPrompt(false); setCreating(true); }} />
     <FlightLogEntry key={entryConfirmation?.confirmationId || "new"} entryConfirmation={entryConfirmation} visible={creating} onClose={() => setCreating(false)} onSave={create} lockedRpc={entryConfirmation?.rpc || ""} userRole={userRole} currentUser={user} />
     {!!opened && <FlightWorkspace id={opened} visible initialSection={route?.params?.targetSection || "flight"} onClose={() => {

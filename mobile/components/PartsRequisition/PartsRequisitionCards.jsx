@@ -1,6 +1,6 @@
 import React from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   TouchableOpacity,
   View
 } from "react-native";
@@ -69,6 +69,7 @@ export default function PartsRequisitionCards({
   showActions = true,
   actionsDisabled = false,
   loading = false,
+  ...listProps
 }) {
   const formatLogbookDate = (value) => {
     if (!value) return "N/A";
@@ -83,9 +84,14 @@ export default function PartsRequisitionCards({
     });
   };
 
-  if (loading) {
-    return (
-      <View
+
+
+
+
+  return (
+    <>
+      {<FlatList
+         ListEmptyComponent={loading ? (<View
         style={{
           backgroundColor: COLORS.white,
           borderRadius: 20,
@@ -103,13 +109,7 @@ export default function PartsRequisitionCards({
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
           Loading parts requisitions...
         </AppText>
-      </View>
-    );
-  }
-
-  if (!requisitions || requisitions.length === 0) {
-    return (
-      <View
+      </View>) : (!requisitions || requisitions.length === 0 ? (<View
         style={{
           backgroundColor: COLORS.white,
           borderRadius: 20,
@@ -127,13 +127,17 @@ export default function PartsRequisitionCards({
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No parts requisitions found
         </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {requisitions.map((item) => {
+      </View>) : (null))}
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={loading ? [] : requisitions}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         {...listProps}
+         renderItem={({ item: item }) => {
         const statusStyle = getStatusStyle(item.status);
         const isAvailabilityChecked =
           String(item.status || "").toLowerCase() === "availability checked";
@@ -257,7 +261,8 @@ export default function PartsRequisitionCards({
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

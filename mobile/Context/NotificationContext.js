@@ -35,7 +35,7 @@ const WS_BACKOFF_MAX_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 250;
 const NAV_QUEUE_RETRY_MS = 150;
 const NAV_QUEUE_MAX_ATTEMPTS = 40;
-const ACTIVE_NOTIFICATION_POLL_MS = 10000;
+const ACTIVE_NOTIFICATION_POLL_MS = 30000;
 
 const VALID_MODULES = new Set([
   "sessions",
@@ -299,6 +299,12 @@ export function NotificationProvider({ children }) {
   const snapshotAbortRef = useRef(null);
   const checkInFlightRef = useRef(false);
   const refreshDebounceRef = useRef(null);
+  const refreshInFlightRef = useRef(false);
+  const refreshMountedRef = useRef(true);
+  useEffect(() => {
+    refreshMountedRef.current = true;
+    return () => { refreshMountedRef.current = false; };
+  }, []);
   const pendingRefreshReasonRef = useRef(new Set());
 
   const lastHandledNotificationRef = useRef("");
@@ -492,7 +498,7 @@ export function NotificationProvider({ children }) {
       }
 
       if (!enabled) {
-        console.log("Push permission denied or not granted yet");
+        if (__DEV__) console.log("Push permission denied or not granted yet");
         return;
       }
 
@@ -500,7 +506,7 @@ export function NotificationProvider({ children }) {
       if (!fcmToken) {
         throw new Error("Empty FCM token returned by messaging().getToken()");
       }
-      console.log("FCM Token:", fcmToken);
+      if (__DEV__) console.log("FCM Token:", fcmToken);
       const deviceId = await getDeviceInstallationId();
 
       const cached = lastRegisteredPushRef.current;
@@ -542,7 +548,7 @@ export function NotificationProvider({ children }) {
         fcmToken,
       };
 
-      console.log("FCM registration success");
+      if (__DEV__) console.log("FCM registration success");
     } catch (error) {
       console.error("FCM registration error:", error);
     } finally {
@@ -770,8 +776,7 @@ export function NotificationProvider({ children }) {
   );
 
   const checkModuleUpdates = useCallback(
-    async ({ reason = "manual" } = {}) => {
-      pendingRefreshReasonRef.current.add(reason);
+    async () => {
       if (checkInFlightRef.current) return;
 
       checkInFlightRef.current = true;
@@ -835,12 +840,14 @@ export function NotificationProvider({ children }) {
   );
 
   const scheduleRefresh = useCallback(
-    (reason) => {
+    function requestRefresh(reason) {
+      if (!refreshMountedRef.current) return;
       pendingRefreshReasonRef.current.add(String(reason || "unknown"));
-      if (refreshDebounceRef.current) return;
+      if (refreshDebounceRef.current || refreshInFlightRef.current) return;
 
       refreshDebounceRef.current = setTimeout(async () => {
         refreshDebounceRef.current = null;
+        refreshInFlightRef.current = true;
         const reasons = [...pendingRefreshReasonRef.current];
         pendingRefreshReasonRef.current.clear();
         log("refresh:batched", reasons.join(", "));
@@ -849,10 +856,15 @@ export function NotificationProvider({ children }) {
         const controller = new AbortController();
         fetchAbortRef.current = controller;
 
-        await Promise.all([
-          fetchNotifications({ signal: controller.signal, showLoading: false }),
-          checkModuleUpdates({ reason: reasons.join(",") }),
-        ]);
+        try {
+          await Promise.all([
+            fetchNotifications({ signal: controller.signal, showLoading: false }),
+            checkModuleUpdates(),
+          ]);
+        } finally {
+          refreshInFlightRef.current = false;
+          if (pendingRefreshReasonRef.current.size && refreshMountedRef.current) requestRefresh("queued-event");
+        }
       }, REFRESH_DEBOUNCE_MS);
     },
     [checkModuleUpdates, fetchNotifications],
@@ -1114,7 +1126,7 @@ export function NotificationProvider({ children }) {
 
     const connect = async () => {
       const authToken = await getStoredToken();
-      if (!authToken || !user?.id) return;
+      if (closedByEffect || !authToken || !user?.id) return;
 
       try {
         const ws = new WebSocket(buildWsUrl(authToken));
@@ -1124,6 +1136,7 @@ export function NotificationProvider({ children }) {
         ws.onopen = () => {
           wsReconnectAttemptsRef.current = 0;
           log("ws:connected");
+          scheduleRefresh("ws:reconnected");
         };
 
         ws.onmessage = (event) => {
@@ -1201,8 +1214,8 @@ export function NotificationProvider({ children }) {
     if (!user?.id) return undefined;
 
     const interval = setInterval(() => {
-      if (appStateRef.current === "active") {
-        scheduleRefresh("active-poll");
+      if (appStateRef.current === "active" && wsRef.current?.readyState !== WebSocket.OPEN) {
+        scheduleRefresh("disconnected-poll");
       }
     }, ACTIVE_NOTIFICATION_POLL_MS);
 
@@ -1211,7 +1224,7 @@ export function NotificationProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = messaging().onTokenRefresh(async (token) => {
-      console.log("FCM token refreshed:", token);
+      // Tokens are credentials; keep them out of logs.
 
       await registerPushTokenWithServer();
     });
@@ -1258,7 +1271,7 @@ export function NotificationProvider({ children }) {
 
     const unsubscribeForeground = messaging().onMessage(
       async (remoteMessage) => {
-        console.log("Foreground message:", remoteMessage);
+        if (__DEV__) console.log("Foreground message:", remoteMessage);
 
         scheduleRefresh("push-foreground");
 
@@ -1284,7 +1297,7 @@ export function NotificationProvider({ children }) {
 
     const unsubscribeOpened = messaging().onNotificationOpenedApp(
       (remoteMessage) => {
-        console.log("Notification caused app open:", remoteMessage);
+        if (__DEV__) console.log("Notification caused app open:", remoteMessage);
 
         const payload = normalizePushData(remoteMessage?.data || {});
 
@@ -1298,7 +1311,7 @@ export function NotificationProvider({ children }) {
       .getInitialNotification()
       .then((remoteMessage) => {
         if (remoteMessage) {
-          console.log(
+          if (__DEV__) console.log(
             "Notification caused app open from quit state:",
             remoteMessage,
           );
@@ -1347,18 +1360,16 @@ export function NotificationProvider({ children }) {
     return count;
   }, [notifications]);
 
+  const requestNotifications = useCallback(({ force = false } = {}) => {
+    scheduleRefresh(force ? "manual-fetch-force" : "manual-fetch");
+  }, [scheduleRefresh]);
+
   const contextValue = useMemo(
     () => ({
       notifications,
       unreadCount,
       loadingNotifications,
-      fetchNotifications: ({ force = false } = {}) => {
-        if (force) {
-          scheduleRefresh("manual-fetch-force");
-          return;
-        }
-        scheduleRefresh("manual-fetch");
-      },
+      fetchNotifications: requestNotifications,
       markAsRead,
       markAllAsRead,
       clearReadNotifications,
@@ -1373,7 +1384,7 @@ export function NotificationProvider({ children }) {
       notifications,
       openNotificationTarget,
       registerPushTokenWithServer,
-      scheduleRefresh,
+      requestNotifications,
       unreadCount,
     ],
   );

@@ -2,13 +2,14 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from "re
 import AppText from "../../components/common/AppText";
 import {
   ActivityIndicator,
+  AppState,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { API_BASE } from "../../utilities/API_BASE";
 import { AuthContext } from "../../Context/AuthContext";
 import { formatDateTime, getAuthHeaders } from "../../utilities/mobileApi";
@@ -228,23 +229,24 @@ export default function MaintenanceTracking() {
   useEffect(() => {
     loadTracking();
   }, [loadTracking]);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const cooldownUntil = health?.cooldown?.cooldownUntil;
-    if (!health?.cooldown?.active || !cooldownUntil) {
-      setCooldownRemaining(0);
-      return undefined;
-    }
+    let intervalId;
     const updateCooldown = () => {
-      const remainingSeconds = Math.max(
-        0,
-        Math.ceil((new Date(cooldownUntil).getTime() - Date.now()) / 1000),
-      );
-      setCooldownRemaining(remainingSeconds);
+      const remaining = health?.cooldown?.active && cooldownUntil
+        ? Math.max(0, Math.ceil((new Date(cooldownUntil).getTime() - Date.now()) / 1000)) : 0;
+      setCooldownRemaining(remaining);
+      if (!remaining) clearInterval(intervalId);
+      return remaining;
     };
-    updateCooldown();
-    const intervalId = setInterval(updateCooldown, 1000);
-    return () => clearInterval(intervalId);
-  }, [health?.cooldown?.active, health?.cooldown?.cooldownUntil]);
+    const start = (state) => {
+      clearInterval(intervalId);
+      if (state === "active" && updateCooldown() > 0) intervalId = setInterval(updateCooldown, 1000);
+    };
+    start(AppState.currentState);
+    const subscription = AppState.addEventListener("change", start);
+    return () => { clearInterval(intervalId); subscription.remove(); };
+  }, [health?.cooldown?.active, health?.cooldown?.cooldownUntil]));
 
   const aircraftOptions = useMemo(() => {
     const set = new Set();

@@ -28,6 +28,7 @@ import { matchesSearch } from "../../utilities/search";
 import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
 import ConversationListView from "../../components/Messaging/ConversationListView";
 import ChatView from "../../components/Messaging/ChatView";
+import { resizePickedImage } from "../../utilities/resizePickedImage";
 import { createMessagingSync } from "../../utilities/messagingSync";
 
 const MAX_MESSAGE_ATTACHMENTS = 5;
@@ -936,7 +937,13 @@ export default function Messaging({ navigation, route }) {
       size: asset.fileSize || 0,
     }));
 
-    const valid = selected.filter((file) => {
+    const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
+    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
+    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
+      try { return await resizePickedImage(file); }
+      catch { showToast('Could not prepare ' + file.name); return null; }
+    }));
+    const valid = prepared.filter(Boolean).filter((file) => {
       const validationError = getAttachmentValidationError(file);
       if (validationError) showToast(validationError);
       return !validationError;
@@ -980,7 +987,13 @@ export default function Messaging({ navigation, route }) {
       size: asset.size || 0,
     }));
 
-    const valid = selected.filter((file) => {
+    const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
+    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
+    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
+      try { return await resizePickedImage(file); }
+      catch { showToast('Could not prepare ' + file.name); return null; }
+    }));
+    const valid = prepared.filter(Boolean).filter((file) => {
       const validationError = getAttachmentValidationError(file);
       if (validationError) showToast(validationError);
       return !validationError;
@@ -1048,9 +1061,9 @@ export default function Messaging({ navigation, route }) {
     );
   };
 
-  const renderAvatar = (item, size = 42) => (
+  const renderAvatar = useCallback((item, size = 42) => (
     <MessagingAvatar item={item} size={size} getImageUrl={getImageUrl} />
-  );
+  ), []);
 
   const selectedGroupMembers =
     selectedConversationDetails?.type === "group"

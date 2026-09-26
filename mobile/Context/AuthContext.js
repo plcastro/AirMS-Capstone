@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -399,7 +400,7 @@ export const AuthProvider = ({ children }) => {
     logoutUser,
   ]);
 
-  const loginUser = async ({
+  const loginUser = useCallback(async ({
     user: userData,
     session: sessionData,
     accessToken,
@@ -434,7 +435,7 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       console.error("Login storage error", e);
     }
-  };
+  }, [persistSessionMeta]);
 
   const updateUser = useCallback(async (updater) => {
     setUser((prev) => {
@@ -453,7 +454,7 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  const updateRememberMePreference = async (
+  const updateRememberMePreference = useCallback(async (
     rememberMe,
     { revokePersistentTokens = false } = {},
   ) => {
@@ -497,23 +498,13 @@ export const AuthProvider = ({ children }) => {
 
     await setStoredRefreshToken(nextRefreshToken);
     return payload;
-  };
+  }, [token, getSessionMeta, defaultPlatform]);
+
+  const contextValue = useMemo(() => ({ user, session, token, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity }), [user, session, token, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity]);
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        session,
-        token,
-        loginUser,
-        updateUser,
-        logoutUser,
-        loading,
-        refreshSession,
-        rememberMePreference,
-        updateRememberMePreference,
-        markClientActivity,
-      }}
+      value={contextValue}
     >
       <View style={{ flex: 1 }} onTouchStart={markClientActivity} onTouchMove={markClientActivity}>
         {children}

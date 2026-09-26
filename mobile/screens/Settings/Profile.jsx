@@ -1,3 +1,4 @@
+import { resizePickedImage } from "../../utilities/resizePickedImage";
 import React, { useContext, useEffect, useState } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
 import {
@@ -297,14 +298,16 @@ export default function Profile() {
         selectedFile.fileName || `profile_${user.id || user._id}.jpg`;
       const fileType = selectedFile.mimeType || "image/jpeg";
 
-      const normalizedFile = {
-        uri: selectedFile.uri,
-        type: fileType,
-        name: fileName,
-      };
+      let normalizedFile;
+      try {
+        normalizedFile = await resizePickedImage({ uri: selectedFile.uri, type: fileType, name: fileName }, 800);
+      } catch {
+        showToast("Could not prepare the profile photo.");
+        return;
+      }
 
       const previousPreviewUri = previewUri;
-      setPreviewUri(selectedFile.uri);
+      setPreviewUri(normalizedFile.uri);
 
       Alert.alert(
         "Save Profile Image",

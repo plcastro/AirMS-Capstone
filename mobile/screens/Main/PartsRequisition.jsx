@@ -1516,21 +1516,9 @@ export default function PartsRequisition({ route, navigation }) {
           </View>
         </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 110 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={() => {
-                fetchRequisitions();
-                fetchNotifications();
-              }}
-              colors={[COLORS.primaryLight]}
-            />
-          }
-        >
           <PartsRequisitionCards
+            refreshing={loading}
+            onRefresh={() => { fetchRequisitions(); fetchNotifications(); }}
             requisitions={filteredRequisitions}
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
@@ -1539,7 +1527,7 @@ export default function PartsRequisition({ route, navigation }) {
             actionsDisabled={!isManager && selectedTab !== "Pending"}
             loading={loading}
           />
-        </ScrollView>
+
       </View>
 
       {!isManager && (

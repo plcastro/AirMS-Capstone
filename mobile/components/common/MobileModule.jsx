@@ -78,7 +78,8 @@ export const moduleStyles = {
   },
 };
 
-export function ModuleContainer({ children, contentStyle }) {
+export function ModuleContainer({ children, contentStyle, scrollable = true }) {
+  if (!scrollable) return <View style={moduleStyles.screen}>{children}</View>;
   return (
     <View style={moduleStyles.screen}>
       <ScrollView
