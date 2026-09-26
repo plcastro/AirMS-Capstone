@@ -1326,7 +1326,17 @@ export default function TaskAssignment() {
     }
   };
 
-  const requestApprove = async () => {
+  const requestReturn = (task) => {
+    if (!isManager || !isForReview(task)) return;
+    setSelectedTask(task);
+    setReviewNote("");
+    setItemsToUncheck([]);
+    setReviewOpen(true);
+  };
+
+  const requestApprove = async (task) => {
+    if (!isManager || !isForReview(task)) return;
+    setSelectedTask(task);
     const confirmed = await confirmAction({
       title: "Approve Task",
       content: "Approve this turned-in task?",
@@ -1560,6 +1570,28 @@ export default function TaskAssignment() {
                       const canEditDelete =
                         activeTab === "assigned" &&
                         (isSuperadmin || status === "pending");
+                      const canReview =
+                        activeTab === "for_review" && isForReview(record);
+                      if (canReview) {
+                        return (
+                          <Space onClick={(event) => event.stopPropagation()}>
+                            <Button
+                              size="small"
+                              danger
+                              onClick={() => requestReturn(record)}
+                            >
+                              Return
+                            </Button>
+                            <Button
+                              size="small"
+                              type="primary"
+                              onClick={() => requestApprove(record)}
+                            >
+                              Approve
+                            </Button>
+                          </Space>
+                        );
+                      }
                       if (!canEditDelete) return null;
                       return (
                         <Space
@@ -2254,18 +2286,19 @@ export default function TaskAssignment() {
             )}
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
-              {isManager &&
-                isTurnedIn(selectedTask) &&
-                !isReviewed(selectedTask) && (
-                  <>
-                    <Button danger onClick={() => setReviewOpen(true)}>
-                      Return
-                    </Button>
-                    <Button type="primary" onClick={requestApprove}>
-                      Approve
-                    </Button>
-                  </>
-                )}
+              {isManager && isForReview(selectedTask) && (
+                <>
+                  <Button danger onClick={() => requestReturn(selectedTask)}>
+                    Return
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => requestApprove(selectedTask)}
+                  >
+                    Approve
+                  </Button>
+                </>
+              )}
 
               {!isManager &&
                 normalizeStatus(selectedTask.status) === "pending" && (

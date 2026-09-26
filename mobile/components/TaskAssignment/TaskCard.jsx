@@ -40,6 +40,10 @@ export default function TaskCard({
   onPress,
   onEditTask,
   onDeleteTask,
+  onApprove,
+  onReturn,
+  isHeadView = false,
+  showReviewActions = false,
   showEditDelete = false,
 }) {
   const {
@@ -62,6 +66,11 @@ export default function TaskCard({
     ? "Approved"
     : getDisplayText(status, "Pending");
   const normalizedDisplayStatus = normalizeStatus(displayStatus);
+  const canReview =
+    isHeadView &&
+    showReviewActions &&
+    !data?.isApproved &&
+    ["turned in", "completed"].includes(normalizedDisplayStatus);
 
   // Progress
   const safeChecklistItems = Array.isArray(checklistItems)
@@ -266,6 +275,45 @@ export default function TaskCard({
       )}
 
       {/* ACTIONS */}
+      {canReview && (
+        <CardActionRow>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onReturn?.(data);
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.dangerBorder,
+              borderRadius: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <AppText style={{ color: COLORS.dangerBorder, fontWeight: "600" }}>
+              Return
+            </AppText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onApprove?.(data);
+            }}
+            style={{
+              backgroundColor: COLORS.primaryLight,
+              borderRadius: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+              Approve
+            </AppText>
+          </TouchableOpacity>
+        </CardActionRow>
+      )}
       {showEditDelete && (
         <CardActionRow>
           <ActionIconButton

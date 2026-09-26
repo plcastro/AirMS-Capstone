@@ -55,12 +55,21 @@ export default function TaskChecklist({
   onReturn,
   confirmation,
   isHeadView = false,
+  initialReviewMode = null,
 }) {
   const [checklistState, setChecklistState] = useState([]);
   const [findings, setFindings] = useState("");
   const [isStarted, setIsStarted] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewMode, setReviewMode] = useState("return");
+  const [showReviewModal, setShowReviewModal] = useState(
+    () =>
+      isHeadView &&
+      !task?.isApproved &&
+      ["turned in", "completed"].includes(normalizeStatus(task?.status)) &&
+      ["approve", "return"].includes(initialReviewMode),
+  );
+  const [reviewMode, setReviewMode] = useState(
+    initialReviewMode === "approve" ? "approve" : "return",
+  );
 
   useEffect(() => {
     const checklistItems = Array.isArray(task?.checklistItems)
