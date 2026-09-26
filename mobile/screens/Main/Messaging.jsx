@@ -28,9 +28,8 @@ import { matchesSearch } from "../../utilities/search";
 import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
 import ConversationListView from "../../components/Messaging/ConversationListView";
 import ChatView from "../../components/Messaging/ChatView";
+import { createMessagingSync } from "../../utilities/messagingSync";
 
-const LIVE_SYNC_INTERVAL_MS = 1000;
-const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
 const MAX_MESSAGE_ATTACHMENTS = 5;
 const MAX_MESSAGE_ATTACHMENT_MB = 10;
 const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
@@ -248,7 +247,7 @@ export default function Messaging({ navigation, route }) {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
-  const liveSyncPausedUntilRef = useRef(0);
+  const liveSyncRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
   const handledNotificationTargetRef = useRef("");
   const attachmentUrlCacheRef = useRef(new Map());
@@ -317,9 +316,10 @@ export default function Messaging({ navigation, route }) {
     }
   }, [authFetch, currentUserId]);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async ({ signal } = {}) => {
     try {
-      const data = await authFetch(`${API_BASE}/api/messages/conversations`);
+      const data = await authFetch(`${API_BASE}/api/messages/conversations`, { signal });
+      if (signal?.aborted) return;
       setConversations(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       if (error.status === 404) {
@@ -332,7 +332,7 @@ export default function Messaging({ navigation, route }) {
   }, [authFetch]);
 
   const fetchThread = useCallback(
-    async (conversationId) => {
+    async (conversationId, signal) => {
       if (!conversationId) {
         setMessages([]);
         return;
@@ -340,22 +340,24 @@ export default function Messaging({ navigation, route }) {
 
       const data = await authFetch(
         `${API_BASE}/api/messages/${conversationId}`,
+        { signal },
       );
+      if (signal?.aborted || String(selectedConversationRef.current?.id) !== String(conversationId)) return;
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
-      fetchConversations();
+      await fetchConversations({ signal });
     },
     [authFetch, fetchConversations],
   );
 
-  const syncMessaging = useCallback(async () => {
+  const syncMessaging = useCallback(async (signal) => {
     const activeConversation = selectedConversationRef.current;
     if (activeConversation?.id) {
-      await fetchThread(activeConversation.id);
+      await fetchThread(activeConversation.id, signal);
       return;
     }
 
-    await fetchConversations();
+    await fetchConversations({ signal });
   }, [fetchConversations, fetchThread]);
 
   const notifyIncomingChat = useCallback((messagePayload) => {
@@ -380,15 +382,8 @@ export default function Messaging({ navigation, route }) {
   }, [fetchConversations, fetchUsers]);
 
   useEffect(() => {
-    if (selectedConversationId) {
-      fetchThread(selectedConversationId).catch((error) => {
-        showToast(error.message || "Failed to load conversation");
-      });
-    }
-  }, [fetchThread, selectedConversationId]);
-
-  useEffect(() => {
     selectedConversationRef.current = selectedConversation;
+    liveSyncRef.current?.request();
   }, [selectedConversation]);
 
   useEffect(() => {
@@ -476,46 +471,54 @@ export default function Messaging({ navigation, route }) {
     }, [navigation]),
   );
 
-  useEffect(() => {
-    let currentAppState = AppState.currentState;
-
-    const syncIfActive = () => {
-      if (currentAppState !== "active") return;
-      if (Date.now() < liveSyncPausedUntilRef.current) return;
-
-      syncMessaging().catch((error) => {
-        liveSyncPausedUntilRef.current =
-          Date.now() + LIVE_SYNC_FAILURE_BACKOFF_MS;
-        ignoreBackgroundMessagingError(error);
+  useFocusEffect(
+    useCallback(() => {
+      let appState = AppState.currentState;
+      const sync = createMessagingSync({
+        refresh: syncMessaging,
+        isActive: () => appState === "active",
+        isConnected: () => wsRef.current?.readyState === WebSocket.OPEN,
+        onError: ignoreBackgroundMessagingError,
       });
-    };
+      liveSyncRef.current = sync;
+      sync.request();
+      const subscription = AppState.addEventListener("change", (state) => {
+        appState = state;
+        if (state === "active") sync.request();
+        else sync.pause();
+      });
+      return () => {
+        liveSyncRef.current = null;
+        sync.dispose();
+        subscription.remove();
+      };
+    }, [syncMessaging]),
+  );
 
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      currentAppState = nextAppState;
-      if (nextAppState === "active") {
-        syncIfActive();
-      }
-    });
-
-    const intervalId = setInterval(syncIfActive, LIVE_SYNC_INTERVAL_MS);
-
-    return () => {
-      clearInterval(intervalId);
-      subscription.remove();
-    };
-  }, [syncMessaging]);
-
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let closedByEffect = false;
-
+    let appState = AppState.currentState;
+    let connectionGeneration = 0;
+    const disconnect = () => {
+      connectionGeneration += 1;
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+      const ws = wsRef.current;
+      wsRef.current = null;
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
     const connect = async () => {
+      const generation = ++connectionGeneration;
       const token = await getToken();
-      if (!token || !currentUserId) return;
-
+      if (closedByEffect || appState !== "active" || generation !== connectionGeneration || !token || !currentUserId) return;
       const ws = new WebSocket(buildWsUrl(token));
       wsRef.current = ws;
-
+      ws.onopen = () => liveSyncRef.current?.request();
       ws.onmessage = (event) => {
+        if (closedByEffect || appState !== "active") return;
         try {
           const payload = JSON.parse(event.data);
 
@@ -535,7 +538,7 @@ export default function Messaging({ navigation, route }) {
               setSelectedConversation(null);
               setMessages([]);
             }
-            fetchConversations();
+            liveSyncRef.current?.request();
             return;
           }
 
@@ -556,7 +559,7 @@ export default function Messaging({ navigation, route }) {
                   : item,
               ),
             );
-            fetchConversations();
+            liveSyncRef.current?.request();
             return;
           }
 
@@ -564,12 +567,8 @@ export default function Messaging({ navigation, route }) {
             payload.event === "data-changed" &&
             String(payload.data?.url || "").startsWith("/api/messages")
           ) {
-            fetchConversations();
-            if (selectedConversationRef.current?.id) {
-              fetchThread(selectedConversationRef.current.id).catch((error) => {
-                ignoreBackgroundMessagingError(error);
-              });
-            }
+            liveSyncRef.current?.request();
+
             return;
           }
 
@@ -598,48 +597,36 @@ export default function Messaging({ navigation, route }) {
               return [...current, nextMessage];
             });
 
-            if (
-              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
-            ) {
-              fetchThread(conversationId).catch((error) => {
-                ignoreBackgroundMessagingError(error);
-              });
-            }
+
           }
 
-          fetchConversations();
+          liveSyncRef.current?.request();
         } catch (error) {
           ignoreBackgroundMessagingError(error);
         }
       };
 
+
       ws.onclose = () => {
-        if (!closedByEffect) {
-          reconnectTimeoutRef.current = setTimeout(connect, 1500);
+        if (wsRef.current === ws) wsRef.current = null;
+        if (!closedByEffect && appState === "active") {
+          reconnectTimeoutRef.current = setTimeout(() => connect().catch(ignoreBackgroundMessagingError), 1500);
         }
       };
-
-      ws.onerror = () => {
-        ws.close();
-      };
+      ws.onerror = () => ws.close();
     };
-
-    connect();
-
+    connect().catch(ignoreBackgroundMessagingError);
+    const subscription = AppState.addEventListener("change", (state) => {
+      appState = state;
+      disconnect();
+      if (state === "active") connect().catch(ignoreBackgroundMessagingError);
+    });
     return () => {
       closedByEffect = true;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      wsRef.current?.close?.();
+      subscription.remove();
+      disconnect();
     };
-  }, [
-    currentUserId,
-    fetchConversations,
-    fetchThread,
-    getToken,
-    notifyIncomingChat,
-  ]);
+  }, [currentUserId, getToken, notifyIncomingChat]));
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
