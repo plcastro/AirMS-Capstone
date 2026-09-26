@@ -786,7 +786,7 @@ export default function MaintenanceLog() {
             </Row>
           </Card>
 
-          <Row gutter={[16, 16]}>
+          <Row gutter={[16, 16]} align="stretch">
             {!loading && uniqueAircraft.length === 0 && (
               <Col span={24}>
                 <Card style={{ borderRadius: 12 }}>
@@ -813,12 +813,12 @@ export default function MaintenanceLog() {
                   <Card
                     hoverable
                     onClick={() => navigateToAircraft(reg)}
-                    styles={{ body: { padding: 0 } }}
-                    style={{ borderRadius: 12, overflow: "hidden" }}
+                    styles={{ body: { padding: 0, height: "100%" } }}
+                    style={{ borderRadius: 12, overflow: "hidden", height: "100%" }}
                   >
-                    <div style={{ display: "flex", minHeight: 120 }}>
+                    <div style={{ display: "flex", minHeight: 120, height: "100%" }}>
                       <div style={{ width: 7, background: BRAND }} />
-                      <div style={{ padding: 16, flex: 1 }}>
+                      <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column" }}>
                         <Title
                           level={5}
                           style={{
@@ -834,18 +834,16 @@ export default function MaintenanceLog() {
                         <Text type="secondary">
                           SOURCE: {sample?.type || "Task Assignment"}
                         </Text>
-                        <br />
                         <Text type="secondary">
                           ENTRIES: {entriesForAircraft.length}
                         </Text>
-                        {newCount > 0 ? (
-                          <>
-                            <br />
+                        <div style={{ height: 22, marginTop: "auto" }}>
+                          {newCount > 0 ? (
                             <Text style={{ color: "#d46b08", fontWeight: 600 }}>
                               {newCount} new work done
                             </Text>
-                          </>
-                        ) : null}
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </Card>
