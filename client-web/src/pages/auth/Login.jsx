@@ -2,15 +2,8 @@ import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import {
-  Input,
-  Checkbox,
-  Button,
-  Typography,
-  Row,
-  Col,
-  Form,
-} from "antd";
+import { Input, Checkbox, Button, Typography, Row, Col, Form } from "antd";
+import { getDeviceAuditHeaders } from "../../utils/deviceAudit";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
@@ -132,7 +125,9 @@ const Login = () => {
       return;
     }
     if (!location?.text || !location?.coordinateText) {
-      setError("Allow location access so AirMS can detect where you are logging in from.");
+      setError(
+        "Allow location access so AirMS can detect where you are logging in from.",
+      );
       return;
     }
     setLoading(true);
@@ -148,6 +143,7 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
           "x-platform": "WEB",
+          ...getDeviceAuditHeaders(),
           ...buildLoginLocationHeaders(location),
         },
         body: JSON.stringify({
@@ -330,12 +326,11 @@ const Login = () => {
             >
               <EnvironmentOutlined className="login-location-icon" />
               <div className="login-location-copy">
-                <Text strong>
-                  {location?.text || "Location not detected"}
-                </Text>
+                <Text strong>{location?.text || "Location not detected"}</Text>
                 {location?.coordinateText && (
                   <Text type="secondary" className="login-location-coordinates">
-                    Latitude and longitude coordinates: {location.coordinateText}
+                    Latitude and longitude coordinates:{" "}
+                    {location.coordinateText}
                   </Text>
                 )}
                 {locationStatus && !location?.text && (
