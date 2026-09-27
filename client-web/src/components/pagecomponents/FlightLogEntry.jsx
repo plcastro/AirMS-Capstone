@@ -1107,16 +1107,18 @@ export default function FlightLogEntry({
       destroyOnHidden
     >
       <Spin spinning={submitting}>
-        <div className="fl-modal-header-block">
-          <div className="fl-modal-title-main">
-            {readOnly
-              ? "View Entry - Flight Log"
-              : editMode
-                ? "Edit Entry - Flight Log"
-                : "Add Entry - Flight Log"}
+        {!embedded && (
+          <div className="fl-modal-header-block">
+            <div className="fl-modal-title-main">
+              {readOnly
+                ? "View Entry - Flight Log"
+                : editMode
+                  ? "Edit Entry - Flight Log"
+                  : "Add Entry - Flight Log"}
+            </div>
+            <div className="fl-modal-title-sub">Select Section</div>
           </div>
-          <div className="fl-modal-title-sub">Select Section</div>
-        </div>
+        )}
 
         {/* Tab nav */}
         <div className="fl-tab-nav">

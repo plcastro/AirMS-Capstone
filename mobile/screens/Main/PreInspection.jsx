@@ -432,7 +432,7 @@ export default function PreInspection({ route }) {
         userRole={userRole}
         readOnly
       />
-      {!!selectedInspection?.flightLogId && showEditModal && <FlightWorkspace id={String(selectedInspection.flightLogId?._id || selectedInspection.flightLogId)} visible initialSection="pre" onClose={() => { setShowEditModal(false); setSelectedInspection(null); }} onChanged={() => fetchPreInspections(true)} />}
+      {!!selectedInspection?.flightLogId && showEditModal && <FlightWorkspace id={String(selectedInspection.flightLogId?._id || selectedInspection.flightLogId)} visible initialSection="pre" inspectionMode onClose={() => { setShowEditModal(false); setSelectedInspection(null); }} onChanged={() => fetchPreInspections(true)} />}
     </View>
   );
 }

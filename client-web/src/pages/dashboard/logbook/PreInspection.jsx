@@ -1733,7 +1733,7 @@ export default function PreInspection() {
         <FlightWorkspace
           id={String(editing.flightLogId?._id || editing.flightLogId)}
           open
-          initialSection="pre"
+          initialSection="pre" inspectionMode
           onClose={() => setEditing(null)}
           onChanged={load}
         />

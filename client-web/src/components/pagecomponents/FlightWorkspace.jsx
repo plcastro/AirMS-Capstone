@@ -24,7 +24,6 @@ import {
   getAssignedCrewField,
 } from "../../../../shared/flightCrewAccess";
 import {
-  FLIGHT_PURPOSES,
   preflightSignatureForRelease,
   pilotAcceptance,
   flightStage,
@@ -52,8 +51,10 @@ export default function FlightWorkspace({
   onClose,
   onChanged,
   initialSection = "flight",
+  inspectionMode = false,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
     [draft, setDraft] = useState(null);
@@ -126,7 +127,7 @@ export default function FlightWorkspace({
     setBusy(true);
     setError("");
     setWorkspace(null);
-    setTab(initialSection);
+    setTab(inspectionSection || (["flight", "defects", "history"].includes(initialSection) ? initialSection : "flight"));
     setSignedAction(null);
     setReview(null);
     setDefectForm(null);
@@ -149,7 +150,7 @@ export default function FlightWorkspace({
     return () => {
       active = false;
     };
-  }, [open, id, api, storageKey, initialSection]);
+  }, [open, id, api, storageKey, initialSection, inspectionSection]);
   useEffect(() => {
     if (
       !open ||
@@ -248,9 +249,8 @@ export default function FlightWorkspace({
         ? preflightSignatureForRelease(log, workspace.preInspections)
         : "";
     if (action === "release" && !releaseSignature) {
-      setTab("pre");
       setError(
-        "Complete and sign the linked Pre-Flight inspection before releasing the flight log.",
+        "Open Pre-Flight Inspections to complete and sign the linked inspection before releasing the flight log.",
       );
       return;
     }
@@ -359,7 +359,41 @@ export default function FlightWorkspace({
     <Modal
       open={open}
       onCancel={onClose}
-      footer={null}
+      footer={log ? (<Space wrap style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+                {mechanic && needsMyFlightAction(user, log) && (
+                  <Button
+                    type="primary"
+                    loading={busy}
+                    onClick={() => prepareAction(step.action)}
+                  >
+                    {step.button}
+                  </Button>
+                )}
+                {permissions.canSave && (
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      execute(id, {
+                        changes: draft,
+                        expectedVersion: log.__v || 0,
+                      })
+                    }
+                  >
+                    Save Draft
+                  </Button>
+                )}
+                {permissions.canReturn && (
+                  <Button
+                    onClick={() => {
+                      setComment("");
+                      setReturnOpen(true);
+                    }}
+                  >
+                    Return for Correction
+                  </Button>
+                )}
+                {/* <Button onClick={onClose}>Close Workspace</Button> */}
+              </Space>) : null}
       width={1220}
       title={
         log
@@ -432,11 +466,9 @@ export default function FlightWorkspace({
                 {log.assignedMechanic?.name || "Unassigned"} · Last update:{" "}
                 {labelTime(log.updatedAt)}
               </p>
-              <Typography.Text type="secondary">
-                {assigned && log.status !== "completed"
-                  ? saveState
-                  : "Saved on server"}
-              </Typography.Text>
+              {assigned && log.status !== "completed" && saveState !== "Saved on server" && (
+                <Typography.Text type="secondary">{saveState}</Typography.Text>
+              )}
               {log.releasedBy?.name && (
                 <p>
                   Released by {log.releasedBy.name} at{" "}
@@ -531,59 +563,7 @@ export default function FlightWorkspace({
                   label: "Flight Record",
                   children: (
                     <>
-                      <Space
-                        wrap
-                        style={{
-                          marginBottom: 12,
-                        }}
-                      >
-                        <Select
-                          aria-label="Flight purpose"
-                          placeholder="Flight purpose (optional)"
-                          style={{
-                            width: 210,
-                          }}
-                          value={draft?.flightPurpose || undefined}
-                          disabled={!permissions.preparation}
-                          options={FLIGHT_PURPOSES.map(([value, label]) => ({
-                            value,
-                            label,
-                          }))}
-                          onChange={(value) =>
-                            setSource({
-                              ...draft,
-                              flightPurpose: value,
-                            })
-                          }
-                        />
-                        <Input
-                          aria-label="Mission details"
-                          placeholder="Mission / line / job reference"
-                          style={{
-                            width: 320,
-                          }}
-                          value={draft?.purposeDetails || ""}
-                          disabled={!permissions.preparation}
-                          onChange={(e) =>
-                            setSource({
-                              ...draft,
-                              purposeDetails: e.target.value,
-                            })
-                          }
-                        />
-                        <Checkbox
-                          checked={draft?.noDefectsReported === true}
-                          disabled={!permissions.flight}
-                          onChange={(e) =>
-                            setSource({
-                              ...draft,
-                              noDefectsReported: e.target.checked,
-                            })
-                          }
-                        >
-                          No defects reported
-                        </Checkbox>
-                      </Space>
+
                       <FlightLogEntry
                         embedded
                         visible={open}
@@ -602,7 +582,7 @@ export default function FlightWorkspace({
                     </>
                   ),
                 },
-                ...["pre", "post"].map((kind) => ({
+                ...(inspectionSection ? [inspectionSection] : []).map((kind) => ({
                   key: kind,
                   label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
                   children: (
@@ -807,16 +787,9 @@ export default function FlightWorkspace({
                     </>
                   ),
                 },
-              ]}
+              ].filter((item) => !inspectionSection || item.key === inspectionSection)}
             />
-            <Card
-              size="small"
-              style={{
-                position: "sticky",
-                bottom: 0,
-                zIndex: 2,
-              }}
-            >
+            <>
               {(workspace.readiness.missing.length > 0 ||
                 workspace.readiness.warnings.length > 0) &&
                 permissions.preparation && (
@@ -851,42 +824,8 @@ export default function FlightWorkspace({
                   }
                 />
               )}
-              <Space wrap>
-                {mechanic && needsMyFlightAction(user, log) && (
-                  <Button
-                    type="primary"
-                    loading={busy}
-                    onClick={() => prepareAction(step.action)}
-                  >
-                    {step.button}
-                  </Button>
-                )}
-                {permissions.canSave && (
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      execute(id, {
-                        changes: draft,
-                        expectedVersion: log.__v || 0,
-                      })
-                    }
-                  >
-                    Save Draft
-                  </Button>
-                )}
-                {permissions.canReturn && (
-                  <Button
-                    onClick={() => {
-                      setComment("");
-                      setReturnOpen(true);
-                    }}
-                  >
-                    Return for Correction
-                  </Button>
-                )}
-                {/* <Button onClick={onClose}>Close Workspace</Button> */}
-              </Space>
-            </Card>
+
+            </>
           </>
         )}
       </Spin>
