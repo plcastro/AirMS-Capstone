@@ -1,5 +1,7 @@
 const { isValidFlightLogLegDate } = require('../../shared/flightLogLegValidation');
 const { populateFlightInputs, HOUR_FIELDS } = require('../../shared/flightAutomaticInputs');
+const { requiredFlightTimeError, totalFlightHours } = require('../../shared/flightLogTimes');
+const { defaultPassengerCount } = require('../../shared/flightLegTimes');
 const {
   isB412AircraftType
 } = require('./flightLogPayload');
@@ -33,37 +35,43 @@ const minutes = value => {
 };
 const validateLegs = record => {
   const missing = [];
-  let flightMinutes = 0;
   // Bell 412's printed layout has unused placeholder rows. Ignore only wholly
   // empty rows; a partially entered leg must still produce actionable errors.
-  const legs = (record.legs || []).filter(leg => (leg.stations || []).some(s => String(s.from || '').trim() || String(s.to || '').trim()) || ['date', 'blockTimeOn', 'blockTimeOff', 'flightTimeOn', 'flightTimeOff', 'passengers'].some(key => String(leg[key] ?? '').trim())).map((leg, i) => {
+  const legs = (record.legs || []).filter(leg => (leg.stations || []).some(s => String(s.from || '').trim() || String(s.to || '').trim()) || ['date', 'blockTimeOn', 'blockTimeOff', 'flightTimeOn', 'flightTimeOff', 'totalTimeOff', 'totalTimeOn'].some(key => String(leg[key] ?? '').trim()) || numeric(defaultPassengerCount(leg.passengers)) !== 0).map((leg, i) => {
     const row = {
-      ...plain(leg)
+      ...plain(leg),
+      passengers: defaultPassengerCount(leg.passengers)
     };
     const label = `Leg ${i + 1}`;
+    const durations = {};
     if (!leg.stations?.length || leg.stations.some(s => !s.from?.trim() || !s.to?.trim())) missing.push(`${label}: complete every From/To station.`);
     if (!isValidFlightLogLegDate(leg.date)) missing.push(`${label}: enter a valid date.`);
     for (const [on, off, total, name] of [['flightTimeOn', 'flightTimeOff', 'totalTimeOff', 'flight'], ['blockTimeOn', 'blockTimeOff', 'totalTimeOn', 'block']]) {
       const arrival = minutes(leg[on]),
         departure = minutes(leg[off]);
-      if (arrival === null || departure === null) {
-        missing.push(`${label}: enter ${name} ON/OFF times as HH:mm (24-hour).`);
-        continue;
-      }
+      // Clock readings are optional. Validate only supplied values and derive
+      // elapsed time only when both readings are present.
+      if (String(leg[on] ?? '').trim() && arrival === null) missing.push(`${label}: enter ${name} ON time as HH:mm (24-hour).`);
+      if (String(leg[off] ?? '').trim() && departure === null) missing.push(`${label}: enter ${name} OFF time as HH:mm (24-hour).`);
+      if (arrival === null || departure === null) continue;
       const elapsed = (arrival - departure + 1440) % 1440;
       if (name === 'flight' && elapsed === 0) missing.push(`${label}: flight ON/OFF times must show a positive duration.`);
-      row[total] = String(Math.round(elapsed / 60 * 100) / 100);
-      if (name === 'flight') flightMinutes += elapsed;
+      durations[name] = elapsed;
+      // Keep the entered flight duration: it drives the original component
+      // conversion table and must survive save, review and closure unchanged.
+      if (name === 'block') row[total] = String(Math.round(elapsed / 60 * 100) / 100);
     }
-    if (numeric(row.totalTimeOn) !== null && numeric(row.totalTimeOff) > numeric(row.totalTimeOn)) missing.push(`${label}: flight duration exceeds block duration.`);
-    if (numeric(leg.passengers) === null || numeric(leg.passengers) < 0 || !Number.isInteger(numeric(leg.passengers))) missing.push(`${label}: enter the passenger count, including 0.`);
+    if (durations.flight > durations.block) missing.push(`${label}: flight duration exceeds block duration.`);
+    if (numeric(row.passengers) === null || numeric(row.passengers) < 0 || !Number.isInteger(numeric(row.passengers))) missing.push(`${label}: enter a nonnegative whole-number passenger count.`);
     return row;
   });
   if (!legs.length) missing.push('Add at least one flight leg.');
+  const timeError = requiredFlightTimeError(legs);
+  if (timeError) missing.push(timeError);
   return {
     legs,
     missing,
-    flightHours: Math.round(flightMinutes / 60 * 100) / 100
+    flightHours: totalFlightHours(legs) === '' ? null : Number(totalFlightHours(legs))
   };
 };
 const reviewTotals = (record, monitoring) => {

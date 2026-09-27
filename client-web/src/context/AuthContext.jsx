@@ -13,10 +13,15 @@ import {
   setCurrentSessionProfile,
 } from "../utils/sessionProfile";
 
+import {
+  createIdleSession,
+  SESSION_IDLE_LIMIT_MS,
+} from "../../../shared/sessionIdle";
+
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
-const WARNING_DURATION_MS = 2 * 60 * 1000;
+const INACTIVITY_LIMIT_MS = SESSION_IDLE_LIMIT_MS;
+const ACTIVITY_KEY_PREFIX = "authActivity:";
 const ACTIVITY_EVENTS = [
   "click",
   "mousedown",
@@ -26,6 +31,7 @@ const ACTIVITY_EVENTS = [
   "touchstart",
   "touchmove",
   "pointerdown",
+  "pointermove",
 ];
 const ACTIVITY_THROTTLE_MS = 1000;
 const SESSION_META_KEY = "authSessionMeta";
@@ -46,18 +52,11 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [showSessionTimeoutWarning, setShowSessionTimeoutWarning] =
-    useState(false);
-  const [warningSecondsRemaining, setWarningSecondsRemaining] = useState(
-    WARNING_DURATION_MS / 1000,
-  );
   const [rememberMePreference, setRememberMePreferenceState] = useState(
     localStorage.getItem(REMEMBER_ME_KEY) === "true",
   );
   const syncChannelRef = useRef(null);
-  const inactivityWarningTimeoutRef = useRef(null);
-  const inactivityLogoutTimeoutRef = useRef(null);
-  const warningCountdownIntervalRef = useRef(null);
+  const idleSessionRef = useRef(null);
   const tokenExpiryTimeoutRef = useRef(null);
   const refreshTokenPromiseRef = useRef(null);
   const sessionEndedRef = useRef(false);
@@ -216,13 +215,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const activityKey = () =>
+    ACTIVITY_KEY_PREFIX + (getSessionMeta().sessionId || "current");
+  const readLastActivity = () => {
+    const stored = Number(localStorage.getItem(activityKey()));
+    lastActivityRecordedAtRef.current = Math.max(
+      lastActivityRecordedAtRef.current,
+      stored || 0,
+    );
+    return lastActivityRecordedAtRef.current;
+  };
+  const saveActivity = (timestamp) => {
+    lastActivityRecordedAtRef.current = timestamp;
+    localStorage.setItem(activityKey(), String(timestamp));
+  };
   const clearInactivityTimers = () => {
-    clearTimeout(inactivityWarningTimeoutRef.current);
-    clearTimeout(inactivityLogoutTimeoutRef.current);
-    clearInterval(warningCountdownIntervalRef.current);
-    inactivityWarningTimeoutRef.current = null;
-    inactivityLogoutTimeoutRef.current = null;
-    warningCountdownIntervalRef.current = null;
+    idleSessionRef.current?.stop();
+    idleSessionRef.current = null;
   };
 
   const clearTokenExpiryTimer = () => {
@@ -239,56 +248,9 @@ export const AuthProvider = ({ children }) => {
     tokenExpiryTimeoutRef.current = setTimeout(onExpire, msRemaining);
   };
 
-  const startWarningCountdown = (seconds) => {
-    setWarningSecondsRemaining(seconds);
-    setShowSessionTimeoutWarning(true);
-    clearInterval(warningCountdownIntervalRef.current);
-    warningCountdownIntervalRef.current = setInterval(() => {
-      setWarningSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(warningCountdownIntervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const scheduleInactivityTimers = (elapsed = 0) => {
-    clearInactivityTimers();
-    if (!user) return;
-
-    const safeElapsed = Math.max(0, Number(elapsed) || 0);
-    const warningLeadTimeMs = WARNING_DURATION_MS;
-    const warningStartAfterMs =
-      INACTIVITY_LIMIT_MS - warningLeadTimeMs - safeElapsed;
-    const autoLogoutAfterMs = INACTIVITY_LIMIT_MS - safeElapsed;
-
-    const triggerWarning = (remainingMs) => {
-      const remainingSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
-      startWarningCountdown(remainingSeconds);
-    };
-
-    inactivityLogoutTimeoutRef.current = setTimeout(
-      () => {
-        logoutUser();
-      },
-      Math.max(0, autoLogoutAfterMs),
-    );
-
-    if (warningStartAfterMs <= 0) {
-      triggerWarning(Math.max(1000, autoLogoutAfterMs));
-    } else {
-      inactivityWarningTimeoutRef.current = setTimeout(() => {
-        triggerWarning(warningLeadTimeMs);
-      }, warningStartAfterMs);
-    }
-  };
-
   const forceLogoutOnce = (broadcast = true) => {
     if (sessionEndedRef.current) return;
     sessionEndedRef.current = true;
-    setShowSessionTimeoutWarning(false);
     clearInactivityTimers();
     clearTokenExpiryTimer();
     setUser(null);
@@ -303,17 +265,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const recordActivity = () => {
-    if (!user || showSessionTimeoutWarning || sessionEndedRef.current) return;
+    if (sessionEndedRef.current) return;
     const now = Date.now();
-    if (now - lastActivityRecordedAtRef.current < ACTIVITY_THROTTLE_MS) return;
-    lastActivityRecordedAtRef.current = now;
-    setShowSessionTimeoutWarning(false);
-    scheduleInactivityTimers(0);
+    if (now - readLastActivity() < ACTIVITY_THROTTLE_MS) return;
+    idleSessionRef.current?.activity();
   };
 
   const buildSessionHeaders = () => {
     const sessionMeta = getSessionMeta();
-    const lastClientActivityAt = lastActivityRecordedAtRef.current;
+    const lastClientActivityAt = readLastActivity();
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...buildLoginLocationHeaders(sessionMeta.location),
@@ -327,7 +287,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshAccessToken = async () => {
-    if (sessionEndedRef.current) {
+    if (sessionEndedRef.current) return null;
+    if (
+      readLastActivity() &&
+      Date.now() - readLastActivity() >= INACTIVITY_LIMIT_MS
+    ) {
+      forceLogoutOnce(true);
       return null;
     }
 
@@ -403,7 +368,6 @@ export const AuthProvider = ({ children }) => {
     const sessionHeaders = buildSessionHeaders();
     try {
       sessionEndedRef.current = true;
-      setShowSessionTimeoutWarning(false);
       clearInactivityTimers();
       clearTokenExpiryTimer();
       setUser(null);
@@ -437,25 +401,13 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const continueSession = async () => {
-    if (!user || sessionEndedRef.current) return;
-    try {
-      setShowSessionTimeoutWarning(false);
-      const token = await refreshAccessToken();
-      if (token) {
-        persistSessionTiming(token, "continue-session", {
-          restartFullWindow: true,
-        });
-      }
-      scheduleInactivityTimers(0);
-    } catch (err) {
-      console.error("Continue session failed:", err);
-      forceLogoutOnce(true);
-    }
-  };
-
   const getValidToken = async () => {
-    if (sessionEndedRef.current) {
+    if (sessionEndedRef.current) return null;
+    if (
+      readLastActivity() &&
+      Date.now() - readLastActivity() >= INACTIVITY_LIMIT_MS
+    ) {
+      forceLogoutOnce(true);
       return null;
     }
     const token = getStoredToken();
@@ -501,6 +453,7 @@ export const AuthProvider = ({ children }) => {
       platform: "WEB",
       location: options.location || null,
     });
+    saveActivity(Date.now());
     persistAuthState(normalized, token, rememberMe);
     persistSessionTiming(token, "login");
     publishAuthSync({
@@ -641,6 +594,18 @@ export const AuthProvider = ({ children }) => {
         const remembered = localStorage.getItem(REMEMBER_ME_KEY) === "true";
         setRememberMePreferenceState(remembered);
 
+        if (!hasStoredSessionHint()) return;
+        lastActivityRecordedAtRef.current = readLastActivity();
+        if (
+          lastActivityRecordedAtRef.current &&
+          Date.now() - lastActivityRecordedAtRef.current >= INACTIVITY_LIMIT_MS
+        ) {
+          void logoutUser().catch((error) =>
+            console.error("Idle logout failed:", error),
+          );
+          return;
+        }
+        if (!lastActivityRecordedAtRef.current) saveActivity(Date.now());
         let storedUser =
           sessionStorage.getItem("currentUser") ||
           localStorage.getItem("currentUser");
@@ -738,24 +703,68 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
+  const activeSessionId = user ? user.sessionId || user.id || user._id : null;
   useEffect(() => {
-    if (!user) {
+    if (!activeSessionId) {
       clearInactivityTimers();
-      setShowSessionTimeoutWarning(false);
       return undefined;
     }
-    lastActivityRecordedAtRef.current = Date.now();
-    scheduleInactivityTimers(0);
+    const idle = createIdleSession({
+      getLastActivity: readLastActivity,
+      onActivity: (timestamp) => {
+        saveActivity(timestamp);
+      },
+      onWarning: (_minutes, warning) => {
+        void (async () => {
+          const headers = await getAuthHeader();
+          if (!headers.Authorization || sessionEndedRef.current) return;
+          const response = await fetch(
+            API_BASE + "/api/notifications/session-warning",
+            {
+              method: "POST",
+              credentials: "include",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify(warning),
+            },
+          );
+          if (!response.ok)
+            throw new Error("Failed to create session notification");
+        })().catch((error) =>
+          console.error("Session notification failed:", error),
+        );
+      },
+      onExpire: () => {
+        logoutUser().catch((error) =>
+          console.error("Idle logout failed:", error),
+        );
+      },
+    });
+    idleSessionRef.current = idle;
+    idle.check();
+    const checkVisibility = () => {
+      if (!document.hidden) idle.check();
+    };
+    const syncActivity = (event) => {
+      if (event.key === activityKey()) {
+        idle.check();
+      }
+    };
     ACTIVITY_EVENTS.forEach((eventName) =>
-      window.addEventListener(eventName, recordActivity),
+      window.addEventListener(eventName, recordActivity, true),
     );
+    document.addEventListener("visibilitychange", checkVisibility);
+    window.addEventListener("focus", checkVisibility);
+    window.addEventListener("storage", syncActivity);
     return () => {
       ACTIVITY_EVENTS.forEach((eventName) =>
-        window.removeEventListener(eventName, recordActivity),
+        window.removeEventListener(eventName, recordActivity, true),
       );
+      document.removeEventListener("visibilitychange", checkVisibility);
+      window.removeEventListener("focus", checkVisibility);
+      window.removeEventListener("storage", syncActivity);
       clearInactivityTimers();
     };
-  }, [user]);
+  }, [activeSessionId]);
 
   return (
     <AuthContext.Provider
@@ -768,9 +777,6 @@ export const AuthProvider = ({ children }) => {
         refreshAccessToken,
         getAuthHeader,
         loading,
-        showSessionTimeoutWarning,
-        warningSecondsRemaining,
-        continueSession,
         token: getStoredToken(),
         rememberMePreference,
         updateRememberMePreference,

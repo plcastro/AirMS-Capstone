@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   View,
   TouchableOpacity
 } from "react-native";
@@ -122,7 +122,16 @@ export default function FlightLogCards({
 
   return (
     <>
-      {logs.map((log) => {
+      {<FlatList
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={logs}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         renderItem={({ item: log }) => {
         const controlNumber = log.controlNo || log.control || log.controlNumber;
         const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
@@ -296,7 +305,8 @@ export default function FlightLogCards({
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

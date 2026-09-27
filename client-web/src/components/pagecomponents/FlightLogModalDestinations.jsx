@@ -1,11 +1,11 @@
 import React from "react";
 import FlightTimeInput from './FlightTimeInput';
-import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
-import { Input, Button, DatePicker } from "antd";
 import FlightStationInput from './FlightStationInput';
+import { FLIGHT_TIME_FIELDS, isTotalTimeField } from '../../../../shared/flightLogTimes';
+import { defaultPassengerCount } from '../../../../shared/flightLegTimes';
+import { Input, Button, DatePicker } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { isLegTotal, legFieldDisplay } from "../../../../shared/flightLegTimes";
 
 const getOrdinalSuffix = (n) => {
   const j = n % 10, k = n % 100;
@@ -29,7 +29,7 @@ export default function FlightLogModalDestinations({
   return (
     <div className="fl-section">
       <div className="fl-section-title">DESTINATION/S</div>
-      <p>Use 24-hour times (HH:mm), consistently in the same time zone. OFF is departure/takeoff; ON is arrival/landing. Totals are calculated in decimal hours; an ON time before OFF means the following day.</p>
+      <p>Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm) if entered. Total Time (FLIGHT) is required for component hours. Passengers default to 0.</p>
 
       {legs.map((leg, legIdx) => {
         const n = legIdx + 1;
@@ -58,25 +58,19 @@ export default function FlightLogModalDestinations({
                   {stations.map((station, stIdx) => (
                     <div key={stIdx} className="fl-station-row">
                       <FlightStationInput
-                        className="fl-input"
                         value={station?.from || ""}
-                        onChange={value => updateStation(legIdx, stIdx, "from", value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "from", value)}
                         placeholder="From"
+                        label={`Leg ${n} station ${stIdx + 1} from`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       <span className="fl-station-sep">-</span>
                       <FlightStationInput
-                        className="fl-input"
                         value={station?.to || ""}
-                        onChange={value => updateStation(legIdx, stIdx, "to", value)}
+                        onChange={(value) => updateStation(legIdx, stIdx, "to", value)}
                         placeholder="To"
+                        label={`Leg ${n} station ${stIdx + 1} to`}
                         disabled={!isEditable}
-                        required
-                        aria-required="true"
-                        style={{ flex: 1 }}
                       />
                       {isEditable && stations.length > 1 && (
                         <Button
@@ -122,7 +116,7 @@ export default function FlightLogModalDestinations({
                       style={{ width: "100%" }}
                       format="MM/DD/YYYY"
                       inputReadOnly
-                  placeholder="From Basic Information"
+                      placeholder="From Basic Information"
                       value={leg.date ? dayjs(leg.date, "MM/DD/YYYY") : null}
                       onChange={(date) =>
                         updateLeg(
@@ -143,10 +137,9 @@ export default function FlightLogModalDestinations({
                   ) : (
                     <Input
                       className="fl-input"
-                      value={isEditable ? legFieldDisplay(leg, key) : leg[key] ?? ""}
+                      value={key === 'passengers' ? defaultPassengerCount(leg[key]) : leg[key] ?? ""}
                       onChange={(e) => updateLeg(legIdx, key, e.target.value)}
-                      disabled={!isEditable || isLegTotal(key)}
-                      placeholder={isLegTotal(key) ? 'Calculated from times' : key.includes('Time') ? 'HH:mm' : ''}
+                      disabled={!isEditable}
                       required={REQUIRED_LEG_FIELDS.has(key)}
                       aria-required={REQUIRED_LEG_FIELDS.has(key)}
                     />

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   View,
   TouchableOpacity
 } from "react-native";
@@ -16,6 +16,7 @@ export default function PostInspectionCards({
   onExport,
   userRole,
   currentUser,
+  ...listProps
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
 
@@ -64,9 +65,12 @@ export default function PostInspectionCards({
     }
   };
 
-  if (!inspections || inspections.length === 0) {
-    return (
-      <View
+
+
+  return (
+    <>
+      {<FlatList
+         ListEmptyComponent={!inspections || inspections.length === 0 ? (<View
         style={{
           backgroundColor: COLORS.white,
           borderRadius: 20,
@@ -84,13 +88,17 @@ export default function PostInspectionCards({
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No post-inspections found
         </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {inspections.map((inspection) => {
+      </View>) : (null)}
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={inspections}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         {...listProps}
+         renderItem={({ item: inspection }) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
         const isCompleted = getDisplayStatus(inspection.status) === "completed";
@@ -202,7 +210,8 @@ export default function PostInspectionCards({
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

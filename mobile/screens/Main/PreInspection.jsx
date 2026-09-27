@@ -234,21 +234,7 @@ export default function PreInspection({ route }) {
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <ScrollView
-        key={selectedAircraft || "aircraft-groups"}
-        style={{ flex: 1, paddingHorizontal: 7 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: 10, paddingBottom: 110, flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchPreInspections(true)}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
-      >
+      <View key={selectedAircraft || "aircraft-groups"} style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}>
         {!!(selectedAircraft || userRole === "mechanic") && (
           <View
             style={[
@@ -281,6 +267,8 @@ export default function PreInspection({ route }) {
 
         {!selectedAircraft ? (
           <AircraftLogGroups
+                refreshing={refreshing}
+                onRefresh={() => fetchPreInspections(true)}
             records={inspections}
             sortBy="latestActivity"
             loading={loading}
@@ -338,22 +326,18 @@ export default function PreInspection({ route }) {
               )}
             </View>
 
-            {loading ? (
-              <LoadingState text="Loading pre-flight inspections..." />
-            ) : filteredInspections.length === 0 ? (
-              <EmptyState text="No pre-flight inspections match your filters." />
-            ) : (
-              <PreInspectionCards
+            <PreInspectionCards ListEmptyComponent={loading ? (<LoadingState text="Loading pre-flight inspections..." />) : (<EmptyState text="No pre-flight inspections match your filters." />)}
+                refreshing={refreshing}
+                onRefresh={() => fetchPreInspections(true)}
                 currentUser={user}
-                inspections={filteredInspections}
+                inspections={loading ? [] : filteredInspections}
                 onEdit={handleEdit}
                 onExport={canExportPreInspections ? handleExport : undefined}
                 userRole={userRole}
               />
-            )}
           </>
         )}
-      </ScrollView>
+      </View>
 
       {/* New Entry Modal - for creating only */}
       <PreInspectionEntry

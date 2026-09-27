@@ -8,33 +8,46 @@ const { fail } = require('../utils/flightWorkflowRules');
 const id = '000000000000000000000001';
 function signerHarness() {
   const user = { status: 'active', jobTitle: 'Pilot', pin: 'hashed', firstName: 'Actual', lastName: 'Pilot', licenseNo: 'LIC-1' };
-  const authorization = { _id: 'authority', active: true, licenseNo: 'LIC-1', aircraft: ['RP-C1234'], validUntil: '2099-01-01', licenseType: 'Pilot', reference: 'Verified authority' };
   const dependencies = {
     bcrypt: { compare: async value => value === '123456' },
     '../models/userModel': { findById: () => ({ select: async () => user }) },
-    '../models/flightCrewAuthorizationModel': { findOne: async () => authorization.active ? authorization : null },
     './flightWorkflowRules': { fail },
   };
   const file = path.join(__dirname, '../utils/flightWorkflowSigning.js'), module = { exports: {} };
-  vm.compileFunction(fs.readFileSync(file, 'utf8'), ['require', 'module', 'exports'], { filename: file })(name => dependencies[name], module, module.exports);
-  const sign = (body = {}, actor = {}) => module.exports.verifyWorkflowSigner({ user: { id, jobTitle: 'Pilot', ...actor }, body: { pin: '123456', signature: 'data:image/png;base64,iVBORw0KGgo=', name: 'Forged client name', licenseNo: 'Fake license', ...body } }, { rpc: 'RP-C1234' }, 'accept');
-  return { sign, user, authorization };
+  vm.compileFunction(fs.readFileSync(file, 'utf8'), ['require', 'module', 'exports'], { filename: file })(name => {
+    assert.ok(Object.hasOwn(dependencies, name), `Unexpected signing dependency: ${name}`);
+    return dependencies[name];
+  }, module, module.exports);
+  const sign = (body = {}, actor = {}, scope = 'accept') => module.exports.verifyWorkflowSigner({ user: { id, jobTitle: 'Pilot', ...actor }, body: { pin: '123456', signature: 'data:image/png;base64,iVBORw0KGgo=', name: 'Forged client name', licenseNo: 'Fake license', ...body } }, { rpc: 'RP-C1234' }, scope);
+  return { sign, user };
 }
 
 test('final certification verifies the PIN on the server and records the database signer identity', async () => {
   const h = signerHarness(), signature = await h.sign();
   assert.equal(signature.name, 'Actual Pilot'); assert.equal(signature.licenseNo, 'LIC-1');
-  assert.equal(signature.userId, id); assert.equal(signature.authorizationReference, 'Verified authority');
+  assert.equal(signature.userId, id);
+  for (const key of ['authorizationId', 'authorizationReference', 'licenseType']) assert.equal(Object.hasOwn(signature, key), false);
   assert.equal(signature.pin, undefined);
   await assert.rejects(h.sign({ pin: '999999' }), /Incorrect signing PIN/);
   await assert.rejects(h.sign({ signature: '' }), /Draw your signature/);
 });
 
-test('expired, revoked, wrong-aircraft and mismatched-license authorizations cannot certify', async () => {
-  for (const patch of [{ validUntil: '2000-01-01' }, { active: false }, { aircraft: ['RP-C9999'] }, { licenseNo: 'OTHER' }]) {
-    const h = signerHarness(); Object.assign(h.authorization, patch);
-    await assert.rejects(h.sign(), { status: 403 });
+test('every signing scope works without a crew authorization record or account license prerequisite', async () => {
+  for (const jobTitle of ['Mechanic', 'Pilot']) {
+    const h = signerHarness();
+    h.user.jobTitle = jobTitle;
+    delete h.user.licenseNo;
+    for (const scope of ['pre_confirmed_all', 'pre_released', 'pre_completed', 'post_confirmed_all', 'post_completed', 'release', 'accept', 'submit', 'complete', 'monitoring_reconciliation', 'amendment', 'defect_rectified', 'defect_deferred']) {
+      const signed = await h.sign({}, { jobTitle }, scope);
+      assert.equal(signed.userId, id);
+      assert.equal(signed.title, jobTitle);
+      assert.equal(signed.licenseNo, '');
+      assert.equal(signed.scope, scope);
+    }
   }
+});
+
+test('inactive accounts cannot sign even with the correct PIN', async () => {
   const h = signerHarness(); h.user.status = 'inactive'; await assert.rejects(h.sign(), { status: 403 });
 });
 

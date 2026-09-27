@@ -1,3 +1,4 @@
+import { monitoringBroughtForward } from "../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../shared/flightLogDates";
 import {
   totalFlightHours,
@@ -25,16 +26,15 @@ import FlightLogSignatureModal from "./FlightLogSignatureModal";
 import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import { showToast } from "../../utilities/toast";
-import { API_BASE } from "../../utilities/API_BASE";
-
+import { API_BASE } from '../../utilities/API_BASE';
+import { populateFlightInputs } from "../../../shared/flightAutomaticInputs";
+import { hasCompleteFlightLogLegs } from "../../../shared/flightLogLegValidation";
 import {
   calculateB412ToDate,
   createEmptyB412Data,
   createEmptyB412Leg,
   isB412Aircraft,
   mapAircraftReferenceToB412,
-  mapAircraftReferenceToBroughtForward,
-  mapB412CarriedToStandardBroughtForward,
   syncB412DataFromStandardFlightLog,
 } from "./b412FlightLogData";
 
@@ -79,8 +79,10 @@ export default function FlightLogEntry({
   onSave,
   userRole,
   currentUser,
+  initialAircraftRpc = '',
   lockedRpc = "",
 }) {
+  const lockedAircraftRpc = String(lockedRpc || initialAircraftRpc || '').trim();
   const [currentPage, setCurrentPage] = useState(0);
   const [loadedAircraftData, setLoadedAircraftData] = useState(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
@@ -170,7 +172,7 @@ export default function FlightLogEntry({
   // Start with 1 leg only
   const [formData, setFormData] = useState({
     aircraftType: entryConfirmation?.aircraftType || "",
-    rpc: lockedRpc,
+    rpc: lockedAircraftRpc,
     date: new Date(),
     controlNo: "",
     legs: [
@@ -183,7 +185,7 @@ export default function FlightLogEntry({
         totalTimeOn: "",
         totalTimeOff: "",
         date: "",
-        passengers: "",
+        passengers: "0",
       },
     ],
     remarks: "",
@@ -301,13 +303,7 @@ export default function FlightLogEntry({
       return;
     }
 
-    const broughtForwardData = isB412Aircraft(
-      loadedAircraftData.aircraftType || formData.aircraftType,
-    )
-      ? mapB412CarriedToStandardBroughtForward(
-          mapAircraftReferenceToB412(loadedAircraftData),
-        )
-      : mapAircraftReferenceToBroughtForward(loadedAircraftData);
+    const broughtForwardData = monitoringBroughtForward({ ...loadedAircraftData, aircraftType: loadedAircraftData.aircraftType || formData.aircraftType });
 
     setComponentData((prev) => ({
       ...prev,
@@ -352,13 +348,12 @@ export default function FlightLogEntry({
 
   const tabs = getFlightLogTabs();
   const totalPages = tabs.length;
-  const isBasicInfoEditable = true;
-  const isDestinationsEditable =
-    isPilot || ["mechanic", "maintenance manager"].includes(normalizedRole);
+  const isBasicInfoEditable = isMechanic;
+  const isDestinationsEditable = isMechanic;
   const isMechanicSectionEditable = isMechanic;
   const isWorkDoneEditable =
     isMechanic && formData.status === "pending_release";
-  const isDiscrepancyEditable = true;
+  const isDiscrepancyEditable = isMechanic;
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -425,7 +420,7 @@ export default function FlightLogEntry({
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       setFormData({
         aircraftType: "",
-        rpc: lockedRpc,
+        rpc: lockedAircraftRpc,
         date: new Date(),
         controlNo: "",
         legs: [
@@ -438,7 +433,7 @@ export default function FlightLogEntry({
             totalTimeOn: "",
             totalTimeOff: "",
             date: "",
-            passengers: "",
+            passengers: "0",
           },
         ],
         remarks: "",
@@ -500,30 +495,30 @@ export default function FlightLogEntry({
       });
       setLoadedAircraftData(null);
     }
-  }, [visible, lockedRpc, userRole]);
+  }, [visible, lockedAircraftRpc, userRole]);
 
   useEffect(() => {
-    if (!visible || !lockedRpc) return;
+    if (!visible || !lockedAircraftRpc) return;
 
     let cancelled = false;
-    setFormData((prev) => ({ ...prev, rpc: lockedRpc, aircraftType: "" }));
+    setFormData((prev) => ({ ...prev, rpc: lockedAircraftRpc, aircraftType: "" }));
     const loadSelectedAircraft = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedRpc)}`,
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(lockedAircraftRpc)}`,
         );
         const payload = await response.json();
         if (cancelled) return;
-        if (response.ok && payload?.data) {
-          setFormData((prev) => ({
-            ...prev,
-            aircraftType: payload.data.aircraftType || "",
-          }));
-          handleAircraftDataLoaded(payload.data);
+        if (!response.ok || !payload?.data) {
+          throw new Error("Unable to load the selected aircraft details. Close this entry and try again.");
         }
+        setFormData((prev) => ({
+          ...prev,
+          aircraftType: payload.data.aircraftType || "",
+        }));
+        handleAircraftDataLoaded(payload.data);
       } catch (error) {
-        if (!cancelled)
-          console.error("Error loading selected aircraft:", error);
+        if (!cancelled) showToast(error.message || "Unable to load aircraft details.");
       }
     };
     loadSelectedAircraft();
@@ -531,7 +526,7 @@ export default function FlightLogEntry({
     return () => {
       cancelled = true;
     };
-  }, [visible, lockedRpc, handleAircraftDataLoaded]);
+  }, [visible, lockedAircraftRpc, handleAircraftDataLoaded]);
 
   // Scroll to top on page change
   useEffect(() => {
@@ -539,6 +534,7 @@ export default function FlightLogEntry({
   }, [currentPage]);
 
   const updateForm = (field, value) => {
+    if (field === 'rpc' && lockedAircraftRpc && value !== lockedAircraftRpc) return;
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -584,25 +580,27 @@ export default function FlightLogEntry({
 
   useEffect(() => {
     if (!visible || !formData || formData.status === "completed") return;
-    const next = populateFlightInputs({ ...formData, componentData });
-    setComponentData((previous) =>
-      JSON.stringify(previous.thisFlightData) ===
-      JSON.stringify(next.componentData.thisFlightData)
-        ? previous
-        : { ...previous, thisFlightData: next.componentData.thisFlightData },
-    );
+    const next = populateFlightInputs(formData);
+    // Servicing inherits the inspection date/signature. Flight-hour totals
+    // continue to use the duration conversion below.
     setFormData((previous) => {
       const updated = {
         ...previous,
         fuelServicing: next.fuelServicing,
         oilServicing: next.oilServicing,
-        ...(next.b412Data ? { b412Data: next.b412Data } : {}),
+        ...(next.b412Data ? {
+          b412Data: {
+            ...previous.b412Data,
+            fuelServicing: next.b412Data.fuelServicing,
+            oilServicing: next.b412Data.oilServicing,
+          },
+        } : {}),
       };
       return JSON.stringify(previous) === JSON.stringify(updated)
         ? previous
         : updated;
     });
-  }, [visible, formData, componentData]);
+  }, [visible, formData]);
 
   const handleNext = () => {
     if (currentPage < totalPages - 1) {
@@ -722,6 +720,7 @@ export default function FlightLogEntry({
   };
 
   const handleSave = () => {
+    if (!isMechanic) return;
     if (!isAircraftSelected) {
       showToast("Select an aircraft and wait for its type to load");
       return;
@@ -782,7 +781,7 @@ export default function FlightLogEntry({
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}
-            isRPCEditable={!lockedRpc}
+            isRPCEditable={!lockedAircraftRpc}
             isActive={visible}
             onAircraftDataLoaded={handleAircraftDataLoaded}
             isB412={isB412Aircraft(formData.aircraftType)}
@@ -836,9 +835,7 @@ export default function FlightLogEntry({
       case "Fuel Servicing":
         return (
           <FlightLogModalFuelServicing
-            signatureInherited={
-              !!formData.initialInspectionSignature?.signature
-            }
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
             legs={formData.legs}
             fuelServicingData={formData.fuelServicing}
             onUpdateFuelServicing={updateFuelServicing}
@@ -848,9 +845,7 @@ export default function FlightLogEntry({
       case "Oil Servicing":
         return (
           <FlightLogModalOilServicing
-            signatureInherited={
-              !!formData.initialInspectionSignature?.signature
-            }
+            inheritedSignature={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || ""}
             legs={formData.legs}
             oilServicingData={formData.oilServicing}
             onUpdateOilServicing={updateOilServicing}

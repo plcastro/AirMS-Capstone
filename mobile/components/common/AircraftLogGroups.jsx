@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { FlatList, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   EmptyState,
@@ -23,6 +23,7 @@ export default function AircraftLogGroups({
   onSelect,
   emptyText = "No logs found yet.",
   sortBy = "rpc",
+  ...listProps
 }) {
   const groups = useMemo(
     () =>
@@ -33,7 +34,7 @@ export default function AircraftLogGroups({
   );
 
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <SearchBar
         value={query}
         onChangeText={onQueryChange}
@@ -43,15 +44,18 @@ export default function AircraftLogGroups({
         title="Aircraft"
         subtitle="Select an aircraft to view and filter its logs."
       />
-      {loading ? (
-        <LoadingState text="Loading aircraft logs..." />
-      ) : groups.length === 0 ? (
-        <EmptyState
-          text={query.trim() ? "No aircraft match your search." : emptyText}
-        />
-      ) : (
-        groups.map((group) => (
-          <InfoCard
+      <FlatList
+        ListEmptyComponent={loading ? <LoadingState text="Loading aircraft logs..." /> : <EmptyState text={query.trim() ? "No aircraft match your search." : emptyText} />}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 110 }}
+        keyboardShouldPersistTaps="handled"
+        data={loading ? [] : groups}
+        keyExtractor={(item, index) => String(item.rpc)}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        {...listProps}
+        renderItem={({ item: group }) => (<InfoCard
             key={group.rpc}
             title={group.rpc}
             subtitle="View aircraft logs"
@@ -76,9 +80,8 @@ export default function AircraftLogGroups({
                 <FieldRow label="Latest log" value={formatDate(group.latestDate)} />
               )}
             </View>
-          </InfoCard>
-        ))
-      )}
+          </InfoCard>)}
+      />
     </View>
   );
 }

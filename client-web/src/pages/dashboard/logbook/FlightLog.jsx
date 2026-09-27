@@ -8,7 +8,6 @@ import AircraftLogGroups from '../../../components/common/AircraftLogGroups';
 import FLogTable from '../../../components/tables/FLogTable';
 import FlightLogEntry from '../../../components/pagecomponents/FlightLogEntry';
 import FlightWorkspace from '../../../components/pagecomponents/FlightWorkspace';
-import FlightCrewAuthorizations from '../../../components/pagecomponents/FlightCrewAuthorizations';
 import { exportFlightLogToPDF } from '../../../components/common/ExportFile';
 import ResultPopup from '../../../components/common/ResultPopup';
 import { matchesSearch } from '../../../utils/search';
@@ -33,7 +32,6 @@ export default function FlightLog() {
     [error, setError] = useState(''),
     [createOpen, setCreateOpen] = useState(false),
     [selected, setSelected] = useState(null),
-    [authorityOpen, setAuthorityOpen] = useState(false),
     [popup, setPopup] = useState({
       open: false
     });
@@ -151,7 +149,7 @@ export default function FlightLog() {
       justifyContent: 'space-between'
     }}><Typography.Title level={4} style={{
         margin: 0
-      }}>{aircraft ? aircraft + ' - Flight Logs' : 'Flight Logs'}</Typography.Title><Space>{role === 'mechanic' && <Button type="primary" onClick={() => setEntryPrompt(true)}>New Entry</Button>}{(role === 'maintenance manager' || role === 'superadmin' || String(user?.access).toLowerCase() === 'superadmin') && <Button onClick={() => setAuthorityOpen(true)}>Crew Authorizations</Button>}</Space></Space>
+      }}>{aircraft ? aircraft + ' - Flight Logs' : 'Flight Logs'}</Typography.Title><Space>{role === 'mechanic' && <Button type="primary" onClick={() => setEntryPrompt(true)}>New Entry</Button>}</Space></Space>
     {error && <Alert type="error" title={error} closable onClose={() => setError('')} style={{
       marginBottom: 12
     }} />}
@@ -181,7 +179,6 @@ export default function FlightLog() {
     <FlightEntryInspectionPrompt open={entryPrompt} lockedRpc={aircraft === 'Unassigned aircraft' ? '' : aircraft} onCancel={() => setEntryPrompt(false)} onConfirmed={data => { setEntryConfirmation(data); setEntryPrompt(false); setCreateOpen(true); }} />
     <FlightLogEntry key={entryConfirmation?.confirmationId || 'new'} entryConfirmation={entryConfirmation} visible={createOpen} onClose={() => setCreateOpen(false)} onSave={saveNew} userRole={role} lockedRpc={entryConfirmation?.rpc || ''} />
     <FlightWorkspace id={selected} initialSection={new URLSearchParams(location.search).get("targetSection") || "flight"} open={!!selected} onClose={close} onChanged={load} />
-    <FlightCrewAuthorizations open={authorityOpen} onClose={() => setAuthorityOpen(false)} />
     <ResultPopup {...popup} onClose={() => setPopup({
       open: false
     })} />

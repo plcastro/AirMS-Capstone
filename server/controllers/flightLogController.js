@@ -1,10 +1,21 @@
 const FlightLog = require("../models/flightLogModel");
+const PartsMonitoring = require("../models/partsMonitoringModel");
+const { populateMonitoringBroughtForward } = require("../../shared/flightLogBroughtForward");
+const mongoose = require("mongoose");
+const EntryConfirmation = require("../models/flightInspectionConfirmationModel");
+const PreInspection = require("../models/preInspectionModel");
+const PostInspection = require("../models/postInspectionModel");
+const User = require("../models/userModel");
+const { resolveFlightLogCrew, crewName } = require("../utils/flightLogCrew");
+const { confirmInspection } = require("../utils/flightInspectionConfirmation");
 const { resolveAssignedPilot } = require("../utils/flightLogPilot");
+const { resolvePreflightConfirmation } = require("../utils/flightLogPreflight");
 const {
   applyFlightLogHours,
   requiredFlightTimeError,
 } = require("../../shared/flightLogTimes");
 const { syncFlightLogDates } = require("../../shared/flightLogDates");
+const { isAssignedFlightCrew, CREW_ACCESS_MESSAGE } = require("../../shared/flightCrewAccess");
 const { auditLog } = require("./logsController");
 const {
   createFlightLogNotifications,
@@ -169,8 +180,6 @@ const createFlightLog = async (req, res) => {
       });
     }
 
-    console.log("=== CREATE FLIGHT LOG CALLED ===");
-
     const flightLogData = pickFlightLogPayloadForRequest(
       req,
       req.body,
@@ -331,7 +340,17 @@ const createFlightLog = async (req, res) => {
         return res.status(400).json({ success: false, message: pilot.error });
       flightLogData.assignedPilot = pilot.value;
     }
-    const flightLog = new FlightLog(applyFlightLogHours(flightLogData));
+    const preflight = await resolvePreflightConfirmation(req.body.preFlightInspection, req.user?.id || req.user?._id);
+    if (preflight.error) return res.status(400).json({ success: false, message: preflight.error });
+    if (preflight.value) flightLogData.preFlightInspection = preflight.value;
+
+    // Use the server-verified ticket, never a signature supplied in the form.
+    flightLogData.inspectionFlow = "confirmation";
+    if (confirmation.signer?.signature) flightLogData.initialInspectionSignature = confirmation.signer;
+
+    const monitoringRpc = String(flightLogData.rpc).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const monitoring = await PartsMonitoring.findOne({ aircraft: { $regex: `^${monitoringRpc}$`, $options: 'i' } }).lean();
+    let flightLog = new FlightLog(applyFlightLogHours(populateMonitoringBroughtForward(flightLogData, monitoring)));
     console.log("FlightLog model created");
 
     const { eventFor } = require("../utils/flightWorkflowRules");

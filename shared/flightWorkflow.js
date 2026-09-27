@@ -22,6 +22,26 @@ export const FLIGHT_STAGES = {
 export const nextFlightStep = (record = {}) => FLIGHT_STAGES[flightStage(record)] || FLIGHT_STAGES.pending_release;
 export const needsMyFlightAction = (user, record) =>
   isAssignedFlightCrew(user, record) && getAssignedCrewField(user) === nextFlightStep(record).crew;
+
+export const preflightSignatureForRelease = (record = {}, inspections = []) => {
+  const mechanicId = String(record.assignedMechanic?.userId || '');
+  if (!mechanicId) return '';
+  const certified = inspections.filter(pre => ['released', 'completed'].includes(pre.status) && String(pre.releasedBy?.userId || '') === mechanicId);
+  const signature = certified.find(pre => pre.releasedBy?.signature)?.releasedBy.signature;
+  if (signature) return signature;
+  return certified.length && String(record.initialInspectionSignature?.userId || '') === mechanicId
+    ? record.initialInspectionSignature?.signature || '' : '';
+};
+
+export const pilotAcceptance = (user, record = {}, inspections = []) => {
+  if (getAssignedCrewField(user) !== 'assignedPilot') return null;
+  if (!isAssignedFlightCrew(user, record)) return { message: `Only the assigned pilot (${record.assignedPilot?.name || 'unassigned'}) can accept this record.` };
+  if (flightStage(record) !== 'pending_acceptance') return { message: ['accepted', 'submitted', 'completed', 'returned_to_pilot'].includes(flightStage(record)) ? 'Pilot acceptance is complete. The record is read-only.' : 'Waiting for the mechanic to release the flight log.' };
+  const certified = inspection => String(inspection.releasedBy?.userId || '') === String(record.assignedMechanic?.userId || '') && Boolean(record.assignedMechanic?.userId);
+  const preInspection = inspections.find(inspection => inspection.status === 'released' && certified(inspection));
+  const canAcceptFlight = inspections.length > 0 && inspections.every(inspection => inspection.status === 'completed' && certified(inspection) && String(inspection.acceptedBy?.userId || '') === String(record.assignedPilot?.userId || ''));
+  return { preInspection, canAcceptFlight, message: preInspection ? 'Review and accept Pre-Flight, then accept the Flight Log. Each acceptance requires only your signature and six-digit PIN.' : canAcceptFlight ? 'Pre-Flight is accepted. Sign and enter your six-digit PIN to accept the Flight Log.' : 'Waiting for the mechanic to certify the linked Pre-Flight inspection.' };
+};
 // Inspection activity advances the flight version without changing form values.
 // Preserve unsaved fields only when the underlying flight data still matches.
 export const flightDraftBaseChanged = (previous, current) => {

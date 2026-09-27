@@ -1,7 +1,7 @@
 import {
   View,
   ScrollView,
-  RefreshControl,
+  SectionList,
 } from "react-native";
 import AppText from "../common/AppText";
 import React, { useState, useContext } from "react";
@@ -214,68 +214,29 @@ export default function TaskTabs({
 
       {/* Task List */}
       <View style={styles.taskTable}>
-        <ScrollView
+        <SectionList
           style={{ flex: 1 }}
+          sections={!isHead ? groupedTasks : [{ title: "", data: tasksToRender }]}
+          keyExtractor={(task) => String(getTaskIdentifier(task))}
+          initialNumToRender={12}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={{ padding: 10, paddingBottom: 110 }}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            ) : undefined
-          }
-        >
-          {!isHead && groupedTasks.length > 0
-            ? groupedTasks.map((section) => (
-                <View key={section.title}>
-                  <View
-                    style={{
-                      paddingVertical: 2,
-                      paddingHorizontal: 6,
-                      marginBottom: 5,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontWeight: "700",
-                        fontSize: 12,
-                      }}
-                    >
-                      {section.title}
-                    </AppText>
-                  </View>
-
-                  {section.data.map((task) => (
-                    <TaskCard
-                      key={String(getTaskIdentifier(task))}
-                      data={task}
-                      variant={getCardVariant()}
-                      onPress={onTaskPress}
-                      onStartTask={() => handleTaskAction(task, "start")}
-                      onEditTask={() => handleTaskAction(task, "edit")}
-                      onDeleteTask={() => handleTaskAction(task, "delete")}
-                    />
-                  ))}
-                </View>
-              ))
-            : tasksToRender.map((task) => (
-                <TaskCard
-                  key={String(getTaskIdentifier(task))}
-                  data={task}
-                  variant={getCardVariant()}
-                  onPress={onTaskPress}
-                  onStartTask={() => handleTaskAction(task, "start")}
-                  onEditTask={() => handleTaskAction(task, "edit")}
-                  onDeleteTask={() => handleTaskAction(task, "delete")}
-                />
-              ))}
-
-          {tasksToRender.length === 0 && (
-            <AppText style={{ textAlign: "center", marginTop: 20 }}>
-              No tasks available
-            </AppText>
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          renderSectionHeader={({ section }) => section.title ? (
+            <AppText style={{ padding: 6, fontWeight: "700", fontSize: 12 }}>{section.title}</AppText>
+          ) : null}
+          renderItem={({ item: task }) => (
+            <TaskCard data={task} variant={getCardVariant()} onPress={onTaskPress}
+              onStartTask={() => handleTaskAction(task, "start")}
+              onEditTask={() => handleTaskAction(task, "edit")}
+              onDeleteTask={() => handleTaskAction(task, "delete")}
+            />
           )}
-        </ScrollView>
+          ListEmptyComponent={<AppText style={{ textAlign: "center", marginTop: 20 }}>No tasks available</AppText>}
+        />
       </View>
 
       {/* Add Task Modal - only render for head */}

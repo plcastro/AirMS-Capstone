@@ -60,6 +60,7 @@ export default function HeadTaskScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Assigned");
   const [checklistVisible, setChecklistVisible] = useState(false);
+  const [initialReviewMode, setInitialReviewMode] = useState(null);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -218,6 +219,7 @@ export default function HeadTaskScreen({
     if (match) {
       handledTargetTaskRef.current = String(targetTaskId);
       setSelectedTask(match);
+      setInitialReviewMode(null);
       setChecklistVisible(true);
       if (["Completed", "Turned in"].includes(targetNotificationStatus)) {
         setActiveTab("For Review");
@@ -321,6 +323,14 @@ export default function HeadTaskScreen({
 
   const handleTaskPress = (task) => {
     setSelectedTask(task);
+    setInitialReviewMode(null);
+    setChecklistVisible(true);
+  };
+
+  const openTaskReview = (task, mode) => {
+    if (activeTab !== "For Review" || !isForReviewTask(task)) return;
+    setSelectedTask(task);
+    setInitialReviewMode(mode);
     setChecklistVisible(true);
   };
 
@@ -626,17 +636,15 @@ export default function HeadTaskScreen({
           data={item}
           isHeadView={true}
           showEditDelete={showEditDelete}
+          showReviewActions={activeTab === "For Review"}
           onPress={() => handleTaskPress(item)}
           onEditTask={() => {
             setSelectedTask(item);
             setEditModalVisible(true);
           }}
           onDeleteTask={() => requestDeleteTask(item)}
-          onApprove={() => handleApproveTask(item)}
-          onReturn={() => {
-            setSelectedTask(item);
-            setChecklistVisible(true);
-          }}
+          onApprove={() => openTaskReview(item, "approve")}
+          onReturn={() => openTaskReview(item, "return")}
         />
       </View>
     );
@@ -724,10 +732,12 @@ export default function HeadTaskScreen({
           visible={checklistVisible}
           onClose={() => {
             setChecklistVisible(false);
+            setInitialReviewMode(null);
             setSelectedTask(null);
           }}
           task={selectedTask}
           isHeadView={true}
+          initialReviewMode={initialReviewMode}
           onApprove={handleApproveTask}
           onReturn={handleReturnTask}
         />

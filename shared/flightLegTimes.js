@@ -1,3 +1,5 @@
+export const defaultPassengerCount = value => value == null || String(value).trim() === '' ? '0' : String(value);
+
 export const timeMinutes = value => {
   const match = String(value || '').trim().match(/^(\d{1,2}):?(\d{2})$/);
   return match && Number(match[1]) < 24 && Number(match[2]) < 60 ? Number(match[1]) * 60 + Number(match[2]) : null;

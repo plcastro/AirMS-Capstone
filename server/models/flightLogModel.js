@@ -16,7 +16,7 @@ const legSchema = new mongoose.Schema({
   totalTimeOn: { type: String, default: "" },
   totalTimeOff: { type: String, default: "" },
   date: { type: String, default: "" },
-  passengers: { type: String, default: "" },
+  passengers: { type: String, default: "0" },
 });
 
 // Fuel Servicing Schema
@@ -255,6 +255,7 @@ const b412FlightLogDataSchema = new mongoose.Schema(
 // Person Signature Schema
 const personSignatureSchema = new mongoose.Schema({
   scope: { type: String, default: '' },
+  // Optional historical metadata only; new signatures do not require or set it.
   authorizationId: { type: String, default: '' },
   authorizationReference: { type: String, default: '' },
   licenseType: { type: String, default: '' },
@@ -326,6 +327,18 @@ const flightLogSchema = new mongoose.Schema(
     createdBy: { type: String, default: "" },
     createdByName: { type: String, default: "" },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    preFlightInspection: {
+      type: new mongoose.Schema({
+        status: { type: String, enum: ['confirmed'], required: true },
+        signature: { type: String, required: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+        recordedAt: { type: Date, required: true },
+        remarks: { type: String, default: '' },
+        resolution: { type: String, default: '' },
+      }, { _id: false }),
+      default: undefined,
+    },
     assignedPilot: {
       type: new mongoose.Schema({
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

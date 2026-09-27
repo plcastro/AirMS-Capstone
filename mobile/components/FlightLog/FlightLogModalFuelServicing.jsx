@@ -13,8 +13,10 @@ export default function FlightLogModalFuelServicing({
   isEditable = true,
   lockedRows = 0,
   signatureInherited = false,
+  inheritedSignature = "",
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+  const hasInheritedSignature = signatureInherited || Boolean(inheritedSignature);
 
   const canEditRow = (index) => isEditable && index >= lockedRows;
 
@@ -164,7 +166,7 @@ export default function FlightLogModalFuelServicing({
       {legs.map((leg, legIndex) => {
         const legNumber = legIndex + 1;
         const suffix = getOrdinalSuffix(legNumber);
-        const fuelData = fuelServicingData[legIndex] || {};
+        const fuelData = { ...fuelServicingData[legIndex], signature: inheritedSignature || fuelServicingData[legIndex]?.signature || "" };
 
         return (
           <View
@@ -322,7 +324,7 @@ export default function FlightLogModalFuelServicing({
                 >
                   Refueler Name/Sign:
                 </AppText>
-                {canEditRow(legIndex) && !signatureInherited ? (
+                {canEditRow(legIndex) && !hasInheritedSignature ? (
                   <TouchableOpacity
                     onPress={() => setShowSignatureModal(legIndex)}
                     style={{
@@ -379,7 +381,7 @@ export default function FlightLogModalFuelServicing({
                   </View>
                 )}
                 {canEditRow(legIndex) &&
-                  !signatureInherited &&
+                  !hasInheritedSignature &&
                   fuelData.signature && (
                     <TouchableOpacity
                       onPress={() => handleClearSignature(legIndex)}

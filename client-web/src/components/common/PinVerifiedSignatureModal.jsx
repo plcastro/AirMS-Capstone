@@ -17,6 +17,7 @@ export default function PinVerifiedSignatureModal({
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
   requirePin = true,
   initialSignature = '',
+  pinOnly = false,
   zIndex = 3100,
   onCancel,
   onSave,
@@ -150,7 +151,7 @@ export default function PinVerifiedSignatureModal({
               </Button>,
             ]
           : [
-              <Button
+              !pinOnly && <Button
                 key="redraw"
                 onClick={() => {
                   setErrorMessage("");

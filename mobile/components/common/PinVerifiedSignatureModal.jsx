@@ -23,6 +23,7 @@ export default function PinVerifiedSignatureModal({
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
   requirePin = true,
   initialSignature = '',
+  pinOnly = false,
   onClose,
   onSave,
   saveLabel = "Sign and Confirm",
@@ -283,7 +284,7 @@ export default function PinVerifiedSignatureModal({
                 </AppText>
               </TouchableOpacity>
             )}
-            {step === "pin" && (
+            {step === "pin" && !pinOnly && (
               <TouchableOpacity
                 onPress={() => setStep("signature")}
                 disabled={submitting}

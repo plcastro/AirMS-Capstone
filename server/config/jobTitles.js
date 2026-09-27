@@ -57,6 +57,7 @@ const jobTitles = {
     permissions.TASKS_UPDATE_ALL,
 
     permissions.MAINTENANCELOG_UPDATE,
+    permissions.MAINTENANCEPRIORITY_UPDATE,
 
     permissions.MECHANICS_READ,
     permissions.MECHANICS_ASSIGN,

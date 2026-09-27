@@ -1,7 +1,7 @@
 import Modal from "../common/AppModal";
 import React from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   ScrollView,
   TouchableOpacity,
   View
@@ -40,8 +40,14 @@ export default function GroupMembersModal({
               <AppText style={{ fontSize: 13, color: COLORS.grayDark }}>No members</AppText>
             </View>
           ) : (
-            <ScrollView style={{ maxHeight: 320 }}>
-              {selectedGroupMembers.map((member) => {
+            <FlatList
+              style={{ maxHeight: 320 }}
+              data={selectedGroupMembers}
+              keyExtractor={(item, index) => String(item._id || item.id || index)}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              renderItem={({ item: member }) => {
                 const memberId = String(member._id || member.id);
 
                 return (
@@ -60,8 +66,8 @@ export default function GroupMembersModal({
                     </View>
                   </View>
                 );
-              })}
-            </ScrollView>
+              }}
+            />
           )}
         </View>
       </View>

@@ -6,12 +6,12 @@ const { flightEditPermissions, nextFlightStep } = require('../../shared/flightWo
 const { transition } = require('../utils/flightWorkflowRules');
 const pilot = { id: 'pilot', jobTitle: 'Pilot' }, mechanic = { id: 'mechanic', jobTitle: 'Mechanic' };
 const crew = { assignedPilot: { userId: pilot.id }, assignedMechanic: { userId: mechanic.id } };
-const legs = [{ flightTimeOff: '23:30', flightTimeOn: '00:45' }, { flightTimeOff: '08:00', flightTimeOn: '08:30' }];
+const legs = [{ totalTimeOff: '01:15', flightTimeOff: '23:30', flightTimeOn: '00:45' }, { totalTimeOff: '00:30', flightTimeOff: '08:00', flightTimeOn: '08:30' }];
 
-test('hours come from summed flight minutes, landings cannot fall below legs, and engine cycles stay manual', () => {
+test('component hours use the original per-leg duration table, landings cannot fall below legs, and engine cycles stay manual', () => {
   const source = { legs, additionalLandings: 2, componentData: { thisFlightData: { airframe: '999', landingCycle: '-4', cycleN1: '.2', cycleN2: '.3', usage: '0.5' } } };
   const result = populateFlightInputs(source);
-  for (const key of HOUR_FIELDS) assert.equal(result.componentData.thisFlightData[key], '1.75');
+  for (const key of HOUR_FIELDS) assert.equal(result.componentData.thisFlightData[key], '1.8');
   assert.equal(result.componentData.thisFlightData.landingCycle, '4');
   assert.equal(result.componentData.thisFlightData.cycleN1, '.2');
   assert.equal(result.componentData.thisFlightData.usage, '0.5');
@@ -22,7 +22,7 @@ test('hours come from summed flight minutes, landings cannot fall below legs, an
 
 test('both B412 engines derive hours while engine cycles and sling usage remain distinct', () => {
   const result = populateFlightInputs({ legs, aircraftType: 'B412EP', b412Data: { componentData: { thisFlightData: { engine1: { cycle: '2' }, engine2: { cycle: '3' }, sling: '4' } } } });
-  for (const engine of ['engine1', 'engine2']) assert.equal(result.b412Data.componentData.thisFlightData[engine].tsn, '1.75');
+  for (const engine of ['engine1', 'engine2']) assert.equal(result.b412Data.componentData.thisFlightData[engine].tsn, '1.8');
   assert.equal(result.b412Data.componentData.thisFlightData.engine2.cycle, '3');
   assert.equal(result.b412Data.componentData.thisFlightData.sling, '4');
 });

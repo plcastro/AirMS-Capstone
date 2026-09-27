@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateInput from "../common/DateInput";
 import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
-import FlightLogCrewAssignment from "./FlightLogCrewAssignment";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 
 export default function FlightLogModalInfo({
@@ -19,8 +18,6 @@ export default function FlightLogModalInfo({
   isActive = true,
   onAircraftDataLoaded,
   isB412 = false,
-  assignmentRole,
-  canAssign = false,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
@@ -368,13 +365,6 @@ export default function FlightLogModalInfo({
         </View>
 
         <View style={{ padding: 20 }}>
-          <FlightLogCrewAssignment
-            formData={formData}
-            updateForm={updateForm}
-            assignmentRole={assignmentRole}
-            canAssign={canAssign}
-            isActive={isActive}
-          />
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{
@@ -452,6 +442,16 @@ export default function FlightLogModalInfo({
               editable={isEditable}
             />
           </View>
+          {formData.preFlightInspection?.signature && <View style={{ marginTop: 16 }}>
+            <AppText style={{ fontWeight: '700' }}>Pre-flight inspection confirmed</AppText>
+            <AppText>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</AppText>
+            <Image source={{ uri: formData.preFlightInspection.signature }} accessibilityLabel="Pre-flight confirmation signature"
+              style={{ width: 180, height: 80 }} resizeMode="contain" />
+            {!!formData.preFlightInspection.remarks && <>
+              <AppText>Discrepancies: {formData.preFlightInspection.remarks}</AppText>
+              <AppText>Resolution: {formData.preFlightInspection.resolution}</AppText>
+            </>}
+          </View>}
         </View>
       </View>
     </View>

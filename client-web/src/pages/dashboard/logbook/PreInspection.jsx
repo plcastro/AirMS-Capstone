@@ -538,6 +538,7 @@ export default function PreInspection() {
     !record?.acceptedBy?.name;
   const isRecordReadOnly = (record) =>
     !isAssignedFlightCrew(user, record) ||
+    canAccept ||
     readOnly ||
     isCompletedInspection(record) ||
     getDisplayStatus(record?.status) === "released";
@@ -1558,6 +1559,13 @@ export default function PreInspection() {
         )}
       </Modal>
 
+      {!!editing?.flightLogId && <FlightWorkspace
+        id={String(editing.flightLogId?._id || editing.flightLogId)}
+        open
+        initialSection="pre"
+        onClose={() => setEditing(null)}
+        onChanged={load}
+      />}
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title={

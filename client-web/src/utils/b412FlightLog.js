@@ -579,7 +579,7 @@ const sumField = (left, right) => {
   const leftValue = String(left ?? "").trim();
   const rightValue = String(right ?? "").trim();
 
-  if (!leftValue || !rightValue) return "";
+  if (!leftValue && !rightValue) return "";
 
   const leftNumber = leftValue ? Number(leftValue) : 0;
   const rightNumber = rightValue ? Number(rightValue) : 0;

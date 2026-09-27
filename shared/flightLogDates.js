@@ -1,3 +1,5 @@
+import { defaultPassengerCount } from './flightLegTimes.js';
+
 export const flightLogDateText = value => {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' :
     `${String(value.getMonth() + 1).padStart(2, '0')}/${String(value.getDate()).padStart(2, '0')}/${value.getFullYear()}`;
@@ -10,11 +12,12 @@ export const flightLogDateText = value => {
 
 export const syncFlightLogDates = record => {
   const date = flightLogDateText(record.date);
-  const legs = (record.legs || []).map(leg => ({ ...leg, date }));
+  const signature = record.initialInspectionSignature?.signature || record.preFlightInspection?.signature || '';
+  const legs = (record.legs || []).map(leg => ({ ...leg, date, passengers: defaultPassengerCount(leg.passengers) }));
   const result = { ...record, legs };
   for (const key of ['fuelServicing', 'oilServicing']) {
     const rows = record[key] || [];
-    result[key] = Array.from({ length: Math.max(legs.length, rows.length) }, (_, index) => ({ ...rows[index], date }));
+    result[key] = Array.from({ length: Math.max(legs.length, rows.length) }, (_, index) => ({ ...rows[index], date, ...(signature ? { signature } : {}) }));
   }
   // Keep the Basic Information value's type, including mobile's Date object.
   return result;
