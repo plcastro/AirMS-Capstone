@@ -34,12 +34,8 @@ export const buildStoredUserProfile = (userData = {}) => {
   return {
     id,
     _id: id,
-    firstName: userData.firstName || "",
-    lastName: userData.lastName || "",
     jobTitle: userData.jobTitle || null,
     access: userData.access || null,
-    licenseNo: userData.licenseNo || userData.licenseNumber || "",
-    base: userData.base || "",
     status: userData.status || "",
     sessionId: userData.sessionId || null,
   };
@@ -618,7 +614,9 @@ export const AuthProvider = ({ children }) => {
           if (sessionEndedRef.current) return;
         }
 
-        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        const parsedUser = storedUser
+          ? buildStoredUserProfile(JSON.parse(storedUser))
+          : null;
         if (token && isTokenValid(token) && parsedUser) {
           if (sessionEndedRef.current) return;
           const normalizedUser = normalizeUser(parsedUser);
@@ -642,11 +640,8 @@ export const AuthProvider = ({ children }) => {
           (payload?.id
             ? {
                 id: payload.id,
-                username: payload.username,
-                email: payload.email,
                 jobTitle: payload.jobTitle,
                 access: payload.access,
-                licenseNo: payload.licenseNo,
                 sessionId: payload.sessionId,
               }
             : null);
