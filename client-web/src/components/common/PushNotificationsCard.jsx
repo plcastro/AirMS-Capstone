@@ -20,18 +20,26 @@ import {
 import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
+import {
+  hasNavAccess,
+  resolveUserRole,
+} from "../../../../shared/navigationAccess";
 
 const { Text } = Typography;
 const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
 const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
+const getUserScopedStorageKey = (baseKey, userId) =>
+  userId ? `${baseKey}:${userId}` : baseKey;
 
 const isAircraftFhNotification = (notificationId = "") =>
   String(notificationId).startsWith("aircraft-fh|");
 
-const loadAircraftFhNotifications = () => {
+const loadAircraftFhNotifications = (userId) => {
   try {
     const stored = JSON.parse(
-      localStorage.getItem(AIRCRAFT_FH_NOTIFICATIONS_KEY) || "[]",
+      localStorage.getItem(
+        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+      ) || "[]",
     );
     return Array.isArray(stored) ? stored : [];
   } catch {
@@ -39,19 +47,23 @@ const loadAircraftFhNotifications = () => {
   }
 };
 
-const saveAircraftFhNotifications = (notifications) => {
+const saveAircraftFhNotifications = (notifications, userId) => {
   localStorage.setItem(
-    AIRCRAFT_FH_NOTIFICATIONS_KEY,
+    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
     JSON.stringify(notifications.slice(0, 50)),
   );
   window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
 };
 
-const mergeAircraftFhNotifications = (notifications = []) => {
+const mergeAircraftFhNotifications = (
+  notifications = [],
+  { canViewAircraftFhNotifications = false, userId = "" } = {},
+) => {
   const serverNotifications = notifications.filter(
     (item) => !isAircraftFhNotification(item?._id),
   );
-  return [...serverNotifications, ...loadAircraftFhNotifications()];
+  if (!canViewAircraftFhNotifications) return serverNotifications;
+  return [...serverNotifications, ...loadAircraftFhNotifications(userId)];
 };
 
 export default function PushNotificationsCard({ open, onClose }) {
@@ -60,6 +72,10 @@ export default function PushNotificationsCard({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const reconnectTimeoutRef = useRef(null);
   const websocketRef = useRef(null);
+  const userRole = resolveUserRole(user);
+  const canViewAircraftFhNotifications =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
 
   const formatTimeAgo = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -113,11 +129,19 @@ export default function PushNotificationsCard({ open, onClose }) {
 
         const data = await response.json();
         setNotifications(
-          mergeAircraftFhNotifications(Array.isArray(data) ? data : []),
+          mergeAircraftFhNotifications(Array.isArray(data) ? data : [], {
+            canViewAircraftFhNotifications,
+            userId: user?.id,
+          }),
         );
       } catch (error) {
         console.error("Error fetching notifications:", error);
-        setNotifications(mergeAircraftFhNotifications([]));
+        setNotifications(
+          mergeAircraftFhNotifications([], {
+            canViewAircraftFhNotifications,
+            userId: user?.id,
+          }),
+        );
         if (!silent) {
           message.error("Failed to load notifications");
         }
@@ -127,7 +151,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         }
       }
     },
-    [getAuthHeader, user?.id],
+    [canViewAircraftFhNotifications, getAuthHeader, user?.id],
   );
 
   const sortedNotifications = useMemo(
@@ -149,7 +173,10 @@ export default function PushNotificationsCard({ open, onClose }) {
   useEffect(() => {
     const handleAircraftFhNotificationsUpdated = () => {
       setNotifications((currentNotifications) =>
-        mergeAircraftFhNotifications(currentNotifications),
+        mergeAircraftFhNotifications(currentNotifications, {
+          canViewAircraftFhNotifications,
+          userId: user?.id,
+        }),
       );
     };
 
@@ -164,7 +191,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         handleAircraftFhNotificationsUpdated,
       );
     };
-  }, []);
+  }, [canViewAircraftFhNotifications, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -237,13 +264,15 @@ export default function PushNotificationsCard({ open, onClose }) {
 
   const markNotificationRead = async (notificationId) => {
     if (isAircraftFhNotification(notificationId)) {
-      const nextLocalNotifications = loadAircraftFhNotifications().map(
+      if (!canViewAircraftFhNotifications) return;
+
+      const nextLocalNotifications = loadAircraftFhNotifications(user?.id).map(
         (notification) =>
           notification._id === notificationId
             ? { ...notification, read: true }
             : notification,
       );
-      saveAircraftFhNotifications(nextLocalNotifications);
+      saveAircraftFhNotifications(nextLocalNotifications, user?.id);
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) =>
           notification._id === notificationId
@@ -301,12 +330,15 @@ export default function PushNotificationsCard({ open, onClose }) {
         }
       }
 
-      saveAircraftFhNotifications(
-        loadAircraftFhNotifications().map((notification) => ({
-          ...notification,
-          read: true,
-        })),
-      );
+      if (canViewAircraftFhNotifications) {
+        saveAircraftFhNotifications(
+          loadAircraftFhNotifications(user?.id).map((notification) => ({
+            ...notification,
+            read: true,
+          })),
+          user?.id,
+        );
+      }
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) => ({
           ...notification,
@@ -341,11 +373,14 @@ export default function PushNotificationsCard({ open, onClose }) {
         }
       }
 
-      saveAircraftFhNotifications(
-        loadAircraftFhNotifications().filter(
-          (notification) => !notification.read,
-        ),
-      );
+      if (canViewAircraftFhNotifications) {
+        saveAircraftFhNotifications(
+          loadAircraftFhNotifications(user?.id).filter(
+            (notification) => !notification.read,
+          ),
+          user?.id,
+        );
+      }
       setNotifications((currentNotifications) =>
         currentNotifications.filter((notification) => !notification.read),
       );
@@ -439,6 +474,8 @@ export default function PushNotificationsCard({ open, onClose }) {
       moduleName === "parts-monitoring" ||
       moduleName === "parts-lifespan-monitoring"
     ) {
+      if (!canViewAircraftFhNotifications) return;
+
       const aircraft =
         notification?.metadata?.aircraft || notification.entityId || "";
       const params = new URLSearchParams({

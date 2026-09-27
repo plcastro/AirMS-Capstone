@@ -28,6 +28,7 @@ import {
   FilePdfOutlined,
   InboxOutlined,
   PlusOutlined,
+  QuestionCircleOutlined,
   SearchOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
@@ -168,6 +169,7 @@ export default function PartsReqMonitoring() {
 
   const [requisitionItems, setRequisitionItems] = useState([]);
   const [editingItemKey, setEditingItemKey] = useState(null);
+  const [showItemHelp, setShowItemHelp] = useState(false);
 
   const [itemEntry, setItemEntry] = useState({
     particular: "",
@@ -428,6 +430,7 @@ export default function PartsReqMonitoring() {
 
     setRequisitionItems([]);
     setEditingItemKey(null);
+    setShowItemHelp(false);
     setIsEntryModalOpen(true);
   };
 
@@ -444,6 +447,7 @@ export default function PartsReqMonitoring() {
 
     setRequisitionItems([]);
     setEditingItemKey(null);
+    setShowItemHelp(false);
   };
 
   const buildRequestItemsPayload = (items = []) =>
@@ -1046,13 +1050,44 @@ export default function PartsReqMonitoring() {
                 marginBottom: 12,
               }}
             >
-              <Typography.Text strong>Requisition Items</Typography.Text>
+              <Space size={6}>
+                <Typography.Text strong>Requisition Items</Typography.Text>
+
+                <Button
+                  type="text"
+                  size="small"
+                  shape="circle"
+                  icon={<QuestionCircleOutlined />}
+                  aria-label="Show requisition item help"
+                  onClick={() => setShowItemHelp((prev) => !prev)}
+                />
+              </Space>
 
               <Typography.Text type="secondary">
                 {requisitionItems.length} item
                 {requisitionItems.length !== 1 ? "s" : ""}
               </Typography.Text>
             </div>
+
+            {showItemHelp && (
+              <Alert
+                showIcon
+                type={editingItemKey ? "warning" : "info"}
+                message={
+                  editingItemKey
+                    ? "Editing selected item"
+                    : "Need to update an added item?"
+                }
+                description={
+                  editingItemKey
+                    ? "The highlighted row is loaded in the item form above. Change the fields, then click Update, or Cancel to keep it unchanged."
+                    : "Click any item row in this table to load it back into the form above. Make your changes, then click Update before submitting."
+                }
+                style={{
+                  marginBottom: 12,
+                }}
+              />
+            )}
 
             <Table
               bordered
