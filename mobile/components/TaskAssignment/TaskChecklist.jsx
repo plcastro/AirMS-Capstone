@@ -696,7 +696,7 @@ export default function TaskChecklist({
                   buttonStyle={[styles.secondaryAlertBtn, { width: 100 }]}
                   buttonTextStyle={styles.secondaryBtnTxt}
                 />
-              ) : isCompleted ? (
+              ) : isCompleted && !isApproved ? (
                 <>
                   <Button
                     label="Undo Turn In"
@@ -705,7 +705,7 @@ export default function TaskChecklist({
                     buttonTextStyle={styles.primaryBtnTxt}
                   />
                 </>
-              ) : (
+              ) : isCompleted && isApproved ? null : (
                 <>
 
                   {!isStarted ? (
