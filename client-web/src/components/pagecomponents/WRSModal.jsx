@@ -1,23 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import {
-  Button,
-  Card,
-  Col,
-  Divider,
-  Modal,
-  Row,
-  Tag,
-  Timeline,
-  Typography,
-} from "antd";
-import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  FileDoneOutlined,
-  InboxOutlined,
-  ShoppingCartOutlined,
-  SyncOutlined,
-} from "@ant-design/icons";
+import { Button, Card, Col, Divider, Grid, Modal, Row, Typography } from "antd";
+import { CheckCircleOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import WRSTable from "../tables/WRSTable";
@@ -25,6 +8,7 @@ import ResultPopup from "../common/ResultPopup";
 import DateOnlyCell from "../common/DateOnlyCell";
 
 const { Paragraph, Text, Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const normalizeRequisitionStatus = (status) => {
   const normalized = String(status || "")
@@ -88,49 +72,6 @@ const normalizeItemStatus = (status) => {
   }
 };
 
-const getStatusMeta = (status) => {
-  switch (status) {
-    case "Parts Requested":
-      return {
-        color: "default",
-        icon: <InboxOutlined />,
-      };
-    case "To Be Ordered":
-      return {
-        color: "orange",
-        icon: <ShoppingCartOutlined />,
-      };
-    case "Availability Checked":
-      return {
-        color: "gold",
-        icon: <ClockCircleOutlined />,
-      };
-    case "Ordered":
-      return {
-        color: "blue",
-        icon: <SyncOutlined spin />,
-      };
-    case "Approved":
-      return {
-        color: "cyan",
-        icon: <CheckCircleOutlined />,
-      };
-    case "Delivered":
-      return {
-        color: "green",
-        icon: <FileDoneOutlined />,
-      };
-    default:
-      return {
-        color: "default",
-        icon: <InboxOutlined />,
-      };
-  }
-};
-
-const getStatusDisplayLabel = (status) =>
-  status === "Ordered" ? "Restocked" : status;
-
 const getItemStockStatus = (record, availQty) => {
   const currentItemStatus = normalizeItemStatus(record.stockStatus);
 
@@ -162,6 +103,7 @@ export default function WRSModal({
   selectedRecord,
   onUpdated,
 }) {
+  const screens = useBreakpoint();
   const { user, getAuthHeader } = useContext(AuthContext);
   const userRole = user?.jobTitle?.toLowerCase() || "";
   const userTitle = user?.jobTitle || user?.access || "User";
@@ -222,28 +164,6 @@ export default function WRSModal({
       }),
     [selectedRecord],
   );
-
-  const shouldShowOrderingSteps = useMemo(
-    () =>
-      hasNotInStockItems ||
-      Boolean(selectedRecord?.dateOrdered) ||
-      ["To Be Ordered", "Ordered"].includes(currentStatus),
-    [currentStatus, hasNotInStockItems, selectedRecord],
-  );
-
-  const statusSteps = useMemo(() => {
-    const steps = ["Parts Requested", "Availability Checked"];
-
-    if (shouldShowOrderingSteps) {
-      steps.push("To Be Ordered", "Ordered");
-    }
-
-    steps.push("Approved", "Delivered");
-    return steps;
-  }, [shouldShowOrderingSteps]);
-
-  const currentStepIndex = statusSteps.indexOf(currentStatus);
-  const statusMeta = getStatusMeta(currentStatus);
 
   const totalQty = useMemo(
     () =>
@@ -369,7 +289,7 @@ export default function WRSModal({
         return {
           title: "Awaiting Warehouse Restock",
           description:
-            "Warehouse is updating and confirming restocked quantities.",
+            "Warehouse is updating and confirming item availability.",
           buttonText: "Waiting",
           disabled: true,
         };
@@ -379,7 +299,7 @@ export default function WRSModal({
         return {
           title: "Restock Incomplete",
           description:
-            "Available quantities must meet all requested quantities before this requisition can be marked as restocked.",
+            "All items must be marked available before this requisition can be marked as restocked.",
           buttonText: "Mark as Restocked",
           disabled: true,
         };
@@ -392,8 +312,8 @@ export default function WRSModal({
             : "Confirm Restock",
         description:
           hasUnsavedStockChanges && !enteredRestockItemsReady
-            ? "Save the edited stock quantities first."
-            : "Once saved quantities are enough, warehouse can mark the requisition as restocked.",
+            ? "Save the edited availability first."
+            : "Once all items are available, warehouse can mark the requisition as restocked.",
         buttonText:
           hasUnsavedStockChanges && !enteredRestockItemsReady
             ? "Save Stock"
@@ -425,7 +345,7 @@ export default function WRSModal({
     return {
       title: isWarehouseStaff ? "Stock Review" : "Awaiting Warehouse Review",
       description: isWarehouseStaff
-        ? "Enter available quantities for all items so warehouse can return in-stock and out-of-stock results."
+        ? "Mark each requested item as available or unavailable so warehouse can return in-stock and out-of-stock results."
         : "Warehouse is currently reviewing stock availability for this requisition.",
       buttonText: isWarehouseStaff ? "Submit Stock Review" : "Waiting",
       disabled: isWarehouseStaff ? !allQuantitiesFilled : true,
@@ -652,7 +572,7 @@ export default function WRSModal({
       }
 
       const confirmed = await confirmSubmit(
-        "Save the updated stock quantities for this requisition?",
+        "Save the updated stock availability for this requisition?",
       );
       if (!confirmed) return;
       const savedItems = (selectedRecord.items || []).map((item) => {
@@ -705,7 +625,7 @@ export default function WRSModal({
           Modal.confirm({
             title: "Confirm Stock Review Submission",
             content:
-              "Some items have partial or zero available quantity. Submit stock review anyway?",
+              "Some items are marked unavailable. Submit stock review anyway?",
             okText: "Submit",
             cancelText: "Cancel",
             centered: true,
@@ -761,7 +681,7 @@ export default function WRSModal({
       <Modal
         open={visible}
         onCancel={onClose}
-        width={"95%"}
+        width={screens.xs ? "95%" : "75%"}
         height={"90vh"}
         centered
         zIndex={3000}
@@ -778,148 +698,88 @@ export default function WRSModal({
           </div>
         }
       >
-        <Row gutter={[20, 20]}>
-          <Col xs={24} xl={17}>
-            <Card
-              variant="borderless"
-              style={{ borderRadius: 18, background: "#fafafa" }}
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">WRS No.</Text>
-                  <Title level={5} style={{ marginTop: 6 }}>
-                    {selectedRecord.wrsNo}
-                  </Title>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Status</Text>
-                  <div style={{ marginTop: 6 }}>
-                    <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                      {getStatusDisplayLabel(currentStatus)}
-                    </Tag>
-                  </div>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Aircraft</Text>
-                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>{selectedRecord.aircraft}</Text>
-                  </Paragraph>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Requested By</Text>
-                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>
-                      {selectedRecord.staff?.employeeName ||
-                        selectedRecord.staff?.requisitioner}
-                    </Text>
-                  </Paragraph>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Date Requested</Text>
-                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <DateOnlyCell
-                      value={selectedRecord.dateRequested}
-                      fallback={selectedRecord.dateRequested || "N/A"}
-                    />
-                  </Paragraph>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Total Items</Text>
-                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>{selectedRecord.items.length}</Text>
-                  </Paragraph>
-                </Col>
-                <Col xs={12} sm={12} md={6}>
-                  <Text type="secondary">Total Quantity</Text>
-                  <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
-                    <Text strong>{totalQty}</Text>
-                  </Paragraph>
-                </Col>
-              </Row>
-            </Card>
+        <Card
+          variant="borderless"
+          style={{ borderRadius: 18, background: "#fafafa" }}
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={12} md={4}>
+              <Text type="secondary">WRS No.</Text>
+              <Title level={5} style={{ marginTop: 6 }}>
+                {selectedRecord.wrsNo}
+              </Title>
+            </Col>
+            <Col xs={12} sm={12} md={4}>
+              <Text type="secondary">Aircraft</Text>
+              <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                <Text strong>{selectedRecord.aircraft}</Text>
+              </Paragraph>
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <Text type="secondary">Requested By</Text>
+              <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                <Text strong>
+                  {selectedRecord.staff?.employeeName ||
+                    selectedRecord.staff?.requisitioner}
+                </Text>
+              </Paragraph>
+            </Col>
+            <Col xs={12} sm={12} md={5}>
+              <Text type="secondary">Date Requested</Text>
+              <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                <DateOnlyCell
+                  value={selectedRecord.dateRequested}
+                  fallback={selectedRecord.dateRequested || "N/A"}
+                />
+              </Paragraph>
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Text type="secondary">Total Items</Text>
+              <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                <Text strong>{selectedRecord.items.length}</Text>
+              </Paragraph>
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Text type="secondary">Total Qty</Text>
+              <Paragraph style={{ marginTop: 6, marginBottom: 0 }}>
+                <Text strong>{totalQty}</Text>
+              </Paragraph>
+            </Col>
+          </Row>
+        </Card>
 
-            <Divider titlePlacement="left">Requested Items</Divider>
+        <Divider titlePlacement="left">Requested Items</Divider>
 
-            <WRSTable
-              data={selectedRecord.items}
-              availQtyMap={availQtyMap}
-              persistedQtyMap={persistedQtyMap}
-              setAvailQtyMap={setAvailQtyMap}
-              disabled={
-                !isWarehouseStaff ||
-                (currentStatus !== "Parts Requested" &&
-                  currentStatus !== "To Be Ordered")
-              }
-            />
-          </Col>
+        <WRSTable
+          data={selectedRecord.items}
+          availQtyMap={availQtyMap}
+          persistedQtyMap={persistedQtyMap}
+          setAvailQtyMap={setAvailQtyMap}
+          disabled={
+            !isWarehouseStaff ||
+            (currentStatus !== "Parts Requested" &&
+              currentStatus !== "To Be Ordered")
+          }
+        />
 
-          <Col xs={24} xl={7}>
-            <Card
-              variant="borderless"
-              style={{ borderRadius: 18, marginBottom: 16 }}
-            >
-              <Title level={5}>Warehouse Flow</Title>
-              <Timeline
-                items={statusSteps.map((step, index) => {
-                  const isCompleted = index < currentStepIndex;
-                  const isCurrent = index === currentStepIndex;
+        <Card variant="borderless" style={{ borderRadius: 18, marginTop: 16 }}>
+          <Title level={5}>{nextAction.title}</Title>
+          <Paragraph type="secondary">{nextAction.description}</Paragraph>
 
-                  return {
-                    icon: isCompleted ? (
-                      <CheckCircleOutlined style={{ color: "#52c41a" }} />
-                    ) : isCurrent ? (
-                      <ClockCircleOutlined style={{ color: "#13c2c2" }} />
-                    ) : (
-                      <ClockCircleOutlined style={{ color: "#d9d9d9" }} />
-                    ),
-                    content: (
-                      <div
-                        style={{ opacity: isCompleted || isCurrent ? 1 : 0.55 }}
-                      >
-                        <Text strong>{getStatusDisplayLabel(step)}</Text>
-                        <div>
-                          <Text type="secondary">
-                            {step === "Approved" &&
-                              "Maintenance manager approved the requisition because all items are available."}
-                            {step === "Parts Requested" &&
-                              "Warehouse checks whether each requested item is in stock or out of stock."}
-                            {step === "Availability Checked" &&
-                              "Stock review submitted. Maintenance is now reviewing warehouse availability."}
-                            {step === "To Be Ordered" &&
-                              "Maintenance manager requested ordering for the unavailable items."}
-                            {step === "Ordered" &&
-                              "Warehouse confirmed the previously unavailable items are now restocked."}
-                            {step === "Delivered" &&
-                              "Warehouse completed the release and marked the requisition as delivered."}
-                          </Text>
-                        </div>
-                      </div>
-                    ),
-                  };
-                })}
-              />
-            </Card>
-
-            <Card variant="borderless" style={{ borderRadius: 18 }}>
-              <Title level={5}>{nextAction.title}</Title>
-              <Paragraph type="secondary">{nextAction.description}</Paragraph>
-
-              {nextAction.buttonText && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <Button
-                    type="primary"
-                    icon={<CheckCircleOutlined />}
-                    loading={submitting}
-                    disabled={nextAction.disabled}
-                    onClick={handleSubmit}
-                  >
-                    {nextAction.buttonText}
-                  </Button>
-                </div>
-              )}
-            </Card>
-          </Col>
-        </Row>
+          {nextAction.buttonText && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                loading={submitting}
+                disabled={nextAction.disabled}
+                onClick={handleSubmit}
+              >
+                {nextAction.buttonText}
+              </Button>
+            </div>
+          )}
+        </Card>
       </Modal>
       <ResultPopup
         open={successPopup.open}

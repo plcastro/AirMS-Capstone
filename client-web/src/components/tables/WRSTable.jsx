@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { InputNumber, Tag } from "antd";
+import { Checkbox, Tag } from "antd";
 import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function WRSTable({
@@ -23,10 +23,11 @@ export default function WRSTable({
   const getQtyValue = (record) =>
     hasQtyValue(record) ? availQtyMap[record._id] : undefined;
 
-  const handleAvailQtyChange = (value, record) => {
+  const handleAvailabilityChange = (checked, record) => {
+    const requestedQty = Number(record.quantity) || 0;
     setAvailQtyMap((prev) => ({
       ...prev,
-      [record._id]: value,
+      [record._id]: checked ? requestedQty : 0,
     }));
   };
 
@@ -99,7 +100,7 @@ export default function WRSTable({
     },
 
     {
-      title: "AVAILABLE QTY",
+      title: "AVAILABLE",
       dataIndex: "availQty",
       key: "availQty",
       width: 120,
@@ -118,17 +119,23 @@ export default function WRSTable({
           (itemStatus === "To Be Ordered" &&
             persistedQty >= requestedQty &&
             requestedQty > 0);
+        const hasInput = hasQtyValue(record);
+        const availableQty = Number(
+          getQtyValue(record) ?? record.availableQty ?? 0,
+        );
+        const isAvailable = requestedQty > 0 && availableQty >= requestedQty;
 
         return (
-          <InputNumber
-            min={0}
-            max={999}
-            style={{ width: "100%" }}
-            placeholder="Enter qty"
-            value={getQtyValue(record)}
-            onChange={(value) => handleAvailQtyChange(value, record)}
+          <Checkbox
+            checked={isAvailable}
+            indeterminate={!hasInput && itemStatus === "Parts Requested"}
+            onChange={(event) =>
+              handleAvailabilityChange(event.target.checked, record)
+            }
             disabled={disabled || lockedBecauseInStock}
-          />
+          >
+            Available
+          </Checkbox>
         );
       },
     },

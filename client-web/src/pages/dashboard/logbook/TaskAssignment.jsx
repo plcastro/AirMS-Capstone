@@ -21,6 +21,7 @@ import {
   Row,
   Select,
   Space,
+  Table,
   Tabs,
   Tooltip,
   Typography,
@@ -94,7 +95,8 @@ const isReviewed = (task) =>
 const isForReview = (task) =>
   !isReviewed(task) &&
   (isTurnedIn(task) || normalizeStatus(task?.status) === "completed");
-const getDisplayStatus = (task) => (isReviewed(task) ? "Approved" : task?.status);
+const getDisplayStatus = (task) =>
+  isReviewed(task) ? "Approved" : task?.status;
 const getTaskDate = (task, key) => {
   const value = task?.[key];
   const date = value ? dayjs(value) : null;
@@ -701,8 +703,7 @@ export default function TaskAssignment() {
 
       if (activeTab === "assigned")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
-      if (activeTab === "for_review")
-        return isForReview(task);
+      if (activeTab === "for_review") return isForReview(task);
       if (activeTab === "reviewed") return isReviewed(task);
       if (activeTab === "ongoing")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
@@ -743,9 +744,7 @@ export default function TaskAssignment() {
       assigned: myTasks.filter((task) =>
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
-      forReview: myTasks.filter(
-        (task) => isForReview(task),
-      ).length,
+      forReview: myTasks.filter((task) => isForReview(task)).length,
       reviewed: myTasks.filter((task) => isReviewed(task)).length,
       ongoing: myTasks.filter((task) =>
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
@@ -1845,81 +1844,87 @@ export default function TaskAssignment() {
                       orientation="vertical"
                       style={{ width: "100%", marginTop: 12 }}
                     >
-                      <Row gutter={[8, 8]}>
-                        {fields.map((field, index) => {
-                          const item = watchedChecklistItems?.[index] || {};
-                          const { key: fieldKey, ...fieldProps } = field;
-                          return (
-                            <Col xs={24} key={fieldKey}>
-                              <Card
-                                size="small"
-                                styles={{
-                                  header: {
-                                    minHeight: 34,
-                                    padding: "0 10px",
-                                  },
-                                  body: { padding: "8px 10px" },
-                                }}
-                                title={
-                                  <Space
-                                    size={8}
-                                    style={{ maxWidth: "100%", minWidth: 0 }}
-                                  >
-                                    <Text strong style={{ fontSize: 12 }}>
-                                      #{index + 1}
-                                    </Text>
+                      <Table
+                        bordered
+                        size="small"
+                        rowKey="key"
+                        dataSource={fields}
+                        pagination={
+                          fields.length > 5
+                            ? {
+                                pageSize: 5,
+                                showSizeChanger: false,
+                                size: "small",
+                              }
+                            : false
+                        }
+                        scroll={{ x: 900 }}
+                        columns={[
+                          {
+                            title: "#",
+                            width: 56,
+                            align: "center",
+                            render: (_, field) =>
+                              fields.findIndex(
+                                (item) => item.key === field.key,
+                              ) + 1,
+                          },
+                          {
+                            title: "Checklist Item",
+                            width: 360,
+                            render: (_, field) => {
+                              const { key: _fieldKey, ...fieldProps } = field;
+                              const item =
+                                watchedChecklistItems?.[field.name] || {};
+
+                              return (
+                                <Space
+                                  orientation="vertical"
+                                  size={4}
+                                  style={{ width: "100%" }}
+                                >
+                                  {!!getChecklistMeta(item) && (
                                     <Text
                                       type="secondary"
-                                      style={{
-                                        fontSize: 12,
-                                        maxWidth: 360,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                      }}
+                                      style={{ fontSize: 12 }}
                                     >
-                                      {getChecklistMeta(item) ||
-                                        "Checklist item"}
+                                      {getChecklistMeta(item)}
                                     </Text>
-                                  </Space>
-                                }
-                                extra={
-                                  watchedInspectionType ===
-                                  CUSTOM_INSPECTION_ID ? (
-                                    <Tooltip title="Remove item">
-                                      <Button
-                                        danger
-                                        size="small"
-                                        aria-label="Remove checklist item"
-                                        icon={<DeleteOutlined />}
-                                        onClick={() => remove(field.name)}
-                                      />
-                                    </Tooltip>
-                                  ) : null
-                                }
-                                style={{ borderRadius: 8, height: "100%" }}
-                              >
-                                <Form.Item
-                                  {...fieldProps}
-                                  name={[field.name, "taskName"]}
-                                  style={{ marginBottom: 6 }}
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: "Checklist item is required",
-                                    },
-                                  ]}
-                                >
-                                  <Input
-                                    placeholder="Checklist item"
-                                    disabled={
-                                      watchedInspectionType !==
-                                      CUSTOM_INSPECTION_ID
-                                    }
-                                  />
-                                </Form.Item>
-                                {watchedInspectionType ===
-                                CUSTOM_INSPECTION_ID ? (
+                                  )}
+                                  <Form.Item
+                                    {...fieldProps}
+                                    name={[field.name, "taskName"]}
+                                    style={{ marginBottom: 0 }}
+                                    rules={[
+                                      {
+                                        required: true,
+                                        message: "Checklist item is required",
+                                      },
+                                    ]}
+                                  >
+                                    <Input
+                                      placeholder="Checklist item"
+                                      disabled={
+                                        watchedInspectionType !==
+                                        CUSTOM_INSPECTION_ID
+                                      }
+                                    />
+                                  </Form.Item>
+                                </Space>
+                              );
+                            },
+                          },
+                          {
+                            title: "Details",
+                            render: (_, field) => {
+                              const { key: _fieldKey, ...fieldProps } = field;
+                              const item =
+                                watchedChecklistItems?.[field.name] || {};
+
+                              if (
+                                watchedInspectionType === CUSTOM_INSPECTION_ID
+                              ) {
+                                return (
                                   <Form.Item
                                     {...fieldProps}
                                     name={[field.name, "description"]}
@@ -1930,44 +1935,41 @@ export default function TaskAssignment() {
                                       placeholder="Description / notes"
                                     />
                                   </Form.Item>
-                                ) : (
-                                  <div
-                                    style={{
-                                      background: "#fafafa",
-                                      border: "1px solid #f0f0f0",
-                                      borderRadius: 6,
-                                      padding: "5px 8px",
-                                    }}
-                                  >
-                                    {item.description ? (
-                                      <Text
-                                        type="secondary"
-                                        style={{ fontSize: 12 }}
-                                      >
-                                        {item.description}
-                                      </Text>
-                                    ) : item.documentation ? (
-                                      <Text
-                                        type="secondary"
-                                        style={{ fontSize: 12 }}
-                                      >
-                                        Reference: {item.documentation}
-                                      </Text>
-                                    ) : (
-                                      <Text
-                                        type="secondary"
-                                        style={{ fontSize: 12 }}
-                                      >
-                                        No additional notes.
-                                      </Text>
-                                    )}
-                                  </div>
-                                )}
-                              </Card>
-                            </Col>
-                          );
-                        })}
-                      </Row>
+                                );
+                              }
+
+                              return (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {item.description ||
+                                    (item.documentation
+                                      ? `Reference: ${item.documentation}`
+                                      : "No additional notes.")}
+                                </Text>
+                              );
+                            },
+                          },
+                          ...(watchedInspectionType === CUSTOM_INSPECTION_ID
+                            ? [
+                                {
+                                  title: "Action",
+                                  width: 80,
+                                  align: "center",
+                                  render: (_, field) => (
+                                    <Tooltip title="Remove item">
+                                      <Button
+                                        danger
+                                        size="small"
+                                        aria-label="Remove checklist item"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => remove(field.name)}
+                                      />
+                                    </Tooltip>
+                                  ),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                       {watchedInspectionType === CUSTOM_INSPECTION_ID && (
                         <Button
                           icon={<PlusOutlined />}
@@ -2130,122 +2132,150 @@ export default function TaskAssignment() {
             )}
 
             {selectedTask.checklistItems?.length ? (
-              <Row gutter={[8, 8]}>
-                {selectedTask.checklistItems.map((item, index) => {
+              <Table
+                bordered
+                size="small"
+                rowKey={(record) => record.key}
+                dataSource={(selectedTask.checklistItems || []).map(
+                  (item, index) => ({
+                    ...item,
+                    checklistIndex: index,
+                    key: `${item.taskId || item.taskName || "item"}-${index}`,
+                  }),
+                )}
+                pagination={
+                  selectedTask.checklistItems.length > 5
+                    ? {
+                        pageSize: 5,
+                        showSizeChanger: false,
+                        size: "small",
+                      }
+                    : false
+                }
+                scroll={{ x: 900 }}
+                onRow={(record) => {
                   const isDone = Array.isArray(selectedTask.checklistState)
-                    ? Boolean(selectedTask.checklistState[index])
+                    ? Boolean(
+                        selectedTask.checklistState[record.checklistIndex],
+                      )
                     : false;
-                  const readOnly =
-                    isManager ||
-                    isReviewed(selectedTask) ||
-                    isTurnedIn(selectedTask) ||
-                    normalizeStatus(selectedTask.status) === "completed";
-                  return (
-                    <Col
-                      xs={24}
-                      lg={12}
-                      key={`${item.taskId || item.taskName}-${index}`}
-                    >
-                      <Card
-                        size="small"
-                        styles={{ body: { padding: "8px 10px" } }}
-                        style={{
-                          borderRadius: 8,
-                          borderColor: isDone ? "#b7eb8f" : "#eaecf0",
-                          background: isDone ? "#f6ffed" : "#ffffff",
-                          height: "100%",
-                        }}
+                  return {
+                    style: {
+                      background: isDone ? "#f6ffed" : undefined,
+                    },
+                  };
+                }}
+                columns={[
+                  {
+                    title: "#",
+                    width: 56,
+                    align: "center",
+                    render: (_, record) => record.checklistIndex + 1,
+                  },
+                  {
+                    title: "Done",
+                    width: 76,
+                    align: "center",
+                    render: (_, record) => {
+                      const isDone = Array.isArray(selectedTask.checklistState)
+                        ? Boolean(
+                            selectedTask.checklistState[record.checklistIndex],
+                          )
+                        : false;
+                      const readOnly =
+                        isManager ||
+                        isReviewed(selectedTask) ||
+                        isTurnedIn(selectedTask) ||
+                        normalizeStatus(selectedTask.status) === "completed";
+
+                      return (
+                        <Checkbox
+                          checked={isDone}
+                          disabled={readOnly}
+                          aria-label={`Checklist item ${
+                            record.checklistIndex + 1
+                          }`}
+                          onChange={(e) => {
+                            const state = Array.isArray(
+                              selectedTask.checklistState,
+                            )
+                              ? [...selectedTask.checklistState]
+                              : (selectedTask.checklistItems || []).map(
+                                  () => false,
+                                );
+                            state[record.checklistIndex] = e.target.checked;
+                            setSelectedTask((prev) => ({
+                              ...prev,
+                              checklistState: state,
+                            }));
+                          }}
+                        />
+                      );
+                    },
+                  },
+                  {
+                    title: "Checklist Item",
+                    width: 360,
+                    render: (_, record) => (
+                      <Space
+                        orientation="vertical"
+                        size={2}
+                        style={{ width: "100%" }}
                       >
-                        <div
+                        {!!getChecklistMeta(record) && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {getChecklistMeta(record)}
+                          </Text>
+                        )}
+                        <Text strong style={{ overflowWrap: "anywhere" }}>
+                          {record.taskName || "Checklist item"}
+                        </Text>
+                        {!!record.documentation && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Reference: {record.documentation}
+                          </Text>
+                        )}
+                      </Space>
+                    ),
+                  },
+                  {
+                    title: "Details",
+                    render: (_, record) =>
+                      record.description ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {record.description}
+                        </Text>
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          No additional notes.
+                        </Text>
+                      ),
+                  },
+                  {
+                    title: "Status",
+                    width: 90,
+                    align: "center",
+                    render: (_, record) => {
+                      const isDone = Array.isArray(selectedTask.checklistState)
+                        ? Boolean(
+                            selectedTask.checklistState[record.checklistIndex],
+                          )
+                        : false;
+                      return (
+                        <Text
+                          strong
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "24px minmax(0, 1fr)",
-                            gap: 8,
-                            alignItems: "start",
+                            color: isDone ? "#2e7d32" : "#667085",
+                            fontSize: 12,
                           }}
                         >
-                          <Checkbox
-                            checked={isDone}
-                            disabled={readOnly}
-                            aria-label={`Checklist item ${index + 1}`}
-                            onChange={(e) => {
-                              const state = Array.isArray(
-                                selectedTask.checklistState,
-                              )
-                                ? [...selectedTask.checklistState]
-                                : (selectedTask.checklistItems || []).map(
-                                    () => false,
-                                  );
-                              state[index] = e.target.checked;
-                              setSelectedTask((prev) => ({
-                                ...prev,
-                                checklistState: state,
-                              }));
-                            }}
-                          />
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                gap: 8,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                Item {index + 1}
-                              </Text>
-                              <Text
-                                strong
-                                style={{
-                                  color: isDone ? "#2e7d32" : "#667085",
-                                  fontSize: 12,
-                                }}
-                              >
-                                {isDone ? "Done" : "Open"}
-                              </Text>
-                            </div>
-                            {!!getChecklistMeta(item) && (
-                              <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {getChecklistMeta(item)}
-                                </Text>
-                              </div>
-                            )}
-                            <div style={{ marginTop: 2 }}>
-                              <Text strong style={{ overflowWrap: "anywhere" }}>
-                                {item.taskName || "Checklist item"}
-                              </Text>
-                            </div>
-                            {!!item.documentation && (
-                              <div style={{ marginTop: 2 }}>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  Reference: {item.documentation}
-                                </Text>
-                              </div>
-                            )}
-                            {!!item.description && (
-                              <div
-                                style={{
-                                  marginTop: 4,
-                                  background: "#fafafa",
-                                  border: "1px solid #f0f0f0",
-                                  borderRadius: 6,
-                                  padding: "5px 8px",
-                                }}
-                              >
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {item.description}
-                                </Text>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    </Col>
-                  );
-                })}
-              </Row>
+                          {isDone ? "Done" : "Open"}
+                        </Text>
+                      );
+                    },
+                  },
+                ]}
+              />
             ) : (
               <Card size="small" style={{ background: "#fafafa" }}>
                 <Text type="secondary">
