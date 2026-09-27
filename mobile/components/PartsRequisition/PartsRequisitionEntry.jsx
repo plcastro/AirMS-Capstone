@@ -12,9 +12,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
-import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import InlineDropdown from "../common/InlineDropdown";
+
+import PartNameInput from "./PartNameInput";
 
 const UNIT_OPTIONS = ["SET", "ST", "UNT", "PC"];
 
@@ -35,9 +36,6 @@ export default function PartsRequisitionEntry({
   selectedAircraft,
   onChangeAircraft,
   aircraftOptions = [],
-  initialAircraft = "",
-  initialItems = [],
-  alertConfig = {},
 }) {
   const [items, setItems] = useState([createEmptyItem(1)]);
   const [submitting, setSubmitting] = useState(false);
@@ -46,21 +44,10 @@ export default function PartsRequisitionEntry({
 
   useEffect(() => {
     if (visible) {
-      const nextItems =
-        initialItems.length > 0
-          ? initialItems.map((item, index) => ({
-              id: item.id || item._id || Date.now() + index,
-              particular: item.particular || "",
-              quantity: item.quantity ? String(item.quantity) : "",
-              unit: item.unit || item.unitOfMeasure || "PC",
-              purpose: item.purpose || "",
-            }))
-          : [createEmptyItem(1)];
-
-      setItems(nextItems);
+      setItems([createEmptyItem(1)]);
       setAircraftDropdownOpen(false);
       setOpenUnitItemId(null);
-      onChangeAircraft?.(initialAircraft || "");
+      onChangeAircraft?.("");
     }
   }, [visible]);
 
@@ -117,11 +104,7 @@ export default function PartsRequisitionEntry({
       visible={visible}
       animationType="fade"
       transparent
-      onRequestClose={
-        alertConfig.visible
-          ? alertConfig.onCancel || alertConfig.onConfirm
-          : onClose
-      }
+      onRequestClose={onClose}
     >
       <IosModalSafeAreaProvider>
         <SafeAreaView
@@ -287,9 +270,7 @@ export default function PartsRequisitionEntry({
                     )}
                   </View>
 
-                  {renderInput("Particular: *", item.particular, (value) =>
-                    updateItem(item.id, "particular", value),
-                  )}
+                  <View style={{ marginBottom: 16 }}><AppText style={{ fontSize: 12, marginBottom: 8 }}>Part name *</AppText><PartNameInput value={item.particular} onChangeText={value => updateItem(item.id, "particular", value)} placeholder="Enter or search a part name" /></View>
 
                   <View style={{ marginBottom: 16 }}>
                     <AppText
@@ -434,16 +415,6 @@ export default function PartsRequisitionEntry({
               </View>
             </ScrollView>
           </View>
-          <AlertComp
-            embedded
-            visible={Boolean(alertConfig.visible)}
-            title={alertConfig.title}
-            message={alertConfig.message}
-            confirmText={alertConfig.confirmText}
-            cancelText={alertConfig.cancelText}
-            onConfirm={alertConfig.onConfirm}
-            onCancel={alertConfig.onCancel}
-          />
         </SafeAreaView>
       </IosModalSafeAreaProvider>
     </Modal>

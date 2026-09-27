@@ -1,29 +1,7 @@
 const mongoose = require("mongoose");
 
-const REQUISITION_STATUSES = [
-  "Pending",
-  "Approved",
-  "In Progress",
-  "Completed",
-  "Rejected",
-  "Cancelled",
-  "Parts Requested",
-  "Availability Checked",
-  "To Be Ordered",
-  "Ordered",
-  "Delivered",
-];
-
-const ITEM_STATUSES = [
-  "Parts Requested",
-  "In Stock",
-  "Out of Stock",
-  "To Be Ordered",
-  "Ordered",
-  "Approved",
-  "Delivered",
-  "Cancelled",
-];
+const REQUISITION_STATUSES = ["Requested", "Awaiting Stock", "Ready for Delivery", "Delivered", "Closed", "Cancelled"];
+const ITEM_STATUSES = ["Pending Check", "In Stock", "Out of Stock"];
 
 const RequisitionMatcodeParticular = new mongoose.Schema({
   matCodeNo: { type: String, required: true },
@@ -38,11 +16,11 @@ const RequisitionItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   unitOfMeasure: { type: String, required: true },
   purpose: { type: String, default: "" },
-  availableQty: { type: Number, default: 0 },
+  availableQty: { type: Number },
   stockStatus: {
     type: String,
     enum: ITEM_STATUSES,
-    default: "Parts Requested",
+    default: "Pending Check",
   },
 });
 
@@ -70,6 +48,13 @@ const PartsRequisitionSchema = new mongoose.Schema(
       deliveredByTitle: { type: String, default: "" },
     },
     items: { type: [RequisitionItemSchema], default: [] },
+    workflowVersion: { type: Number },
+    deliveredAt: Date,
+    deliveredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    confirmedAt: Date,
+    confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    cancelledAt: Date,
+    history: [{ at: Date, label: String, actorId: String, actorName: String, details: String }],
     dateRequested: { type: Date, required: true },
     dateApproved: { type: Date },
     dateReceived: { type: Date },
@@ -80,7 +65,7 @@ const PartsRequisitionSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: REQUISITION_STATUSES,
-      default: "Parts Requested",
+      default: "Requested",
     },
   },
   { timestamps: true },

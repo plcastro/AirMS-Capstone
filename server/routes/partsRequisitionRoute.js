@@ -7,20 +7,15 @@ const {
   getAllRequisitions,
   getRequisitionSummary,
   getRequisitionById,
-  exportRequisitionExcel,
+  getPartSuggestions,
   createRequisition,
   updateRequisitionStatus,
 } = require("../controllers/partsRequisitionController");
 
-router.get("/get-all-requisition", getAllRequisitions);
+router.get("/get-all-requisition", verifyToken, getAllRequisitions);
 router.get("/summary", verifyToken, getRequisitionSummary);
-router.get("/get-requisition-by-id/:id", getRequisitionById);
-router.get(
-  "/:id/export-excel",
-  verifyToken,
-  touchSessionActivity,
-  exportRequisitionExcel,
-);
+router.get("/get-requisition-by-id/:id", verifyToken, getRequisitionById);
+router.get("/part-suggestions", verifyToken, getPartSuggestions);
 router.post(
   "/create-requisition",
   verifyToken,

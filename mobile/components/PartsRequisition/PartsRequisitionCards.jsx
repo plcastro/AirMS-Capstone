@@ -1,268 +1,66 @@
-import React from "react";
-import AppText from "../common/AppText";
-import { FlatList,
-  TouchableOpacity,
-  View
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import ActionIconButton from "../common/ActionIconButton";
-import { CardActionRow } from "../common/MobileModule";
-import { COLORS } from "../../stylesheets/colors";
-
-const getStatusStyle = (status) => {
-  switch (status?.toLowerCase()) {
-    case "parts requested":
-      return {
-        label: "Parts Requested",
-        backgroundColor: "#F1F1F1",
-        textColor: "#666666",
-      };
-    case "to be ordered":
-      return {
-        label: "To Be Restocked",
-        backgroundColor: "#FFF4E5",
-        textColor: "#C26A00",
-      };
-    case "availability checked":
-      return {
-        label: "Availability Checked",
-        backgroundColor: "#FFF8E1",
-        textColor: "#A37300",
-      };
-    case "ordered":
-      return {
-        label: "Restocked",
-        backgroundColor: "#E3F2FD",
-        textColor: "#1565C0",
-      };
-    case "approved":
-      return {
-        label: "Approved",
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
-      };
-    case "delivered":
-      return {
-        label: "Delivered",
-        backgroundColor: "#F3E5F5",
-        textColor: "#7B1FA2",
-      };
-    case "cancelled":
-      return {
-        label: "Cancelled",
-        backgroundColor: "#FDECEC",
-        textColor: "#C62828",
-      };
-    default:
-      return {
-        label: status || "Pending",
-        backgroundColor: "#F1F1F1",
-        textColor: "#666666",
-      };
-  }
-};
-export default function PartsRequisitionCards({
-  requisitions,
-  onViewDetails,
-  onEdit,
-  onDelete,
-  showActions = true,
-  actionsDisabled = false,
-  loading = false,
-  ...listProps
+import { COLORS } from '../../stylesheets/colors';
+import React from 'react';
+import { FlatList, TouchableOpacity, View } from 'react-native';
+import AppText from '../common/AppText';
+import { displayStatus, statusColors, statusLabel, timeSinceUpdate, updatedFirst, followUpTarget } from '../../../shared/partsRequisitionWorkflow';
+export function StatusDot({
+  status
 }) {
-  const formatLogbookDate = (value) => {
-    if (!value) return "N/A";
-
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return "N/A";
-
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-
-
-
-
-  return (
-    <>
-      {<FlatList
-         ListEmptyComponent={loading ? (<View
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 20,
-          padding: 40,
-          alignItems: "center",
-          marginTop: 20,
-          elevation: 8,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="progress-clock"
-          size={56}
-          color={COLORS.grayMedium}
-        />
-        <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          Loading parts requisitions...
-        </AppText>
-      </View>) : (!requisitions || requisitions.length === 0 ? (<View
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 20,
-          padding: 40,
-          alignItems: "center",
-          marginTop: 20,
-          elevation: 8,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="file-document-outline"
-          size={60}
-          color={COLORS.grayMedium}
-        />
-        <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          No parts requisitions found
-        </AppText>
-      </View>) : (null))}
-         style={{ flex: 1 }}
-         contentContainerStyle={{ paddingBottom: 110 }}
-         keyboardShouldPersistTaps="handled"
-         data={loading ? [] : requisitions}
-         keyExtractor={(item, index) => String(item._id || item.id || index)}
-         initialNumToRender={12}
-         maxToRenderPerBatch={8}
-         windowSize={7}
-         {...listProps}
-         renderItem={({ item: item }) => {
-        const statusStyle = getStatusStyle(item.status);
-        const isAvailabilityChecked =
-          String(item.status || "").toLowerCase() === "availability checked";
-        const editDisabled = actionsDisabled || isAvailabilityChecked;
-        const deleteDisabled = actionsDisabled;
-
-        return (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.8}
-            onPress={() => onViewDetails?.(item)}
-            style={{
-              flexDirection: "row",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              marginBottom: 14,
-              elevation: 3,
-              overflow: "hidden",
-            }}
-          >
-            {/* ✅ LEFT ACCENT BAR */}
-            <View
-              style={{
-                width: 5,
-                backgroundColor: COLORS.primaryLight,
-              }}
-            />
-
-            <View style={{ flex: 1 }}>
-              {/* ✅ HEADER (compact like flight log) */}
-              <View
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <View>
-                  <AppText
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Warehouse Slip
-                  </AppText>
-                  <AppText style={{ fontSize: 10, color: "#777" }}>
-                    {item.dateRequested}
-                  </AppText>
-                </View>
-
-                <View
-                  style={{
-                    backgroundColor: statusStyle.backgroundColor,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 12,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: statusStyle.textColor,
-                      fontSize: 10,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {statusStyle.label}
-                  </AppText>
-                </View>
-              </View>
-
-              {/* ✅ BODY (compact info, no gray box) */}
-              <View
-                style={{
-                  paddingHorizontal: 12,
-                  paddingBottom: 12,
-                }}
-              >
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Slip No:</AppText>{" "}
-                  {item.slipNo || "N/A"}
-                </AppText>
-
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Items:</AppText>{" "}
-                  {item.itemSummary || "N/A"}
-                </AppText>
-
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Purpose:</AppText>{" "}
-                  {item.purpose || "N/A"}
-                </AppText>
-              </View>
-
-              {/* ✅ ACTIONS (aligned right like you asked earlier) */}
-              {showActions && (
-                <CardActionRow
-                  style={{ paddingHorizontal: 10, paddingBottom: 10 }}
-                >
-                  <ActionIconButton
-                    icon="pencil"
-                    tooltip="Edit"
-                    onPress={() => onEdit?.(item)}
-                    disabled={editDisabled}
-                    color="#777"
-                    disabledColor="#C8C8C8"
-                  />
-
-                  <ActionIconButton
-                    icon="delete"
-                    tooltip="Delete"
-                    onPress={() => onDelete?.(item)}
-                    disabled={deleteDisabled}
-                    color="#F45B5B"
-                    disabledColor="#F1B6B6"
-                  />
-                </CardActionRow>
-              )}
-            </View>
-          </TouchableOpacity>
-        );
-      }}
-       />}
-    </>
-  );
+  return <View style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  }}><View style={{
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: statusColors[status] || '#8c8c8c'
+    }} /><AppText style={{
+      color: statusColors[status] || '#666',
+      fontSize: 12
+    }}>{statusLabel(status)}</AppText></View>;
+}
+export default function PartsRequisitionCards({
+  requisitions = [],
+  onViewDetails,
+  onFollowUp,
+  oversight,
+  busy,
+  ...props
+}) {
+  return <FlatList {...props} data={[...requisitions].sort(updatedFirst)} keyExtractor={item => item._id} contentContainerStyle={{
+    padding: 16,
+    paddingBottom: 80
+  }} ListEmptyComponent={<AppText style={{
+    textAlign: 'center',
+    padding: 24
+  }}>No requisitions found</AppText>} renderItem={({
+    item
+  }) => <View style={{
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    marginBottom: 12,
+    padding: 16
+  }}>
+    <TouchableOpacity accessibilityRole="button" onPress={() => onViewDetails(item)}><AppText style={{
+        fontWeight: '700',
+        fontSize: 15,
+        marginBottom: 8
+      }}>{item.wrsNo}</AppText><StatusDot status={displayStatus(item)} /><AppText style={{
+        marginTop: 10
+      }}>{item.aircraft} · {item.items?.length || 0} items</AppText><AppText>{item.staff?.requisitioner}</AppText><AppText style={{
+        color: '#777',
+        marginTop: 6
+      }}>Updated {timeSinceUpdate(item)}</AppText><AppText style={{
+        color: COLORS.primaryLight,
+        marginTop: 12
+      }}>View details and history</AppText></TouchableOpacity>
+    {oversight && followUpTarget(item) && <TouchableOpacity disabled={busy} accessibilityRole="button" onPress={() => onFollowUp(item)} style={{
+      paddingVertical: 12
+    }}><AppText style={{
+        color: COLORS.primaryLight
+      }}>Follow Up</AppText></TouchableOpacity>}
+  </View>} />;
 }

@@ -57,41 +57,6 @@ const downloadInspectionDocument = async (
   }
 };
 
-const downloadPartsRequisitionExcel = async (requisitionId, fileName) => {
-  try {
-    if (!requisitionId) {
-      throw new Error("Requisition ID is required");
-    }
-
-    const token = await AsyncStorage.getItem("currentUserToken");
-    const safeFileName = sanitizeFileName(fileName);
-
-    showToast("Generating Excel file...");
-
-    const response = await fetch(
-      `${API_BASE}/api/parts-requisition/${requisitionId}/export-excel`,
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to download Excel file from server");
-    }
-
-    return await saveExportFile({
-      fileName: safeFileName,
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      bytes: await response.arrayBuffer(),
-    });
-  } catch (error) {
-    console.error("Parts requisition Excel export error:", error);
-    showToast(error.message || "Unable to export Excel file.");
-    throw error;
-  }
-};
-
 const downloadPartsLifespanExcel = async (aircraft) => {
   try {
     if (!aircraft) {
@@ -161,31 +126,13 @@ export const exportPostInspectionTemplatePdf = (inspection) => {
   return downloadInspectionDocument(inspection._id, "post", fileName);
 };
 
-export const exportPartsRequisitionExcel = (request) => {
-  const requisitionId = request?.id || request?._id || request?.rawRecord?._id;
-  const wrsNo =
-    request?.requestId || request?.wrsNo || request?.rawRecord?.wrsNo || "WRS";
-
-  if (!requisitionId) {
-    showToast("Invalid requisition data.");
-    return null;
-  }
-
-  return downloadPartsRequisitionExcel(
-    requisitionId,
-    `${sanitizeFileName(wrsNo)}.xlsx`,
-  );
-};
-
 export const exportPartsLifespanMonitoringExcel = (aircraft) =>
   downloadPartsLifespanExcel(aircraft);
 
 export default {
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
-  exportPartsRequisitionExcel,
   exportPartsLifespanMonitoringExcel,
   downloadInspectionDocument,
-  downloadPartsRequisitionExcel,
   downloadPartsLifespanExcel,
 };
