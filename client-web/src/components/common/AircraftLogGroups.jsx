@@ -41,7 +41,7 @@ export default function AircraftLogGroups({
         styles={{ body: { padding: "10px 12px" } }}
       >
         <Row gutter={[8, 8]} align="middle">
-          <Col xs={24} md={headerAction ? 14 : 14}>
+          <Col xs={24} md={14}>
             <Input
               size="large"
               placeholder="Search aircraft registration, type, or base"
@@ -53,20 +53,7 @@ export default function AircraftLogGroups({
             />
           </Col>
 
-          {headerAction && (
-            <Col
-              xs={24}
-              md={4}
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
-              {headerAction}
-            </Col>
-          )}
-
-          <Col xs={24} md={headerAction ? 6 : 4}>
+          {/* <Col xs={24} md={4}>
             <div
               style={{
                 border: "1px solid #e6f2ed",
@@ -92,7 +79,20 @@ export default function AircraftLogGroups({
                 {visibleGroups.length}
               </div>
             </div>
-          </Col>
+          </Col> */}
+
+          {headerAction && (
+            <Col
+              xs={24}
+              md={6}
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              {headerAction}
+            </Col>
+          )}
         </Row>
       </Card>
 

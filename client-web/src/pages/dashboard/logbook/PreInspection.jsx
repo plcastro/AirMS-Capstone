@@ -1048,28 +1048,16 @@ export default function PreInspection() {
     <div style={{ padding: isMobile ? 12 : 20 }}>
       {!selectedAircraft ? (
         <>
-          {/* MAIN PAGE */}
-          <Row
-            gutter={[12, 12]}
-            align="middle"
-            justify="space-between"
-            style={{ marginBottom: 16 }}
-          >
-            <Col xs={24} sm={canCreate ? 16 : 24}>
-              <Typography.Title level={4} style={{ margin: 0 }}>
-                Pre-Flight Inspections
-              </Typography.Title>
-            </Col>
-
-            {canCreate && (
-              <Col
-                xs={24}
-                sm={8}
-                style={{
-                  display: "flex",
-                  justifyContent: isMobile ? "stretch" : "flex-end",
-                }}
-              >
+          <AircraftLogGroups
+            records={records}
+            sortBy="latestActivity"
+            loading={loading}
+            query={aircraftQuery}
+            onQueryChange={setAircraftQuery}
+            onSelect={openAircraft}
+            emptyText="No pre-flight inspections found."
+            headerAction={
+              canCreate ? (
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
@@ -1080,22 +1068,11 @@ export default function PreInspection() {
                     setCreating(true);
                   }}
                   size="large"
-                  block={isMobile}
                 >
                   New Entry
                 </Button>
-              </Col>
-            )}
-          </Row>
-
-          <AircraftLogGroups
-            records={records}
-            sortBy="latestActivity"
-            loading={loading}
-            query={aircraftQuery}
-            onQueryChange={setAircraftQuery}
-            onSelect={openAircraft}
-            emptyText="No pre-flight inspections found."
+              ) : null
+            }
           />
         </>
       ) : (
