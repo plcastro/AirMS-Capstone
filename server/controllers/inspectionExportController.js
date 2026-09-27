@@ -6,6 +6,8 @@ const PreInspection = require("../models/preInspectionModel");
 const PostInspection = require("../models/postInspectionModel");
 
 const getExecutorFromRequest = (req) => ({
+  id: req.user?.id || req.user?._id || req.user?.userId || "",
+  userId: req.user?.userId || req.user?.id || req.user?._id || "",
   firstName: req.user?.firstName || "",
   lastName: req.user?.lastName || "",
   username: req.user?.username || "",
