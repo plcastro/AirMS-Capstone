@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Form, Grid, Input, InputNumber, Modal, Select, Space, Tabs, Typography, message } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Alert, Button, Col, Form, Grid, Input, InputNumber, Modal, Row, Select, Space, Table, Typography, message } from 'antd';
+import { PlusOutlined, DeleteOutlined, QuestionCircleOutlined, SearchOutlined, InboxOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router-dom';
 import { AuthContext } from '../../../context/AuthContext';
 import { API_BASE } from '../../../utils/API_BASE';
@@ -31,10 +31,36 @@ export default function PartsReqMonitoring() {
   const [selectedId, setSelectedId] = useState(null),
     [tab, setTab] = useState('active'),
     [search, setSearch] = useState('');
+  const [dateSort, setDateSort] = useState('updated');
   const [entry, setEntry] = useState(false),
     [busy, setBusy] = useState(false),
-    [items, setItems] = useState([emptyItem()]),
+    [items, setItems] = useState([]),
     [aircraft, setAircraft] = useState([]);
+  const [itemEntry, setItemEntry] = useState(emptyItem);
+  const [editingItemKey, setEditingItemKey] = useState(null);
+  const [showItemHelp, setShowItemHelp] = useState(false);
+  const [itemPage, setItemPage] = useState(1);
+  const resetItemEntry = () => {
+    setItemEntry(emptyItem());
+    setEditingItemKey(null);
+  };
+  const saveItem = () => {
+    if (!itemEntry.particular.trim() || !itemEntry.quantity || itemEntry.quantity <= 0) {
+      return message.error('Enter a part name and positive quantity for every item.');
+    }
+    if (editingItemKey !== null) {
+      setItems(current => current.map(item => item.key === editingItemKey ? { ...itemEntry, key: item.key } : item));
+    } else {
+      setItems(current => [...current, { ...itemEntry, key: crypto.randomUUID() }]);
+      setItemPage(Math.ceil((items.length + 1) / 5));
+    }
+    resetItemEntry();
+  };
+  const removeItem = key => {
+    setItems(current => current.filter(item => item.key !== key));
+    setItemPage(page => Math.min(page, Math.max(1, Math.ceil((items.length - 1) / 5))));
+    if (editingItemKey === key) resetItemEntry();
+  };
   const [form] = Form.useForm();
   const load = useCallback(async () => {
     try {
@@ -107,6 +133,7 @@ export default function PartsReqMonitoring() {
     }
   };
   const create = async values => {
+    if (editingItemKey !== null || itemEntry.particular.trim() || itemEntry.purpose.trim()) return message.error('Add or update the draft item, or cancel editing, before submitting.');
     if (!items.length || items.some(item => !item.particular.trim() || !item.quantity || item.quantity <= 0)) return message.error('Enter a part name and positive quantity for every item.');
     if (!(await confirmAction({
       title: 'Submit requisition',
@@ -122,7 +149,7 @@ export default function PartsReqMonitoring() {
         },
         body: JSON.stringify({
           aircraft: values.aircraft,
-          items,
+          items: items.map(({ particular, quantity, unitOfMeasure, purpose }) => ({ particular, quantity, unitOfMeasure, purpose })),
           confirmAction: true
         })
       });
@@ -131,7 +158,10 @@ export default function PartsReqMonitoring() {
       setRecords(records => [data, ...records]);
       setEntry(false);
       form.resetFields();
-      setItems([emptyItem()]);
+      setItems([]);
+      resetItemEntry();
+      setShowItemHelp(false);
+      setItemPage(1);
       message.success('Requisition submitted');
     } catch (error) {
       message.error(error.message);
@@ -148,57 +178,68 @@ export default function PartsReqMonitoring() {
   return <div style={{
     padding: 24
   }}>
-    <Space style={{
-      width: '100%',
-      justifyContent: 'space-between'
-    }} wrap><Typography.Title level={3}>Parts Requisition</Typography.Title>{canCreate(user) && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEntry(true)}>New requisition</Button>}</Space>
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
+      <Input prefix={<SearchOutlined />} placeholder="Search by WRS no., aircraft, status, or requester" value={search} onChange={event => setSearch(event.target.value)} style={{ flex: '1 1 300px', maxWidth: 520 }} />
+      {screens.md && <Select aria-label="Requisition date sorting" value={dateSort} onChange={setDateSort} style={{ flex: '1 1 220px', maxWidth: 380 }} options={[{ value: 'updated', label: 'Last updated: Newest First' }, { value: 'newest', label: 'Date: Newest First' }, { value: 'oldest', label: 'Date: Oldest First' }]} />}
+      {canCreate(user) && <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={() => setEntry(true)}>Add Requisition</Button>}
+    </div>
     {error && <Alert type="error" showIcon message={error} action={<Button onClick={load}>Retry</Button>} />}
-    <Input.Search placeholder="Search requisitions" value={search} onChange={event => setSearch(event.target.value)} style={{
-      maxWidth: 420,
-      marginBottom: 16
-    }} />
-    <Tabs activeKey={tab} onChange={setTab} items={[{
-      key: 'active',
-      label: oversight ? 'Oversight · Active requisitions' : 'Active requisitions'
-    }, {
-      key: 'history',
-      label: 'History · Closed / Cancelled'
-    }]} />
-    <RequisitionList records={filtered} loading={loading} onOpen={record => setSelectedId(record._id)} oversight={oversight} canFollowUp={followUpTarget} onFollowUp={record => action(record, 'follow-up')} busy={busy} />
+    <Space wrap style={{ marginBottom: 20 }}>
+      {[['active', oversight ? 'Oversight · Active' : 'Active requisitions', <InboxOutlined key="active" />], ['history', 'History · Closed / Cancelled', <CheckCircleOutlined key="history" />]].map(([key, label, icon]) => <Button key={key} icon={icon} type={tab === key ? 'primary' : 'default'} onClick={() => setTab(key)}>{label} ({records.filter(record => (oversight || roleOf(user) === 'warehouse personnel' || isRequisitionOwner(user, record)) && (key === 'history' ? ['Closed', 'Cancelled'].includes(displayStatus(record)) : !['Closed', 'Cancelled'].includes(displayStatus(record)))).length})</Button>)}
+    </Space>
+    <div style={{ textAlign: 'right', marginBottom: 12 }}><Typography.Text type="secondary">Showing {filtered.length} requisition(s)</Typography.Text></div>
+    <RequisitionList dateSort={dateSort} records={filtered} loading={loading} onOpen={record => setSelectedId(record._id)} oversight={oversight} canFollowUp={followUpTarget} onFollowUp={record => action(record, 'follow-up')} busy={busy} />
     <WRSModal record={records.find(record => record._id === selectedId)} user={user} open={!!selectedId} onClose={() => setSelectedId(null)} onAction={action} busy={busy} />
     <Modal title="New parts requisition" open={entry} onCancel={() => !busy && setEntry(false)} footer={null} width={850}>
       <Form form={form} layout="vertical" onFinish={create}>
         <Form.Item label="Aircraft" name="aircraft" rules={[{
           required: true
         }]}><Select showSearch options={aircraft} placeholder="Select aircraft" /></Form.Item>
-        {items.map((item, index) => <div key={index} style={{
-          border: '1px solid #f0f0f0',
-          padding: 16,
-          marginBottom: 12,
-          borderRadius: 8
-        }}>
-          <Space style={{
-            width: '100%',
-            justifyContent: 'space-between'
-          }}><Typography.Text strong>Item {index + 1}</Typography.Text><Button aria-label={`Remove item ${index + 1}`} icon={<DeleteOutlined />} disabled={items.length === 1} onClick={() => setItems(items.filter((_, i) => i !== index))} /></Space>
-          <Form.Item label="Part name" required><PartNameInput value={item.particular} onChange={value => setItems(current => current.map((item, i) => i === index ? {
-              ...item,
-              particular: value
-            } : item))} onSelectUnit={unit => setItems(current => current.map((item, i) => i === index ? { ...item, unitOfMeasure: unit } : item))} /></Form.Item>
-          <Space wrap><InputNumber aria-label="Quantity" min={1} value={item.quantity} onChange={value => setItems(items.map((item, i) => i === index ? {
-              ...item,
-              quantity: value
-            } : item))} /><Select aria-label="Unit" value={item.unitOfMeasure} options={['PC', 'SET', 'ST', 'UNT'].map(value => ({
-              value
-            }))} onChange={value => setItems(items.map((item, i) => i === index ? {
-              ...item,
-              unitOfMeasure: value
-            } : item))} /><Input placeholder="Purpose" value={item.purpose} onChange={event => setItems(items.map((item, i) => i === index ? {
-              ...item,
-              purpose: event.target.value
-            } : item))} /></Space>
-        </div>)}
-        <Space><Button onClick={() => setItems([...items, emptyItem()])}>Add item</Button><Button type="primary" htmlType="submit" loading={busy}>Submit requisition</Button></Space>
+        <div style={{ padding: 16, marginBottom: 20, border: '1px solid #d9d9d9', borderRadius: 6, background: '#fafafa' }}>
+          <Typography.Text strong>{editingItemKey !== null ? 'Edit Item' : 'Add Item'}</Typography.Text>
+          <Row gutter={[12, 12]} align="bottom" style={{ marginTop: 12 }}>
+            <Col xs={24} md={8}>
+              <Typography.Text>Particular</Typography.Text>
+              <PartNameInput value={itemEntry.particular} onChange={particular => setItemEntry(current => ({ ...current, particular }))} onSelectUnit={unitOfMeasure => setItemEntry(current => ({ ...current, unitOfMeasure }))} />
+            </Col>
+            <Col xs={8} md={3}>
+              <Typography.Text>Quantity</Typography.Text>
+              <InputNumber aria-label="Quantity" min={1} value={itemEntry.quantity} onChange={quantity => setItemEntry(current => ({ ...current, quantity }))} style={{ width: '100%' }} />
+            </Col>
+            <Col xs={8} md={3}>
+              <Typography.Text>Unit</Typography.Text>
+              <Select aria-label="Unit" value={itemEntry.unitOfMeasure} options={['PC', 'SET', 'ST', 'UNT'].map(value => ({ value }))} onChange={unitOfMeasure => setItemEntry(current => ({ ...current, unitOfMeasure }))} style={{ width: '100%' }} />
+            </Col>
+            <Col xs={24} md={6}>
+              <Typography.Text>Purpose</Typography.Text>
+              <Input aria-label="Purpose" placeholder="Optional" value={itemEntry.purpose} onChange={event => setItemEntry(current => ({ ...current, purpose: event.target.value }))} />
+            </Col>
+            <Col xs={24} md={4}>
+              <Space wrap>
+                <Button type="primary" onClick={saveItem} disabled={busy}>{editingItemKey !== null ? 'Update' : 'Add'}</Button>
+                {editingItemKey !== null && <Button type="link" onClick={resetItemEntry} disabled={busy}>Cancel</Button>}
+              </Space>
+            </Col>
+          </Row>
+        </div>
+        <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Space><Typography.Text strong>Requisition Items</Typography.Text><Button type="text" size="small" icon={<QuestionCircleOutlined />} aria-label="Show requisition item help" aria-expanded={showItemHelp} onClick={() => setShowItemHelp(value => !value)} /></Space>
+          <Typography.Text type="secondary">{items.length} item{items.length !== 1 ? 's' : ''}</Typography.Text>
+        </Space>
+        {showItemHelp && <Alert showIcon type={editingItemKey !== null ? 'warning' : 'info'} message={editingItemKey !== null ? 'Editing selected item' : 'Need to update an added item?'} description={editingItemKey !== null ? 'The highlighted row is loaded above. Click Update to save your changes, or Cancel to keep it unchanged.' : 'Click an item row to load it into the form above, then click Update to save your changes.'} style={{ marginBottom: 12 }} />}
+        <Table bordered size="small" rowKey="key" dataSource={items} scroll={{ x: 700 }}
+          onRow={item => ({ onClick: () => { if (!busy) { setItemEntry({ particular: item.particular, quantity: item.quantity, unitOfMeasure: item.unitOfMeasure, purpose: item.purpose }); setEditingItemKey(item.key); } }, style: { cursor: 'pointer', background: editingItemKey === item.key ? '#e6f4ff' : undefined } })}
+          pagination={items.length > 5 ? { current: itemPage, onChange: setItemPage, pageSize: 5, showSizeChanger: false, size: 'small' } : false}
+          columns={[
+            { title: '#', width: 50, render: (_, record) => items.findIndex(item => item.key === record.key) + 1 },
+            { title: 'Particular', dataIndex: 'particular', width: 240 },
+            { title: 'Quantity', dataIndex: 'quantity', width: 90 },
+            { title: 'Unit', dataIndex: 'unitOfMeasure', width: 80 },
+            { title: 'Purpose', dataIndex: 'purpose', width: 180, render: value => value || '—' },
+            { title: 'Action', width: 70, fixed: 'right', render: (_, item) => <Button danger type="text" disabled={busy} icon={<DeleteOutlined />} aria-label={`Delete ${item.particular}`} onClick={event => { event.stopPropagation(); removeItem(item.key); }} /> }
+          ].map(column => ({ ...column, onCell: item => ({ style: { background: editingItemKey === item.key ? '#e6f4ff' : undefined } }) }))}
+          locale={{ emptyText: 'No items added yet.' }} />
+        <Button type="primary" htmlType="submit" loading={busy} style={{ marginTop: 16 }}>Submit requisition</Button>
       </Form>
     </Modal>
   </div>;
