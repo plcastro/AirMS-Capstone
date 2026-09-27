@@ -882,6 +882,15 @@ export default function PostInspection() {
         )}
       </Modal>
 
+      {!!editing?.flightLogId && (
+        <FlightWorkspace
+          id={String(editing.flightLogId?._id || editing.flightLogId)}
+          open
+          initialSection="post"
+          onClose={() => setEditing(null)}
+          onChanged={load}
+        />
+      )}
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title="Complete Post-Flight Inspection"
