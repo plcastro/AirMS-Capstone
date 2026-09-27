@@ -1,4 +1,5 @@
 // controllers/partsMonitoringController.js
+const { PRIORITY_RANKS, inspectionIdentity, effectivePriority, staleOverrideUpdate } = require("../utils/maintenancePriorityOverride");
 const PartsMonitoring = require("../models/partsMonitoringModel");
 const InspectionSchedule = require("../models/inspectionScheduleModel");
 const InspectionTask = require("../models/inspectionTaskModel");
@@ -28,12 +29,6 @@ const DEFAULT_PRIORITY_RULES = {
   highRemainingHours: 24,
   mediumDueDays: 14,
   longTurnaroundHours: 5,
-};
-const PRIORITY_RANKS = {
-  Critical: 1,
-  High: 2,
-  Medium: 3,
-  Low: 4,
 };
 const DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT = {
   "RP-C7226": {
@@ -1266,6 +1261,85 @@ exports.getAllPartsMonitoring = async (req, res) => {
   }
 };
 
+const buildPrioritySchedules = (inspectionSchedules) => {
+  const schedulesByModel = new Map();
+  inspectionSchedules.forEach((schedule) => {
+    if (!isRelevantInspectionSchedule(schedule)) {
+      return;
+    }
+
+    const aircraftModel = normalizeAircraftModel(schedule.aircraftModel);
+    const inspectionKey = deriveInspectionKeyForSchedule(schedule);
+
+    if (!inspectionKey) {
+      return;
+    }
+
+    if (!schedulesByModel.has(aircraftModel)) {
+      schedulesByModel.set(aircraftModel, new Map());
+    }
+
+    schedulesByModel.get(aircraftModel).set(inspectionKey, schedule);
+  });
+
+  return schedulesByModel;
+};
+
+const selectPriorityInspections = (record, schedulesByModel) => {
+  const normalizedReferenceData = normalizeB412ReferenceData(
+    record?.referenceData,
+    record?.aircraftType,
+  );
+  const refs = {
+    ...normalizedReferenceData,
+    aircraftType: record?.aircraftType || "",
+    today: getToday(),
+    acftTT: parseNumber(normalizedReferenceData.acftTT) || 0,
+    engTT:
+      parseNumber(normalizedReferenceData.engTT) ??
+      parseNumber(normalizedReferenceData.acftTT) ??
+      0,
+    n1Cycles: parseNumber(normalizedReferenceData.n1Cycles) || 0,
+    n2Cycles: parseNumber(normalizedReferenceData.n2Cycles) || 0,
+    landings: parseNumber(normalizedReferenceData.landings) || 0,
+    referenceCells:
+      normalizedReferenceData.referenceCells ||
+      DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
+      {},
+  };
+
+  const computedParts = processDataWithFormulas(record.parts || [], refs);
+  const aircraftModel = resolveAircraftModelForRecord(
+    record,
+    computedParts,
+    schedulesByModel,
+  );
+  const scheduleMap = schedulesByModel.get(aircraftModel);
+
+  const candidateInspections = computedParts
+    .filter((part) => part.rowType !== "header")
+    .map((part) => {
+      const inspectionKey = deriveInspectionKeyForPart(part);
+      if (!inspectionKey || !scheduleMap?.has(inspectionKey)) {
+        return null;
+      }
+
+      const schedule = scheduleMap.get(inspectionKey);
+      const urgency = computeUrgencyMetrics(part, refs.today);
+
+      return {
+        inspectionKey,
+        schedule,
+        part,
+        ...urgency,
+      };
+    })
+    .filter(Boolean)
+    .sort(compareInspectionUrgency);
+
+  return { aircraftModel, scheduleMap, computedParts, candidateInspections };
+};
+
 exports.getMaintenancePriority = async (req, res) => {
   try {
     const debugMode = String(req.query.debug || "") === "1";
@@ -1279,25 +1353,7 @@ exports.getMaintenancePriority = async (req, res) => {
         TaskModel.find({ maintenanceType: "Inspection" }).sort({ createdAt: -1 }),
       ]);
 
-    const schedulesByModel = new Map();
-    inspectionSchedules.forEach((schedule) => {
-      if (!isRelevantInspectionSchedule(schedule)) {
-        return;
-      }
-
-      const aircraftModel = normalizeAircraftModel(schedule.aircraftModel);
-      const inspectionKey = deriveInspectionKeyForSchedule(schedule);
-
-      if (!inspectionKey) {
-        return;
-      }
-
-      if (!schedulesByModel.has(aircraftModel)) {
-        schedulesByModel.set(aircraftModel, new Map());
-      }
-
-      schedulesByModel.get(aircraftModel).set(inspectionKey, schedule);
-    });
+    const schedulesByModel = buildPrioritySchedules(inspectionSchedules);
 
     const inspectionTasksByModel = new Map();
     inspectionTasks.forEach((task) => {
@@ -1343,40 +1399,14 @@ exports.getMaintenancePriority = async (req, res) => {
     });
 
     const debugRecords = [];
+    const expiredOverrides = [];
 
     const rankings = partsMonitoringRecords
       .map((record) => {
-        const normalizedReferenceData = normalizeB412ReferenceData(
-          record?.referenceData,
-          record?.aircraftType,
-        );
-        const refs = {
-          ...normalizedReferenceData,
-          aircraftType: record?.aircraftType || "",
-          today: getToday(),
-          acftTT: parseNumber(normalizedReferenceData.acftTT) || 0,
-          engTT:
-            parseNumber(normalizedReferenceData.engTT) ??
-            parseNumber(normalizedReferenceData.acftTT) ??
-            0,
-          n1Cycles: parseNumber(normalizedReferenceData.n1Cycles) || 0,
-          n2Cycles: parseNumber(normalizedReferenceData.n2Cycles) || 0,
-          landings: parseNumber(normalizedReferenceData.landings) || 0,
-          referenceCells:
-            normalizedReferenceData.referenceCells ||
-            DEFAULT_REFERENCE_CELLS_BY_AIRCRAFT[record.aircraft] ||
-            {},
-        };
-
-        const computedParts = processDataWithFormulas(record.parts || [], refs);
-        const aircraftModel = resolveAircraftModelForRecord(
-          record,
-          computedParts,
-          schedulesByModel,
-        );
-        const scheduleMap = schedulesByModel.get(aircraftModel);
+        const { aircraftModel, scheduleMap, computedParts, candidateInspections } = selectPriorityInspections(record, schedulesByModel);
 
         if (!scheduleMap || scheduleMap.size === 0) {
+          if (record.manualPriorityOverride) expiredOverrides.push(staleOverrideUpdate(record));
           if (debugMode) {
             debugRecords.push({
               aircraft: record.aircraft,
@@ -1397,26 +1427,6 @@ exports.getMaintenancePriority = async (req, res) => {
           return null;
         }
 
-        const candidateInspections = computedParts
-          .filter((part) => part.rowType !== "header")
-          .map((part) => {
-            const inspectionKey = deriveInspectionKeyForPart(part);
-            if (!inspectionKey || !scheduleMap.has(inspectionKey)) {
-              return null;
-            }
-
-            const schedule = scheduleMap.get(inspectionKey);
-            const urgency = computeUrgencyMetrics(part, refs.today);
-
-            return {
-              inspectionKey,
-              schedule,
-              part,
-              ...urgency,
-            };
-          })
-          .filter(Boolean)
-          .sort(compareInspectionUrgency);
 
         if (debugMode) {
           debugRecords.push({
@@ -1457,6 +1467,7 @@ exports.getMaintenancePriority = async (req, res) => {
         }
 
         if (candidateInspections.length === 0) {
+          if (record.manualPriorityOverride) expiredOverrides.push(staleOverrideUpdate(record));
           return null;
         }
 
@@ -1489,6 +1500,9 @@ exports.getMaintenancePriority = async (req, res) => {
           priorityRules,
         );
 
+        const effective = effectivePriority(record, nextInspection, priorityEvaluation);
+        if (effective.stale) expiredOverrides.push(staleOverrideUpdate(record));
+
         return {
           aircraft: record.aircraft,
           aircraftModel,
@@ -1503,8 +1517,12 @@ exports.getMaintenancePriority = async (req, res) => {
           estimatedTurnaroundHours,
           checklistItemCount: inspectionTaskGroup.length,
           urgencyRatio: roundNumber(nextInspection.urgencyRatio, 4),
-          priorityLevel: priorityEvaluation.priorityLevel,
-          priorityRank: priorityEvaluation.priorityRank,
+          priorityLevel: effective.priorityLevel,
+          priorityRank: effective.priorityRank,
+          autoPriorityLevel: effective.autoPriorityLevel,
+          autoPriorityRank: effective.autoPriorityRank,
+          manualPriorityOverride: effective.manualPriorityOverride,
+          inspectionId: effective.inspectionId,
           priorityReason: buildPriorityReason(
             nextInspection,
             estimatedTurnaroundHours,
@@ -1516,6 +1534,8 @@ exports.getMaintenancePriority = async (req, res) => {
         };
       })
       .filter(Boolean);
+
+    if (expiredOverrides.length) await PartsMonitoring.bulkWrite(expiredOverrides);
 
     rankings.sort((left, right) => {
       if (left.priorityRank !== right.priorityRank) {
@@ -1896,7 +1916,45 @@ const exportPartsMonitoringExcel = async (req, res) => {
     });
   }
 };
+exports.saveMaintenancePriorityOverride = async (req, res) => {
+  try {
+    const { level, reason } = req.body || {};
+    if (!["Auto", ...Object.keys(PRIORITY_RANKS)].includes(level) ||
+        (reason !== undefined && typeof reason !== "string")) {
+      return res.status(400).json({ success: false, message: "Choose a valid priority and use text for the optional reason." });
+    }
+    const aircraft = normalizeAircraftName(req.params.aircraft);
+    if (!aircraft) return res.status(400).json({ success: false, message: "Aircraft is required." });
+    const escaped = aircraft.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const record = await PartsMonitoring.findOne({ aircraft: new RegExp("^" + escaped + "$", "i") });
+    if (!record) return res.status(404).json({ success: false, message: "Aircraft monitoring record not found." });
+    let override = null;
+    if (level !== "Auto") {
+      const schedules = await InspectionSchedule.find({}).sort({ inspectionName: 1, aircraftModel: 1 });
+      const { candidateInspections } = selectPriorityInspections(record, buildPrioritySchedules(schedules));
+      const inspectionId = inspectionIdentity(record, candidateInspections[0]);
+      if (!inspectionId) return res.status(409).json({ success: false, message: "No next-due inspection is available for this aircraft." });
+      override = {
+        level, reason: (reason || "").trim(), setBy: String(req.user.id || req.user._id),
+        setAt: new Date(), appliesToInspectionId: inspectionId,
+      };
+    }
+    const updated = await PartsMonitoring.findOneAndUpdate(
+      { _id: record._id, lastUpdated: record.lastUpdated },
+      override ? { $set: { manualPriorityOverride: override } } : { $unset: { manualPriorityOverride: "" } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) return res.status(409).json({ success: false, message: "The inspection data changed. Refresh and try again." });
+    publishPartsMonitoringChanged(record.aircraft, "priority-override");
+    return res.status(200).json({ success: true, data: override });
+  } catch (error) {
+    console.error("Priority override save failed:", error);
+    return res.status(500).json({ success: false, message: "Failed to save maintenance priority override." });
+  }
+};
+
 module.exports = {
+  saveMaintenancePriorityOverride: exports.saveMaintenancePriorityOverride,
   getMaintenancePriorityRules: exports.getMaintenancePriorityRules,
   getMaintenancePriority: exports.getMaintenancePriority,
   getInspectionRemainingHours: exports.getInspectionRemainingHours,

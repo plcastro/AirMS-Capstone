@@ -4,7 +4,10 @@ const UserModel = require("../models/userModel");
 const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const { SESSION_IDLE_LIMIT_MS, sessionActivityAt } = require('../utils/sessionIdle');
+const {
+  SESSION_IDLE_LIMIT_MS,
+  sessionActivityAt,
+} = require("../utils/sessionIdle");
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -34,14 +37,21 @@ const verifyToken = async (req, res, next) => {
     }
 
     const now = Date.now();
-    const platform = req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
-    const activityAt = sessionActivityAt(session, req.headers["x-client-active-at"], now);
+    const platform =
+      req.headers["x-platform"] || decoded?.platform || "UNKNOWN";
+    const activityAt = sessionActivityAt(
+      session,
+      req.headers["x-client-active-at"],
+      now,
+    );
     if (now - activityAt >= SESSION_IDLE_LIMIT_MS) {
       await UserSession.findOneAndUpdate(
         { userId, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(now) },
       );
-      return res.status(401).json({ message: "Session timed out due to inactivity" });
+      return res
+        .status(401)
+        .json({ message: "Session timed out due to inactivity" });
     }
     req.sessionActivityAt = activityAt;
     await UserSession.findOneAndUpdate(
@@ -50,7 +60,9 @@ const verifyToken = async (req, res, next) => {
     );
 
     const user = await UserModel.findById(userId)
-      .select("username email firstName lastName jobTitle access licenseNo status")
+      .select(
+        "username email firstName lastName jobTitle access licenseNo status",
+      )
       .lean();
 
     if (!user) {
@@ -83,7 +95,8 @@ const verifyToken = async (req, res, next) => {
       sessionId,
       platform,
       base: req.headers["x-base"] || decoded.base,
-      devicePlatform: req.headers["x-device-platform"] || session.devicePlatform,
+      devicePlatform:
+        req.headers["x-device-platform"] || session.devicePlatform,
       deviceModel: req.headers["x-device-model"] || session.deviceModel,
       locationText: req.headers["x-location-text"] || session.locationText,
       locationLatitude:

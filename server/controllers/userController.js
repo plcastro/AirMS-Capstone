@@ -61,7 +61,10 @@ const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years;
 const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const { SESSION_IDLE_LIMIT_MS, sessionActivityAt } = require('../utils/sessionIdle');
+const {
+  SESSION_IDLE_LIMIT_MS,
+  sessionActivityAt,
+} = require("../utils/sessionIdle");
 const ROLES_REQUIRING_LICENSE = new Set([
   "maintenance manager",
   "pilot",
@@ -1096,13 +1099,19 @@ const refreshToken = async (req, res) => {
       req.headers["x-platform"] || activeSession.platform || payload.platform,
     );
     const now = Date.now();
-    const activityAt = sessionActivityAt(activeSession, req.headers["x-client-active-at"], now);
+    const activityAt = sessionActivityAt(
+      activeSession,
+      req.headers["x-client-active-at"],
+      now,
+    );
     if (now - activityAt >= SESSION_IDLE_LIMIT_MS) {
       await UserSession.findOneAndUpdate(
         { userId: user._id, sessionId, isActive: true },
         { isActive: false, logoutAt: new Date(now) },
       );
-      return res.status(401).json({ message: "Session timed out due to inactivity" });
+      return res
+        .status(401)
+        .json({ message: "Session timed out due to inactivity" });
     }
     await UserSession.findOneAndUpdate(
       { userId: user._id, sessionId, isActive: true },
@@ -1152,6 +1161,7 @@ const refreshToken = async (req, res) => {
     res.json({
       token: newAccessToken,
       refreshToken: isMobileClient ? newRefreshToken : undefined,
+      user: buildClientUserProfile(user),
     });
   } catch {
     res.clearCookie("refreshToken", {

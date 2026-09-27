@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, Progress, Tag, Typography } from "antd";
+import { Button, Card, Progress, Space, Tag, Typography } from "antd";
 
 const { Text, Title } = Typography;
 
@@ -43,13 +43,26 @@ const getProgress = (task) => {
   return Math.round((done / items.length) * 100);
 };
 
-export default function TaskCard({ task, onOpen, highlighted = false }) {
+export default function TaskCard({
+  task,
+  onOpen,
+  onApprove,
+  onReturn,
+  isManager = false,
+  showReviewActions = false,
+  highlighted = false,
+}) {
   const statusMeta = getStatusMeta(task.status);
   const progress = getProgress(task);
   const deadline = task.endDateTime || task.dueDate;
   const showProgress = ["ongoing", "returned"].includes(
     normalizeStatus(task.status),
   );
+  const canReview =
+    isManager &&
+    showReviewActions &&
+    !task.isApproved &&
+    ["turned in", "completed"].includes(normalizeStatus(task.status));
 
   return (
     <Card
@@ -129,6 +142,19 @@ export default function TaskCard({ task, onOpen, highlighted = false }) {
           </div>
           <Progress percent={progress} showInfo={false} strokeColor="#26866F" />
         </div>
+      )}
+      {canReview && (
+        <Space
+          style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Button danger onClick={() => onReturn?.(task)}>
+            Return
+          </Button>
+          <Button type="primary" onClick={() => onApprove?.(task)}>
+            Approve
+          </Button>
+        </Space>
       )}
     </Card>
   );

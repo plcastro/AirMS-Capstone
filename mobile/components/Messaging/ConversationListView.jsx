@@ -1,6 +1,6 @@
 import React from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -60,38 +60,17 @@ export default function ConversationListView({
         />
       </View>
 
-      <ScrollView
+      <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-      >
-        {conversationItems.length === 0 ? (
-          <View
-            style={{
-              alignItems: "center",
-              marginTop: 56,
-              paddingHorizontal: 32,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="message-text-outline"
-              size={42}
-              color="#B7C6C2"
-            />
-            <AppText
-              style={{
-                marginTop: 10,
-                fontSize: 14,
-                color: COLORS.grayDark,
-                textAlign: "center",
-              }}
-            >
-              No conversations
-            </AppText>
-          </View>
-        ) : (
-          conversationItems.map((item) => {
+        data={conversationItems}
+        keyExtractor={(item, index) => String(item.type + ":" + item.id)}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        renderItem={({ item: item }) => {
             const unreadCount = item.unreadCount || 0;
             const hasUnread = unreadCount > 0;
             const preview = getConversationPreview(item);
@@ -193,9 +172,31 @@ export default function ConversationListView({
                 </View>
               </TouchableOpacity>
             );
-          })
-        )}
-      </ScrollView>
+          }}
+        ListEmptyComponent={<View
+            style={{
+              alignItems: "center",
+              marginTop: 56,
+              paddingHorizontal: 32,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="message-text-outline"
+              size={42}
+              color="#B7C6C2"
+            />
+            <AppText
+              style={{
+                marginTop: 10,
+                fontSize: 14,
+                color: COLORS.grayDark,
+                textAlign: "center",
+              }}
+            >
+              No conversations
+            </AppText>
+          </View>}
+      />
       <TouchableOpacity
         onPress={() => setGroupModalOpen(true)}
         activeOpacity={0.85}

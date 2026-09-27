@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
-import {
+import { FlatList,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -193,7 +193,8 @@ export default function MaintenanceLog() {
     filteredEntries.forEach((entry) => {
       if (!entry.aircraft) return;
       const current = map.get(entry.aircraft) || [];
-      map.set(entry.aircraft, [...current, entry]);
+      current.push(entry);
+      map.set(entry.aircraft, current);
     });
     return Array.from(map.entries()).map(([aircraft, rows]) => ({
       aircraft,
@@ -201,6 +202,14 @@ export default function MaintenanceLog() {
       sample: rows[0],
     }));
   }, [filteredEntries]);
+
+  const groupsWithNewCounts = useMemo(() => aircraftGroups.map((group) => ({
+    ...group,
+    newCount: group.rows.filter((entry) => {
+      const id = getLogStableId(entry);
+      return id && !seenLogIds.has(id);
+    }).length,
+  })), [aircraftGroups, seenLogIds]);
 
   const selectedBaseLabel =
     (isMechanic ? userBase : selectedBase) === "all"
@@ -319,7 +328,7 @@ export default function MaintenanceLog() {
 
   if (selectedAircraft) {
     return (
-      <ModuleContainer>
+      <ModuleContainer scrollable={false}>
         <TouchableOpacity
           style={[moduleStyles.row, { marginBottom: 10 }]}
           onPress={() => setSelectedAircraft(null)}
@@ -341,8 +350,16 @@ export default function MaintenanceLog() {
         </InfoCard>
 
         <SectionTitle title="Work Orders" />
-        {selectedAircraft.rows.map((entry) => (
-          <InfoCard
+        {<FlatList
+           style={{ flex: 1 }}
+           contentContainerStyle={{ paddingBottom: 110 }}
+           keyboardShouldPersistTaps="handled"
+           data={selectedAircraft.rows}
+           keyExtractor={(item, index) => String(item._id || item.id || index)}
+           initialNumToRender={12}
+           maxToRenderPerBatch={8}
+           windowSize={7}
+           renderItem={({ item: entry }) => (<InfoCard
             key={entry._id || entry.id}
             title={entry.sourceTaskId || entry.id}
             subtitle={entry.taskTitle || "Untitled task"}
@@ -357,14 +374,14 @@ export default function MaintenanceLog() {
               <FieldRow label="Base" value={entry.base} />
               <StatusField label="Status" value={entry.status} />
             </View>
-          </InfoCard>
-        ))}
+          </InfoCard>)}
+         />}
       </ModuleContainer>
     );
   }
 
   return (
-    <ModuleContainer>
+    <ModuleContainer scrollable={false}>
       <SearchBar
         value={search}
         onChangeText={setSearch}
@@ -415,12 +432,17 @@ export default function MaintenanceLog() {
       {!loading && aircraftGroups.length === 0 && (
         <EmptyState text="No maintenance logs found yet." />
       )}
-      {aircraftGroups.map((group) => (
-        (() => {
-          const newCount = group.rows.filter((entry) => {
-            const stableId = getLogStableId(entry);
-            return stableId && !seenLogIds.has(stableId);
-          }).length;
+      {<FlatList
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={groupsWithNewCounts}
+         keyExtractor={(item, index) => String(item.aircraft)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         renderItem={({ item: group }) => ((() => {
+          const newCount = group.newCount;
 
           return (
             <InfoCard
@@ -448,8 +470,8 @@ export default function MaintenanceLog() {
               </View>
             </InfoCard>
           );
-        })()
-      ))}
+        })())}
+       />}
     </ModuleContainer>
   );
 }

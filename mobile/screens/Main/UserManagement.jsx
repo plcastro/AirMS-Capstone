@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import AppText from "../../components/common/AppText";
-import {
+import { FlatList,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
@@ -569,7 +569,7 @@ export default function UserManagement() {
         })}
       </View>
 
-      <ScrollView
+      <FlatList
         style={ui.userList}
         contentContainerStyle={ui.listContent}
         refreshControl={
@@ -578,21 +578,12 @@ export default function UserManagement() {
             onRefresh={() => fetchUsers({ silent: true })}
           />
         }
-      >
-        {filteredUsers.length === 0 ? (
-          <View style={ui.emptyState}>
-            <MaterialCommunityIcons
-              name="account-search-outline"
-              size={60}
-              color={COLORS.grayMedium}
-            />
-            <AppText style={{ color: COLORS.grayDark }}>
-              No users matched your criteria
-            </AppText>
-          </View>
-        ) : (
-          filteredUsers.map((item) => (
-            <UserCard
+        data={filteredUsers}
+        keyExtractor={(item, index) => String(item._id || item.id || index)}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        renderItem={({ item: item }) => (<UserCard
               key={String(item._id)}
               item={item}
               isCurrentUser={String(item._id) === String(currentUserId)}
@@ -605,10 +596,18 @@ export default function UserManagement() {
               inviteActionLoading={Boolean(
                 inviteActionLoadingByUser[String(item._id)],
               )}
+            />)}
+        ListEmptyComponent={<View style={ui.emptyState}>
+            <MaterialCommunityIcons
+              name="account-search-outline"
+              size={60}
+              color={COLORS.grayMedium}
             />
-          ))
-        )}
-      </ScrollView>
+            <AppText style={{ color: COLORS.grayDark }}>
+              No users matched your criteria
+            </AppText>
+          </View>}
+      />
 
       <UserFormModal
         visible={formVisible}

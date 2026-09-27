@@ -21,7 +21,10 @@ import { subscribeRealtime } from "../../utils/realtimeSocket";
 import { debounce } from "../../utils/debounce";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
-import { hasNavAccess } from "../../../../shared/navigationAccess";
+import {
+  hasNavAccess,
+  resolveUserRole,
+} from "../../../../shared/navigationAccess";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 const PushNotificationsCard = lazy(
@@ -43,6 +46,8 @@ const MODULE_NAMES = {
 const AIRCRAFT_FH_WARNING_SEEN_KEY = "aircraftFhDueWarningSeen";
 const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
 const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
+const getUserScopedStorageKey = (baseKey, userId) =>
+  userId ? `${baseKey}:${userId}` : baseKey;
 
 const getAircraftFhDueSettings = () => {
   try {
@@ -70,10 +75,12 @@ const areBrowserNotificationsEnabled = () => {
 
 const getLocalDateKey = () => new Date().toISOString().slice(0, 10);
 
-const loadAircraftFhNotifications = () => {
+const loadAircraftFhNotifications = (userId) => {
   try {
     const stored = JSON.parse(
-      localStorage.getItem(AIRCRAFT_FH_NOTIFICATIONS_KEY) || "[]",
+      localStorage.getItem(
+        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+      ) || "[]",
     );
     return Array.isArray(stored) ? stored : [];
   } catch {
@@ -81,16 +88,16 @@ const loadAircraftFhNotifications = () => {
   }
 };
 
-const saveAircraftFhNotifications = (notifications) => {
+const saveAircraftFhNotifications = (notifications, userId) => {
   localStorage.setItem(
-    AIRCRAFT_FH_NOTIFICATIONS_KEY,
+    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
     JSON.stringify(notifications.slice(0, 50)),
   );
   window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
 };
 
-const getAircraftFhUnreadCount = () =>
-  loadAircraftFhNotifications().filter((item) => !item.read).length;
+const getAircraftFhUnreadCount = (userId) =>
+  loadAircraftFhNotifications(userId).filter((item) => !item.read).length;
 
 const DashboardLayout = () => {
   const [api, contextHolder] = notification.useNotification();
@@ -109,9 +116,7 @@ const DashboardLayout = () => {
   const serverUnreadCountRef = useRef(0);
   const initialSyncDoneRef = useRef(false);
   const { user, getAuthHeader } = useContext(AuthContext);
-  const userRole = String(user?.jobTitle || user?.access || "")
-    .trim()
-    .toLowerCase();
+  const userRole = resolveUserRole(user);
   const canReceiveAircraftFhDueAlerts =
     hasNavAccess(userRole, "partsLifespan") &&
     hasNavAccess(userRole, "maintenanceTracking");
@@ -221,7 +226,9 @@ const DashboardLayout = () => {
     const loadSeenAircraftFhWarnings = () => {
       try {
         const stored = JSON.parse(
-          localStorage.getItem(AIRCRAFT_FH_WARNING_SEEN_KEY) || "[]",
+          localStorage.getItem(
+            getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
+          ) || "[]",
         );
         seenAircraftFhWarningsRef.current = new Set(
           Array.isArray(stored) ? stored.map(String) : [],
@@ -234,7 +241,7 @@ const DashboardLayout = () => {
     const saveSeenAircraftFhWarnings = () => {
       try {
         localStorage.setItem(
-          AIRCRAFT_FH_WARNING_SEEN_KEY,
+          getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
           JSON.stringify(Array.from(seenAircraftFhWarningsRef.current)),
         );
       } catch {
@@ -244,11 +251,14 @@ const DashboardLayout = () => {
 
     const syncUnreadBadge = (serverUnread = serverUnreadCountRef.current) => {
       serverUnreadCountRef.current = serverUnread;
-      setUnreadCount(serverUnread + getAircraftFhUnreadCount());
+      const aircraftFhUnread = canReceiveAircraftFhDueAlerts
+        ? getAircraftFhUnreadCount(user?.id)
+        : 0;
+      setUnreadCount(serverUnread + aircraftFhUnread);
     };
 
     const addAircraftFhBellNotification = (notification) => {
-      const currentNotifications = loadAircraftFhNotifications();
+      const currentNotifications = loadAircraftFhNotifications(user?.id);
       const existingIndex = currentNotifications.findIndex(
         (item) => item._id === notification._id,
       );
@@ -259,7 +269,7 @@ const DashboardLayout = () => {
             )
           : [notification, ...currentNotifications];
 
-      saveAircraftFhNotifications(nextNotifications);
+      saveAircraftFhNotifications(nextNotifications, user?.id);
       syncUnreadBadge();
     };
 
@@ -585,7 +595,7 @@ const DashboardLayout = () => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 6,
               }}
             >
               <Button
@@ -594,8 +604,8 @@ const DashboardLayout = () => {
                 onClick={() => setCollapsed(!collapsed)}
                 style={{
                   fontSize: 16,
-                  width: 46,
-                  height: 46,
+                  width: screens.xs ? 40 : 42,
+                  height: screens.xs ? 40 : 42,
                 }}
               />
               <span
@@ -609,11 +619,11 @@ const DashboardLayout = () => {
                 {pageTitle}
               </span>
             </div>
-            <Row align="middle" gutter={16}>
-              <Badge count={unreadCount} size="small" offset={[-15, 3]}>
+            <Row align="middle" gutter={10}>
+              <Badge count={unreadCount} size="small" offset={[-10, 3]}>
                 <Button
                   icon={<BellOutlined />}
-                  style={{ marginRight: 16 }}
+                  style={{ marginRight: screens.xs ? 4 : 8 }}
                   onClick={() => setNotificationsOpen(true)}
                 />
               </Badge>
@@ -630,7 +640,7 @@ const DashboardLayout = () => {
                   firstName={user?.firstName}
                   lastName={user?.lastName}
                   size={40}
-                  style={{ marginRight: 5, fontSize: 13 }}
+                  style={{ marginRight: 4, fontSize: 13 }}
                 />
                 {screens.md && (
                   <div
@@ -639,8 +649,8 @@ const DashboardLayout = () => {
                       flexDirection: "column",
                       justifyContent: "center",
                       lineHeight: 1.2,
-                      marginRight: 10,
-                      marginLeft: 10,
+                      marginRight: 8,
+                      marginLeft: 8,
                     }}
                   >
                     <span style={{ fontWeight: 600 }}>

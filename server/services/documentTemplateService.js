@@ -23,15 +23,56 @@ const NGCP_LOGO_PATH = path.resolve(
 );
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("binary");
 
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
+
 const formatExecutorName = (user = {}, fallback = "Unknown User") => {
+  if (!user) return fallback;
+
+  if (typeof user === "string") {
+    const trimmed = user.trim();
+    return trimmed && !isObjectIdLike(trimmed) ? trimmed : fallback;
+  }
+
   const fullName = [user.firstName, user.lastName]
     .map((part) => String(part || "").trim())
     .filter(Boolean)
     .join(" ");
   return (
     fullName ||
-    String(user.displayName || user.username || user.email || fallback).trim()
+    String(
+      user.name || user.displayName || user.username || user.email || fallback,
+    )
+      .trim()
   );
+};
+
+const getExecutorUserId = (value) => {
+  if (isObjectIdLike(value)) return String(value);
+  const candidate =
+    value?.userId ||
+    value?._id ||
+    value?.id ||
+    value?.sub ||
+    value?.executedBy;
+  return isObjectIdLike(candidate) ? String(candidate) : "";
+};
+
+const resolveExecutorName = async (value, fallback = "Unknown User") => {
+  const formatted = formatExecutorName(value, "");
+  if (formatted) return formatted;
+
+  const userId = getExecutorUserId(value);
+  if (!userId) return fallback;
+
+  try {
+    const user = await UserModel.findById(userId)
+      .select("firstName lastName username email")
+      .lean();
+    return formatExecutorName(user, fallback);
+  } catch (error) {
+    console.error("Executor user lookup failed:", error.message);
+    return fallback;
+  }
 };
 
 const formatExecutedAt = (value = new Date()) => {
@@ -429,8 +470,6 @@ const normalizeFob = (value) => {
   if (value === undefined || value === null || value === "") return "N/A";
   return String(value).includes("%") ? String(value) : `${value}%`;
 };
-
-const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
 
 const resolveSignatureLicenseNo = async (signature = {}) => {
   const explicitLicense =
@@ -1401,6 +1440,7 @@ const getB412PreInspectionChecks = (inspection = {}) =>
 
 const getB412PreInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
+  const executedBy = await resolveExecutorName(options.executedBy);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
   );
@@ -1780,7 +1820,7 @@ const getB412PreInspectionPdfDirect = async (inspection = {}, options = {}) => {
     doc.addPage({ size: "LETTER", margin: 0 });
     drawFooterPage();
     drawExecutionFooter(doc, {
-      executedBy: formatExecutorName(options.executedBy),
+      executedBy,
       executedAt: options.executedAt,
     });
     doc.end();
@@ -1789,6 +1829,7 @@ const getB412PreInspectionPdfDirect = async (inspection = {}, options = {}) => {
 
 const getPreInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
+  const executedBy = await resolveExecutorName(options.executedBy);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
   );
@@ -1977,7 +2018,7 @@ const getPreInspectionPdfDirect = async (inspection = {}, options = {}) => {
     });
 
     drawExecutionFooter(doc, {
-      executedBy: formatExecutorName(options.executedBy),
+      executedBy,
       executedAt: options.executedAt,
     });
     doc.end();
@@ -1991,6 +2032,7 @@ const getPreInspectionPdf = (inspection, options = {}) =>
 
 const getPostInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
+  const executedBy = await resolveExecutorName(options.executedBy);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
   );
@@ -2202,7 +2244,7 @@ const getPostInspectionPdfDirect = async (inspection = {}, options = {}) => {
       .text("A & P License Nr.", 87, signY + 121);
 
     drawExecutionFooter(doc, {
-      executedBy: formatExecutorName(options.executedBy),
+      executedBy,
       executedAt: options.executedAt,
     });
     doc.end();
@@ -2219,6 +2261,7 @@ const getB412PostInspectionChecks = (inspection = {}) =>
 
 const getB412PostInspectionPdfDirect = async (inspection = {}, options = {}) => {
   inspection = await withResolvedSignatureLicenses(inspection);
+  const executedBy = await resolveExecutorName(options.executedBy);
   const releasedSignature = await normalizePngForPdf(
     signatureImageBuffer(inspection.releasedBy),
   );
@@ -2569,7 +2612,7 @@ const getB412PostInspectionPdfDirect = async (inspection = {}, options = {}) => 
     const finalChecklistY = drawChecklistPage(4);
     drawCheckedByFooter(finalChecklistY);
     drawExecutionFooter(doc, {
-      executedBy: formatExecutorName(options.executedBy),
+      executedBy,
       executedAt: options.executedAt,
     });
     doc.end();

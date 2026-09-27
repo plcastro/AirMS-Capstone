@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import { getUserAvatarSource, getUserInitials } from "../../utilities/avatar";
 
-export default function MessagingAvatar({ item, size = 42, getImageUrl }) {
+function MessagingAvatar({ item, size = 42, getImageUrl }) {
   if (item?.type === "group") {
     return (
       <View
@@ -64,3 +64,5 @@ export default function MessagingAvatar({ item, size = 42, getImageUrl }) {
     </View>
   );
 }
+
+export default React.memo(MessagingAvatar);

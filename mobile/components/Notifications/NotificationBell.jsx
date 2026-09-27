@@ -1,7 +1,7 @@
 import Modal from "../common/AppModal";
 import React, { useContext, useMemo, useState } from "react";
 import AppText from "../common/AppText";
-import {
+import { FlatList,
   ActivityIndicator,
   Alert,
   Pressable,
@@ -273,8 +273,14 @@ export default function NotificationBell({ navigation }) {
                 </AppText>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {sortedNotifications.map((notification) => {
+              <FlatList
+                showsVerticalScrollIndicator={false}
+                data={sortedNotifications}
+                keyExtractor={(item, index) => String(item._id || item.id || index)}
+                initialNumToRender={12}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                renderItem={({ item: notification }) => {
                   const displayNotification = getDisplayNotification(notification);
 
                   return (
@@ -380,8 +386,8 @@ export default function NotificationBell({ navigation }) {
                       </View>
                     </TouchableOpacity>
                   );
-                })}
-              </ScrollView>
+                }}
+              />
             )}
 
             <View

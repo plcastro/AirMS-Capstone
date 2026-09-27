@@ -1,12 +1,12 @@
 import Modal from "../common/AppModal";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   Linking,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
@@ -52,29 +52,27 @@ export default function ChatView({
   const lastConversationIdRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  const scrollToLatest = (animated = true) => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated });
-    });
-  };
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  const lastLatestIdRef = useRef(null);
+  const scrollToLatest = useCallback((animated = true) => {
+    scrollRef.current?.scrollToOffset({ offset: 0, animated });
+  }, [scrollRef]);
 
   useEffect(() => {
-    const currentConversationId = selectedConversation?.id || "";
-    const openedNewConversation =
-      currentConversationId &&
-      currentConversationId !== lastConversationIdRef.current;
-
-    if (openedNewConversation) {
-      lastConversationIdRef.current = currentConversationId;
-      isNearBottomRef.current = true;
-      setTimeout(() => scrollToLatest(false), 50);
-      return;
+    const conversationId = selectedConversation?.id || "";
+    const opened = conversationId !== lastConversationIdRef.current;
+    const latest = messages[messages.length - 1];
+    const newLatest = latest?._id !== lastLatestIdRef.current;
+    const ownNewMessage = newLatest && latest &&
+      String(getEntityId(latest.sender)) === String(currentUserId);
+    lastConversationIdRef.current = conversationId;
+    lastLatestIdRef.current = latest?._id;
+    if (opened || ownNewMessage) isNearBottomRef.current = true;
+    if (opened || (newLatest && isNearBottomRef.current)) {
+      const timeout = setTimeout(() => scrollToLatest(!opened), 50);
+      return () => clearTimeout(timeout);
     }
-
-    if (isNearBottomRef.current) {
-      setTimeout(() => scrollToLatest(true), 50);
-    }
-  }, [messages, selectedConversation?.id]);
+  }, [messages, selectedConversation?.id, currentUserId, getEntityId, scrollToLatest]);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -94,121 +92,7 @@ export default function ChatView({
     };
   }, []);
 
-  return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#F7F9F8" }}
-      edges={["left", "right", "bottom"]}
-    >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
-      >
-        <View style={{ flex: 1 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-              backgroundColor: COLORS.white,
-              borderBottomWidth: 1,
-              borderBottomColor: "#ECEFEE",
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedConversation(null);
-                setMessages([]);
-              }}
-              style={{
-                width: 38,
-                height: 38,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={COLORS.black}
-              />
-            </TouchableOpacity>
-
-            {renderAvatar(selectedConversationDetails, 38)}
-
-            <TouchableOpacity
-              activeOpacity={
-                selectedConversationDetails?.type === "group" ? 0.7 : 1
-              }
-              onPress={() => {
-                if (selectedConversationDetails?.type === "group") {
-                  setMembersModalOpen(true);
-                }
-              }}
-              style={{ flex: 1, marginLeft: 10, minWidth: 0 }}
-            >
-              <AppText
-                numberOfLines={1}
-                style={{ fontSize: 15, fontWeight: "800", color: COLORS.black }}
-              >
-                {selectedConversationDetails?.title || "Conversation"}
-              </AppText>
-              <AppText
-                numberOfLines={1}
-                style={{ fontSize: 11, color: COLORS.grayDark }}
-              >
-                {selectedConversationDetails?.subtitle || "Conversation"}
-              </AppText>
-            </TouchableOpacity>
-
-            {selectedConversationDetails?.type === "group" && (
-              <TouchableOpacity
-                onPress={() => setMembersModalOpen(true)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="information-outline"
-                  size={22}
-                  color={COLORS.black}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* --- MESSAGES LIST --- */}
-          <ScrollView
-            ref={scrollRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{
-              paddingHorizontal: 12,
-              paddingVertical: 14,
-              paddingBottom: 10,
-            }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            showsVerticalScrollIndicator={false}
-            onScroll={(event) => {
-              const { contentOffset, contentSize, layoutMeasurement } =
-                event.nativeEvent;
-              const distanceFromBottom =
-                contentSize.height -
-                (contentOffset.y + layoutMeasurement.height);
-              isNearBottomRef.current = distanceFromBottom < 80;
-            }}
-            scrollEventThrottle={16}
-            onContentSizeChange={() => {
-              if (isNearBottomRef.current) {
-                scrollToLatest(true);
-              }
-            }}
-          >
-            {messages.map((item) => {
+  const renderMessage = useCallback(({ item }) => {
               const mine =
                 String(getEntityId(item.sender)) === String(currentUserId);
 
@@ -359,8 +243,127 @@ export default function ChatView({
                   </AppText>
                 </View>
               );
-            })}
-          </ScrollView>
+
+  }, [currentUserId, getEntityId, getAttachmentUrl, formatConversationTime, getMessageStatus, selectedConversation?.type]);
+
+  return (
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#F7F9F8" }}
+      edges={["left", "right", "bottom"]}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              backgroundColor: COLORS.white,
+              borderBottomWidth: 1,
+              borderBottomColor: "#ECEFEE",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedConversation(null);
+                setMessages([]);
+              }}
+              style={{
+                width: 38,
+                height: 38,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={COLORS.black}
+              />
+            </TouchableOpacity>
+
+            {renderAvatar(selectedConversationDetails, 38)}
+
+            <TouchableOpacity
+              activeOpacity={
+                selectedConversationDetails?.type === "group" ? 0.7 : 1
+              }
+              onPress={() => {
+                if (selectedConversationDetails?.type === "group") {
+                  setMembersModalOpen(true);
+                }
+              }}
+              style={{ flex: 1, marginLeft: 10, minWidth: 0 }}
+            >
+              <AppText
+                numberOfLines={1}
+                style={{ fontSize: 15, fontWeight: "800", color: COLORS.black }}
+              >
+                {selectedConversationDetails?.title || "Conversation"}
+              </AppText>
+              <AppText
+                numberOfLines={1}
+                style={{ fontSize: 11, color: COLORS.grayDark }}
+              >
+                {selectedConversationDetails?.subtitle || "Conversation"}
+              </AppText>
+            </TouchableOpacity>
+
+            {selectedConversationDetails?.type === "group" && (
+              <TouchableOpacity
+                onPress={() => setMembersModalOpen(true)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="information-outline"
+                  size={22}
+                  color={COLORS.black}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* --- MESSAGES LIST --- */}
+          <FlatList
+            key={String(selectedConversation?.id || "chat")}
+            ref={scrollRef}
+            data={reversedMessages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => String(item._id)}
+            inverted
+            initialNumToRender={12}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 12,
+              paddingVertical: 14,
+              paddingBottom: 10,
+            }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            showsVerticalScrollIndicator={false}
+            onScroll={(event) => {
+              isNearBottomRef.current = event.nativeEvent.contentOffset.y < 80;
+            }}
+            scrollEventThrottle={16}
+            onContentSizeChange={() => {
+              if (isNearBottomRef.current) {
+                scrollToLatest(true);
+              }
+            }}
+          />
 
           {/* --- INPUT FOOTER --- */}
           <View

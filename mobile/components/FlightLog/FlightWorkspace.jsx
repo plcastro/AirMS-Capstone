@@ -1,6 +1,6 @@
 import InspectionConfirmationPrompt from './InspectionConfirmationPrompt';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Share } from 'react-native';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { View, FlatList, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from '../common/AppModal';
@@ -253,6 +253,15 @@ export default function FlightWorkspace({
     };
     if (defect.status === 'open') execute(task.path, task.body, task.method, true).then(ok => ok && setDefect(null));else setSign(task);
   };
+  const workspaceRows = useMemo(() => {
+    const rows = (kind, values = []) => values.map((value, index) => ({ kind, value, index }));
+    if (!workspace) return [];
+    if (tab === 'history') return [...rows('amendment', workspace.amendments), ...rows('history', [...(workspace.history || [])].reverse())];
+    if (tab === 'defects') return rows('defect', workspace.defects);
+    if (tab === 'pre' || tab === 'post') return rows('inspection', tab === 'pre' ? workspace.preInspections : workspace.postInspections);
+    return [];
+  }, [workspace, tab]);
+
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={{
       flex: 1,
       backgroundColor: '#f7faf8'
@@ -263,9 +272,17 @@ export default function FlightWorkspace({
           fontSize: 18,
           fontWeight: '700'
         }}>{log ? `${log.rpc} · ${log.controlNo}` : 'Flight Workspace'}</AppText><Action onPress={onClose}>Close Workspace</Action>{busy && <ActivityIndicator />}</View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{
-        padding: 12
-      }}>
+    <FlatList
+      key={tab}
+      style={{ flex: 1 }}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ padding: 12 }}
+      data={workspaceRows}
+      keyExtractor={(row) => row.kind + ":" + (row.value._id || row.index)}
+      initialNumToRender={10}
+      maxToRenderPerBatch={6}
+      windowSize={7}
+      ListHeaderComponent={<>
       {!!error && <View style={panel}><AppText accessibilityRole="alert" style={{
             color: '#b12626'
           }}>{error}</AppText><Action onPress={async () => {
@@ -320,11 +337,7 @@ export default function FlightWorkspace({
           {assigned && mechanic && permissions.preparation && <Action onPress={() => execute(`${id}/inspections`, {
               expectedVersion: log.__v || 0
             }, 'POST', true)}>Add Linked Inspection Pair</Action>}
-          {(tab === 'pre' ? workspace.preInspections : workspace.postInspections).map(record => <Inspection flightStage={log.status} key={`${record._id}:${record.__v}`} record={record} kind={tab} editable={assigned && log.status !== 'completed'} mechanic={mechanic} onConfirm={(kind, record, values) => setInspectionPrompt({ kind, record, values })} onSave={saveInspection} onReturn={reason => execute(`${id}/inspections/${tab}/${record._id}`, {
-              action: 'return',
-              comment: reason,
-              expectedVersion: record.__v || 0
-            }, 'PUT', true)} />)}
+          {null}
           {!(tab === 'pre' ? workspace.preInspections : workspace.postInspections).length && <AppText>The assigned mechanic can add an inspection pair during preparation.</AppText>}
         </>}
         {tab === 'defects' && <>
@@ -334,9 +347,7 @@ export default function FlightWorkspace({
               resolution: '',
               evidence: ''
             })}>Report Defect</Action>}
-          {workspace.defects.map(d => <View key={d._id} style={panel}><AppText style={{
-                fontWeight: '700'
-              }}>{d.status}: {d.description}</AppText><AppText>{d.resolution}</AppText>{!!d.deferralReference && <AppText>Deferral basis: {d.deferralReference} · Due: {when(d.dueDate)}</AppText>}{d.signedBy && <AppText>{d.signedBy.name} · {when(d.signedBy.timestamp)}</AppText>}{assigned && mechanic && log.status !== 'completed' && <Action onPress={() => setDefect(d)}>Record Disposition</Action>}</View>)}
+          {null}
         </>}
         {tab === 'history' && <>
           <Action onPress={() => Share.share({
@@ -347,11 +358,11 @@ export default function FlightWorkspace({
               after: '',
               comment: ''
             })}>Add Signed Amendment</Action>}
-          {workspace.amendments.map((a, i) => <View key={i} style={panel}><AppText>{a.section}: {a.correction}{'\n'}{a.reason}{'\n'}{a.signer?.name} · {when(a.at)}</AppText></View>)}
-          {[...workspace.history].reverse().map((e, i) => <View key={i} style={panel}><AppText style={{
-                fontWeight: '700'
-              }}>{e.action.replace(/_/g, ' ')} · {when(e.at)}</AppText><AppText>{e.signer?.name || e.actorName || e.actorId} · Version {e.version}</AppText><AppText>{e.comment}</AppText><AppText selectable>{JSON.stringify(e.changes, null, 2)}</AppText></View>)}
+          {null}
+          {null}
         </>}
+      </>}</>}
+      ListFooterComponent={<>{log && <>
         {permissions.preparation && [...workspace.readiness.missing, ...workspace.readiness.warnings].map((message, i) => <AppText key={i} style={{
             marginVertical: 4
           }}>• {message}</AppText>)}
@@ -370,7 +381,23 @@ export default function FlightWorkspace({
             setReturning(true);
           }}>Return for Correction</Action>}
       </>}
-    </ScrollView>
+    </>}
+      renderItem={({ item: row }) => {
+if (row.kind === "inspection") return (record => <Inspection flightStage={log.status} key={`${record._id}:${record.__v}`} record={record} kind={tab} editable={assigned && log.status !== 'completed'} mechanic={mechanic} onConfirm={(kind, record, values) => setInspectionPrompt({ kind, record, values })} onSave={saveInspection} onReturn={reason => execute(`${id}/inspections/${tab}/${record._id}`, {
+              action: 'return',
+              comment: reason,
+              expectedVersion: record.__v || 0
+            }, 'PUT', true)} />)(row.value, row.index);
+if (row.kind === "defect") return (d => <View key={d._id} style={panel}><AppText style={{
+                fontWeight: '700'
+              }}>{d.status}: {d.description}</AppText><AppText>{d.resolution}</AppText>{!!d.deferralReference && <AppText>Deferral basis: {d.deferralReference} · Due: {when(d.dueDate)}</AppText>}{d.signedBy && <AppText>{d.signedBy.name} · {when(d.signedBy.timestamp)}</AppText>}{assigned && mechanic && log.status !== 'completed' && <Action onPress={() => setDefect(d)}>Record Disposition</Action>}</View>)(row.value, row.index);
+if (row.kind === "amendment") return ((a, i) => <View key={i} style={panel}><AppText>{a.section}: {a.correction}{'\n'}{a.reason}{'\n'}{a.signer?.name} · {when(a.at)}</AppText></View>)(row.value, row.index);
+if (row.kind === "history") return ((e, i) => <View key={i} style={panel}><AppText style={{
+                fontWeight: '700'
+              }}>{e.action.replace(/_/g, ' ')} · {when(e.at)}</AppText><AppText>{e.signer?.name || e.actorName || e.actorId} · Version {e.version}</AppText><AppText>{e.comment}</AppText><AppText selectable>{JSON.stringify(e.changes, null, 2)}</AppText></View>)(row.value, row.index);
+return null;
+}}
+    />
     {!sign && (returning || !!review || !!defect || !!amendment) && <View style={{
         position: "absolute",
         top: 0,

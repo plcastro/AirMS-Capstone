@@ -15,6 +15,16 @@ const partsMonitoringSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    manualPriorityOverride: {
+      type: new mongoose.Schema({
+        level: { type: String, enum: ["Critical", "High", "Medium", "Low"], required: true },
+        setBy: { type: String, required: true },
+        setAt: { type: Date, required: true },
+        reason: { type: String, trim: true, required: false },
+        appliesToInspectionId: { type: String, required: true },
+      }, { _id: false }),
+      default: undefined,
+    },
     creepDamage: {
       type: String,
     },
