@@ -61,7 +61,7 @@ const MOBILE_REFRESH_TOKEN_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000; // 10 years;
 const REFRESH_TOKEN_RECORD_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days after expiry/revocation
 const LOGIN_OTP_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
 const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const SESSION_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 const ROLES_REQUIRING_LICENSE = new Set([
   "maintenance manager",

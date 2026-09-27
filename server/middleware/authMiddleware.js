@@ -4,7 +4,7 @@ const UserModel = require("../models/userModel");
 const UserSession = require("../models/userSessionModel");
 const { updateRequestContext } = require("./requestContext");
 
-const DEFAULT_SESSION_IDLE_LIMIT_MS = 15 * 60 * 1000;
+const DEFAULT_SESSION_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const CLIENT_ACTIVITY_GRACE_MS = 30 * 1000;
 
 const isMobilePlatform = (platform) =>
@@ -72,7 +72,9 @@ const verifyToken = async (req, res, next) => {
     );
 
     const user = await UserModel.findById(userId)
-      .select("username email firstName lastName jobTitle access licenseNo status")
+      .select(
+        "username email firstName lastName jobTitle access licenseNo status",
+      )
       .lean();
 
     if (!user) {
@@ -105,7 +107,8 @@ const verifyToken = async (req, res, next) => {
       sessionId,
       platform,
       base: req.headers["x-base"] || decoded.base,
-      devicePlatform: req.headers["x-device-platform"] || session.devicePlatform,
+      devicePlatform:
+        req.headers["x-device-platform"] || session.devicePlatform,
       deviceModel: req.headers["x-device-model"] || session.deviceModel,
       locationText: req.headers["x-location-text"] || session.locationText,
       locationLatitude:
