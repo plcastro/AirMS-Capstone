@@ -1469,6 +1469,7 @@ export default function TaskAssignment() {
           {!isManager && (
             <Col xs={24} md={6}>
               <Select
+                size="large"
                 style={{ width: "100%" }}
                 value={selectedAircraft}
                 onChange={setSelectedAircraft}
@@ -1489,147 +1490,146 @@ export default function TaskAssignment() {
           onChange={setActiveTab}
           items={tabs}
         />
-      </Card>
-
-      {activeTab === "calendar" && taskCalendarEnabled ? (
-        <Card
-          style={{ marginTop: 12 }}
-          loading={loading}
-          styles={{ body: { padding: 12 } }}
-        >
-          <Calendar
-            cellRender={(date, info) =>
-              info.type === "date"
-                ? renderTaskCalendarDate(date)
-                : info.originNode
+        {activeTab === "calendar" && taskCalendarEnabled ? (
+          <Card
+            style={{ marginTop: 12 }}
+            loading={loading}
+            styles={{ body: { padding: 12 } }}
+          >
+            <Calendar
+              cellRender={(date, info) =>
+                info.type === "date"
+                  ? renderTaskCalendarDate(date)
+                  : info.originNode
+              }
+            />
+          </Card>
+        ) : (
+          <ResponsiveTable
+            style={{ marginTop: 12 }}
+            loading={loading}
+            size={"small"}
+            rowKey={(record, index) =>
+              `${record._id || record.id || "task"}-${index}`
             }
-          />
-        </Card>
-      ) : (
-        <ResponsiveTable
-          style={{ marginTop: 12 }}
-          loading={loading}
-          size={"small"}
-          rowKey={(record, index) =>
-            `${record._id || record.id || "task"}-${index}`
-          }
-          dataSource={displayedTasks}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: "max-content" }}
-          mobileBreakpoint="sm"
-          mobilePrimaryColumn="title"
-          mobileSecondaryColumn="id"
-          mobileMetaLimit={5}
-          onRow={(record) => ({
-            onClick: () => {
-              setSelectedTask(record);
-              setChecklistOpen(true);
-            },
-          })}
-          columns={[
-            { title: "Task ID", dataIndex: "id" },
-            { title: "Title", dataIndex: "title" },
-            { title: "Aircraft", dataIndex: "aircraft" },
-            { title: "Assigned To", dataIndex: "assignedToName" },
-            {
-              title: "Progress",
-              render: (_, record) => {
-                const { done, total } = getChecklistCounts(record);
-                return total ? (
-                  <Progress
-                    percent={Math.round((done / total) * 100)}
-                    size="small"
-                  />
-                ) : (
-                  "-"
-                );
+            dataSource={displayedTasks}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: "max-content" }}
+            mobileBreakpoint="sm"
+            mobilePrimaryColumn="title"
+            mobileSecondaryColumn="id"
+            mobileMetaLimit={5}
+            onRow={(record) => ({
+              onClick: () => {
+                setSelectedTask(record);
+                setChecklistOpen(true);
               },
-            },
-            {
-              title: "Status",
-              dataIndex: "status",
-              render: (_, record) =>
-                renderStatusTag(getDisplayStatus(record), "Pending"),
-            },
-            {
-              title: "Due",
-              render: (_, record) => (
-                <DateTimeCell
-                  value={record.endDateTime || record.dueDate}
-                  fallback="Not set"
-                />
-              ),
-            },
-            ...(isManager
-              ? [
-                  {
-                    title: "Actions",
-                    render: (_, record) => {
-                      const status = normalizeStatus(record.status);
-                      const canEditDelete =
-                        activeTab === "assigned" &&
-                        (isSuperadmin || status === "pending");
-                      const canReview =
-                        activeTab === "for_review" && isForReview(record);
-                      if (canReview) {
-                        return (
-                          <Space onClick={(event) => event.stopPropagation()}>
-                            <Button
-                              size="small"
-                              danger
-                              onClick={() => requestReturn(record)}
-                            >
-                              Return
-                            </Button>
-                            <Button
-                              size="small"
-                              type="primary"
-                              onClick={() => requestApprove(record)}
-                            >
-                              Approve
-                            </Button>
-                          </Space>
-                        );
-                      }
-                      if (!canEditDelete) return null;
-                      return (
-                        <Space
-                          size={12}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Tooltip title="Edit">
-                            <Button
-                              size="small"
-                              aria-label="Edit"
-                              icon={<EditOutlined />}
-                              onClick={() => openEditTask(record)}
-                            />
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <Popconfirm
-                              title="Delete task?"
-                              description="This task assignment will be removed permanently."
-                              okText="Delete"
-                              okButtonProps={{ danger: true }}
-                              onConfirm={() => deleteTask(record)}
-                            >
+            })}
+            columns={[
+              { title: "Task ID", dataIndex: "id" },
+              { title: "Title", dataIndex: "title" },
+              { title: "Aircraft", dataIndex: "aircraft" },
+              { title: "Assigned To", dataIndex: "assignedToName" },
+              {
+                title: "Progress",
+                render: (_, record) => {
+                  const { done, total } = getChecklistCounts(record);
+                  return total ? (
+                    <Progress
+                      percent={Math.round((done / total) * 100)}
+                      size="small"
+                    />
+                  ) : (
+                    "-"
+                  );
+                },
+              },
+              {
+                title: "Status",
+                dataIndex: "status",
+                render: (_, record) =>
+                  renderStatusTag(getDisplayStatus(record), "Pending"),
+              },
+              {
+                title: "Due",
+                render: (_, record) => (
+                  <DateTimeCell
+                    value={record.endDateTime || record.dueDate}
+                    fallback="Not set"
+                  />
+                ),
+              },
+              ...(isManager
+                ? [
+                    {
+                      title: "Actions",
+                      render: (_, record) => {
+                        const status = normalizeStatus(record.status);
+                        const canEditDelete =
+                          activeTab === "assigned" &&
+                          (isSuperadmin || status === "pending");
+                        const canReview =
+                          activeTab === "for_review" && isForReview(record);
+                        if (canReview) {
+                          return (
+                            <Space onClick={(event) => event.stopPropagation()}>
                               <Button
                                 size="small"
                                 danger
-                                aria-label="Delete"
-                                icon={<DeleteOutlined />}
+                                onClick={() => requestReturn(record)}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="small"
+                                type="primary"
+                                onClick={() => requestApprove(record)}
+                              >
+                                Approve
+                              </Button>
+                            </Space>
+                          );
+                        }
+                        if (!canEditDelete) return null;
+                        return (
+                          <Space
+                            size={12}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Tooltip title="Edit">
+                              <Button
+                                size="small"
+                                aria-label="Edit"
+                                icon={<EditOutlined />}
+                                onClick={() => openEditTask(record)}
                               />
-                            </Popconfirm>
-                          </Tooltip>
-                        </Space>
-                      );
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <Popconfirm
+                                title="Delete task?"
+                                description="This task assignment will be removed permanently."
+                                okText="Delete"
+                                okButtonProps={{ danger: true }}
+                                onConfirm={() => deleteTask(record)}
+                              >
+                                <Button
+                                  size="small"
+                                  danger
+                                  aria-label="Delete"
+                                  icon={<DeleteOutlined />}
+                                />
+                              </Popconfirm>
+                            </Tooltip>
+                          </Space>
+                        );
+                      },
                     },
-                  },
-                ]
-              : []),
-          ]}
-        />
-      )}
+                  ]
+                : []),
+            ]}
+          />
+        )}
+      </Card>
 
       <Modal
         open={createOpen}

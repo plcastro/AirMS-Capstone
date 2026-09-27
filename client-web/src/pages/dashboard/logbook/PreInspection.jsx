@@ -755,20 +755,41 @@ export default function PreInspection() {
   }, [draftHasAircraft, draftIsAS350, draftIsB412]);
 
   const saveCreate = async () => {
-    if (!draft.flightLogId) { message.warning("Select the Flight Log for this inspection."); return false; }
+    if (!draft.flightLogId) {
+      message.warning("Select the Flight Log for this inspection.");
+      return false;
+    }
     try {
-      const headers = { ...(await getAuthHeader()), "Content-Type": "application/json", "x-action-confirmed": "true" };
+      const headers = {
+        ...(await getAuthHeader()),
+        "Content-Type": "application/json",
+        "x-action-confirmed": "true",
+      };
       const path = API_BASE + "/api/flightlogs/" + draft.flightLogId;
       const currentResponse = await fetch(path + "/workspace", { headers });
       const current = await currentResponse.json();
       if (!currentResponse.ok) throw Error(current.message);
-      const response = await fetch(path + "/inspections", { method: "POST", headers, body: JSON.stringify({ changes: draft, expectedVersion: current.data.flightLog.__v || 0 }) });
+      const response = await fetch(path + "/inspections", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          changes: draft,
+          expectedVersion: current.data.flightLog.__v || 0,
+        }),
+      });
       const result = await response.json();
       if (!response.ok) throw Error(result.message);
-      setCreating(false); setEditing({ ...result.data.pre, flightLogId: draft.flightLogId });
-      setDraft(getDefaultPreInspectionDraft(user)); setCreateActiveTab("basic"); setCreateSelectAllState({});
-      await load(); return true;
-    } catch (error) { message.error(error.message || "Could not create inspection draft."); return false; }
+      setCreating(false);
+      setEditing({ ...result.data.pre, flightLogId: draft.flightLogId });
+      setDraft(getDefaultPreInspectionDraft(user));
+      setCreateActiveTab("basic");
+      setCreateSelectAllState({});
+      await load();
+      return true;
+    } catch (error) {
+      message.error(error.message || "Could not create inspection draft.");
+      return false;
+    }
   };
 
   const saveEdit = async (
@@ -816,7 +837,9 @@ export default function PreInspection() {
         );
       setEditing(data.data);
       await load();
-      const savedAircraft = getLogAircraftRegistration(data.data || nextPayload);
+      const savedAircraft = getLogAircraftRegistration(
+        data.data || nextPayload,
+      );
       if (savedAircraft !== selectedAircraft) {
         openAircraft(savedAircraft);
       }
@@ -1023,148 +1046,204 @@ export default function PreInspection() {
 
   return (
     <div style={{ padding: isMobile ? 12 : 20 }}>
-      {(selectedAircraft || canCreate) && (
-        <Row
-          gutter={[12, 12]}
-          align="middle"
-          justify="space-between"
-          style={{ marginBottom: 16 }}
-        >
-          <Col xs={24} sm={canCreate ? 16 : 24}>
-            {selectedAircraft && (
-              <>
-                <Button
-                  type="text"
-                  icon={<ArrowLeftOutlined />}
-                  onClick={backToAircraft}
-                  style={{ paddingInline: 0 }}
-                >
-                  Back to Aircraft
-                </Button>
-                <Typography.Title level={4} style={{ margin: "8px 0 0" }}>
-                  {selectedAircraft} — Pre-Flight Inspections
-                </Typography.Title>
-              </>
-            )}
-          </Col>
-          {canCreate && (
-            <Col xs={24} sm={8} style={{ textAlign: "right" }}>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setDraft(getDefaultPreInspectionDraft(user));
-                  handleDraftRpcChange(lockedCreateRpc);
-                  setCreateActiveTab("basic");
-                  setCreating(true);
-                }}
-                size="large"
-                block={isMobile}
-              >
-                New Entry
-              </Button>
-            </Col>
-          )}
-        </Row>
-      )}
-
       {!selectedAircraft ? (
-        <AircraftLogGroups
-          records={records}
-          sortBy="latestActivity"
-          loading={loading}
-          query={aircraftQuery}
-          onQueryChange={setAircraftQuery}
-          onSelect={openAircraft}
-          emptyText="No pre-flight inspections found."
-        />
+        <>
+          {/* MAIN PAGE */}
+          <Row
+            gutter={[12, 12]}
+            align="middle"
+            justify="space-between"
+            style={{ marginBottom: 16 }}
+          >
+            <Col xs={24} sm={canCreate ? 16 : 24}>
+              <Typography.Title level={4} style={{ margin: 0 }}>
+                Pre-Flight Inspections
+              </Typography.Title>
+            </Col>
+
+            {canCreate && (
+              <Col
+                xs={24}
+                sm={8}
+                style={{
+                  display: "flex",
+                  justifyContent: isMobile ? "stretch" : "flex-end",
+                }}
+              >
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setDraft(getDefaultPreInspectionDraft(user));
+                    handleDraftRpcChange("");
+                    setCreateActiveTab("basic");
+                    setCreating(true);
+                  }}
+                  size="large"
+                  block={isMobile}
+                >
+                  New Entry
+                </Button>
+              </Col>
+            )}
+          </Row>
+
+          <AircraftLogGroups
+            records={records}
+            sortBy="latestActivity"
+            loading={loading}
+            query={aircraftQuery}
+            onQueryChange={setAircraftQuery}
+            onSelect={openAircraft}
+            emptyText="No pre-flight inspections found."
+          />
+        </>
       ) : (
         <>
-      <Card>
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={16}>
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              prefix={<SearchOutlined />}
-              size="large"
-              allowClear
-            />
-          </Col>
-          <Col xs={24} md={8}>
-            <Select
-              style={{ width: "100%" }}
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS.map((value) => ({
-                value,
-                label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
-              }))}
-              size="large"
-            />
-          </Col>
-        </Row>
-      </Card>
+          {/* SELECTED AIRCRAFT PAGE */}
+          <Row
+            gutter={[12, 12]}
+            align="middle"
+            justify="space-between"
+            style={{ marginBottom: 16 }}
+          >
+            <Col xs={24} sm={canCreate ? 16 : 24}>
+              <Button
+                type="text"
+                icon={<ArrowLeftOutlined />}
+                onClick={backToAircraft}
+                style={{ paddingInline: 0 }}
+              >
+                Back to Aircraft
+              </Button>
 
-      <ResponsiveTable
-        key={selectedAircraft}
-        style={{ marginTop: 12 }}
-        rowKey="_id"
-        loading={loading}
-        dataSource={filtered}
-        pagination={{ pageSize: 10 }}
-        size={"small"}
-        columns={[
-          { title: "RP/C", dataIndex: "rpc" },
-          { title: "Aircraft Type", dataIndex: "aircraftType" },
-          { title: "Date", dataIndex: "date" },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => renderStatusTag(value, "pending"),
-          },
-          {
-            title: "Action",
-            render: (_, record) => (
-              <Space size={12}>
-                <Tooltip title={getRecordActionLabel(record)}>
+              <Typography.Title level={4} style={{ margin: "8px 0 0" }}>
+                {selectedAircraft} — Pre-Flight Inspections
+              </Typography.Title>
+            </Col>
+          </Row>
+
+          <Card>
+            <Row gutter={[12, 12]} align="middle" style={{ width: "100%" }}>
+              {/* Search */}
+              <Col xs={24} md={10}>
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search"
+                  prefix={<SearchOutlined />}
+                  size="large"
+                  allowClear
+                />
+              </Col>
+
+              {/* Status Filter */}
+              <Col xs={12} md={4}>
+                <Select
+                  style={{ width: "100%" }}
+                  value={status}
+                  onChange={setStatus}
+                  options={STATUS_OPTIONS.map((value) => ({
+                    value,
+                    label:
+                      value === "all"
+                        ? "ALL STATUS"
+                        : value === "released"
+                          ? "RELEASED"
+                          : value.toUpperCase(),
+                  }))}
+                  size="large"
+                />
+              </Col>
+
+              {/* New Entry */}
+              {canCreate && (
+                <Col
+                  xs={12}
+                  md={10}
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <Button
-                    aria-label={getRecordActionLabel(record)}
-                    icon={
-                      isAcceptableByPilot(record) ? (
-                        <CheckOutlined />
-                      ) : (
-                        <EyeOutlined />
-                      )
-                    }
+                    type="primary"
+                    icon={<PlusOutlined />}
                     onClick={() => {
-                      editingRpcRequestRef.current += 1;
-                      setEditing(record);
+                      setDraft(getDefaultPreInspectionDraft(user));
+                      handleDraftRpcChange(lockedCreateRpc);
+                      setCreateActiveTab("basic");
+                      setCreating(true);
                     }}
-                  />
-                </Tooltip>
-                {canExportPreInspections && (
-                  <Tooltip title="Export">
-                    <Button
-                      aria-label="Export"
-                      icon={<ExportOutlined />}
-                      onClick={() => exportInspectionPdf(record)}
-                    />
-                  </Tooltip>
-                )}
-              </Space>
-            ),
-          },
-        ]}
-      />
-      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> Log(s)
-          </Text>
-        </Col>
-      </Row>
+                    size="large"
+                  >
+                    New Entry
+                  </Button>
+                </Col>
+              )}
+            </Row>
+          </Card>
+
+          <ResponsiveTable
+            key={selectedAircraft}
+            style={{ marginTop: 12 }}
+            rowKey="_id"
+            loading={loading}
+            dataSource={filtered}
+            pagination={{ pageSize: 10 }}
+            size={"small"}
+            columns={[
+              { title: "RP/C", dataIndex: "rpc" },
+              { title: "Aircraft Type", dataIndex: "aircraftType" },
+              { title: "Date", dataIndex: "date" },
+              {
+                title: "Status",
+                dataIndex: "status",
+                render: (value) => renderStatusTag(value, "pending"),
+              },
+              {
+                title: "Action",
+                render: (_, record) => (
+                  <Space size={12}>
+                    <Tooltip title={getRecordActionLabel(record)}>
+                      <Button
+                        aria-label={getRecordActionLabel(record)}
+                        icon={
+                          isAcceptableByPilot(record) ? (
+                            <CheckOutlined />
+                          ) : (
+                            <EyeOutlined />
+                          )
+                        }
+                        onClick={() => {
+                          editingRpcRequestRef.current += 1;
+                          setEditing(record);
+                        }}
+                      />
+                    </Tooltip>
+
+                    {canExportPreInspections && (
+                      <Tooltip title="Export">
+                        <Button
+                          aria-label="Export"
+                          icon={<ExportOutlined />}
+                          onClick={() => exportInspectionPdf(record)}
+                        />
+                      </Tooltip>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+          />
+
+          <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+            <Col span={24} style={{ textAlign: "right" }}>
+              <Text type="secondary">
+                Showing <Text strong>{filtered.length}</Text> Log(s)
+              </Text>
+            </Col>
+          </Row>
         </>
       )}
 
@@ -1186,7 +1265,11 @@ export default function PreInspection() {
         centered
         zIndex={9999}
         styles={{
-          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+          body: {
+            maxHeight: "70vh",
+            overflowY: "auto",
+            paddingTop: 12,
+          },
         }}
       >
         <Tabs
@@ -1208,25 +1291,48 @@ export default function PreInspection() {
                           : "Aircraft Information"
                     }
                     styles={{
-                      header: { backgroundColor: "#0A7D37", color: "#fff" },
+                      header: {
+                        backgroundColor: "#0A7D37",
+                        color: "#fff",
+                      },
                     }}
                   >
                     <Row gutter={[12, 12]}>
                       <Col span={24}>
                         <Text strong>Linked Flight Log *</Text>
+
                         <InspectionFlightLogPicker
-                          rpc={draft.rpc} value={draft.flightLogId} active={creating}
-                          onChange={(log) => setDraft((prev) => ({ ...prev, flightLogId: log?._id || null, assignedPilot: log?.assignedPilot || null, assignedMechanic: log?.assignedMechanic || null }))}
+                          rpc={draft.rpc}
+                          value={draft.flightLogId}
+                          active={creating}
+                          onChange={(log) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              flightLogId: log?._id || null,
+                              assignedPilot: log?.assignedPilot || null,
+                              assignedMechanic: log?.assignedMechanic || null,
+                            }))
+                          }
                         />
-                        <Text type="secondary">Pilot: {draft.assignedPilot?.name || "Not assigned"} · Mechanic: {draft.assignedMechanic?.name || "Not assigned"}</Text>
+
+                        <Text type="secondary">
+                          Pilot: {draft.assignedPilot?.name || "Not assigned"} ·
+                          Mechanic:{" "}
+                          {draft.assignedMechanic?.name || "Not assigned"}
+                        </Text>
                       </Col>
+
                       <Col xs={24} md={12}>
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 6 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 6,
+                          }}
                         >
                           Base
                         </Text>
+
                         <Select
                           size="large"
                           style={{ width: "100%" }}
@@ -1244,13 +1350,18 @@ export default function PreInspection() {
                           }))}
                         />
                       </Col>
+
                       <Col xs={24} md={12}>
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 6 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 6,
+                          }}
                         >
                           RP/C
                         </Text>
+
                         <Select
                           size="large"
                           style={{ width: "100%" }}
@@ -1271,13 +1382,18 @@ export default function PreInspection() {
                           }))}
                         />
                       </Col>
+
                       <Col xs={24} md={12}>
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 6 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 6,
+                          }}
                         >
                           Aircraft Type
                         </Text>
+
                         <Input
                           size="large"
                           value={draft.aircraftType}
@@ -1291,13 +1407,18 @@ export default function PreInspection() {
                           readOnly={true}
                         />
                       </Col>
+
                       <Col xs={24} md={12}>
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 6 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 6,
+                          }}
                         >
                           Date
                         </Text>
+
                         <DatePicker
                           size="large"
                           style={{ width: "100%" }}
@@ -1314,13 +1435,18 @@ export default function PreInspection() {
                           }
                         />
                       </Col>
+
                       <Col xs={24} md={12}>
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 6 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 6,
+                          }}
                         >
                           Fuel On Board
                         </Text>
+
                         <Input
                           type={"number"}
                           size="large"
@@ -1343,7 +1469,10 @@ export default function PreInspection() {
                     sectionKey={section.b412SectionKey}
                     value={draft.b412Data}
                     onChange={(b412Data) =>
-                      setDraft((prev) => ({ ...prev, b412Data }))
+                      setDraft((prev) => ({
+                        ...prev,
+                        b412Data,
+                      }))
                     }
                   />
                 ) : (
@@ -1355,20 +1484,28 @@ export default function PreInspection() {
                     {(CHECKLIST_GROUPS[section.key] || []).map((group) =>
                       renderChecklistGroup(section.key, group),
                     )}
+
                     {section.key === "floats" ? (
                       <Card
                         size="small"
                         title="Fuel On Board"
                         styles={{
-                          header: { backgroundColor: "#0A7D37", color: "#fff" },
+                          header: {
+                            backgroundColor: "#0A7D37",
+                            color: "#fff",
+                          },
                         }}
                       >
                         <Text
                           strong
-                          style={{ display: "block", marginBottom: 8 }}
+                          style={{
+                            display: "block",
+                            marginBottom: 8,
+                          }}
                         >
                           Fuel On Board: <span style={{ color: "red" }}>*</span>
                         </Text>
+
                         <Input
                           size="large"
                           value={draft.fob}
@@ -1401,7 +1538,9 @@ export default function PreInspection() {
         onOk={() => saveEdit()}
         okButtonProps={{
           disabled: editingReadOnly,
-          style: { display: editingReadOnly ? "none" : undefined },
+          style: {
+            display: editingReadOnly ? "none" : undefined,
+          },
         }}
         title={
           editingCanAccept
@@ -1415,37 +1554,64 @@ export default function PreInspection() {
         width={isMobile ? "100%" : 1140}
         destroyOnHidden
         styles={{
-          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+          body: {
+            maxHeight: "70vh",
+            overflowY: "auto",
+            paddingTop: 12,
+          },
         }}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            <Text type="secondary">Linked Flight Log: {editing.flightLogControlNo || editing.flightLogId || "Not linked"} · Pilot: {editing.assignedPilot?.name || "Not assigned"} · Mechanic: {editing.assignedMechanic?.name || "Not assigned"}</Text>
+            <Text type="secondary">
+              Linked Flight Log:{" "}
+              {editing.flightLogControlNo ||
+                editing.flightLogId ||
+                "Not linked"}{" "}
+              · Pilot: {editing.assignedPilot?.name || "Not assigned"} ·
+              Mechanic: {editing.assignedMechanic?.name || "Not assigned"}
+            </Text>
+
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
                 <Text
                   strong
-                  style={{ display: "block", marginBottom: 6, width: "100%" }}
+                  style={{
+                    display: "block",
+                    marginBottom: 6,
+                    width: "100%",
+                  }}
                 >
                   RP/C
                 </Text>
+
                 <Select
                   size="large"
                   style={{ width: "100%" }}
                   value={editing.rpc}
                   onChange={handleEditingRpcChange}
                   disabled={editingReadOnly || Boolean(editing.flightLogId)}
-                  showSearch={{ optionFilterProp: "label" }}
+                  showSearch={{
+                    optionFilterProp: "label",
+                  }}
                   options={rpcDropdownOptions.map((rpc) => ({
                     value: rpc,
                     label: rpc,
                   }))}
                 />
               </Col>
+
               <Col xs={24} md={8}>
-                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                <Text
+                  strong
+                  style={{
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
                   Aircraft Type
                 </Text>
+
                 <Input
                   size="large"
                   value={editing.aircraftType}
@@ -1453,10 +1619,18 @@ export default function PreInspection() {
                   readOnly
                 />
               </Col>
+
               <Col xs={24} md={8}>
-                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                <Text
+                  strong
+                  style={{
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
                   Date
                 </Text>
+
                 <DatePicker
                   size="large"
                   style={{ width: "100%" }}
@@ -1480,9 +1654,11 @@ export default function PreInspection() {
               <Descriptions.Item label="Status">
                 {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
+
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
               </Descriptions.Item>
+
               <Descriptions.Item label="Accepted By">
                 {editing.acceptedBy?.name || "-"}
               </Descriptions.Item>
@@ -1490,9 +1666,16 @@ export default function PreInspection() {
 
             <Row gutter={[10, 10]}>
               <Col xs={24} md={8}>
-                <Text strong style={{ display: "block", marginBottom: 6 }}>
+                <Text
+                  strong
+                  style={{
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
                   Fuel On Board <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <Input
                   type="number"
                   size="large"
@@ -1511,12 +1694,16 @@ export default function PreInspection() {
             </Row>
 
             <Divider style={{ margin: "6px 0" }}>Checklist Points</Divider>
+
             {isB412Aircraft(editing.aircraftType) ? (
               <PreInspectionB412Checklist
                 value={editing.b412Data}
                 disabled={editingReadOnly}
                 onChange={(b412Data) =>
-                  setEditing((prev) => ({ ...prev, b412Data }))
+                  setEditing((prev) => ({
+                    ...prev,
+                    b412Data,
+                  }))
                 }
               />
             ) : (
@@ -1540,7 +1727,12 @@ export default function PreInspection() {
               </Row>
             )}
 
-            <Space style={{ justifyContent: "flex-end", width: "100%" }}>
+            <Space
+              style={{
+                justifyContent: "flex-end",
+                width: "100%",
+              }}
+            >
               {canRelease &&
                 editing.status === "pending" &&
                 !editing.releasedBy?.name &&
@@ -1549,6 +1741,7 @@ export default function PreInspection() {
                     Release
                   </Button>
                 )}
+
               {editingCanAccept && (
                 <Button type="primary" onClick={requestAccept}>
                   Accept / Complete
@@ -1559,13 +1752,16 @@ export default function PreInspection() {
         )}
       </Modal>
 
-      {!!editing?.flightLogId && <FlightWorkspace
-        id={String(editing.flightLogId?._id || editing.flightLogId)}
-        open
-        initialSection="pre"
-        onClose={() => setEditing(null)}
-        onChanged={load}
-      />}
+      {!!editing?.flightLogId && (
+        <FlightWorkspace
+          id={String(editing.flightLogId?._id || editing.flightLogId)}
+          open
+          initialSection="pre"
+          onClose={() => setEditing(null)}
+          onChanged={load}
+        />
+      )}
+
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
         title={
@@ -1582,13 +1778,19 @@ export default function PreInspection() {
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
       />
+
       <ResultPopup
         open={popup.open}
         zIndex={7000}
         status={popup.status}
         title={popup.title}
         subTitle={popup.subTitle}
-        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+        onClose={() =>
+          setPopup((prev) => ({
+            ...prev,
+            open: false,
+          }))
+        }
       />
     </div>
   );
