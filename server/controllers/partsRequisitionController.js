@@ -1,3 +1,5 @@
+const { PART_SUGGESTION_SEED } = require('../../shared/partSuggestionSeed.js');
+const seedUnitByName = new Map(PART_SUGGESTION_SEED.map(part => [part.name.toLowerCase(), part.unit]));
 const Model = require('../models/partsRequisitionModel');
 const {
   randomUUID
@@ -108,7 +110,7 @@ exports.getPartSuggestions = async (req, res) => {
       if (!loading) loading = Promise.all([Model.distinct('items.particular'), Model.distinct('items.codeParticular.particular')]).then(lists => {
         cache = {
           expires: Date.now() + 300000,
-          values: lists.flat()
+          values: [...PART_SUGGESTION_SEED.map(part => part.name), ...lists.flat()]
         };
       }).finally(() => {
         loading = null;
@@ -118,7 +120,10 @@ exports.getPartSuggestions = async (req, res) => {
     const {
       rankPartSuggestions
     } = await workflow();
-    res.json(rankPartSuggestions(cache.values, String(req.query.q || '').slice(0, 200)));
+    res.json(rankPartSuggestions(cache.values, String(req.query.q || '').slice(0, 200)).map(name => ({
+      value: name,
+      unit: seedUnitByName.get(name.toLowerCase()) || null,
+    })));
   } catch (error) {
     res.status(500).json({
       message: 'Could not load suggestions'

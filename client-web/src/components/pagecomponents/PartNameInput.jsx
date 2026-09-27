@@ -4,7 +4,8 @@ import { AuthContext } from '../../context/AuthContext';
 import { API_BASE } from '../../utils/API_BASE';
 export default function PartNameInput({
   value,
-  onChange
+  onChange,
+  onSelectUnit
 }) {
   const {
     getAuthHeader
@@ -20,8 +21,9 @@ export default function PartNameInput({
         });
         if (!response.ok) throw new Error('Suggestions unavailable');
         const values = await response.json();
-        setOptions(values.map(value => ({
-          value
+        setOptions(values.map(option => ({
+          value: option.value,
+          unit: option.unit
         })));
       } catch {
         if (!controller.signal.aborted) setOptions([]);
@@ -32,7 +34,10 @@ export default function PartNameInput({
       controller.abort();
     };
   }, [value, getAuthHeader]);
-  return <AutoComplete value={value} onChange={onChange} options={options} filterOption={false} defaultActiveFirstOption={false} style={{
+  return <AutoComplete value={value} onChange={onChange} options={options} onSelect={(value, option) => {
+    onChange(value);
+    if (option.unit) onSelectUnit?.(option.unit);
+  }} filterOption={false} defaultActiveFirstOption={false} style={{
     width: '100%'
   }}><Input placeholder="Enter or search a part name" aria-label="Part name" /></AutoComplete>;
 }

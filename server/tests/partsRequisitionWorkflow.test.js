@@ -495,3 +495,36 @@ test('legacy ready labels never enable delivery for unchecked or unavailable ite
   assert.equal(workflow.readyToDeliver({ status: 'Ordered', items: [{ stockStatus: 'Parts Requested' }] }), false);
   assert.equal(workflow.readyToDeliver({ status: 'Approved', items: [{ stockStatus: 'Approved' }] }), true);
 });
+
+test('part suggestion seeds are available with an empty database and retain exact fraction characters', async () => {
+  const h = harness();
+  h.model.distinct = async () => [];
+  const res = response();
+  await h.controller.getPartSuggestions({ user: user('Mechanic'), query: { q: 'WRENCH' } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.body.some(option => option.value === 'WRENCH, LOCK' && option.unit === 'ST'));
+  const { PART_SUGGESTION_SEED } = require('../../shared/partSuggestionSeed.js');
+  assert.equal(PART_SUGGESTION_SEED.length, 27);
+  assert.ok(PART_SUGGESTION_SEED.some(part => part.name === 'WRENCH, TORQUE, ¼"DRIVE'));
+  assert.ok(PART_SUGGESTION_SEED.some(part => part.name === 'WRENCH,TORQUE,⅜"DRIVE'));
+  for (const part of PART_SUGGESTION_SEED) {
+    const exact = response();
+    await h.controller.getPartSuggestions({ user: user('Mechanic'), query: { q: part.name } }, exact);
+    assert.deepEqual(exact.body[0], { value: part.name, unit: part.unit });
+  }
+});
+
+test('combined seed/history suggestions rank exact, prefix, substring and attach units case-insensitively', async () => {
+  const h = harness();
+  h.model.distinct = async field => field === 'items.particular' ? ['wrench, lock', 'WRENCH, LOCK EXTENSION', 'CUSTOM WRENCH, LOCK HOLDER'] : [];
+  const res = response();
+  await h.controller.getPartSuggestions({ user: user('Mechanic'), query: { q: 'WRENCH, LOCK' } }, res);
+  assert.deepEqual(res.body, [
+    { value: 'wrench, lock', unit: 'ST' },
+    { value: 'WRENCH, LOCK EXTENSION', unit: null },
+    { value: 'CUSTOM WRENCH, LOCK HOLDER', unit: null },
+  ]);
+  const unknown = response();
+  await h.controller.getPartSuggestions({ user: user('Mechanic'), query: { q: 'Brand new unknown part' } }, unknown);
+  assert.deepEqual(unknown.body, []);
+});

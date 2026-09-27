@@ -7,6 +7,7 @@ import { API_BASE } from '../../utilities/API_BASE';
 export default function PartNameInput({
   value,
   onChangeText,
+  onSelectUnit,
   editable = true,
   label,
   style,
@@ -29,8 +30,9 @@ export default function PartNameInput({
         });
         if (!response.ok) throw new Error('Suggestions unavailable');
         const values = await response.json();
-        setOptions(values.map(value => ({
-          value
+        setOptions(values.map(option => ({
+          value: option.value,
+          unit: option.unit
         })));
       } catch {
         if (!controller.signal.aborted) setOptions([]);
@@ -71,6 +73,7 @@ export default function PartNameInput({
           {options.map(option => <TouchableOpacity key={option.value} accessibilityRole="button" accessibilityLabel={'Use ' + option.value} onPressIn={() => clearTimeout(blurTimer.current)} onPress={() => {
         clearTimeout(blurTimer.current);
         onChangeText(option.value);
+        if (option.unit) onSelectUnit?.(option.unit);
         setFocused(false);
       }} style={{
         paddingHorizontal: 10,
