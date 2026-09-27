@@ -125,9 +125,11 @@ export default function PartsReqMonitoring() {
       if (!response.ok) throw new Error(data.message || 'Update failed');
       setRecords(records => records.map(record => record._id === data._id ? data : record));
       message.success(action === 'follow-up' ? 'Follow-up sent' : 'Requisition updated');
+      return true;
     } catch (error) {
       message.error(error.message);
       await load();
+      return false;
     } finally {
       setBusy(false);
     }

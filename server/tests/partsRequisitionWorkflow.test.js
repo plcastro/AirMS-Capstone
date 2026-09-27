@@ -254,14 +254,39 @@ test('full lifecycle supports repeated stock reversals then delivery and owner c
   assert.equal(h.notices.length, 7);
   assert.equal(buildTimeline(h.record()).filter(event => event.label === 'Stock checked').length, 5);
 });
-test('cancellation is allowed to owner/OIC/admin only before delivery', async () => {
-  for (const status of workflow.requisitionStatuses) for (const actor of [user('Mechanic'), user('Officer-In-Charge', 'oic'), user('Superadmin', 'admin')]) {
+test('cancellation is allowed only to the mechanic or manager owner before delivery', async () => {
+  for (const status of workflow.requisitionStatuses) for (const actor of [user('Mechanic'), user('Maintenance Manager'), user('Mechanic', 'other'), user('Officer-In-Charge'), user('Superadmin')]) {
     const h = harness({
       status
     });
     const res = await h.act(actor, 'cancel');
-    assert.equal(res.statusCode, ['Requested', 'Awaiting Stock', 'Ready for Delivery'].includes(status) ? 200 : 409);
+    const ownerRole = ['Mechanic', 'Maintenance Manager'].includes(actor.jobTitle) && actor.id === 'owner';
+    assert.equal(res.statusCode, !ownerRole ? 403 : ['Requested', 'Awaiting Stock', 'Ready for Delivery'].includes(status) ? 200 : 409);
   }
+});
+test('stock batch saves once and delivery can atomically include the final stock choices', async () => {
+  const h = harness();
+  const actor = user('Warehouse Personnel', 'warehouse');
+  assert.equal((await h.act(actor, 'stock', { stockUpdates: [{ itemId: 'i1', stockStatus: 'In Stock' }, { itemId: 'i2', stockStatus: 'Out of Stock' }] })).statusCode, 200);
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.record().status, 'Awaiting Stock');
+  assert.match(h.record().history[0].details, /Seal: Pending Check → Out of Stock/);
+  assert.equal((await h.act(actor, 'deliver', { stockUpdates: [{ itemId: 'i2', stockStatus: 'In Stock' }] })).statusCode, 200);
+  assert.equal(h.writes.length, 2);
+  assert.equal(h.record().status, 'Delivered');
+  assert.ok(h.record().items.every(item => item.stockStatus === 'In Stock'));
+  assert.match(h.record().history[1].details, /Seal: Out of Stock → In Stock/);
+});
+test('invalid batches and incomplete delivery never partially save', async () => {
+  for (const stockUpdates of [[], [{ itemId: 'missing', stockStatus: 'In Stock' }], [{ itemId: 'i1', stockStatus: 'Pending Check' }], [{ itemId: 'i1', stockStatus: 'In Stock' }, { itemId: 'i1', stockStatus: 'Out of Stock' }]]) {
+    const h = harness();
+    assert.equal((await h.act(user('Warehouse Personnel'), 'stock', { stockUpdates })).statusCode, 400);
+    assert.equal(h.writes.length, 0);
+  }
+  const h = harness();
+  assert.equal((await h.act(user('Warehouse Personnel'), 'deliver', { stockUpdates: [{ itemId: 'i1', stockStatus: 'In Stock' }] })).statusCode, 409);
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.record().items[0].stockStatus, 'Pending Check');
 });
 test('follow-up only targets warehouse for stock waiting and owner for unconfirmed delivery', async () => {
   for (const status of workflow.requisitionStatuses) {

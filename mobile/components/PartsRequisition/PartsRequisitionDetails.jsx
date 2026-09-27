@@ -1,12 +1,15 @@
 import { COLORS } from '../../stylesheets/colors';
-import React from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Modal from '../common/AppModal';
 import AppText from '../common/AppText';
 import { StatusDot } from './PartsRequisitionCards';
-import { buildTimeline, readyToDeliver, canAct, displayStatus, followUpTarget, isOpen, normalizeItemStatus } from '../../../shared/partsRequisitionWorkflow';
-export default function PartsRequisitionDetails({
+import { buildTimeline, canAct, displayStatus, followUpTarget, isOpen, normalizeItemStatus } from '../../../shared/partsRequisitionWorkflow';
+export default function PartsRequisitionDetails(props) {
+  return <RequisitionDetails key={`${props.record?._id}:${props.record?.updatedAt}:${props.visible}`} {...props} />;
+}
+function RequisitionDetails({
   record,
   visible,
   onClose,
@@ -14,12 +17,34 @@ export default function PartsRequisitionDetails({
   onAction,
   busy
 }) {
+  const [stockDraft, setStockDraft] = useState({});
   if (!record) return null;
   const status = displayStatus(record),
     stock = canAct(user, record, 'stock') && isOpen(record);
+  const stockUpdates = Object.entries(stockDraft).map(([itemId, stockStatus]) => ({ itemId, stockStatus }));
+  const items = (record.items || []).map(item => ({ ...item, stockStatus: stockDraft[item._id] || normalizeItemStatus(item.stockStatus) }));
+  const allInStock = Boolean(items.length) && items.every(item => item.stockStatus === 'In Stock');
+  const close = () => {
+    if (busy) return;
+    if (!stockUpdates.length) return onClose();
+    Alert.alert('Discard unsaved stock changes?', 'Choose Save or Deliver to keep your stock updates.', [{ text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: onClose }]);
+  };
+  const act = async (action, extra) => {
+    if (action === 'draft') {
+      setStockDraft(previous => {
+        const next = { ...previous };
+        const original = record.items.find(item => String(item._id) === String(extra.itemId));
+        if (normalizeItemStatus(original.stockStatus) === extra.stockStatus) delete next[extra.itemId];
+        else next[extra.itemId] = extra.stockStatus;
+        return next;
+      });
+    } else if (await onAction(record, action, extra)) {
+      if (action === 'stock') onClose();
+    }
+  };
   const button = (label, action, disabled = false, extra = {}) => <TouchableOpacity key={label} disabled={busy || disabled} accessibilityRole="button" accessibilityState={{
     disabled: busy || disabled
-  }} onPress={() => onAction(record, action, extra)} style={{
+  }} onPress={() => act(action, extra)} style={{
     padding: 12,
     borderWidth: 1,
     borderColor: '#d9d9d9',
@@ -29,13 +54,13 @@ export default function PartsRequisitionDetails({
   }}><AppText style={{
       color: action === 'cancel' ? '#a85d5d' : COLORS.primaryLight
     }}>{label}</AppText></TouchableOpacity>;
-  return <Modal visible={visible} onRequestClose={onClose} animationType="slide"><SafeAreaView style={{
+  return <Modal visible={visible} onRequestClose={close} animationType="slide"><SafeAreaView style={{
       flex: 1,
       backgroundColor: '#fff'
     }}><ScrollView contentContainerStyle={{
         padding: 20
       }}>
-    <TouchableOpacity onPress={onClose} style={{
+    <TouchableOpacity onPress={close} style={{
           paddingVertical: 12
         }}><AppText style={{
             color: COLORS.primaryLight
@@ -51,7 +76,8 @@ export default function PartsRequisitionDetails({
           color: '#ad8b00',
           marginBottom: 12
         }}>Awaiting requester confirmation of receipt</AppText>}
-    {(record.items || []).map(item => <View key={item._id || item.itemNo} style={{
+    {stock && <AppText>Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and confirms delivery.</AppText>}
+    {items.map(item => <View key={item._id || item.itemNo} style={{
           backgroundColor: '#f7f7f7',
           padding: 14,
           borderRadius: 10,
@@ -62,11 +88,12 @@ export default function PartsRequisitionDetails({
           }}>{item.particular || item.codeParticular?.[0]?.particular || 'Part'}</AppText><AppText>{item.quantity} {item.unitOfMeasure} · {item.purpose}</AppText><StatusDot status={normalizeItemStatus(item.stockStatus)} />{stock && <View style={{
             flexDirection: 'row',
             gap: 8
-          }}>{['In Stock', 'Out of Stock'].map(value => button(value, 'stock', normalizeItemStatus(item.stockStatus) === value, {
+          }}>{['In Stock', 'Out of Stock'].map(value => button(value, 'draft', normalizeItemStatus(item.stockStatus) === value, {
               itemId: item._id,
               stockStatus: value
             }))}</View>}</View>)}
-    {canAct(user, record, 'deliver') && isOpen(record) && button('Deliver', 'deliver', !readyToDeliver(record))}
+    {stock && !allInStock && button('Save', 'stock', !stockUpdates.length, { stockUpdates })}
+    {canAct(user, record, 'deliver') && isOpen(record) && allInStock && button('Deliver', 'deliver', false, stockUpdates.length ? { stockUpdates } : {})}
     {canAct(user, record, 'confirm') && status === 'Delivered' && button('Confirm receipt', 'confirm')}
     {canAct(user, record, 'cancel') && isOpen(record) && button('Cancel requisition', 'cancel')}
     {canAct(user, record, 'follow-up') && followUpTarget(record) && button('Follow Up', 'follow-up')}
