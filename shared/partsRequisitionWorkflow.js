@@ -47,7 +47,7 @@ export function canAct(user, record, action) {
   const own = isRequisitionOwner(user, record);
   if (action === 'stock' || action === 'deliver') return admin || role === 'warehouse personnel';
   if (action === 'confirm') return admin || own;
-  if (action === 'cancel') return admin || own || role === 'officer-in-charge';
+  if (action === 'cancel') return own && ['mechanic', 'maintenance manager'].includes(role);
   if (action === 'follow-up') return isOversight(user);
   return false;
 }

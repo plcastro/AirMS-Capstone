@@ -200,34 +200,34 @@ exports.updateRequisitionStatus = async (req, res) => {
     const status = displayStatus(record),
       changes = {};
     let entry;
-    if (action === 'stock') {
+      if (action === 'stock' || (action === 'deliver' && req.body.stockUpdates !== undefined)) {
       if (!isOpen(record)) return res.status(409).json({
         message: 'Stock cannot change after delivery or cancellation.'
       });
-      if (!['In Stock', 'Out of Stock'].includes(req.body.stockStatus)) return res.status(400).json({
-        message: 'Choose In Stock or Out of Stock.'
-      });
-      const item = record.items.find(item => String(item._id) === String(req.body.itemId));
-      if (!item) return res.status(400).json({
-        message: 'Item not found.'
-      });
-      changes.items = record.items.map(item => ({
-        ...item,
-        stockStatus: String(item._id) === String(req.body.itemId) ? req.body.stockStatus : normalizeItemStatus(item.stockStatus)
+        const updates = req.body.stockUpdates ?? [{ itemId: req.body.itemId, stockStatus: req.body.stockStatus }];
+        if (!Array.isArray(updates) || !updates.length || updates.some(update => !update || !['In Stock', 'Out of Stock'].includes(update.stockStatus) || !record.items.some(item => String(item._id) === String(update.itemId))) || new Set(updates.map(update => String(update.itemId))).size !== updates.length) return res.status(400).json({
+          message: 'Provide unique requisition items with In Stock or Out of Stock status.'
+        });
+        const statuses = new Map(updates.map(update => [String(update.itemId), update.stockStatus]));
+        changes.items = record.items.map(item => ({
+          ...item,
+          stockStatus: statuses.get(String(item._id)) || normalizeItemStatus(item.stockStatus)
       }));
       changes.status = computedStatus({
         items: changes.items
       });
       changes.dateWarehouseReviewed = new Date();
-      entry = event(req, 'Stock checked', `${item.particular || item.codeParticular?.[0]?.particular || 'Part'}: ${normalizeItemStatus(item.stockStatus)} → ${req.body.stockStatus}`);
-    } else if (action === 'deliver') {
-      if (!readyToDeliver(record)) return res.status(409).json({
+        const details = record.items.filter(item => statuses.has(String(item._id)) && normalizeItemStatus(item.stockStatus) !== statuses.get(String(item._id))).map(item => `${item.particular || item.codeParticular?.[0]?.particular || 'Part'}: ${normalizeItemStatus(item.stockStatus)} → ${statuses.get(String(item._id))}`).join('; ');
+        entry = event(req, 'Stock checked', details);
+      }
+      if (action === 'deliver') {
+        if (!isOpen(record) || !readyToDeliver({ ...record, ...changes })) return res.status(409).json({
         message: 'All items must be In Stock before delivery.'
       });
       changes.deliveredAt = new Date();
       changes.deliveredBy = req.user.id;
       changes.status = 'Delivered';
-      entry = event(req, 'Delivered');
+        entry = event(req, 'Delivered', entry?.details ? `Stock checked: ${entry.details}` : undefined);
     } else if (action === 'confirm') {
       if (status !== 'Delivered') return res.status(409).json({
         message: 'Only delivered requisitions can be confirmed.'

@@ -113,9 +113,11 @@ export default function PartsRequisition({
         ...extra
       });
       setRecords(records => records.map(record => record._id === updated._id ? updated : record));
+      return true;
     } catch (error) {
       Alert.alert('Could not update', error.message);
       await load();
+      return false;
     } finally {
       setBusy(false);
     }
