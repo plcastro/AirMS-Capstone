@@ -4,6 +4,8 @@ const multer = require("multer");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { touchSessionActivity } = require("../middleware/sessionActivity");
 const { requireActionConfirmation } = require("../middleware/actionConfirmation");
+const { requirePermission } = require("../middleware/permissions");
+const permissions = require("../config/permissions");
 const {
   getPartsMonitoring,
   getAllPartsMonitoring,
@@ -12,6 +14,7 @@ const {
   getMaintenancePriorityRules,
   savePartsMonitoring,
   saveMaintenancePriorityRules,
+  saveMaintenancePriorityOverride,
   deletePartsMonitoring,
   deleteAircraftData,
   getAircraftList,
@@ -102,6 +105,15 @@ router.post(
   handleWorkbookUploadError,
   importPartsMonitoringWorkbook,
 );
+router.put(
+  "/maintenance-priority/:aircraft/override",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.MAINTENANCEPRIORITY_UPDATE),
+  requireActionConfirmation,
+  saveMaintenancePriorityOverride,
+);
+
 router.put(
   "/maintenance-priority/rules",
   verifyToken,

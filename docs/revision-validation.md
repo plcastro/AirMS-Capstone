@@ -17,10 +17,19 @@
 - Large picked images are resized before previews/uploads using the already-declared image manipulator. GIF files retain their original animation. Small photos are not upscaled.
 - Paginated reports/parts/tracking/activity lists, capped import previews, fixed workflow choices, and record editing controls were left intact.
 
+## Manual maintenance priority
+
+- Web and mobile managers/superadmins can save Critical, High, Medium, or Low with an optional reason, or select Auto to clear. The endpoint enforces authentication, the existing action-confirmation convention, and RBAC.
+- Effective priority drives the existing sorting and summary counts. Automatic level, reason, and rule triggers remain available alongside a manual value.
+- Overrides bind to the aircraft's selected inspection row and fixed cycle completion/due targets. They expire when the next inspection changes, including a recurring inspection advancing on the same row. Normal countdown/reference-total changes do not expire them.
+- Eight added tests exercise the actual controller/route with model fixtures: Critical-to-Low sorting and counts, Auto reset, optional reason/validation, authenticated actor metadata, role guards, cycle expiry, missing inspections, and concurrent update/cleanup protection. All eight pass; these are not live MongoDB integration tests.
+- Final web production build passes. Changed JavaScript/JSX files pass syntax and undefined-reference checks; native UI acceptance remains outstanding as described below.
+
 ## Existing failures and remaining validation
 
 - Initial server baseline: 139/143 pass. Four failures predate these changes: unassigned crew access, assigned crew workflow actions, pilot assignment payload filtering, and server-derived flight hours.
 - After performance changes: 145/149 pass, with the same four failures. All six added performance regression tests pass.
+- Final server suite: 153/157 pass, with the same four baseline failures. All 14 added regression tests pass.
 - Web lint baseline and subsequent runs: 25 errors and 19 warnings. Unrelated lint errors were not refactored.
 - Mobile has no configured npm lint/test script. Changed mobile files passed Babel parsing and an undefined-reference lint check.
 - Expo Android export is blocked by the checkout's missing installed `expo-location` package, which was already declared before this work. No dependencies were added or installed.
