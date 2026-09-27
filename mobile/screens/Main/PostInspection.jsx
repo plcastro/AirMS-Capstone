@@ -1,4 +1,10 @@
-import React, { useState, useContext, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import FlightWorkspace from "../../components/FlightLog/FlightWorkspace";
 import AppText from "../../components/common/AppText";
 import {
@@ -49,7 +55,9 @@ const normalizePostInspectionPayload = (inspection = {}) => {
 };
 
 const getDisplayStatus = (status) => {
-  const normalizedStatus = String(status || "").trim().toLowerCase();
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
 
   return normalizedStatus === "completed"
     ? "completed"
@@ -78,10 +86,7 @@ export default function PostInspection({ route }) {
 
   const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
-  const canExportPostInspections = canExportModule(
-    userRole,
-    "postInspection",
-  );
+  const canExportPostInspections = canExportModule(userRole, "postInspection");
 
   const fetchPostInspections = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -217,7 +222,10 @@ export default function PostInspection({ route }) {
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <View key={selectedAircraft || "aircraft-groups"} style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}>
+      <View
+        key={selectedAircraft || "aircraft-groups"}
+        style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}
+      >
         {!!selectedAircraft && (
           <TouchableOpacity
             style={{
@@ -228,8 +236,18 @@ export default function PostInspection({ route }) {
             }}
             onPress={() => selectAircraft("")}
           >
-            <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-            <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={22}
+              color={COLORS.primary}
+            />
+            <AppText
+              style={{
+                marginLeft: 6,
+                color: COLORS.primary,
+                fontWeight: "700",
+              }}
+            >
               Back to aircraft
             </AppText>
           </TouchableOpacity>
@@ -237,8 +255,8 @@ export default function PostInspection({ route }) {
 
         {!selectedAircraft ? (
           <AircraftLogGroups
-                refreshing={refreshing}
-                onRefresh={() => fetchPostInspections(true)}
+            refreshing={refreshing}
+            onRefresh={() => fetchPostInspections(true)}
             records={inspections}
             sortBy="latestActivity"
             loading={loading}
@@ -264,9 +282,13 @@ export default function PostInspection({ route }) {
                 style={styles.unifiedFilterButton}
                 onPress={() => setShowStatusDropdown((open) => !open)}
               >
-                <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-                  {statusOptions.find((option) => option.value === selectedStatus)
-                    ?.label || "Status"}
+                <AppText
+                  style={styles.unifiedFilterButtonText}
+                  numberOfLines={1}
+                >
+                  {statusOptions.find(
+                    (option) => option.value === selectedStatus,
+                  )?.label || "Status"}
                 </AppText>
                 <MaterialCommunityIcons
                   name={showStatusDropdown ? "chevron-up" : "chevron-down"}
@@ -282,7 +304,8 @@ export default function PostInspection({ route }) {
                       key={option.value}
                       style={{
                         ...styles.unifiedDropdownItem,
-                        borderBottomWidth: index < statusOptions.length - 1 ? 1 : 0,
+                        borderBottomWidth:
+                          index < statusOptions.length - 1 ? 1 : 0,
                         borderBottomColor: COLORS.grayMedium,
                       }}
                       onPress={() => selectStatus(option.value)}
@@ -296,15 +319,22 @@ export default function PostInspection({ route }) {
               )}
             </View>
 
-            <PostInspectionCards ListEmptyComponent={loading ? (<LoadingState text="Loading post-flight inspections..." />) : (<EmptyState text="No post-flight inspections match your filters." />)}
-                refreshing={refreshing}
-                onRefresh={() => fetchPostInspections(true)}
-                currentUser={user}
-                inspections={loading ? [] : filteredInspections}
-                onEdit={handleEdit}
-                onExport={canExportPostInspections ? handleExport : undefined}
-                userRole={userRole}
-              />
+            <PostInspectionCards
+              ListEmptyComponent={
+                loading ? (
+                  <LoadingState text="Loading post-flight inspections..." />
+                ) : (
+                  <EmptyState text="No post-flight inspections match your filters." />
+                )
+              }
+              refreshing={refreshing}
+              onRefresh={() => fetchPostInspections(true)}
+              currentUser={user}
+              inspections={loading ? [] : filteredInspections}
+              onEdit={handleEdit}
+              onExport={canExportPostInspections ? handleExport : undefined}
+              userRole={userRole}
+            />
           </>
         )}
       </View>
@@ -366,7 +396,21 @@ export default function PostInspection({ route }) {
         userRole={userRole}
         readOnly
       />
-      {!!selectedInspection?.flightLogId && showEditModal && <FlightWorkspace id={String(selectedInspection.flightLogId?._id || selectedInspection.flightLogId)} visible initialSection="post" onClose={() => { setShowEditModal(false); setSelectedInspection(null); }} onChanged={() => fetchPostInspections(true)} />}
+      {!!selectedInspection?.flightLogId && showEditModal && (
+        <FlightWorkspace
+          id={String(
+            selectedInspection.flightLogId?._id ||
+              selectedInspection.flightLogId,
+          )}
+          visible
+          initialSection="post"
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedInspection(null);
+          }}
+          onChanged={() => fetchPostInspections(true)}
+        />
+      )}
     </View>
   );
 }

@@ -233,38 +233,32 @@ function DrawerNav({ navigation }) {
         headerRight: () => (
           <View
             style={{
-              paddingHorizontal: 7,
-              paddingBottom: 6,
               flexDirection: "row",
               alignItems: "center",
+              paddingRight: 8,
+              height: "100%",
             }}
           >
             <NotificationBell navigation={navigation} />
+
             <TouchableOpacity
               style={{
                 flexDirection: "row",
                 alignItems: "center",
+                marginLeft: 4,
               }}
               onPress={() => navigation.navigate("Profile")}
             >
               {profileImage ? (
-                <View
+                <Image
+                  source={{ uri: profileImage }}
                   style={{
-                    height: 48,
-                    justifyContent: "center",
-                    paddingBottom: 7,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    marginRight: 5,
                   }}
-                >
-                  <Image
-                    source={{ uri: profileImage }}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      marginRight: 5,
-                    }}
-                  />
-                </View>
+                />
               ) : (
                 <View
                   style={{
@@ -275,20 +269,36 @@ function DrawerNav({ navigation }) {
                     backgroundColor: "#E6F4F1",
                     alignItems: "center",
                     justifyContent: "center",
-                    paddingBottom: 7,
                   }}
                 >
-                  <AppText style={{ color: "#26866F", fontWeight: "700" }}>
+                  <AppText
+                    style={{
+                      color: "#26866F",
+                      fontWeight: "700",
+                    }}
+                  >
                     {getUserInitials(user?.firstName, user?.lastName)}
                   </AppText>
                 </View>
               )}
+
               {isWeb && isWide && (
                 <View style={{ flexDirection: "column" }}>
-                  <AppText style={{ fontSize: scale(14), fontWeight: "600" }}>
+                  <AppText
+                    style={{
+                      fontSize: scale(14),
+                      fontWeight: "600",
+                    }}
+                  >
                     {`${user.firstName} ${user.lastName}` || "User"}
                   </AppText>
-                  <AppText style={{ fontSize: scale(12), color: "#777" }}>
+
+                  <AppText
+                    style={{
+                      fontSize: scale(12),
+                      color: "#777",
+                    }}
+                  >
                     {user?.jobTitle || ""}
                   </AppText>
                 </View>

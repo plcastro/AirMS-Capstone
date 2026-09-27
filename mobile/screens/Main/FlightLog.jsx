@@ -1,10 +1,27 @@
-import FlightEntryInspectionPrompt from '../../components/FlightLog/FlightEntryInspectionPrompt';
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { FlatList, View, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import FlightEntryInspectionPrompt from "../../components/FlightLog/FlightEntryInspectionPrompt";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  FlatList,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AppText from "../../components/common/AppText";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
-import { SearchBar, InfoCard, FieldRow, EmptyState } from "../../components/common/MobileModule";
+import {
+  SearchBar,
+  InfoCard,
+  FieldRow,
+  EmptyState,
+} from "../../components/common/MobileModule";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightWorkspace from "../../components/FlightLog/FlightWorkspace";
 import { AuthContext } from "../../Context/AuthContext";
@@ -16,33 +33,43 @@ import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
-import { getLogAircraftRegistration, sortLogsByLatestActivity } from "../../../shared/aircraftLogGroups";
-import { FLIGHT_STAGES, flightStage, needsMyFlightAction, nextFlightStep } from "../../../shared/flightWorkflow";
+import {
+  getLogAircraftRegistration,
+  sortLogsByLatestActivity,
+} from "../../../shared/aircraftLogGroups";
+import {
+  FLIGHT_STAGES,
+  flightStage,
+  needsMyFlightAction,
+  nextFlightStep,
+} from "../../../shared/flightWorkflow";
 const button = {
   padding: 12,
   margin: 4,
   backgroundColor: "#26866f",
-  borderRadius: 6
+  borderRadius: 6,
 };
-function Action({
-  children,
-  onPress
-}) {
-  return <TouchableOpacity accessibilityRole="button" style={button} onPress={onPress}><AppText style={{
-      color: "white",
-      fontWeight: "600"
-    }}>{children}</AppText></TouchableOpacity>;
+function Action({ children, onPress }) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      style={button}
+      onPress={onPress}
+    >
+      <AppText
+        style={{
+          color: "white",
+          fontWeight: "600",
+        }}
+      >
+        {children}
+      </AppText>
+    </TouchableOpacity>
+  );
 }
-export default function FlightLog({
-  route,
-  navigation
-}) {
-  const {
-    user
-  } = useContext(AuthContext);
-  const {
-    fetchNotifications
-  } = useContext(NotificationContext);
+export default function FlightLog({ route, navigation }) {
+  const { user } = useContext(AuthContext);
+  const { fetchNotifications } = useContext(NotificationContext);
   const [logs, setLogs] = useState([]),
     [loading, setLoading] = useState(true);
   const [aircraft, setAircraft] = useState(""),
@@ -54,48 +81,78 @@ export default function FlightLog({
     [opened, setOpened] = useState(null);
   const userRole = resolveUserRole(user, "pilot");
   const canCreate = userRole === "mechanic";
-  const [entryPrompt, setEntryPrompt] = useState(false), [entryConfirmation, setEntryConfirmation] = useState(null);
+  const [entryPrompt, setEntryPrompt] = useState(false),
+    [entryConfirmation, setEntryConfirmation] = useState(null);
   const refresh = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const page = async number => {
-        const response = await fetch(`${API_BASE}/api/flightlogs?page=${number}&limit=500&sortBy=updatedAt&sortOrder=desc`, {
-          headers
-        });
+      const page = async (number) => {
+        const response = await fetch(
+          `${API_BASE}/api/flightlogs?page=${number}&limit=500&sortBy=updatedAt&sortOrder=desc`,
+          {
+            headers,
+          },
+        );
         const body = await response.json();
-        if (!response.ok) throw Error(body.message || "Could not load flight logs");
+        if (!response.ok)
+          throw Error(body.message || "Could not load flight logs");
         return body;
       };
       const first = await page(1);
-      const rest = await Promise.all(Array.from({
-        length: Math.max(0, Number(first.pagination?.pages || 1) - 1)
-      }, (_, index) => page(index + 2)));
-      setLogs(sortLogsByLatestActivity(Array.from(new Map([first, ...rest].flatMap(item => item.data || []).map(log => [log._id, log])).values())));
+      const rest = await Promise.all(
+        Array.from(
+          {
+            length: Math.max(0, Number(first.pagination?.pages || 1) - 1),
+          },
+          (_, index) => page(index + 2),
+        ),
+      );
+      setLogs(
+        sortLogsByLatestActivity(
+          Array.from(
+            new Map(
+              [first, ...rest]
+                .flatMap((item) => item.data || [])
+                .map((log) => [log._id, log]),
+            ).values(),
+          ),
+        ),
+      );
     } catch (error) {
       showToast(error.message);
     } finally {
       setLoading(false);
     }
   }, []);
-  useFocusEffect(useCallback(() => {
-    refresh();
-    fetchNotifications?.();
-    const timer = setInterval(() => refresh(), 30000);
-    return () => clearInterval(timer);
-  }, [refresh, fetchNotifications]));
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      fetchNotifications?.();
+      const timer = setInterval(() => refresh(), 30000);
+      return () => clearInterval(timer);
+    }, [refresh, fetchNotifications]),
+  );
   useEffect(() => {
-    if (route?.params?.targetFlightLogId) setOpened(route.params.targetFlightLogId);
+    if (route?.params?.targetFlightLogId)
+      setOpened(route.params.targetFlightLogId);
     if (route?.params?.refreshAt) {
       refresh();
       fetchNotifications?.();
     }
-  }, [route?.params?.targetFlightLogId, route?.params?.refreshAt, refresh, fetchNotifications]);
+  }, [
+    route?.params?.targetFlightLogId,
+    route?.params?.refreshAt,
+    refresh,
+    fetchNotifications,
+  ]);
   useEffect(() => {
-    const target = logs.find(log => log._id === route?.params?.targetFlightLogId);
+    const target = logs.find(
+      (log) => log._id === route?.params?.targetFlightLogId,
+    );
     if (target) setAircraft(getLogAircraftRegistration(target));
   }, [logs, route?.params?.targetFlightLogId]);
-  const chooseAircraft = value => {
+  const chooseAircraft = (value) => {
     setAircraft(value);
     setQuery("");
     setStatus("all");
@@ -105,20 +162,20 @@ export default function FlightLog({
     refresh();
     fetchNotifications?.();
   };
-  const create = async entry => {
+  const create = async (entry) => {
     try {
       const response = await fetch(`${API_BASE}/api/flightlogs`, {
         method: "POST",
         headers: await getAuthHeaders({
           "Content-Type": "application/json",
-          "x-action-confirmed": "true"
+          "x-action-confirmed": "true",
         }),
         body: JSON.stringify({
           ...entry,
           confirmationId: entryConfirmation?.confirmationId,
           status: "pending_release",
-          confirmAction: true
-        })
+          confirmAction: true,
+        }),
       });
       const body = await response.json();
       if (!response.ok) throw Error(body.message || "Could not create draft");
@@ -132,67 +189,196 @@ export default function FlightLog({
       return false;
     }
   };
-  const filtered = useMemo(() => logs.filter(log => getLogAircraftRegistration(log) === aircraft && (status === "all" || flightStage(log) === status) && (!onlyMine || needsMyFlightAction(user, log)) && matchesSearch(query, log)), [logs, aircraft, status, onlyMine, user, query]);
-  return <View style={{
-    flex: 1,
-    padding: 12,
-    backgroundColor: "#f7faf8"
-  }}>
-    <View style={{
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between"
-    }}><AppText style={{
-        fontSize: 19,
-        fontWeight: "700"
-      }}>{aircraft || "Flight Logs"}</AppText>{canCreate && <Action onPress={() => setEntryPrompt(true)}>New Entry</Action>}</View>
-    {!!aircraft && <><Action onPress={() => chooseAircraft("")}>Back to Aircraft</Action><SearchBar value={query} onChangeText={setQuery} placeholder="Search flight logs or crew" />
-      <ScrollView horizontal style={{
-        flexGrow: 0,
-        marginBottom: 8
-      }}>{[["all", "All Stages"], ...Object.entries(FLIGHT_STAGES).map(([value, step]) => [value, step.label])].map(([value, label]) => <TouchableOpacity key={value} onPress={() => setStatus(value)} style={{
-          padding: 10,
-          borderRadius: 6,
-          margin: 2,
-          backgroundColor: status === value ? "#d1ede0" : "white"
-        }}><AppText>{label}</AppText></TouchableOpacity>)}</ScrollView>
-      <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{
-        checked: onlyMine
-      }} onPress={() => setOnlyMine(value => !value)} style={{
-        padding: 10
-      }}><AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText></TouchableOpacity></>}
-    {!aircraft ? <AircraftLogGroups refreshing={loading} onRefresh={() => refresh(true)} records={logs} loading={loading} sortBy="latestActivity" query={aircraftQuery} onQueryChange={setAircraftQuery} onSelect={chooseAircraft} /> : <FlatList
-                                                                                                                                                                                                                                          ListEmptyComponent={<EmptyState text="No flight logs match your filters." />}
-                                                                                                                                                                                                                                          refreshing={loading}
-                                                                                                                                                                                                                                          onRefresh={() => refresh(true)}
-                                                                                                                                                                                                                                          style={{ flex: 1 }}
-                                                                                                                                                                                                                                          contentContainerStyle={{ paddingBottom: 110 }}
-                                                                                                                                                                                                                                          keyboardShouldPersistTaps="handled"
-                                                                                                                                                                                                                                          data={filtered}
-                                                                                                                                                                                                                                          keyExtractor={(item, index) => String(item._id || item.id || index)}
-                                                                                                                                                                                                                                          initialNumToRender={12}
-                                                                                                                                                                                                                                          maxToRenderPerBatch={8}
-                                                                                                                                                                                                                                          windowSize={7}
-                                                                                                                                                                                                                                          renderItem={({ item: log }) => {
-        const step = nextFlightStep(log);
-        return <InfoCard key={log._id} title={log.controlNo || "Flight Log"} subtitle={step.label} onPress={() => setOpened(log._id)}>
-          <FieldRow label="Date" value={log.date} /><FieldRow label="Latest update" value={formatDateTime(log.updatedAt || log.createdAt)} />
-          <FieldRow label="Next action" value={`${step.next}${step.crew ? ` — ${log[step.crew]?.name || "Unassigned"}` : ""}`} />
-          <Action onPress={() => setOpened(log._id)}>{needsMyFlightAction(user, log) ? "Continue Workflow" : "Open Record"}</Action>
-          {canExportModule(userRole, "flightLogs") && <Action onPress={() => exportFlightLogPdf(log).catch(error => showToast(error.message))}>Export PDF</Action>}
-        </InfoCard>;
+  const filtered = useMemo(
+    () =>
+      logs.filter(
+        (log) =>
+          getLogAircraftRegistration(log) === aircraft &&
+          (status === "all" || flightStage(log) === status) &&
+          (!onlyMine || needsMyFlightAction(user, log)) &&
+          matchesSearch(query, log),
+      ),
+    [logs, aircraft, status, onlyMine, user, query],
+  );
+  return (
+    <View
+      style={{
+        flex: 1,
+        padding: 12,
+        backgroundColor: "#f7faf8",
       }}
-                                                                                                                                                                                                                                        />}
-    <FlightEntryInspectionPrompt visible={entryPrompt} lockedRpc={aircraft === "Unassigned aircraft" ? "" : aircraft} onClose={() => setEntryPrompt(false)} onConfirmed={data => { setEntryConfirmation(data); setEntryPrompt(false); setCreating(true); }} />
-    <FlightLogEntry key={entryConfirmation?.confirmationId || "new"} entryConfirmation={entryConfirmation} visible={creating} onClose={() => setCreating(false)} onSave={create} lockedRpc={entryConfirmation?.rpc || ""} userRole={userRole} currentUser={user} />
-    {!!opened && <FlightWorkspace id={opened} visible initialSection={route?.params?.targetSection || "flight"} onClose={() => {
-      setOpened(null);
-      navigation?.setParams?.({
-        targetFlightLogId: undefined,
-        targetSection: undefined,
-        refreshAt: undefined,
-        notificationStatus: undefined
-      });
-    }} onChanged={changed} />}
-  </View>;
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <AppText
+          style={{
+            fontSize: 19,
+            fontWeight: "700",
+          }}
+        >
+          {aircraft || "Flight Logs"}
+        </AppText>
+        {canCreate && (
+          <Action onPress={() => setEntryPrompt(true)}>New Entry</Action>
+        )}
+      </View>
+      {!!aircraft && (
+        <>
+          <Action onPress={() => chooseAircraft("")}>Back to Aircraft</Action>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search flight logs or crew"
+          />
+          <ScrollView
+            horizontal
+            style={{
+              flexGrow: 0,
+              marginBottom: 8,
+            }}
+          >
+            {[
+              ["all", "All Stages"],
+              ...Object.entries(FLIGHT_STAGES).map(([value, step]) => [
+                value,
+                step.label,
+              ]),
+            ].map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => setStatus(value)}
+                style={{
+                  padding: 10,
+                  borderRadius: 6,
+                  margin: 2,
+                  backgroundColor: status === value ? "#d1ede0" : "white",
+                }}
+              >
+                <AppText>{label}</AppText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{
+              checked: onlyMine,
+            }}
+            onPress={() => setOnlyMine((value) => !value)}
+            style={{
+              padding: 10,
+            }}
+          >
+            <AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText>
+          </TouchableOpacity>
+        </>
+      )}
+      {!aircraft ? (
+        <AircraftLogGroups
+          refreshing={loading}
+          onRefresh={() => refresh(true)}
+          records={logs}
+          loading={loading}
+          sortBy="latestActivity"
+          query={aircraftQuery}
+          onQueryChange={setAircraftQuery}
+          onSelect={chooseAircraft}
+        />
+      ) : (
+        <FlatList
+          ListEmptyComponent={
+            <EmptyState text="No flight logs match your filters." />
+          }
+          refreshing={loading}
+          onRefresh={() => refresh(true)}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
+          keyboardShouldPersistTaps="handled"
+          data={filtered}
+          keyExtractor={(item, index) => String(item._id || item.id || index)}
+          initialNumToRender={12}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          renderItem={({ item: log }) => {
+            const step = nextFlightStep(log);
+            return (
+              <InfoCard
+                key={log._id}
+                title={log.controlNo || "Flight Log"}
+                subtitle={step.label}
+                onPress={() => setOpened(log._id)}
+              >
+                <FieldRow label="Date" value={log.date} />
+                <FieldRow
+                  label="Latest update"
+                  value={formatDateTime(log.updatedAt || log.createdAt)}
+                />
+                <FieldRow
+                  label="Next action"
+                  value={`${step.next}${step.crew ? ` — ${log[step.crew]?.name || "Unassigned"}` : ""}`}
+                />
+                <Action onPress={() => setOpened(log._id)}>
+                  {needsMyFlightAction(user, log)
+                    ? "Continue Workflow"
+                    : "Open Record"}
+                </Action>
+                {canExportModule(userRole, "flightLogs") && (
+                  <Action
+                    onPress={() =>
+                      exportFlightLogPdf(log).catch((error) =>
+                        showToast(error.message),
+                      )
+                    }
+                  >
+                    Export PDF
+                  </Action>
+                )}
+              </InfoCard>
+            );
+          }}
+        />
+      )}
+      <FlightEntryInspectionPrompt
+        visible={entryPrompt}
+        lockedRpc={aircraft === "Unassigned aircraft" ? "" : aircraft}
+        onClose={() => setEntryPrompt(false)}
+        onConfirmed={(data) => {
+          setEntryConfirmation(data);
+          setEntryPrompt(false);
+          setCreating(true);
+        }}
+      />
+      <FlightLogEntry
+        key={entryConfirmation?.confirmationId || "new"}
+        entryConfirmation={entryConfirmation}
+        visible={creating}
+        onClose={() => setCreating(false)}
+        onSave={create}
+        lockedRpc={entryConfirmation?.rpc || ""}
+        userRole={userRole}
+        currentUser={user}
+      />
+      {!!opened && (
+        <FlightWorkspace
+          id={opened}
+          visible
+          initialSection={route?.params?.targetSection || "flight"}
+          onClose={() => {
+            setOpened(null);
+            navigation?.setParams?.({
+              targetFlightLogId: undefined,
+              targetSection: undefined,
+              refreshAt: undefined,
+              notificationStatus: undefined,
+            });
+          }}
+          onChanged={changed}
+        />
+      )}
+    </View>
+  );
 }

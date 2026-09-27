@@ -40,12 +40,17 @@ export default function AircraftLogGroups({
         onChangeText={onQueryChange}
         placeholder="Search aircraft or base"
       />
-      <SectionTitle
-        title="Aircraft"
-        subtitle="Select an aircraft to view and filter its logs."
-      />
+      <SectionTitle subtitle="Select an aircraft to view and filter its logs." />
       <FlatList
-        ListEmptyComponent={loading ? <LoadingState text="Loading aircraft logs..." /> : <EmptyState text={query.trim() ? "No aircraft match your search." : emptyText} />}
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState text="Loading aircraft logs..." />
+          ) : (
+            <EmptyState
+              text={query.trim() ? "No aircraft match your search." : emptyText}
+            />
+          )
+        }
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 110 }}
         keyboardShouldPersistTaps="handled"
@@ -55,13 +60,18 @@ export default function AircraftLogGroups({
         maxToRenderPerBatch={8}
         windowSize={7}
         {...listProps}
-        renderItem={({ item: group }) => (<InfoCard
+        renderItem={({ item: group }) => (
+          <InfoCard
             key={group.rpc}
             title={group.rpc}
             subtitle="View aircraft logs"
             right={
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <StatusChip label={`${group.count} ${group.count === 1 ? "log" : "logs"}`} />
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <StatusChip
+                  label={`${group.count} ${group.count === 1 ? "log" : "logs"}`}
+                />
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={22}
@@ -72,15 +82,25 @@ export default function AircraftLogGroups({
             onPress={() => onSelect(group.rpc)}
           >
             <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              <FieldRow label="Aircraft type" value={group.aircraftType || "N/A"} />
+              <FieldRow
+                label="Aircraft type"
+                value={group.aircraftType || "N/A"}
+              />
               <FieldRow label="Base" value={group.base || "N/A"} />
               {sortBy === "latestActivity" ? (
-                <FieldRow label="Last updated" value={formatDateTime(group.latestActivity)} />
+                <FieldRow
+                  label="Last updated"
+                  value={formatDateTime(group.latestActivity)}
+                />
               ) : (
-                <FieldRow label="Latest log" value={formatDate(group.latestDate)} />
+                <FieldRow
+                  label="Latest log"
+                  value={formatDate(group.latestDate)}
+                />
               )}
             </View>
-          </InfoCard>)}
+          </InfoCard>
+        )}
       />
     </View>
   );
