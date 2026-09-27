@@ -11,7 +11,7 @@ import { buildLoginLocationHeaders } from "../utils/loginLocation";
 
 export const AuthContext = createContext();
 
-const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const WARNING_DURATION_MS = 2 * 60 * 1000;
 const ACTIVITY_EVENTS = [
   "click",
@@ -439,10 +439,7 @@ export const AuthProvider = ({ children }) => {
     };
   });
 
-  const getAuthHeader = useCallback(
-    () => getAuthHeaderImplRef.current(),
-    [],
-  );
+  const getAuthHeader = useCallback(() => getAuthHeaderImplRef.current(), []);
 
   const loginUser = async (userData, token, options = {}) => {
     if (!token) return;
