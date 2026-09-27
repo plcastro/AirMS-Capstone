@@ -1,5 +1,6 @@
 import { message } from "antd";
 import { flightWorkflowExportRows } from "../../../../shared/flightWorkflowExport";
+import { getCurrentSessionProfile } from "../../utils/sessionProfile";
 
 const showExportPopup = (
   setPopup,
@@ -61,19 +62,7 @@ const formatExportValue = (value) => {
 };
 
 export const getExportExecutorName = (fallback = "Unknown User") => {
-  const readUser = (storage) => {
-    if (!storage) return null;
-    try {
-      const raw = storage.getItem("currentUser");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const user =
-    readUser(typeof sessionStorage !== "undefined" ? sessionStorage : null) ||
-    readUser(typeof localStorage !== "undefined" ? localStorage : null);
+  const user = getCurrentSessionProfile();
   const fullName = [user?.firstName, user?.lastName]
     .map((part) => String(part || "").trim())
     .filter(Boolean)

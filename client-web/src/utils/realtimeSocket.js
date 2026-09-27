@@ -18,11 +18,19 @@ const buildWsUrl = (token) => {
   return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
-const getStoredToken = () =>
-  localStorage.getItem("currentUserToken") ||
-  localStorage.getItem("token") ||
-  sessionStorage.getItem("token") ||
-  "";
+const getStoredToken = () => {
+  const sessionToken = sessionStorage.getItem("token");
+  if (sessionToken) return sessionToken;
+
+  const legacyToken =
+    localStorage.getItem("currentUserToken") || localStorage.getItem("token");
+  if (legacyToken) {
+    sessionStorage.setItem("token", legacyToken);
+  }
+  localStorage.removeItem("currentUserToken");
+  localStorage.removeItem("token");
+  return legacyToken || "";
+};
 
 const notifyListeners = (payload) => {
   listeners.forEach((listener) => {

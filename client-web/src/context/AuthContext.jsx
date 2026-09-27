@@ -8,6 +8,10 @@ import React, {
 } from "react";
 import { API_BASE } from "../utils/API_BASE";
 import { buildLoginLocationHeaders } from "../utils/loginLocation";
+import {
+  clearCurrentSessionProfile,
+  setCurrentSessionProfile,
+} from "../utils/sessionProfile";
 
 export const AuthContext = createContext();
 
@@ -34,9 +38,6 @@ export const buildStoredUserProfile = (userData = {}) => {
   return {
     id,
     _id: id,
-    jobTitle: userData.jobTitle || null,
-    access: userData.access || null,
-    status: userData.status || "",
     sessionId: userData.sessionId || null,
   };
 };
@@ -63,15 +64,22 @@ export const AuthProvider = ({ children }) => {
   const lastActivityRecordedAtRef = useRef(0);
   const getAuthHeaderImplRef = useRef(null);
 
-  const getStoredToken = () =>
-    sessionStorage.getItem("token") || localStorage.getItem("token");
+  const getStoredToken = () => {
+    const sessionToken = sessionStorage.getItem("token");
+    if (sessionToken) return sessionToken;
+
+    const legacyToken = localStorage.getItem("token");
+    if (legacyToken) {
+      sessionStorage.setItem("token", legacyToken);
+      localStorage.removeItem("token");
+    }
+    return legacyToken;
+  };
 
   const hasStoredSessionHint = () =>
     Boolean(
       sessionStorage.getItem("currentUser") ||
-      localStorage.getItem("currentUser") ||
       sessionStorage.getItem("token") ||
-      localStorage.getItem("token") ||
       localStorage.getItem(SESSION_META_KEY),
     );
 
@@ -82,10 +90,32 @@ export const AuthProvider = ({ children }) => {
     access: userData.access ? userData.access.trim().toLowerCase() : null,
   });
 
+  const hasUserIdentity = (userData = {}) =>
+    Boolean(
+      String(
+        userData.firstName ||
+          userData.lastName ||
+          userData.displayName ||
+          userData.username ||
+          userData.email ||
+          "",
+      ).trim(),
+    );
+
   const publishAuthSync = (payload) => {
-    const eventPayload = { ...payload, at: Date.now() };
+    const eventPayload = {
+      ...payload,
+      user: payload.user ? buildStoredUserProfile(payload.user) : undefined,
+      at: Date.now(),
+    };
+    const storageEventPayload = {
+      type: payload.type,
+      rememberMe: payload.rememberMe,
+      user: payload.user ? buildStoredUserProfile(payload.user) : undefined,
+      at: eventPayload.at,
+    };
     try {
-      localStorage.setItem(AUTH_SYNC_KEY, JSON.stringify(eventPayload));
+      localStorage.setItem(AUTH_SYNC_KEY, JSON.stringify(storageEventPayload));
     } catch {
       // no-op
     }
@@ -116,23 +146,23 @@ export const AuthProvider = ({ children }) => {
 
   const persistAuthState = (normalizedUser, token, rememberMe) => {
     const storedUser = buildStoredUserProfile(normalizedUser);
+    setCurrentSessionProfile(normalizedUser);
     sessionStorage.setItem("currentUser", JSON.stringify(storedUser));
     sessionStorage.setItem("token", token);
     if (rememberMe) {
-      localStorage.setItem("currentUser", JSON.stringify(storedUser));
-      localStorage.setItem("token", token);
       localStorage.setItem(REMEMBER_ME_KEY, "true");
     } else {
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("token");
       localStorage.setItem(REMEMBER_ME_KEY, "false");
     }
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("token");
   };
 
   const clearAuthStorage = () => {
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("token");
     sessionStorage.removeItem(SESSION_TIMING_KEY);
+    clearCurrentSessionProfile();
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
     localStorage.removeItem(SESSION_META_KEY);
@@ -262,6 +292,7 @@ export const AuthProvider = ({ children }) => {
     clearInactivityTimers();
     clearTokenExpiryTimer();
     setUser(null);
+    clearCurrentSessionProfile();
     clearAuthStorage();
     setRememberMePreferenceState(
       localStorage.getItem(REMEMBER_ME_KEY) === "true",
@@ -339,14 +370,22 @@ export const AuthProvider = ({ children }) => {
         throw new Error("Session already ended");
       }
 
-      sessionStorage.setItem("token", data.token);
-      if (rememberMePreference) {
-        localStorage.setItem("token", data.token);
-      } else {
-        localStorage.removeItem("token");
+      if (data.user) {
+        const normalizedUser = normalizeUser(data.user);
+        setUser(normalizedUser);
+        setCurrentSessionProfile(normalizedUser);
+        const storedUser = buildStoredUserProfile(normalizedUser);
+        sessionStorage.setItem("currentUser", JSON.stringify(storedUser));
+        localStorage.removeItem("currentUser");
       }
+      sessionStorage.setItem("token", data.token);
+      localStorage.removeItem("token");
       persistSessionTiming(data.token, "refresh");
-      publishAuthSync({ type: "TOKEN_REFRESH", token: data.token });
+      publishAuthSync({
+        type: "TOKEN_REFRESH",
+        token: data.token,
+        user: data.user,
+      });
       scheduleTokenExpiryLogout(data.token, handleAccessTokenExpired);
       return data.token;
     })();
@@ -368,6 +407,7 @@ export const AuthProvider = ({ children }) => {
       clearInactivityTimers();
       clearTokenExpiryTimer();
       setUser(null);
+      clearCurrentSessionProfile();
       clearAuthStorage();
       setRememberMePreferenceState(
         localStorage.getItem(REMEMBER_ME_KEY) === "true",
@@ -454,6 +494,7 @@ export const AuthProvider = ({ children }) => {
       sessionId: options.sessionId || userData.sessionId,
     });
     setUser(normalized);
+    setCurrentSessionProfile(normalized);
     setRememberMePreferenceState(rememberMe);
     persistSessionMeta({
       sessionId: normalized.sessionId,
@@ -465,7 +506,7 @@ export const AuthProvider = ({ children }) => {
     publishAuthSync({
       type: "LOGIN",
       token,
-      user: buildStoredUserProfile(normalized),
+      user: normalized,
       rememberMe,
     });
     scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
@@ -500,18 +541,9 @@ export const AuthProvider = ({ children }) => {
       );
     }
 
-    const tokenToKeep =
-      sessionStorage.getItem("token") || localStorage.getItem("token");
     if (rememberMe) {
       localStorage.setItem(REMEMBER_ME_KEY, "true");
-      if (user) {
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify(buildStoredUserProfile(user)),
-        );
-      }
-      if (tokenToKeep) localStorage.setItem("token", tokenToKeep);
-      if (tokenToKeep) {
+      if (sessionStorage.getItem("token")) {
         localStorage.setItem(
           SESSION_TIMING_KEY,
           sessionStorage.getItem(SESSION_TIMING_KEY) || "",
@@ -523,6 +555,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem("token");
       localStorage.removeItem(SESSION_TIMING_KEY);
     }
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("token");
+    const tokenToKeep = sessionStorage.getItem("token");
     if (tokenToKeep) persistSessionTiming(tokenToKeep, "remember-me-update");
     setRememberMePreferenceState(rememberMe);
     publishAuthSync({ type: "REMEMBER_ME_UPDATED", rememberMe });
@@ -537,6 +572,7 @@ export const AuthProvider = ({ children }) => {
         if (payload.type === "LOGOUT") {
           sessionEndedRef.current = true;
           setUser(null);
+          clearCurrentSessionProfile();
           clearAuthStorage();
           setRememberMePreferenceState(
             localStorage.getItem(REMEMBER_ME_KEY) === "true",
@@ -544,10 +580,18 @@ export const AuthProvider = ({ children }) => {
         }
         if (payload.type === "TOKEN_REFRESH" && payload.token) {
           if (sessionEndedRef.current) return;
-          sessionStorage.setItem("token", payload.token);
-          if (rememberMePreference) {
-            localStorage.setItem("token", payload.token);
+          if (payload.user && hasUserIdentity(payload.user)) {
+            const normalizedUser = normalizeUser(payload.user);
+            setUser(normalizedUser);
+            setCurrentSessionProfile(normalizedUser);
+            sessionStorage.setItem(
+              "currentUser",
+              JSON.stringify(buildStoredUserProfile(normalizedUser)),
+            );
           }
+          sessionStorage.setItem("token", payload.token);
+          localStorage.removeItem("token");
+          localStorage.removeItem("currentUser");
           persistSessionTiming(payload.token, "sync-refresh");
         }
       };
@@ -560,23 +604,19 @@ export const AuthProvider = ({ children }) => {
         if (payload.type === "LOGOUT") {
           sessionEndedRef.current = true;
           setUser(null);
+          clearCurrentSessionProfile();
           clearAuthStorage();
           setRememberMePreferenceState(
             localStorage.getItem(REMEMBER_ME_KEY) === "true",
           );
           return;
         }
-        if (payload.type === "LOGIN" && payload.user && payload.token) {
+        if (payload.type === "LOGIN") {
           sessionEndedRef.current = false;
-          setUser(normalizeUser(payload.user));
-          lastActivityRecordedAtRef.current = Date.now();
-          sessionStorage.setItem(
-            "currentUser",
-            JSON.stringify(buildStoredUserProfile(payload.user)),
-          );
-          sessionStorage.setItem("token", payload.token);
           setRememberMePreferenceState(Boolean(payload.rememberMe));
-          persistSessionTiming(payload.token, "sync-login");
+          refreshAccessToken().catch((error) => {
+            console.error("Cross-tab session refresh failed:", error);
+          });
           return;
         }
         if (payload.type === "REMEMBER_ME_UPDATED") {
@@ -604,21 +644,48 @@ export const AuthProvider = ({ children }) => {
         let storedUser =
           sessionStorage.getItem("currentUser") ||
           localStorage.getItem("currentUser");
+        if (storedUser) {
+          try {
+            storedUser = JSON.stringify(
+              buildStoredUserProfile(JSON.parse(storedUser)),
+            );
+            sessionStorage.setItem("currentUser", storedUser);
+          } catch {
+            storedUser = null;
+            sessionStorage.removeItem("currentUser");
+          }
+        }
+        localStorage.removeItem("currentUser");
         let token = getStoredToken();
 
         if (!storedUser && token) {
           token = await refreshAccessToken();
           if (sessionEndedRef.current) return;
+          if (token) return;
         }
 
         const parsedUser = storedUser
           ? buildStoredUserProfile(JSON.parse(storedUser))
           : null;
-        if (token && isTokenValid(token) && parsedUser) {
+        if (
+          token &&
+          isTokenValid(token) &&
+          parsedUser &&
+          !hasUserIdentity(parsedUser)
+        ) {
+          token = await refreshAccessToken();
+          if (sessionEndedRef.current || !token) return;
+          return;
+        }
+        const refreshedUser = storedUser
+          ? buildStoredUserProfile(JSON.parse(storedUser))
+          : parsedUser;
+        if (token && isTokenValid(token) && refreshedUser) {
           if (sessionEndedRef.current) return;
-          const normalizedUser = normalizeUser(parsedUser);
+          const normalizedUser = normalizeUser(refreshedUser);
           lastActivityRecordedAtRef.current = Date.now();
           setUser(normalizedUser);
+          setCurrentSessionProfile(normalizedUser);
           persistAuthState(normalizedUser, token, remembered);
           persistSessionTiming(token, "restore", { restartFullWindow: true });
           scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
@@ -647,6 +714,7 @@ export const AuthProvider = ({ children }) => {
           normalizedFromToken ? normalizeUser(normalizedFromToken) : null,
         );
         if (normalizedFromToken) {
+          setCurrentSessionProfile(normalizeUser(normalizedFromToken));
           lastActivityRecordedAtRef.current = Date.now();
           persistAuthState(
             normalizeUser(normalizedFromToken),
@@ -662,6 +730,7 @@ export const AuthProvider = ({ children }) => {
         console.error("Auth load error:", err);
         clearAuthStorage();
         setUser(null);
+        clearCurrentSessionProfile();
       } finally {
         setLoading(false);
       }

@@ -1185,6 +1185,7 @@ const refreshToken = async (req, res) => {
     res.json({
       token: newAccessToken,
       refreshToken: isMobileClient ? newRefreshToken : undefined,
+      user: buildClientUserProfile(user),
     });
   } catch {
     res.clearCookie("refreshToken", {

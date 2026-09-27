@@ -128,7 +128,7 @@ export default function UserManagement() {
 
   // Load current user for deactivation protection
   useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser");
+    const storedUser = sessionStorage.getItem("currentUser");
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);

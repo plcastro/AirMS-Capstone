@@ -33,6 +33,7 @@ import ResultPopup from "../../../components/common/ResultPopup";
 import UserAvatar from "../../../components/common/UserAvatar";
 import PrivacyPolicyModal from "../../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../../components/common/TermsAndConditionsModal";
+import { setCurrentSessionProfile } from "../../../utils/sessionProfile";
 import { hasNavAccess } from "../../../../../shared/navigationAccess";
 import ImgCrop from "antd-img-crop";
 const { Title, Text } = Typography;
@@ -116,6 +117,7 @@ export default function Profile() {
 
   const persistUser = (nextUser) => {
     setUser(nextUser);
+    setCurrentSessionProfile(nextUser);
     try {
       const storedUser = buildStoredUserProfile(nextUser);
       const storedKeys = ["currentUser"];
@@ -123,9 +125,7 @@ export default function Profile() {
         if (sessionStorage.getItem(key)) {
           sessionStorage.setItem(key, JSON.stringify(storedUser));
         }
-        if (localStorage.getItem(key)) {
-          localStorage.setItem(key, JSON.stringify(storedUser));
-        }
+        localStorage.removeItem(key);
       });
     } catch {
       // Storage persistence is best-effort; React state remains the source for this session.
