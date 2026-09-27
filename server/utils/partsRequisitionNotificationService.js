@@ -2,7 +2,6 @@ const NotificationModel = require("../models/notificationModel");
 const UserModel = require("../models/userModel");
 const { sendPushNotificationToUsers } = require("./mobilePushService");
 
-const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_WAREHOUSE = "warehouse personnel";
 
@@ -109,141 +108,32 @@ const createNotification = async ({
   });
 };
 
-const createPartsRequisitionNotifications = async ({
-  previousRequisition,
-  requisition,
-  actorUserId = null,
-}) => {
-  if (!requisition?._id) {
-    return;
-  }
-
-  const requisitionerUserId = await getRequisitionerUserId(requisition);
-  const managerRoles = [ROLE_MANAGER, ROLE_OFFICER_IN_CHARGE];
-  const previousStatus = previousRequisition?.status;
-  const currentStatus = requisition.status;
-  const warehouseReviewBecameAvailable =
-    !previousRequisition?.dateWarehouseReviewed &&
-    !!requisition.dateWarehouseReviewed &&
-    currentStatus === "Parts Requested";
-
-  if (!previousRequisition && currentStatus === "Parts Requested") {
-    await createNotification({
-      title: `New parts requisition ${requisition.wrsNo}`,
-      description: "A new parts requisition is ready for warehouse action.",
-      requisition,
-      recipientRoles: [ROLE_WAREHOUSE],
-      recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-      excludedUsers: actorUserId ? [actorUserId] : [],
-      metadata: { notificationType: "created-parts-requested" },
-    });
-    return;
-  }
-
-  if (warehouseReviewBecameAvailable) {
-    await createNotification({
-      title: `Parts requisition ${requisition.wrsNo} is ready for review`,
-      description:
-        "Warehouse completed the stock review. Maintenance can now review the requisition.",
-      requisition,
-      recipientRoles: managerRoles,
-      excludedUsers: actorUserId ? [actorUserId] : [],
-      metadata: { notificationType: "warehouse-review-ready" },
-    });
-  }
-
-  if (previousStatus === currentStatus) {
-    if (!warehouseReviewBecameAvailable) {
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} has been updated`,
-        description: "The parts requisition details were updated.",
-        requisition,
-        recipientRoles:
-          currentStatus === "Pending" || currentStatus === "Parts Requested"
-            ? managerRoles
-            : [ROLE_WAREHOUSE],
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "updated" },
-      });
-    }
-    return;
-  }
-
-  switch (currentStatus) {
-    case "Availability Checked":
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} availability checked`,
-        description:
-          "Warehouse completed the stock review. Maintenance can now review the requisition.",
-        requisition,
-        recipientRoles: managerRoles,
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "availability-checked" },
-      });
-      break;
-    case "To Be Ordered":
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} marked to be ordered`,
-        description:
-          "Some requested items are unavailable and need to be ordered.",
-        requisition,
-        recipientRoles: [ROLE_WAREHOUSE],
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "to-be-ordered" },
-      });
-      break;
-    case "Ordered":
-      await createNotification({
-        title: `Ordered items are ready for ${requisition.wrsNo}`,
-        description:
-          "Warehouse updated the requisition and it is ready for maintenance approval.",
-        requisition,
-        recipientRoles: managerRoles,
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "ordered-ready" },
-      });
-      break;
-    case "Approved":
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} approved`,
-        description:
-          "The requisition has been approved and can proceed to release or delivery.",
-        requisition,
-        recipientRoles: [ROLE_WAREHOUSE],
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "approved" },
-      });
-      break;
-    case "Delivered":
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} delivered`,
-        description: "Warehouse marked this requisition as delivered.",
-        requisition,
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "delivered" },
-      });
-      break;
-    case "Cancelled":
-      await createNotification({
-        title: `Parts requisition ${requisition.wrsNo} cancelled`,
-        description: "This requisition was cancelled.",
-        requisition,
-        recipientRoles: managerRoles,
-        recipientUsers: requisitionerUserId ? [requisitionerUserId] : [],
-        excludedUsers: actorUserId ? [actorUserId] : [],
-        metadata: { notificationType: "cancelled" },
-      });
-      break;
-    default:
-      break;
-  }
+const createPartsRequisitionNotifications = async ({ previousRequisition, requisition, actorUserId }) => {
+  const requester = await getRequisitionerUserId(requisition);
+  const created = !previousRequisition;
+  await createNotification({
+    title: `Parts requisition ${requisition.wrsNo}: ${requisition.status}`,
+    description: created ? "A new requisition needs a stock check." : requisition.status === "Delivered" ? "Delivery is ready. Please confirm receipt to close your requisition." : `Parts requisition updated: ${requisition.status}.`,
+    requisition,
+    recipientRoles: created ? [ROLE_WAREHOUSE] : [ROLE_WAREHOUSE, ROLE_OFFICER_IN_CHARGE, "superadmin"],
+    recipientUsers: requester ? [requester] : [],
+    excludedUsers: actorUserId ? [actorUserId] : [],
+    metadata: { notificationType: created ? "created" : "updated" },
+  });
 };
-
-module.exports = {
-  createPartsRequisitionNotifications,
+const sendRequisitionFollowUp = async ({ requisition, actorUserId }) => {
+  const { followUpTarget } = require("../../shared/partsRequisitionWorkflow.js");
+  const target = followUpTarget(requisition);
+  if (!target) return;
+  const requester = target === "requester" ? await getRequisitionerUserId(requisition) : null;
+  await createNotification({
+    title: `Follow up: ${requisition.wrsNo}`,
+    description: target === "warehouse" ? "Please update the stock status for this requisition." : "Please confirm receipt of your delivered parts.",
+    requisition,
+    recipientRoles: target === "warehouse" ? [ROLE_WAREHOUSE] : [],
+    recipientUsers: requester ? [requester] : [],
+    excludedUsers: [],
+    metadata: { notificationType: "follow-up", actorUserId },
+  });
 };
+module.exports = { createPartsRequisitionNotifications, sendRequisitionFollowUp };

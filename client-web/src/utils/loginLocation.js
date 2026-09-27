@@ -55,6 +55,16 @@ const getBrowserPosition = () =>
   });
 
 export const detectLoginLocation = async () => {
+  // Explicit local testing opt-in. Vite removes this branch from production builds.
+  if (import.meta.env.DEV && import.meta.env.VITE_TEST_LOGIN_LOCATION === "true") {
+    const coordinates = { latitude: 14.5995, longitude: 120.9842 };
+    return {
+      coordinates,
+      coordinateText: formatCoordinates(coordinates),
+      accuracy: null,
+      text: "TEST LOCATION: Manila (development only)",
+    };
+  }
   const position = await getBrowserPosition();
   const coordinates = {
     latitude: position.coords.latitude,
