@@ -270,7 +270,7 @@ export default function PartsRequisitionEntry({
                     )}
                   </View>
 
-                  <View style={{ marginBottom: 16 }}><AppText style={{ fontSize: 12, marginBottom: 8 }}>Part name *</AppText><PartNameInput value={item.particular} onChangeText={value => updateItem(item.id, "particular", value)} placeholder="Enter or search a part name" /></View>
+                  <View style={{ marginBottom: 16 }}><AppText style={{ fontSize: 12, marginBottom: 8 }}>Part name *</AppText><PartNameInput value={item.particular} onChangeText={value => updateItem(item.id, "particular", value)} onSelectUnit={unit => updateItem(item.id, "unit", unit)} placeholder="Enter or search a part name" /></View>
 
                   <View style={{ marginBottom: 16 }}>
                     <AppText

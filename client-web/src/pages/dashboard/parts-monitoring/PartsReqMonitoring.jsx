@@ -181,10 +181,10 @@ export default function PartsReqMonitoring() {
             width: '100%',
             justifyContent: 'space-between'
           }}><Typography.Text strong>Item {index + 1}</Typography.Text><Button aria-label={`Remove item ${index + 1}`} icon={<DeleteOutlined />} disabled={items.length === 1} onClick={() => setItems(items.filter((_, i) => i !== index))} /></Space>
-          <Form.Item label="Part name" required><PartNameInput value={item.particular} onChange={value => setItems(items.map((item, i) => i === index ? {
+          <Form.Item label="Part name" required><PartNameInput value={item.particular} onChange={value => setItems(current => current.map((item, i) => i === index ? {
               ...item,
               particular: value
-            } : item))} /></Form.Item>
+            } : item))} onSelectUnit={unit => setItems(current => current.map((item, i) => i === index ? { ...item, unitOfMeasure: unit } : item))} /></Form.Item>
           <Space wrap><InputNumber aria-label="Quantity" min={1} value={item.quantity} onChange={value => setItems(items.map((item, i) => i === index ? {
               ...item,
               quantity: value
