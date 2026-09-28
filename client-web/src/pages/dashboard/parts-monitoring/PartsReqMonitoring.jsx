@@ -80,7 +80,25 @@ export default function PartsReqMonitoring() {
     setItemEntry(emptyItem());
     setEditingItemKey(null);
   };
+  const closeEntry = async () => {
+    if (busy) return;
 
+    const confirmed = await confirmAction({
+      title: "Cancel requisition?",
+      content:
+        "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
+    });
+
+    if (!confirmed) return;
+
+    setEntry(false);
+    form.resetFields();
+    setItems([]);
+    resetItemEntry();
+    setShowItemHelp(false);
+    setItemPage(1);
+    setItemError("");
+  };
   const saveItem = () => {
     const particular = itemEntry.particular.trim();
 
@@ -493,7 +511,7 @@ export default function PartsReqMonitoring() {
       <Modal
         title="New parts requisition"
         open={entry}
-        onCancel={() => !busy && setEntry(false)}
+        onCancel={closeEntry}
         footer={null}
         centered
         width={screens.md ? "70vw" : "calc(100vw - 16px)"}
@@ -648,7 +666,6 @@ export default function PartsReqMonitoring() {
               />
             </Col>
 
-            {/* Add / Update */}
             {/* Add / Update */}
             <Col xs={24} md={4}>
               <Space
@@ -1019,9 +1036,27 @@ export default function PartsReqMonitoring() {
             }}
           >
             <Button
-              onClick={() => !busy && setEntry(false)}
               disabled={busy}
               size="large"
+              onClick={async () => {
+                if (busy) return;
+
+                const confirmed = await confirmAction({
+                  title: "Cancel requisition?",
+                  content:
+                    "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
+                });
+
+                if (confirmed) {
+                  setEntry(false);
+                  form.resetFields();
+                  setItems([]);
+                  resetItemEntry();
+                  setShowItemHelp(false);
+                  setItemPage(1);
+                  setItemError("");
+                }
+              }}
             >
               Cancel
             </Button>
