@@ -74,33 +74,66 @@ export default function PartsReqMonitoring() {
   const [editingItemKey, setEditingItemKey] = useState(null);
   const [showItemHelp, setShowItemHelp] = useState(false);
   const [itemPage, setItemPage] = useState(1);
+  const [itemError, setItemError] = useState("");
   const resetItemEntry = () => {
     setItemEntry(emptyItem());
     setEditingItemKey(null);
   };
   const saveItem = () => {
-    if (
-      !itemEntry.particular.trim() ||
-      !itemEntry.quantity ||
-      itemEntry.quantity <= 0
-    ) {
-      return message.error(
-        "Enter a part name and positive quantity for every item.",
-      );
+    const particular = itemEntry.particular.trim();
+
+    setItemError("");
+
+    if (!particular) {
+      setItemError("Please enter a part name.");
+      return;
     }
+
+    if (!itemEntry.quantity || itemEntry.quantity <= 0) {
+      return message.error("Enter a positive quantity for every item.");
+    }
+
+    const duplicate = items.some(
+      (item) =>
+        item.key !== editingItemKey &&
+        item.particular.trim().toLowerCase() === particular.toLowerCase(),
+    );
+
+    if (duplicate) {
+      setItemError(
+        "This part has already been added. Click the existing item below to edit its quantity or details.",
+      );
+      return;
+    }
+
     if (editingItemKey !== null) {
       setItems((current) =>
         current.map((item) =>
-          item.key === editingItemKey ? { ...itemEntry, key: item.key } : item,
+          item.key === editingItemKey
+            ? {
+                ...itemEntry,
+                particular,
+                key: item.key,
+              }
+            : item,
         ),
       );
+
+      message.success("Item updated.");
     } else {
       setItems((current) => [
         ...current,
-        { ...itemEntry, key: crypto.randomUUID() },
+        {
+          ...itemEntry,
+          particular,
+          key: crypto.randomUUID(),
+        },
       ]);
+
       setItemPage(Math.ceil((items.length + 1) / 5));
+      message.success("Item added.");
     }
+
     resetItemEntry();
   };
   const removeItem = (key) => {
@@ -309,60 +342,88 @@ export default function PartsReqMonitoring() {
     return <Alert type="error" title="Parts requisition access denied" />;
   return (
     <div className="fl-page">
-      <div style={{ display: "flex", marginBottom: 8 }}>
-        <Card style={{ width: "100%", marginBottom: 14, borderRadius: 12 }}>
-          <Row align="middle" justify="space-between">
-            <Col>
-              <Space wrap size={[12, 12]}>
-                <Input
-                  size="large"
-                  prefix={<SearchOutlined />}
-                  placeholder="Search by WRS no., aircraft, status, or requester"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  allowClear
-                  style={{
-                    width: "min(320px, calc(100vw - 64px))",
-                  }}
-                />
+      <div style={{ marginBottom: 8 }}>
+        <Card
+          style={{
+            width: "100%",
+            marginBottom: 14,
+            borderRadius: 12,
+          }}
+          styles={{
+            body: {
+              padding: screens.md ? 16 : 12,
+            },
+          }}
+        >
+          <Row gutter={[12, 12]} align="middle">
+            {/* Search + Sort */}
+            <Col xs={24} md={18}>
+              <Row gutter={[8, 8]}>
+                <Col xs={24} sm={16} md={14}>
+                  <Input
+                    size="large"
+                    prefix={<SearchOutlined />}
+                    placeholder="Search by WRS no., aircraft, status, or requester"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    allowClear
+                    style={{
+                      width: "100%",
+                    }}
+                  />
+                </Col>
 
                 {screens.md && (
-                  <Select
-                    size="large"
-                    aria-label="Requisition date sorting"
-                    value={dateSort}
-                    onChange={setDateSort}
-                    style={{
-                      width: 220,
-                    }}
-                    options={[
-                      {
-                        value: "updated",
-                        label: "Last updated: Newest First",
-                      },
-                      {
-                        value: "newest",
-                        label: "Date: Newest First",
-                      },
-                      {
-                        value: "oldest",
-                        label: "Date: Oldest First",
-                      },
-                    ]}
-                  />
+                  <Col md={10}>
+                    <Select
+                      size="large"
+                      aria-label="Requisition date sorting"
+                      value={dateSort}
+                      onChange={setDateSort}
+                      style={{
+                        width: "100%",
+                      }}
+                      options={[
+                        {
+                          value: "updated",
+                          label: "Last updated: Newest First",
+                        },
+                        {
+                          value: "newest",
+                          label: "Date: Newest First",
+                        },
+                        {
+                          value: "oldest",
+                          label: "Date: Oldest First",
+                        },
+                      ]}
+                    />
+                  </Col>
                 )}
-              </Space>
+              </Row>
             </Col>
 
+            {/* Add Requisition */}
             {canCreate(user) && (
-              <Col style={{ marginLeft: "auto" }}>
+              <Col
+                xs={24}
+                md={6}
+                style={{
+                  display: "flex",
+                  justifyContent: screens.md ? "flex-end" : "stretch",
+                }}
+              >
                 <Button
                   size="large"
                   type="primary"
                   icon={<PlusOutlined />}
                   onClick={() => setEntry(true)}
+                  block={!screens.md}
+                  style={{
+                    width: screens.md ? 150 : "100%",
+                  }}
                 >
-                  Add Requisition
+                  Request item/s
                 </Button>
               </Col>
             )}
@@ -381,15 +442,11 @@ export default function PartsReqMonitoring() {
         {[
           [
             "active",
-            oversight ? "Oversight · Active" : "Active requisitions",
+            oversight ? "Oversight · Active" : "Active",
 
             <InboxOutlined key="active" />,
           ],
-          [
-            "history",
-            "History · Closed / Cancelled",
-            <CheckCircleOutlined key="history" />,
-          ],
+          ["history", "Closed", <CheckCircleOutlined key="history" />],
         ].map(([key, label, icon]) => (
           <Button
             size="large"
@@ -447,7 +504,7 @@ export default function PartsReqMonitoring() {
           },
           header: {
             padding: screens.md ? "14px 20px" : 0,
-            marginBottom: 8,
+            marginBottom: 0,
           },
           body: {
             maxHeight: screens.md
@@ -512,12 +569,13 @@ export default function PartsReqMonitoring() {
 
               <PartNameInput
                 value={itemEntry.particular}
-                onChange={(particular) =>
+                onChange={(particular) => {
+                  setItemError("");
                   setItemEntry((current) => ({
                     ...current,
                     particular,
-                  }))
-                }
+                  }));
+                }}
                 onSelectUnit={(unitOfMeasure) =>
                   setItemEntry((current) => ({
                     ...current,
@@ -621,6 +679,18 @@ export default function PartsReqMonitoring() {
               )}
             </Col>
           </Row>
+          {itemError && (
+            <Typography.Text
+              type="danger"
+              style={{
+                display: "block",
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              {itemError}
+            </Typography.Text>
+          )}
 
           {/* Items Header */}
           <div
@@ -927,6 +997,7 @@ export default function PartsReqMonitoring() {
               display: "flex",
               flexDirection: "row",
               justifyContent: "flex-end",
+              alignItems: "center",
               gap: 8,
               marginTop: 16,
               marginLeft: screens.md ? -20 : -12,
@@ -941,9 +1012,6 @@ export default function PartsReqMonitoring() {
               onClick={() => !busy && setEntry(false)}
               disabled={busy}
               size="large"
-              style={{
-                flex: 1,
-              }}
             >
               Cancel
             </Button>
@@ -953,9 +1021,6 @@ export default function PartsReqMonitoring() {
               htmlType="submit"
               loading={busy}
               size="large"
-              style={{
-                flex: 1,
-              }}
             >
               Submit
             </Button>
