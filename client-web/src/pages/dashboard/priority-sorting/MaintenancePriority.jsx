@@ -260,7 +260,7 @@ export default function MaintenancePriority() {
         {
           method: "PUT",
           headers: {
-            ...getAuthHeader(),
+            ...(await getAuthHeader()),
             "Content-Type": "application/json",
             "x-action-confirmed": "true",
           },
@@ -270,16 +270,26 @@ export default function MaintenancePriority() {
           }),
         },
       );
+
       const result = await response.json();
-      if (!response.ok || !result.success)
-        throw new Error(result.message || "Could not save priority.");
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            result.error ||
+            `Request failed with status ${response.status}`,
+        );
+      }
+
       await fetchPriorityData(rules);
     } catch (error) {
+      console.error("Failed to save priority override:", error);
+
       setPopup({
         open: true,
         status: "error",
         title: "Priority not saved",
-        subTitle: error.message,
+        subTitle: error.message || "Could not save priority.",
       });
     }
   };
