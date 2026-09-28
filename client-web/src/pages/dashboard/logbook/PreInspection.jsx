@@ -1086,10 +1086,14 @@ export default function PreInspection() {
           >
             <Col xs={24} sm={canCreate ? 16 : 24}>
               <Button
+                onClick={backToAircraft}
                 type="text"
                 icon={<ArrowLeftOutlined />}
-                onClick={backToAircraft}
-                style={{ paddingInline: 0 }}
+                style={{
+                  marginBottom: 12,
+                  paddingInline: 0,
+                  color: "#1f5f49",
+                }}
               >
                 Back to Aircraft
               </Button>

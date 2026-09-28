@@ -521,10 +521,14 @@ export default function PostInspection() {
       ) : (
         <>
           <Button
+            onClick={backToAircraft}
             type="text"
             icon={<ArrowLeftOutlined />}
-            onClick={backToAircraft}
-            style={{ paddingInline: 0 }}
+            style={{
+              marginBottom: 12,
+              paddingInline: 0,
+              color: "#1f5f49",
+            }}
           >
             Back to Aircraft
           </Button>

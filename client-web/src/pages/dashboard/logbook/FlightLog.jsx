@@ -13,7 +13,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -212,14 +212,24 @@ export default function FlightLog() {
   return (
     <div className="fl-page">
       {aircraft && (
-        <Space
-          wrap
+        <div
           style={{
             marginBottom: 16,
-            width: "100%",
-            justifyContent: "space-between",
           }}
         >
+          <Button
+            onClick={() => setAircraft("")}
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            style={{
+              marginBottom: 12,
+              paddingInline: 0,
+              color: "#1f5f49",
+            }}
+          >
+            Back to Aircraft
+          </Button>
+
           <Typography.Title
             level={4}
             style={{
@@ -228,7 +238,7 @@ export default function FlightLog() {
           >
             {aircraft + " - Flight Logs"}
           </Typography.Title>
-        </Space>
+        </div>
       )}
       {error && (
         <Alert
@@ -255,14 +265,6 @@ export default function FlightLog() {
         />
       ) : (
         <>
-          <Button
-            onClick={() => setAircraft("")}
-            style={{
-              marginBottom: 12,
-            }}
-          >
-            Back to Aircraft
-          </Button>
           <Card
             size="small"
             style={{
@@ -315,6 +317,7 @@ export default function FlightLog() {
                   }}
                 >
                   <Button
+                    size="large"
                     type="primary"
                     onClick={() => setEntryPrompt(true)}
                     icon={<PlusOutlined />}
