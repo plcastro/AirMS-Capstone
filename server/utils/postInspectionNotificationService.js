@@ -5,12 +5,15 @@ const { sendPushNotificationToUsers } = require("./mobilePushService");
 const ROLE_MANAGER = "maintenance manager";
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_MECHANIC = "mechanic";
-const ROLE_PILOT = "pilot";
 
 const normalizeRole = (role = "") => role.trim().toLowerCase();
 
 const uniqueStrings = (values = []) => [
-  ...new Set(values.map((value) => String(value)).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => String(value)),
+  ),
 ];
 
 const uniqueRoles = (roles = []) => [
@@ -65,7 +68,7 @@ const getRecipientsForStatus = (
   switch (status) {
     case "released":
       return {
-        recipientRoles: [ROLE_PILOT],
+        recipientRoles: [],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
       };
     case "completed":
@@ -88,6 +91,7 @@ const createNotification = async ({
   inspection,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   metadata = {},
 }) => {
   const normalizedRoles = uniqueRoles(recipientRoles);
@@ -100,11 +104,12 @@ const createNotification = async ({
   const notification = await NotificationModel.create({
     title,
     description,
-    module: "post-inspections",
-    entityType: "post-inspection",
+    module: "post-flight inspections",
+    entityType: "post-flight inspection",
     entityId: inspection._id,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers: uniqueStrings(excludedUsers),
     metadata: {
       rpc: inspection.rpc,
       status: inspection.status,
@@ -118,11 +123,12 @@ const createNotification = async ({
     body: description,
     recipientRoles: normalizedRoles,
     recipientUsers: normalizedUsers,
+    excludedUsers,
     data: {
       _id: String(notification._id),
       notificationId: String(notification._id),
-      module: "post-inspections",
-      targetScreen: "Post-Inspection",
+      module: "post-flight inspections",
+      targetScreen: "Post-Flight Inspection",
       targetPostInspectionId: String(inspection._id),
       status: inspection.status,
       rpc: inspection.rpc,
@@ -134,6 +140,7 @@ const createNotification = async ({
 const createPostInspectionNotifications = async ({
   previousInspection,
   inspection,
+  actorUserId = null,
 }) => {
   if (!inspection?._id) {
     return;
@@ -153,6 +160,7 @@ const createPostInspectionNotifications = async ({
           "A new post-flight inspection is ready for mechanic review and release.",
         inspection,
         recipientRoles: mechanicRoles,
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-pending-release" },
       });
       return;
@@ -164,8 +172,8 @@ const createPostInspectionNotifications = async ({
         description:
           "The post-flight inspection is ready for pilot acceptance.",
         inspection,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-released" },
       });
       return;
@@ -178,6 +186,7 @@ const createPostInspectionNotifications = async ({
         inspection,
         recipientRoles: managerRoles,
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "created-completed" },
       });
       return;
@@ -197,6 +206,7 @@ const createPostInspectionNotifications = async ({
       description: "The post-flight inspection details were updated.",
       inspection,
       ...recipients,
+      excludedUsers: actorUserId ? [actorUserId] : [],
       metadata: { notificationType: "updated" },
     });
     return;
@@ -209,8 +219,8 @@ const createPostInspectionNotifications = async ({
         description:
           "This post-flight inspection was released and is waiting for pilot acceptance.",
         inspection,
-        recipientRoles: [ROLE_PILOT],
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "released" },
       });
       break;
@@ -222,6 +232,7 @@ const createPostInspectionNotifications = async ({
         inspection,
         recipientRoles: managerRoles,
         recipientUsers: creatorUserId ? [creatorUserId] : [],
+        excludedUsers: actorUserId ? [actorUserId] : [],
         metadata: { notificationType: "completed" },
       });
       break;

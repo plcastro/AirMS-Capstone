@@ -26,6 +26,11 @@ export default function CodeInputField({
     return () => setPinReady(false);
   }, [code, maxLength, setPinReady]);
 
+  const normalizeCodeInput = (value) =>
+    String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, maxLength);
+
   const toCodeDigitInput = (value, index) => {
     const emptyInputChar = "\u00A0"; // non-breaking space
     const digit = code[index] || emptyInputChar;
@@ -56,7 +61,7 @@ export default function CodeInputField({
         ref={inputRef}
         type="text"
         value={code}
-        onChange={(e) => setCode(e.target.value)}
+        onChange={(e) => setCode(normalizeCodeInput(e.target.value))}
         onBlur={handleOnBlur}
         maxLength={maxLength}
         inputMode="numeric"

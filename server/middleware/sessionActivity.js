@@ -5,10 +5,10 @@ const touchSessionActivity = async (req, _res, next) => {
     const userId = req.user?.id;
     const sessionId = req.headers["x-session-id"] || req.user?.sessionId;
 
-    if (userId && sessionId) {
+    if (userId && sessionId && req.sessionActivityAt) {
       await UserSession.findOneAndUpdate(
         { userId, sessionId, isActive: true },
-        { lastActivityAt: new Date() },
+        { $max: { lastActivityAt: new Date(req.sessionActivityAt) } },
       );
     }
   } catch (err) {

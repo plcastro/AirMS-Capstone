@@ -13,16 +13,35 @@ const monthLabel = (value) => {
   return date.toLocaleString("en-US", { month: "short", year: "numeric" });
 };
 
+const monthStart = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
 export default function MaintenancePerformance({ tasks = [] }) {
   const trendData = useMemo(() => {
     const counts = tasks.reduce((acc, task) => {
-      const label = monthLabel(task.updatedAt || task.createdAt || task.dueDate);
-      acc[label] = (acc[label] || 0) + 1;
+      const periodStart = monthStart(
+        task.updatedAt || task.createdAt || task.dueDate,
+      );
+      const key = periodStart ? periodStart.toISOString() : "no-date";
+      const label = periodStart ? monthLabel(periodStart) : "No date";
+
+      if (!acc[key]) {
+        acc[key] = {
+          label,
+          order: periodStart ? periodStart.getTime() : Number.MAX_SAFE_INTEGER,
+          value: 0,
+        };
+      }
+
+      acc[key].value += 1;
       return acc;
     }, {});
 
-    return Object.entries(counts)
-      .map(([label, value]) => ({ label, value }))
+    return Object.values(counts)
+      .sort((left, right) => left.order - right.order)
       .slice(-8);
   }, [tasks]);
 

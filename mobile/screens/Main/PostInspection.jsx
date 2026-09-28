@@ -1,102 +1,150 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, {
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import FlightWorkspace from "../../components/FlightLog/FlightWorkspace";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   View,
   ScrollView,
   TouchableOpacity,
-  StatusBar
+  StatusBar,
+  RefreshControl,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PostInspectionCards from "../../components/PostInspection/PostInspectionCards";
 import PostInspectionEditEntry from "../../components/PostInspection/PostInspectionEditEntry";
-import AlertComp from "../../components/AlertComp";
 import { API_BASE } from "../../utilities/API_BASE";
-import {
-  exportPostInspectionTemplatePdf,
-  exportPostInspectionToWord,
-} from "../../utilities/documentExport";
+import { getAuthHeaders } from "../../utilities/mobileApi";
+import { exportPostInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
 import { styles } from "../../stylesheets/styles";
-const getDisplayStatus = (status) =>
-  status === "completed"
+import {
+  EmptyState,
+  LoadingState,
+  SearchBar,
+  SectionTitle,
+} from "../../components/common/MobileModule";
+import AircraftLogGroups from "../../components/common/AircraftLogGroups";
+
+import { matchesSearch } from "../../utilities/search";
+import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
+import { getLogAircraftRegistration } from "../../../shared/aircraftLogGroups";
+import {
+  createEmptyB412PostInspectionData,
+  isB412Aircraft,
+} from "../../components/PostInspection/b412PostInspectionData";
+
+const normalizePostInspectionPayload = (inspection = {}) => {
+  if (isB412Aircraft(inspection.aircraftType)) {
+    return {
+      ...inspection,
+      b412Data: createEmptyB412PostInspectionData(inspection.b412Data),
+    };
+  }
+
+  const legacyInspection = { ...inspection };
+  delete legacyInspection.b412Data;
+  return legacyInspection;
+};
+
+const getDisplayStatus = (status) => {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return normalizedStatus === "completed"
     ? "completed"
-    : status === "released"
+    : normalizedStatus === "released"
       ? "released"
       : "pending";
+};
 
 export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
   const targetPostInspectionId = route?.params?.targetPostInspectionId;
   const targetNotificationStatus = route?.params?.notificationStatus;
+  const notificationRefreshAt = route?.params?.refreshAt;
+  const handledNotificationTarget = useRef(null);
+  const [aircraftQuery, setAircraftQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [inspections, setInspections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
-  const [exportAlert, setExportAlert] = useState({
-    visible: false,
-    inspection: null,
-  });
 
-  const userRole = user?.jobTitle?.toLowerCase() || "pilot";
+  const userRole = resolveUserRole(user, "pilot");
   const isOfficerInCharge = userRole === "officer-in-charge";
+  const canExportPostInspections = canExportModule(userRole, "postInspection");
 
-  useEffect(() => {
-    const fetchPostInspections = async () => {
-      try {
-        const token = await AsyncStorage.getItem("currentUserToken");
-        const response = await fetch(
-          `${API_BASE}/api/post-inspections/getAllPostInspection`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
+  const fetchPostInspections = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/post-flight/getAllPostInspection`,
+        {
+          headers: await getAuthHeaders(),
+        },
+      );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch post-inspections");
-        }
-
-        const data = await response.json();
-        setInspections(data.data || []);
-      } catch (error) {
-        console.error("Error fetching post-inspections:", error);
-        showToast("Failed to fetch post-inspections");
+      if (!response.ok) {
+        throw new Error("Failed to fetch post-inspections");
       }
-    };
 
-    fetchPostInspections();
+      const data = await response.json();
+      setInspections(data.data || []);
+    } catch (error) {
+      console.error("Error fetching post-inspections:", error);
+      showToast("Failed to fetch post-inspections");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (targetNotificationStatus) {
-      setSelectedStatus(targetNotificationStatus);
-    }
-  }, [targetNotificationStatus]);
+    fetchPostInspections();
+  }, [fetchPostInspections, notificationRefreshAt]);
 
   useEffect(() => {
-    if (!targetPostInspectionId || inspections.length === 0) {
+    if (!targetPostInspectionId) {
+      handledNotificationTarget.current = null;
       return;
     }
+    const targetKey = `${targetPostInspectionId}:${targetNotificationStatus || ""}:${notificationRefreshAt || ""}`;
+    if (handledNotificationTarget.current === targetKey) return;
 
     const match = inspections.find(
       (inspection) => String(inspection._id) === String(targetPostInspectionId),
     );
 
     if (match) {
+      handledNotificationTarget.current = targetKey;
+      setSelectedAircraft(getLogAircraftRegistration(match));
+      setSearchQuery("");
+      setSelectedStatus("all");
+      setShowStatusDropdown(false);
       setSelectedInspection(match);
       setShowEditModal(true);
     }
-  }, [targetPostInspectionId, inspections]);
+  }, [
+    targetPostInspectionId,
+    targetNotificationStatus,
+    notificationRefreshAt,
+    inspections,
+  ]);
 
   useEffect(() => {
     const fetchAircraftRpcOptions = async () => {
@@ -119,14 +167,10 @@ export default function PostInspection({ route }) {
     fetchAircraftRpcOptions();
   }, []);
 
-  const handleSaveEdit = (updatedInspection) => updatedInspection;
-
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-  };
+  const handleSaveEdit = (updatedInspection) =>
+    normalizePostInspectionPayload(updatedInspection);
 
   const aircraftOptions = [
-    "all",
     ...new Set([
       ...aircraftRpcOptions.filter(Boolean),
       ...inspections.map((inspection) => inspection.rpc).filter(Boolean),
@@ -135,30 +179,22 @@ export default function PostInspection({ route }) {
 
   const statusOptions = [
     { label: "All Status", value: "all" },
-    { label: "Pending Release", value: "pending" },
-    { label: "Released", value: "released" },
+    { label: "Pending", value: "pending" },
     { label: "Completed", value: "completed" },
   ];
 
-  const filteredInspections = inspections.filter((inspection) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      inspection.rpc?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inspection.aircraftType
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      inspection.date?.includes(searchQuery);
+  const aircraftInspections = inspections.filter(
+    (inspection) => getLogAircraftRegistration(inspection) === selectedAircraft,
+  );
 
-    const matchesAircraft =
-      selectedAircraft === "" ||
-      selectedAircraft === "all" ||
-      inspection.rpc === selectedAircraft;
+  const filteredInspections = aircraftInspections.filter((inspection) => {
+    const matchesSearchText = matchesSearch(searchQuery, inspection);
 
     const matchesStatus =
       selectedStatus === "all" ||
       getDisplayStatus(inspection.status) === selectedStatus;
 
-    return matchesSearch && matchesAircraft && matchesStatus;
+    return matchesSearchText && matchesStatus;
   });
 
   const handleEdit = (inspection) => {
@@ -167,12 +203,14 @@ export default function PostInspection({ route }) {
   };
 
   const handleExport = async (inspection) => {
-    setExportAlert({ visible: true, inspection });
+    await exportPostInspectionTemplatePdf(inspection);
   };
 
   const selectAircraft = (aircraft) => {
     setSelectedAircraft(aircraft);
-    setShowAircraftDropdown(false);
+    setSearchQuery("");
+    setSelectedStatus("all");
+    setShowStatusDropdown(false);
   };
 
   const selectStatus = (status) => {
@@ -184,187 +222,141 @@ export default function PostInspection({ route }) {
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
-      <View style={{ flex: 1, paddingHorizontal: 7 }}>
-        {/* Search Bar Row */}
-        <View style={[styles.unifiedControlRow, { marginTop: 10 }]}>
-          <View style={styles.unifiedSearchBox}>
+      <View
+        key={selectedAircraft || "aircraft-groups"}
+        style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}
+      >
+        {!!selectedAircraft && (
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              minHeight: 48,
+              marginBottom: 10,
+            }}
+            onPress={() => selectAircraft("")}
+          >
             <MaterialCommunityIcons
-              name="magnify"
+              name="arrow-left"
               size={22}
-              color={COLORS.grayDark}
+              color={COLORS.primary}
             />
-            <AppInput
-              placeholder="Search aircraft"
-              placeholderTextColor={COLORS.grayDark}
-              style={styles.unifiedSearchInput}
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-            />
-          </View>
-        </View>
-
-        {/* Filters */}
-        <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
-              style={styles.unifiedFilterButton}
-              onPress={() => {
-                setShowAircraftDropdown(!showAircraftDropdown);
-                setShowStatusDropdown(false);
+            <AppText
+              style={{
+                marginLeft: 6,
+                color: COLORS.primary,
+                fontWeight: "700",
               }}
             >
-              <AppText
-                style={[
-                  styles.unifiedFilterButtonText,
-                  {
-                    color:
-                      selectedAircraft && selectedAircraft !== "all"
-                        ? COLORS.black
-                        : COLORS.grayDark,
-                  },
-                ]}
-              >
-                {selectedAircraft && selectedAircraft !== "all"
-                  ? `RP/C: ${selectedAircraft}`
-                  : "Choose Aircraft"}
-              </AppText>
-              <MaterialCommunityIcons
-                name={showAircraftDropdown ? "chevron-up" : "chevron-down"}
-                size={22}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
+              Back to aircraft
+            </AppText>
+          </TouchableOpacity>
+        )}
 
-            {showAircraftDropdown && (
-              <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
-                <ScrollView>
-                  {aircraftOptions.map((aircraft, index) => (
+        {!selectedAircraft ? (
+          <AircraftLogGroups
+            refreshing={refreshing}
+            onRefresh={() => fetchPostInspections(true)}
+            records={inspections}
+            sortBy="latestActivity"
+            loading={loading}
+            query={aircraftQuery}
+            onQueryChange={setAircraftQuery}
+            onSelect={selectAircraft}
+            emptyText="No post-flight inspections found yet."
+          />
+        ) : (
+          <>
+            <SectionTitle
+              title={selectedAircraft}
+              subtitle={`${aircraftInspections.length} post-flight inspections`}
+            />
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search post-flight inspections"
+            />
+
+            <View style={{ marginBottom: 20 }}>
+              <TouchableOpacity
+                style={styles.unifiedFilterButton}
+                onPress={() => setShowStatusDropdown((open) => !open)}
+              >
+                <AppText
+                  style={styles.unifiedFilterButtonText}
+                  numberOfLines={1}
+                >
+                  {statusOptions.find(
+                    (option) => option.value === selectedStatus,
+                  )?.label || "Status"}
+                </AppText>
+                <MaterialCommunityIcons
+                  name={showStatusDropdown ? "chevron-up" : "chevron-down"}
+                  size={22}
+                  color={COLORS.grayDark}
+                />
+              </TouchableOpacity>
+
+              {showStatusDropdown && (
+                <View style={styles.unifiedDropdownMenu}>
+                  {statusOptions.map((option, index) => (
                     <TouchableOpacity
-                      key={index}
+                      key={option.value}
                       style={{
                         ...styles.unifiedDropdownItem,
                         borderBottomWidth:
-                          index < aircraftOptions.length - 1 ? 1 : 0,
+                          index < statusOptions.length - 1 ? 1 : 0,
                         borderBottomColor: COLORS.grayMedium,
                       }}
-                      onPress={() => selectAircraft(aircraft)}
+                      onPress={() => selectStatus(option.value)}
                     >
                       <AppText style={styles.unifiedDropdownItemText}>
-                        {aircraft === "all"
-                          ? "All Aircraft"
-                          : `RP/C: ${aircraft}`}
+                        {option.label}
                       </AppText>
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
-              style={styles.unifiedFilterButton}
-              onPress={() => {
-                setShowStatusDropdown(!showStatusDropdown);
-                setShowAircraftDropdown(false);
-              }}
-            >
-              <AppText style={styles.unifiedFilterButtonText}>
-                {statusOptions.find((option) => option.value === selectedStatus)
-                  ?.label || "Status"}
-              </AppText>
-              <MaterialCommunityIcons
-                name={showStatusDropdown ? "chevron-up" : "chevron-down"}
-                size={22}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-
-            {showStatusDropdown && (
-              <View style={styles.unifiedDropdownMenu}>
-                {statusOptions.map((option, index) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={{
-                      ...styles.unifiedDropdownItem,
-                      borderBottomWidth:
-                        index < statusOptions.length - 1 ? 1 : 0,
-                      borderBottomColor: COLORS.grayMedium,
-                    }}
-                    onPress={() => selectStatus(option.value)}
-                  >
-                    <AppText style={styles.unifiedDropdownItemText}>
-                      {option.label}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Post-Inspection Cards */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 110 }}
-        >
-          {filteredInspections.length === 0 ? (
-            <View
-              style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                paddingTop: 50,
-              }}
-            >
-              <MaterialCommunityIcons
-                name="clipboard-list-outline"
-                size={60}
-                color={COLORS.grayMedium}
-              />
-              <AppText
-                style={{
-                  marginTop: 10,
-                  fontSize: 12,
-                  color: COLORS.grayDark,
-                  textAlign: "center",
-                }}
-              >
-                No post-inspections found
-              </AppText>
+                </View>
+              )}
             </View>
-          ) : (
+
             <PostInspectionCards
-              inspections={filteredInspections}
+              ListEmptyComponent={
+                loading ? (
+                  <LoadingState text="Loading post-flight inspections..." />
+                ) : (
+                  <EmptyState text="No post-flight inspections match your filters." />
+                )
+              }
+              refreshing={refreshing}
+              onRefresh={() => fetchPostInspections(true)}
+              currentUser={user}
+              inspections={loading ? [] : filteredInspections}
               onEdit={handleEdit}
-              onExport={handleExport}
+              onExport={canExportPostInspections ? handleExport : undefined}
               userRole={userRole}
             />
-          )}
-        </ScrollView>
+          </>
+        )}
       </View>
 
       {/* Edit Entry Modal */}
       <PostInspectionEditEntry
-        visible={showEditModal}
+        visible={showEditModal && !selectedInspection?.flightLogId}
         inspectionData={selectedInspection}
-        rpcOptions={aircraftOptions.filter((rpc) => rpc !== "all")}
+        rpcOptions={aircraftOptions}
         onClose={() => {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
         onSave={async (updatedInspection, options = { closeOnSave: true }) => {
           try {
-            const token = await AsyncStorage.getItem("currentUserToken");
             const response = await fetch(
-              `${API_BASE}/api/post-inspections/updatePostInspectionById/${updatedInspection._id}`,
+              `${API_BASE}/api/post-flight/updatePostInspectionById/${updatedInspection._id}`,
               {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
+                headers: await getAuthHeaders({
                   "x-action-confirmed": "true",
-                  Authorization: `Bearer ${token}`,
-                },
+                }),
                 body: JSON.stringify({
                   ...handleSaveEdit(updatedInspection),
                   confirmAction: true,
@@ -372,49 +364,53 @@ export default function PostInspection({ route }) {
               },
             );
 
-            if (!response.ok) {
-              throw new Error("Failed to update post-inspection");
-            }
-
             const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.message || "Failed to update post-inspection",
+              );
+            }
             setInspections((prev) =>
               prev.map((inspection) =>
                 inspection._id === data.data._id ? data.data : inspection,
               ),
             );
+            const savedAircraft = getLogAircraftRegistration(data.data);
+            if (savedAircraft !== selectedAircraft) {
+              selectAircraft(savedAircraft);
+            }
             if (options.closeOnSave) {
               setShowEditModal(false);
               setSelectedInspection(null);
-              showToast("Post-inspection updated successfully");
+              showToast("Post-inspection updated");
             } else {
               setSelectedInspection(data.data);
             }
           } catch (error) {
             console.error("Error updating post-inspection:", error);
-            showToast("Failed to update post-inspection");
+            showToast(error.message || "Failed to update post-inspection");
             throw error;
           }
         }}
         userRole={userRole}
-        readOnly={isOfficerInCharge}
+        readOnly
       />
-      <AlertComp
-        visible={exportAlert.visible}
-        title="Export Post-Inspection"
-        message="Choose export format."
-        confirmText="PDF"
-        cancelText="Word Template"
-        onCancel={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPostInspectionToWord(inspection);
-        }}
-        onConfirm={() => {
-          const inspection = exportAlert.inspection;
-          setExportAlert({ visible: false, inspection: null });
-          if (inspection) exportPostInspectionTemplatePdf(inspection);
-        }}
-      />
+      {!!selectedInspection?.flightLogId && showEditModal && (
+        <FlightWorkspace
+          id={String(
+            selectedInspection.flightLogId?._id ||
+              selectedInspection.flightLogId,
+          )}
+          visible
+          initialSection="post" inspectionMode
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedInspection(null);
+          }}
+          onChanged={() => fetchPostInspections(true)}
+        />
+      )}
     </View>
   );
 }

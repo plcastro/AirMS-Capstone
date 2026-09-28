@@ -1,57 +1,121 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { View, TouchableOpacity, ScrollView, Image } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateInput from "../common/DateInput";
+import FlightAssignedPilotSelect from './FlightAssignedPilotSelect';
 
 import { API_BASE } from "../../utilities/API_BASE";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
 export default function FlightLogModalInfo({
   formData,
   updateForm,
   isEditable = true,
   isRPCEditable = true,
+  isActive = true,
   onAircraftDataLoaded,
+  isB412 = false,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+  const aircraftDetailRequestRef = useRef(0);
   const canEditRPC = isEditable && isRPCEditable;
-  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
+  const normalizeRpc = (value = "") =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
+
+  const normalizeAircraftOptions = (payload) => {
+    const source = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+    return [
+      ...new Set(
+        source
+          .map((item) =>
+            typeof item === "string"
+              ? item
+              : item?.tailNum || item?.aircraft || item?.rpc || "",
+          )
+          .map(normalizeRpc)
+          .filter(Boolean),
+      ),
+    ].sort();
+  };
 
   const fetchAircraftOptions = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/parts-monitoring/aircraft-list`,
-      );
-      const data = await response.json();
+      const [partsResult, aircraftResult, aircraftWithBasesResult] =
+        await Promise.allSettled([
+          fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`).then(
+            (response) => response.json(),
+          ),
+          fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`).then(
+            (response) => response.json(),
+          ),
+          fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`).then(
+            (response) => response.json(),
+          ),
+        ]);
+      const partsData =
+        partsResult.status === "fulfilled" ? partsResult.value : null;
+      const aircraftData =
+        aircraftResult.status === "fulfilled" ? aircraftResult.value : null;
+      const aircraftWithBasesData =
+        aircraftWithBasesResult.status === "fulfilled"
+          ? aircraftWithBasesResult.value
+          : null;
+      const options = [
+        ...normalizeAircraftOptions(partsData),
+        ...normalizeAircraftOptions(aircraftData),
+        ...normalizeAircraftOptions(aircraftWithBasesData),
+      ];
 
-      // console.log("Fetched aircraft options:", data);
-      if (response.ok) {
-        setAircraftOptions(data.data);
-      }
+      setAircraftOptions([...new Set(options)].sort());
     } catch (error) {
       console.error("Error fetching aircraft options:", error);
+      setAircraftOptions([]);
     }
   };
 
   useEffect(() => {
     fetchAircraftOptions();
+
+    return () => {
+      aircraftDetailRequestRef.current += 1;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!normalizeRpc(formData.rpc)) {
+      aircraftDetailRequestRef.current += 1;
+    }
+  }, [formData.rpc]);
+
+  useEffect(() => {
+    if (!isActive) {
+      aircraftDetailRequestRef.current += 1;
+      setShowRPCDropdown(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeaders();
+        const statuses = ["pending_release", "pending_acceptance", "accepted", "submitted", "returned_to_pilot", "returned_to_mechanic"];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
-              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+              `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -61,9 +125,7 @@ export default function FlightLogModalInfo({
 
         const nextOngoingAircraft = payloads.flatMap((payload, index) =>
           responses[index].ok && Array.isArray(payload.data)
-            ? payload.data
-                .map((log) => normalizeRpc(log.rpc))
-                .filter(Boolean)
+            ? payload.data.map((log) => normalizeRpc(log.rpc)).filter(Boolean)
             : [],
         );
 
@@ -76,47 +138,17 @@ export default function FlightLogModalInfo({
     fetchOngoingAircraftRpcs();
   }, []);
 
-  const availableAircraftOptions = aircraftOptions.filter((rpc) => {
+  const aircraftDropdownOptions = aircraftOptions.map((rpc) => {
     const normalizedRpc = normalizeRpc(rpc);
     const currentRpc = normalizeRpc(formData.rpc);
 
-    return (
-      !ongoingAircraftRpcs.includes(normalizedRpc) ||
-      normalizedRpc === currentRpc
-    );
+    return {
+      disabled:
+        ongoingAircraftRpcs.includes(normalizedRpc) &&
+        normalizedRpc !== currentRpc,
+      rpc,
+    };
   });
-
-  const formatDate = (date) => {
-    if (!date) return "";
-
-    let dateObj;
-
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-
-    if (isNaN(dateObj.getTime())) return "";
-
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const toggleRPCDropdown = () => {
     if (canEditRPC) {
@@ -197,37 +229,55 @@ export default function FlightLogModalInfo({
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
           >
-            {availableAircraftOptions.length === 0 && (
+            {aircraftDropdownOptions.length === 0 && (
               <View style={{ paddingVertical: 12, paddingHorizontal: 12 }}>
                 <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                  No available aircraft
+                  No aircraft found
                 </AppText>
               </View>
             )}
-            {availableAircraftOptions.map((rpc, index) => (
+            {aircraftDropdownOptions.map(({ disabled, rpc }, index) => (
               <TouchableOpacity
-                key={index}
+                key={rpc}
+                disabled={disabled}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
                   borderBottomWidth:
-                    index < availableAircraftOptions.length - 1 ? 1 : 0,
+                    index < aircraftDropdownOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
                   backgroundColor:
                     formData.rpc === rpc
                       ? COLORS.primaryLight + "10"
                       : COLORS.white,
+                  opacity: disabled ? 0.55 : 1,
                 }}
                 onPress={() => {
-                  updateForm("rpc", rpc); // ✅ Update rpc
-                  setShowRPCDropdown(false); // ✅ Close RP/C dropdown
+                  if (
+                    normalizeRpc(formData.rpc) === normalizeRpc(rpc) &&
+                    String(formData.aircraftType || "").trim()
+                  ) {
+                    setShowRPCDropdown(false);
+                    return;
+                  }
+
+                  updateForm("rpc", rpc);
+                  updateForm("aircraftType", "");
+                  onAircraftDataLoaded?.(null);
+                  setShowRPCDropdown(false);
+                  const requestToken = aircraftDetailRequestRef.current + 1;
+                  aircraftDetailRequestRef.current = requestToken;
 
                   const fetchAircraftType = async () => {
                     try {
                       const response = await fetch(
-                        `${API_BASE}/api/parts-monitoring/${rpc}`,
+                        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
                       );
                       const data = await response.json();
+
+                      if (requestToken !== aircraftDetailRequestRef.current) {
+                        return;
+                      }
 
                       if (response.ok) {
                         updateForm("aircraftType", data.data.aircraftType);
@@ -235,7 +285,12 @@ export default function FlightLogModalInfo({
                         console.log(data.data);
                       }
                     } catch (error) {
+                      if (requestToken !== aircraftDetailRequestRef.current) {
+                        return;
+                      }
+
                       console.error("Error fetching aircraft type:", error);
+                      onAircraftDataLoaded?.(null);
                     }
                   };
 
@@ -245,11 +300,14 @@ export default function FlightLogModalInfo({
                 <AppText
                   style={{
                     fontSize: 12,
-                    color:
-                      formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
+                    color: disabled
+                      ? COLORS.grayDark
+                      : formData.rpc === rpc
+                        ? COLORS.primaryLight
+                        : COLORS.black,
                   }}
                 >
-                  {rpc}
+                  {disabled ? `${rpc} (ongoing flight log)` : rpc}
                 </AppText>
               </TouchableOpacity>
             ))}
@@ -291,12 +349,18 @@ export default function FlightLogModalInfo({
             backgroundColor: COLORS.primaryLight,
             paddingVertical: 14,
             paddingHorizontal: 16,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
           }}
         >
           <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
-            Rotary Winged Aircraft - Single Engine
+            {isB412
+              ? "Rotary Winged Aircraft - Twin Engine"
+              : formData.aircraftType
+                ? "Rotary Winged Aircraft - Single Engine"
+                : "Rotary Winged Aircraft"}
           </AppText>
         </View>
 
@@ -340,26 +404,17 @@ export default function FlightLogModalInfo({
             >
               Date: *
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
-                borderRadius: 6,
-                height: 42,
-                paddingHorizontal: 12,
-              }}
-            >
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons
-                name="calendar-blank"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: '500' }}>Assigned Pilot:</AppText>
+            <FlightAssignedPilotSelect value={formData.assignedPilot} onChange={value => updateForm('assignedPilot', value)}
+              disabled={!isEditable} isActive={isActive} />
           </View>
 
           <View style={{ marginBottom: 8 }}>
@@ -387,6 +442,16 @@ export default function FlightLogModalInfo({
               editable={isEditable}
             />
           </View>
+          {formData.preFlightInspection?.signature && <View style={{ marginTop: 16 }}>
+            <AppText style={{ fontWeight: '700' }}>Pre-flight inspection confirmed</AppText>
+            <AppText>{formData.preFlightInspection.name} — recorded {new Date(formData.preFlightInspection.recordedAt).toLocaleString()}</AppText>
+            <Image source={{ uri: formData.preFlightInspection.signature }} accessibilityLabel="Pre-flight confirmation signature"
+              style={{ width: 180, height: 80 }} resizeMode="contain" />
+            {!!formData.preFlightInspection.remarks && <>
+              <AppText>Discrepancies: {formData.preFlightInspection.remarks}</AppText>
+              <AppText>Resolution: {formData.preFlightInspection.resolution}</AppText>
+            </>}
+          </View>}
         </View>
       </View>
     </View>

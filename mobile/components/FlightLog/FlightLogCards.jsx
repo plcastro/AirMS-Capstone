@@ -1,18 +1,25 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import {
-  ActivityIndicator,
+import { FlatList,
   View,
   TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function FlightLogCards({
   logs,
   onEdit,
   onExport,
+  onRelease,
+  onAccept,
+  onNotify,
+  onComplete,
+  userRole = "",
   readOnly = false,
+  currentUser,
 }) {
   const [exportingLogId, setExportingLogId] = useState(null);
 
@@ -62,7 +69,8 @@ export default function FlightLogCards({
     });
   };
 
-  const getStatusBadgeStyle = (status) => {
+  const getStatusBadgeStyle = (log) => {
+    const status = log?.status;
     switch (status) {
       case "pending_release":
         return {
@@ -77,6 +85,13 @@ export default function FlightLogCards({
           label: "Released",
         };
       case "accepted":
+        if (log?.notifiedForCompletion) {
+          return {
+            backgroundColor: "#E6F4FF",
+            textColor: "#0958D9",
+            label: "For Completion",
+          };
+        }
         return {
           backgroundColor: "#FFF8E1",
           textColor: "#A37300",
@@ -86,7 +101,7 @@ export default function FlightLogCards({
         return {
           backgroundColor: "#E8F5E9",
           textColor: "#2E7D32",
-          label: "Done",
+          label: "Completed",
         };
       default:
         return {
@@ -107,10 +122,46 @@ export default function FlightLogCards({
 
   return (
     <>
-      {logs.map((log) => {
-        const statusStyle = getStatusBadgeStyle(log.status);
+      {<FlatList
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={logs}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         renderItem={({ item: log }) => {
+        const controlNumber = log.controlNo || log.control || log.controlNumber;
+        const statusStyle = getStatusBadgeStyle(log);
         const logKey = String(log._id || log.id || "");
         const exportLoading = exportingLogId === logKey;
+        const isViewOnly = readOnly || log.status === "completed" || !isAssignedFlightCrew(currentUser, log);
+        const normalizedRole = String(userRole || "").toLowerCase();
+        const isPilot = normalizedRole === "pilot";
+        const isMechanic = [
+          "engineer",
+          "mechanic",
+          "maintenance manager",
+          "superadmin",
+          "head of maintenance",
+        ].includes(normalizedRole);
+        const canRelease =
+          !isViewOnly && isMechanic && log.status === "pending_release";
+        const canAccept =
+          !isViewOnly &&
+          isPilot &&
+          ["pending_acceptance", "released"].includes(log.status);
+        const canNotify =
+          !isViewOnly &&
+          isPilot &&
+          log.status === "accepted" &&
+          !log.notifiedForCompletion;
+        const canComplete =
+          !isViewOnly &&
+          isMechanic &&
+          log.status === "accepted" &&
+          log.notifiedForCompletion;
 
         return (
           <TouchableOpacity
@@ -149,9 +200,7 @@ export default function FlightLogCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   {/* Status */}
                   <View
                     style={{
@@ -171,21 +220,6 @@ export default function FlightLogCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  <TouchableOpacity
-                    onPress={() => handleExportPress(log)}
-                    disabled={Boolean(exportingLogId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={21}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -202,28 +236,77 @@ export default function FlightLogCards({
                 </AppText>
                 <AppText style={{ fontSize: 11, color: "#444" }}>
                   <AppText style={{ color: "#777" }}>Control:</AppText>{" "}
-                  {log.control || "N/A"}
+                  {controlNumber || "N/A"}
                 </AppText>
               </View>
 
-              {/* Icon */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={readOnly ? "eye-outline" : "pencil"}
-                  size={21}
-                  color={readOnly ? COLORS.primaryLight : "#777"}
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                {canRelease && (
+                  <ActionIconButton
+                    icon="send"
+                    tooltip="Release"
+                    onPress={() => onRelease?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canAccept && (
+                  <ActionIconButton
+                    icon="check"
+                    tooltip="Accept"
+                    onPress={() => onAccept?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canNotify && (
+                  <ActionIconButton
+                    icon="bell-ring-outline"
+                    tooltip="Notify"
+                    onPress={() => onNotify?.(log)}
+                    color="#FA8C16"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {canComplete && (
+                  <ActionIconButton
+                    icon="check-circle-outline"
+                    tooltip="Complete"
+                    onPress={() => onComplete?.(log)}
+                    color="#048A25"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(log)}
+                    disabled={Boolean(exportingLogId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                <ActionIconButton
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
+                  onPress={() => onEdit(log)}
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={21}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

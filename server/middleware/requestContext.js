@@ -18,14 +18,31 @@ const normalizeBase = (value = "") => {
   return null;
 };
 
+const parseHeaderText = (value = "") =>
+  String(value || "")
+    .trim()
+    .slice(0, 240);
+
+const parseCoordinate = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
 const requestContextMiddleware = (req, _res, next) => {
   const store = {
     requestId: req.headers["x-request-id"] || null,
     sessionId: req.headers["x-session-id"] || null,
-    platform: normalizePlatform(req.headers["x-platform"]),
+    platform:
+      normalizePlatform(req.headers["x-platform"]) ||
+      normalizePlatform(req.body?.client),
     base: normalizeBase(req.headers["x-base"]),
     ipAddress: req.ip || req.socket?.remoteAddress || null,
     userAgent: req.headers["user-agent"] || null,
+    devicePlatform: parseHeaderText(req.headers["x-device-platform"]),
+    deviceModel: parseHeaderText(req.headers["x-device-model"]),
+    locationText: parseHeaderText(req.headers["x-location-text"]),
+    locationLatitude: parseCoordinate(req.headers["x-location-latitude"]),
+    locationLongitude: parseCoordinate(req.headers["x-location-longitude"]),
   };
 
   requestContext.run(store, next);
@@ -49,6 +66,28 @@ const updateRequestContext = (updates = {}) => {
   if (Object.prototype.hasOwnProperty.call(updates, "base")) {
     const base = normalizeBase(updates.base);
     store.base = base || store.base || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "devicePlatform")) {
+    store.devicePlatform =
+      parseHeaderText(updates.devicePlatform) || store.devicePlatform || "";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "deviceModel")) {
+    store.deviceModel =
+      parseHeaderText(updates.deviceModel) || store.deviceModel || "";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationText")) {
+    store.locationText =
+      parseHeaderText(updates.locationText) || store.locationText || "";
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationLatitude")) {
+    store.locationLatitude =
+      parseCoordinate(updates.locationLatitude) ?? store.locationLatitude ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "locationLongitude")) {
+    store.locationLongitude =
+      parseCoordinate(updates.locationLongitude) ??
+      store.locationLongitude ??
+      null;
   }
 };
 

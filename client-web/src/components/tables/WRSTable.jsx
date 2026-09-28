@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Table, InputNumber, Tag } from "antd";
+import { Checkbox, Tag } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function WRSTable({
   data = [],
@@ -22,10 +23,11 @@ export default function WRSTable({
   const getQtyValue = (record) =>
     hasQtyValue(record) ? availQtyMap[record._id] : undefined;
 
-  const handleAvailQtyChange = (value, record) => {
+  const handleAvailabilityChange = (checked, record) => {
+    const requestedQty = Number(record.quantity) || 0;
     setAvailQtyMap((prev) => ({
       ...prev,
-      [record._id]: value,
+      [record._id]: checked ? requestedQty : 0,
     }));
   };
 
@@ -82,7 +84,13 @@ export default function WRSTable({
       title: "PARTICULAR",
       dataIndex: "particular",
       key: "particular",
-      width: 400,
+      width: 250,
+      onCell: () => ({
+        style: {
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+        },
+      }),
     },
     {
       title: "REQUESTED QTY",
@@ -92,7 +100,7 @@ export default function WRSTable({
     },
 
     {
-      title: "AVAILABLE QTY",
+      title: "AVAILABLE",
       dataIndex: "availQty",
       key: "availQty",
       width: 120,
@@ -111,29 +119,35 @@ export default function WRSTable({
           (itemStatus === "To Be Ordered" &&
             persistedQty >= requestedQty &&
             requestedQty > 0);
+        const hasInput = hasQtyValue(record);
+        const availableQty = Number(
+          getQtyValue(record) ?? record.availableQty ?? 0,
+        );
+        const isAvailable = requestedQty > 0 && availableQty >= requestedQty;
 
         return (
-          <InputNumber
-            min={0}
-            max={999}
-            style={{ width: "100%" }}
-            placeholder="Enter qty"
-            value={getQtyValue(record)}
-            onChange={(value) => handleAvailQtyChange(value, record)}
+          <Checkbox
+            checked={isAvailable}
+            indeterminate={!hasInput && itemStatus === "Parts Requested"}
+            onChange={(event) =>
+              handleAvailabilityChange(event.target.checked, record)
+            }
             disabled={disabled || lockedBecauseInStock}
-          />
+          >
+            Available
+          </Checkbox>
         );
       },
     },
 
     {
-      title: "UOM",
+      title: "UNIT",
       dataIndex: "unitOfMeasure",
       key: "unitOfMeasure",
       width: 120,
     },
     {
-      title: "AUTO STATUS",
+      title: "STATUS",
       key: "autoStatus",
       width: 150,
       render: (_, record) => getAutoStatus(record),
@@ -141,12 +155,13 @@ export default function WRSTable({
   ];
 
   return (
-    <Table
+    <ResponsiveTable
       columns={tableColumns}
       dataSource={data}
       rowKey={(record) => record._id}
       loading={loading}
       scroll={{ x: "max-content" }}
+      size={"small"}
       pagination={{
         pageSize,
         current: currentPage,

@@ -1,5 +1,7 @@
-import { Button, Space, Table, Tag, Typography } from "antd";
+import { Button, Space, Tag, Tooltip, Typography } from "antd";
+import { ToolOutlined } from "@ant-design/icons";
 import React, { useState, useMemo } from "react";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 const { Text } = Typography;
 
@@ -163,25 +165,52 @@ export default function MTrackingTable({
           key: "rectifyAction",
           width: 130,
           render: (draft) => (
-            <Button
-              type="primary"
-              size="small"
-              disabled={!draft}
-              loading={Boolean(draft?.rectifying)}
-              onClick={() => draft && onRectifyFinding?.(draft)}
-            >
-              Rectify
-            </Button>
+            <Tooltip title="Rectify">
+              <Button
+                type="primary"
+                size="small"
+                aria-label="Rectify"
+                disabled={!draft}
+                loading={Boolean(draft?.rectifying)}
+                icon={<ToolOutlined />}
+                onClick={() => draft && onRectifyFinding?.(draft)}
+              />
+            </Tooltip>
           ),
         };
       }
-
+      if (header.key === "recommendedAction") {
+        return {
+          title: header.title,
+          dataIndex: "recommendedAction",
+          key: "recommendedAction",
+          width: 300,
+          render: (text) => (
+            <div style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+              {text}
+            </div>
+          ),
+        };
+      }
+      if (header.key === "manualReference") {
+        return {
+          title: header.title,
+          dataIndex: "manualReference",
+          key: "manualReference",
+          width: 300,
+          render: (text) => (
+            <div style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+              {text}
+            </div>
+          ),
+        };
+      }
       if (header.key === "procedureSummary") {
         return {
           title: header.title,
           dataIndex: "procedureSummary",
           key: "procedureSummary",
-          width: 460,
+          width: 300,
           render: (procedure) => {
             if (!procedure?.summary) {
               return <Text type="secondary">No AMM summary available.</Text>;
@@ -214,12 +243,13 @@ export default function MTrackingTable({
     });
   }, [headers, onRectifyFinding]);
   return (
-    <Table
+    <ResponsiveTable
       columns={columns}
       dataSource={data}
       rowKey={(record) => record._id}
       loading={loading}
       scroll={{ x: "max-content" }}
+      size={"small"}
       pagination={{
         pageSize: pageSize,
         showSizeChanger: true,

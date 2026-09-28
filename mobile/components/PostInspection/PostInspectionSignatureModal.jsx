@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useContext, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   TouchableOpacity,
   View
 } from "react-native";
@@ -22,7 +22,9 @@ const getUserName = (user) =>
   "Unknown User";
 
 const getUserIdentifier = (user) =>
-  user?.licenseNo || user?.licenseNumber || user?.license || "No License No.";
+  user?.licenseNo || user?.licenseNumber || user?.license || "";
+
+const getUserTitle = (user) => user?.jobTitle || user?.access || "User";
 
 export default function PostInspectionSignatureModal({
   visible,
@@ -31,6 +33,7 @@ export default function PostInspectionSignatureModal({
   onSave,
   aircraftRPC,
   actionLabel = "sign",
+  useNativeModal = true,
 }) {
   const { user } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -38,6 +41,7 @@ export default function PostInspectionSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pinError, setPinError] = useState("");
   const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
 
   const reset = () => {
@@ -45,6 +49,7 @@ export default function PostInspectionSignatureModal({
     setSignature("");
     setPin("");
     setSubmitting(false);
+    setPinError("");
     setAdvanceAfterSignature(false);
   };
 
@@ -102,34 +107,37 @@ export default function PostInspectionSignatureModal({
     }
 
     if (!/^\d{6}$/.test(pin)) {
-      showToast("Enter your 6-digit PIN to confirm this signature.");
+      setPinError("Enter your 6-digit PIN to confirm this signature.");
+      return;
+    }
+
+    if (!getUserIdentifier(user)) {
+      setPinError("Your profile has no license number. Contact an administrator before signing.");
       return;
     }
 
     try {
+      setPinError("");
       setSubmitting(true);
       await verifyPin();
       await onSave({
         name: getUserName(user),
         id: getUserIdentifier(user),
+        licenseNo: getUserIdentifier(user),
+        title: getUserTitle(user),
+        userId: user?.id || user?._id || "",
         signature,
       });
       reset();
       onClose();
     } catch (error) {
-      showToast(error.message || "Could not verify your PIN.");
+      setPinError(error.message || "Could not verify your PIN.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={handleClose}
-    >
+  const content = (
       <View
         style={{
           flex: 1,
@@ -180,7 +188,7 @@ export default function PostInspectionSignatureModal({
             <>
               <View
                 style={{
-                  height: 190,
+                  height: 230,
                   borderWidth: 1,
                   borderColor: COLORS.grayMedium,
                   borderRadius: 8,
@@ -205,52 +213,15 @@ export default function PostInspectionSignatureModal({
                   imageType="image/png"
                 />
               </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={handleClose}
-                  disabled={submitting}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                    opacity: submitting ? 0.6 : 1,
-                  }}
-                >
-                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                    Cancel
-                  </AppText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#D9534F",
-                  }}
-                >
-                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Clear
-                  </AppText>
-                </TouchableOpacity>
-              </View>
             </>
           ) : (
             <>
               <CodeInputField
                 code={pin}
-                setCode={setPin}
+                setCode={(value) => {
+                  setPin(value);
+                  setPinError("");
+                }}
                 maxLength={6}
                 secure
                 containerStyle={{
@@ -260,6 +231,11 @@ export default function PostInspectionSignatureModal({
                 }}
                 inputContainerStyle={{ width: "100%" }}
               />
+              {!!pinError && (
+                <AppText accessibilityRole="alert" style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}>
+                  {pinError}
+                </AppText>
+              )}
               {!!signature && (
                 <View
                   style={{
@@ -293,9 +269,29 @@ export default function PostInspectionSignatureModal({
               marginTop: 20,
             }}
           >
+            {step === "signature" && (
+              <TouchableOpacity
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                }}
+                disabled={submitting}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 8,
+                  backgroundColor: "#D9534F",
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+                  Clear
+                </AppText>
+              </TouchableOpacity>
+            )}
             {step === "pin" && (
               <TouchableOpacity
-                onPress={handleClose}
+                onPress={() => setStep("signature")}
                 disabled={submitting}
                 style={{
                   paddingVertical: 10,
@@ -307,7 +303,7 @@ export default function PostInspectionSignatureModal({
                 }}
               >
                 <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                  Cancel
+                  Redraw
                 </AppText>
               </TouchableOpacity>
             )}
@@ -334,6 +330,20 @@ export default function PostInspectionSignatureModal({
           </View>
         </View>
       </View>
+  );
+
+  if (!useNativeModal) {
+    if (!visible) return null;
+    return (
+      <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, elevation: 1000 }}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+      {content}
     </Modal>
   );
 }

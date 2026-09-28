@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
+import { isB412Aircraft } from "./b412PostInspectionData";
+import DateInput from "../common/DateInput";
+import FlightLogCrewAssignment from "../FlightLog/FlightLogCrewAssignment";
 
 export default function PostInspectionModalInfo({
   formData,
   updateForm,
   isEditable = true,
+  isAircraftEditable = isEditable,
   rpcOptions = [],
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
+  const aircraftTypeRequestRef = useRef(0);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -26,43 +27,13 @@ export default function PostInspectionModalInfo({
     ),
   );
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    
-    let dateObj;
-    
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-    
-    if (isNaN(dateObj.getTime())) return "";
-    
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
-
   const toggleRPCDropdown = () => {
     setShowRPCDropdown(!showRPCDropdown);
   };
 
   const resolveAircraftTypeByRpc = async (rpc) => {
+    const requestId = ++aircraftTypeRequestRef.current;
+
     try {
       if (!rpc) return;
       const response = await fetch(
@@ -71,12 +42,17 @@ export default function PostInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== aircraftTypeRequestRef.current) return;
+
       const resolvedType = data?.data?.aircraftType || "";
-      if (resolvedType && resolvedType !== formData.aircraftType) {
+      if (resolvedType) {
         updateForm("aircraftType", resolvedType);
       }
     } catch (error) {
-      console.error("Error resolving aircraft type for post-inspection:", error);
+      console.error(
+        "Error resolving aircraft type for post-inspection:",
+        error,
+      );
     }
   };
 
@@ -85,6 +61,10 @@ export default function PostInspectionModalInfo({
       resolveAircraftTypeByRpc(formData.rpc);
     }
   }, [formData.rpc]);
+
+  const aircraftClassLabel = isB412Aircraft(formData.aircraftType)
+    ? "Rotary Winged Aircraft - Twin Engine"
+    : "Rotary Winged Aircraft - Single Engine";
 
   const renderAircraftTypeField = () => (
     <View>
@@ -112,55 +92,66 @@ export default function PostInspectionModalInfo({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          backgroundColor: isAircraftEditable ? "#F8F8F8" : "#E8E8E8",
           borderRadius: 6,
           borderWidth: 1,
           borderColor: COLORS.grayMedium,
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? toggleRPCDropdown : null}
+        onPress={isAircraftEditable ? toggleRPCDropdown : null}
       >
-        <AppText style={{ 
-          fontSize: 12, 
-          color: formData.rpc ? COLORS.black : COLORS.grayDark 
-        }}>
+        <AppText
+          style={{
+            fontSize: 12,
+            color: formData.rpc ? COLORS.black : COLORS.grayDark,
+          }}
+        >
           {formData.rpc || "Select RP/C"}
         </AppText>
-        {isEditable && (
-          <MaterialCommunityIcons 
-            name={showRPCDropdown ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color={COLORS.grayDark} 
+        {isAircraftEditable && (
+          <MaterialCommunityIcons
+            name={showRPCDropdown ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={COLORS.grayDark}
           />
         )}
       </TouchableOpacity>
 
-      {showRPCDropdown && isEditable && (
-        <View style={{
-          marginTop: 6,
-          backgroundColor: COLORS.white,
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          zIndex: 3000,
-          elevation: 5,
-          shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          maxHeight: 240,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+      {showRPCDropdown && isAircraftEditable && (
+        <View
+          style={{
+            marginTop: 6,
+            backgroundColor: COLORS.white,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.grayMedium,
+            zIndex: 3000,
+            elevation: 5,
+            shadowColor: COLORS.black,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            maxHeight: 240,
+          }}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {dynamicRpcOptions.map((rpc, index) => (
               <TouchableOpacity
                 key={index}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 12,
-                  borderBottomWidth: index < dynamicRpcOptions.length - 1 ? 1 : 0,
+                  borderBottomWidth:
+                    index < dynamicRpcOptions.length - 1 ? 1 : 0,
                   borderBottomColor: COLORS.grayLight,
-                  backgroundColor: formData.rpc === rpc ? COLORS.primaryLight + "10" : COLORS.white,
+                  backgroundColor:
+                    formData.rpc === rpc
+                      ? COLORS.primaryLight + "10"
+                      : COLORS.white,
                 }}
                 onPress={() => {
                   updateForm("rpc", rpc);
@@ -168,10 +159,13 @@ export default function PostInspectionModalInfo({
                   setShowRPCDropdown(false);
                 }}
               >
-                <AppText style={{ 
-                  fontSize: 12,
-                  color: formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
-                }}>
+                <AppText
+                  style={{
+                    fontSize: 12,
+                    color:
+                      formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
+                  }}
+                >
                   {rpc}
                 </AppText>
               </TouchableOpacity>
@@ -184,61 +178,94 @@ export default function PostInspectionModalInfo({
 
   return (
     <View>
-      <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
+      <AppText
+        style={{
+          fontSize: 14,
+          fontWeight: "600",
+          color: COLORS.grayDark,
+          marginBottom: 16,
+        }}
+      >
         Basic Information
       </AppText>
 
-      <View style={{
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: COLORS.grayMedium,
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        elevation: 2,
-        overflow: "visible",
-      }}>
-        <View style={{ backgroundColor: COLORS.primaryLight, paddingVertical: 14, paddingHorizontal: 16 }}>
-          <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
-            Rotary Winged Aircraft - Single Engine
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.grayMedium,
+          shadowColor: COLORS.black,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 6,
+          elevation: 2,
+          overflow: "visible",
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: COLORS.primaryLight,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+          }}
+        >
+          <AppText
+            style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
+          >
+            {aircraftClassLabel}
           </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
+          <AppText style={{ marginBottom: 12 }}>Linked Flight Log: {formData.flightLogControlNo || formData.flightLogId || "Not linked"}</AppText>
+          <FlightLogCrewAssignment formData={formData} updateForm={updateForm} canAssign={false} isActive={false} />
           <View style={{ marginBottom: 16 }}>
-            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               RP-C: *
             </AppText>
             {renderRPCDropdown()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               Aircraft Type: *
             </AppText>
             {renderAircraftTypeField()}
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+            <AppText
+              style={{
+                fontSize: 12,
+                color: COLORS.black,
+                marginBottom: 6,
+                fontWeight: "500",
+              }}
+            >
               Date:
             </AppText>
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: "#E8E8E8",
-              borderRadius: 6,
-              height: 42,
-              paddingHorizontal: 12,
-            }}>
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons name="calendar-blank" size={18} color={COLORS.grayDark} />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
           </View>
         </View>
       </View>

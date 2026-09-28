@@ -10,18 +10,27 @@ let activeToken = "";
 const listeners = new Set();
 
 const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+  const wsBase = String(API_BASE || "")
+    .replace(/\/+$/, "")
+    .replace(/^http/i, (match) =>
+      match.toLowerCase() === "https" ? "wss" : "ws",
+    );
+  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
-const getStoredToken = () =>
-  localStorage.getItem("currentUserToken") ||
-  localStorage.getItem("token") ||
-  sessionStorage.getItem("token") ||
-  "";
+const getStoredToken = () => {
+  const sessionToken = sessionStorage.getItem("token");
+  if (sessionToken) return sessionToken;
+
+  const legacyToken =
+    localStorage.getItem("currentUserToken") || localStorage.getItem("token");
+  if (legacyToken) {
+    sessionStorage.setItem("token", legacyToken);
+  }
+  localStorage.removeItem("currentUserToken");
+  localStorage.removeItem("token");
+  return legacyToken || "";
+};
 
 const notifyListeners = (payload) => {
   listeners.forEach((listener) => {
@@ -84,14 +93,17 @@ const ensureConnection = () => {
   };
 
   socket.onmessage = (event) => {
+    // console.log("RAW WS MESSAGE:", event.data);
+
     try {
       const payload = JSON.parse(event.data || "{}");
+      // console.log("PARSED WS:", payload);
+
       notifyListeners(payload);
     } catch (error) {
-      console.error("Realtime websocket parse error:", error);
+      console.error(error);
     }
   };
-
   socket.onerror = () => {
     try {
       socket?.close();

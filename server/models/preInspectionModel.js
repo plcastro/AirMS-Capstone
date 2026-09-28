@@ -1,10 +1,31 @@
 const mongoose = require("mongoose");
+const b412Checklist = require("../../shared/b412PreInspectionChecklist.json");
+
+const b412CheckFields = Object.fromEntries(
+  b412Checklist.sections.flatMap((section) =>
+    section.items.map((item) => [
+      item.key,
+      { type: Boolean, default: false },
+    ]),
+  ),
+);
+
+const b412ChecksSchema = new mongoose.Schema(b412CheckFields, { _id: false });
+
+const b412PreInspectionDataSchema = new mongoose.Schema(
+  {
+    checks: { type: b412ChecksSchema, default: () => ({}) },
+  },
+  { _id: false },
+);
 
 const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
     licenseNo: { type: String, default: "" },
+    userId: { type: String, default: "" },
+    title: { type: String, default: "" },
     signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
@@ -13,12 +34,15 @@ const signatureSchema = new mongoose.Schema(
 
 const preInspectionSchema = new mongoose.Schema(
   {
+    flightLogId: { type: mongoose.Schema.Types.ObjectId, ref: "FlightLog", default: null, index: true },
     aircraftType: { type: String, required: true, trim: true },
     rpc: { type: String, required: true, trim: true },
     base: { type: String, default: "", trim: true, uppercase: true },
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    confirmation: { type: mongoose.Schema.Types.Mixed, default: null },
     status: {
       type: String,
       enum: ["pending", "released", "completed"],
@@ -74,6 +98,9 @@ const preInspectionSchema = new mongoose.Schema(
     fob: { type: String, default: "" },
     releasedBy: { type: signatureSchema, default: () => ({}) },
     acceptedBy: { type: signatureSchema, default: () => ({}) },
+    // Bell 412 EP uses an aircraft-specific checklist. It remains undefined on
+    // AS350/legacy records so their payload and export behavior stay unchanged.
+    b412Data: { type: b412PreInspectionDataSchema, default: undefined },
   },
   { collection: "pre_inspections", timestamps: true },
 );

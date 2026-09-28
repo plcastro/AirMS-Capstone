@@ -1,12 +1,12 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Image
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -15,12 +15,32 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
+import PreInspectionB412Checklist from "./PreInspectionB412Checklist";
 import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import {
+  B412_PRE_INSPECTION_SECTIONS,
+  createEmptyB412PreInspectionData,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PreInspectionData";
 import { showToast } from "../../utilities/toast";
+
+const BASIC_INFORMATION_TAB = {
+  key: "basic",
+  label: "Basic Information",
+};
+
+const LEGACY_PRE_INSPECTION_TABS = [
+  BASIC_INFORMATION_TAB,
+  { key: "stations", label: "Station 1 and 2" },
+  { key: "station3-sling", label: "Station 3 and Sling" },
+  { key: "floats-onboard", label: "Floats and Onboard" },
+];
 
 export default function PreInspectionEditEntry({
   visible,
@@ -37,33 +57,53 @@ export default function PreInspectionEditEntry({
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isPilot = userRole === "pilot";
-  const isMechanic =
-    ["mechanic", "maintenance manager", "superadmin"].includes(userRole);
-
-  const tabs = [
-    "Basic Information",
-    "Station 1 and 2",
-    "Station 3 and Sling",
-    "Floats and Onboard",
-  ];
-  const totalPages = tabs.length;
-  const isLastPage = currentPage === totalPages - 1;
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isPilot = normalizedRole === "pilot";
+  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+    normalizedRole,
+  );
 
   const [formData, setFormData] = useState(
     getDefaultPreInspectionFormData(userRole),
   );
-  const isCompletedInspection = [
-    inspectionData?.status,
-    formData.status,
-  ].some((status) => String(status || "").toLowerCase() === "completed");
+  const hasAircraftType = Boolean(String(formData.aircraftType || "").trim());
+  const isB412 = hasAircraftType && isB412Aircraft(formData.aircraftType);
+  const isAS350 = hasAircraftType && isAS350Aircraft(formData.aircraftType);
+  const tabs = isB412
+    ? [
+        BASIC_INFORMATION_TAB,
+        ...B412_PRE_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412:${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+      ]
+    : isAS350
+      ? LEGACY_PRE_INSPECTION_TABS
+      : [BASIC_INFORMATION_TAB];
+  const totalPages = tabs.length;
+  const isLastPage = currentPage === totalPages - 1;
+  const isCompletedInspection = [inspectionData?.status, formData.status].some(
+    (status) => String(status || "").toLowerCase() === "completed",
+  );
 
   useEffect(() => {
     if (visible && inspectionData) {
-      setFormData({
+      const nextFormData = {
         ...getDefaultPreInspectionFormData(userRole),
         ...inspectionData,
-      });
+      };
+
+      setFormData(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PreInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : nextFormData,
+      );
     }
   }, [visible, inspectionData, userRole]);
 
@@ -82,6 +122,12 @@ export default function PreInspectionEditEntry({
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(0);
+    }
+  }, [currentPage, totalPages]);
+
   const updateForm = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -93,7 +139,9 @@ export default function PreInspectionEditEntry({
   const isFormEditable = !isViewOnly && !isPilot && !hasAnySignature;
 
   const validateBeforeSigning = (actionLabel) => {
-    if (!String(formData.fob || "").trim()) {
+    const fobValue = String(formData.fob || "").trim();
+    const numericFob = Number(fobValue);
+    if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
       showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
@@ -109,7 +157,16 @@ export default function PreInspectionEditEntry({
   const persistInspection = async (nextFormData) => {
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData);
+      await onSave(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PreInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : { ...nextFormData, b412Data: undefined },
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -123,22 +180,18 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       acceptedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "completed",
     };
 
-    setFormData(updatedFormData);
-
     try {
       await persistInspection(updatedFormData);
+      setFormData(updatedFormData);
       showToast("Pre-inspection has been completed");
     } catch (error) {
-      console.error("Error completing pre-inspection:", error);
-      showToast("Failed to complete pre-inspection");
+      console.error("Error completing pre-flight inspection:", error);
       throw error;
     }
   };
@@ -151,22 +204,18 @@ export default function PreInspectionEditEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",
     };
 
-    setFormData(updatedFormData);
-
     try {
       await persistInspection(updatedFormData);
+      setFormData(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      showToast("Failed to release pre-inspection");
+      console.error("Error releasing pre-flight inspection:", error);
       throw error;
     }
   };
@@ -188,8 +237,8 @@ export default function PreInspectionEditEntry({
     try {
       await persistInspection(formData);
     } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
+      console.error("Error saving pre-flight inspection:", error);
+      showToast(error.message || "Failed to save pre-flight inspection");
     }
   };
 
@@ -208,8 +257,21 @@ export default function PreInspectionEditEntry({
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
-    switch (currentTab) {
-      case "Basic Information":
+    if (currentTab?.b412SectionKey) {
+      return (
+        <PreInspectionB412Checklist
+          value={formData.b412Data}
+          onChange={(b412Data) => updateForm("b412Data", b412Data)}
+          fob={formData.fob}
+          onFobChange={(fob) => updateForm("fob", fob)}
+          isEditable={isFormEditable}
+          sectionKey={currentTab.b412SectionKey}
+        />
+      );
+    }
+
+    switch (currentTab?.key) {
+      case "basic":
         return (
           <PreInspectionModalInfo
             formData={formData}
@@ -218,7 +280,7 @@ export default function PreInspectionEditEntry({
             rpcOptions={rpcOptions}
           />
         );
-      case "Station 1 and 2":
+      case "stations":
         return (
           <PreInspectionModalStations
             formData={formData}
@@ -226,7 +288,7 @@ export default function PreInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Station 3 and Sling":
+      case "station3-sling":
         return (
           <PreInspectionModalSling
             formData={formData}
@@ -234,7 +296,7 @@ export default function PreInspectionEditEntry({
             isEditable={isFormEditable}
           />
         );
-      case "Floats and Onboard":
+      case "floats-onboard":
         return (
           <PreInspectionModalFloatsOnboard
             formData={formData}
@@ -281,12 +343,19 @@ export default function PreInspectionEditEntry({
   const formatDate = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    return date.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         {/* Tab Bar */}
@@ -301,10 +370,18 @@ export default function PreInspectionEditEntry({
             }}
           >
             <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText
+                style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}
+              >
                 {isViewOnly ? "View Entry" : "Edit Entry"} - Pre-Inspection
               </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: COLORS.grayDark,
+                }}
+              >
                 Select Section
               </AppText>
             </View>
@@ -332,7 +409,7 @@ export default function PreInspectionEditEntry({
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
-                key={index}
+                key={tab.key}
                 onPress={() => setCurrentPage(index)}
                 style={{
                   paddingVertical: 8,
@@ -355,7 +432,7 @@ export default function PreInspectionEditEntry({
                       currentPage === index ? COLORS.white : COLORS.grayDark,
                   }}
                 >
-                  {tab}
+                  {tab.label}
                 </AppText>
               </TouchableOpacity>
             ))}
@@ -368,7 +445,6 @@ export default function PreInspectionEditEntry({
               marginTop: 12,
             }}
           />
-
         </View>
 
         {/* Page Content */}
@@ -636,7 +712,7 @@ export default function PreInspectionEditEntry({
           </View>
 
           <TouchableOpacity
-            onPress={isLastPage ? handleFooterAction : handleNext}
+            onPress={isViewOnly || isLastPage ? handleFooterAction : handleNext}
             disabled={isSubmitting}
             style={{
               paddingVertical: 8,
@@ -649,7 +725,7 @@ export default function PreInspectionEditEntry({
             <AppText
               style={{ color: COLORS.white, fontSize: 14, fontWeight: "600" }}
             >
-              {isLastPage ? footerActionLabel : "Next"}
+              {isViewOnly ? "Close" : isLastPage ? footerActionLabel : "Next"}
             </AppText>
           </TouchableOpacity>
         </View>
@@ -661,6 +737,7 @@ export default function PreInspectionEditEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
 
         <PreInspectionSignatureModal
@@ -670,8 +747,10 @@ export default function PreInspectionEditEntry({
           onSave={handleAccept}
           aircraftRPC={formData.rpc}
           actionLabel="accept"
+          useNativeModal={false}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

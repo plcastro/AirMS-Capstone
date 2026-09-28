@@ -21,7 +21,7 @@ Use this checklist to verify that all changes have been properly made to your pr
   - Handles file download and sharing via Expo
 
 - [ ] `server/templates/` (directory)
-  - Where pre-inspection.docx and post-inspection.docx should be placed
+  - Where pre-flight inspection.docx and post-inspection.docx should be placed
 
 - [ ] `TEMPLATE_SETUP_GUIDE.md`
   - Comprehensive setup and troubleshooting guide
@@ -87,7 +87,7 @@ Use this checklist to verify that all changes have been properly made to your pr
 ## ✅ API Routes Added
 
 - [ ] `GET /api/inspections/pre/:id/export-document`
-  - Purpose: Export pre-inspection as Word document
+  - Purpose: Export pre-flight inspection as Word document
   - Authentication: Required (authMiddleware)
   - Response: .docx file
 
@@ -99,10 +99,12 @@ Use this checklist to verify that all changes have been properly made to your pr
 ## ✅ Dependencies Installed
 
 ### Server Dependencies
+
 - [ ] `docxtemplater@^3.36.1`
 - [ ] `pizzip@^3.2.1`
 
 ### Mobile Dependencies
+
 - [ ] `expo-file-system@~17.0.9`
 
 ## ✅ Directory Structure
@@ -164,14 +166,14 @@ AirMS-Capstone/
 - [ ] Word templates placed in templates directory
 - [ ] Merge fields added to Word templates
 - [ ] Template file names correct:
-  - [ ] `pre-inspection.docx`
+  - [ ] `pre-flight inspection.docx`
   - [ ] `post-inspection.docx`
 
 ## ✅ Testing
 
 - [ ] Server starts without errors
 - [ ] Mobile app starts without errors
-- [ ] Can navigate to pre-inspection screen
+- [ ] Can navigate to pre-flight inspection screen
 - [ ] Can navigate to post-inspection screen
 - [ ] Export button visible on inspection cards
 - [ ] Export menu shows both PDF and Word options
@@ -217,6 +219,7 @@ AirMS-Capstone/
 ## 📞 Support
 
 If issues arise:
+
 1. Check TEMPLATE_SETUP_GUIDE.md troubleshooting section
 2. Review server and mobile console logs
 3. Verify all files are present and correctly modified

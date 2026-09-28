@@ -22,21 +22,21 @@ export default function FlightLogModalComponentTimes({
     
     // Map component fields to aircraft data structure
     const fieldMapping = {
-      airframe: aircraftData.referenceData.acftTT || "",
-      gearBoxMain: aircraftData.referenceData.gbmTT || "",
-      gearBoxTail: aircraftData.referenceData.gbtTT || "",
-      rotorMain: aircraftData.referenceData.mrbTT || "",
-      rotorTail: aircraftData.referenceData.trbTT || "",
-      airframeNextInsp: aircraftData.referenceData.acrfNextInsp || "",
-      engine: aircraftData.referenceData.engTT || "",
-      cycleN1: aircraftData.referenceData.n1Cycles || "",
-      cycleN2: aircraftData.referenceData.n2Cycles || "",
-      usage: aircraftData.referenceData.usage || "",
-      landingCycle: aircraftData.referenceData.landings || "",
-      engineNextInsp: aircraftData.referenceData.engNextInsp || "",
+      airframe: aircraftData.referenceData.acftTT ?? "",
+      gearBoxMain: aircraftData.referenceData.gbmTT ?? "",
+      gearBoxTail: aircraftData.referenceData.gbtTT ?? "",
+      rotorMain: aircraftData.referenceData.mrbTT ?? "",
+      rotorTail: aircraftData.referenceData.trbTT ?? "",
+      airframeNextInsp: aircraftData.referenceData.acrfNextInsp ?? "",
+      engine: aircraftData.referenceData.engTT ?? "",
+      cycleN1: aircraftData.referenceData.n1Cycles ?? "",
+      cycleN2: aircraftData.referenceData.n2Cycles ?? "",
+      usage: aircraftData.referenceData.usage ?? "",
+      landingCycle: aircraftData.referenceData.landings ?? "",
+      engineNextInsp: aircraftData.referenceData.engNextInsp ?? "",
     };
     
-    return fieldMapping[fieldKey] || "";
+    return fieldMapping[fieldKey] ?? "";
   };
 
   const maintenanceFields = [
@@ -58,7 +58,7 @@ export default function FlightLogModalComponentTimes({
     const isFieldEditable = isEditable && !isLocked;
     
     // Get value from componentData first, then from aircraftData
-    const value = componentData[fieldKey] || getAircraftValue(fieldKey) || "";
+    const value = componentData[fieldKey] ?? getAircraftValue(fieldKey) ?? "";
     
     return (
       <View style={{ marginBottom: 16 }}>

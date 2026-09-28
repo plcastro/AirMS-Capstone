@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
   Dimensions
@@ -11,6 +11,7 @@ import {
 import { styles } from "../../stylesheets/styles";
 import AlertComp from "../AlertComp";
 import FlightLogApprove from "./FlightLogApprove";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
 const { width } = Dimensions.get("window");
 export default function FlightLogVerifyTechnical({
@@ -338,7 +339,11 @@ export default function FlightLogVerifyTechnical({
     const verifiedLog = {
       ...entry,
       status: "verified",
-      verifiedAt: new Date().toLocaleDateString(),
+      verifiedAt: new Date().toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      }),
       vorCheckData: pendingVorCheckData, // Store VOR check data
     };
 
@@ -392,7 +397,7 @@ export default function FlightLogVerifyTechnical({
         animationType="fade"
         onRequestClose={onClose}
       >
-        <View style={styles.modalOverlay}>
+        <IosModalSafeAreaView style={styles.modalOverlay}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -506,7 +511,7 @@ export default function FlightLogVerifyTechnical({
               </View>
             </View>
           </ScrollView>
-        </View>
+        </IosModalSafeAreaView>
       </Modal>
 
       {/* First Confirmation: Approve Log */}

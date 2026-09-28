@@ -1,11 +1,11 @@
+import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
 import AppText from "../common/AppText";
 import {
   View,
-  Modal,
   TouchableOpacity,
   ScrollView,
-  StatusBar
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../stylesheets/colors";
@@ -14,12 +14,32 @@ import PreInspectionModalInfo from "./PreInspectionModalInfo";
 import PreInspectionModalStations from "./PreInspectionModalStations";
 import PreInspectionModalSling from "./PreInspectionModalSling";
 import PreInspectionModalFloatsOnboard from "./PreInspectionModalFloatsOnboard";
+import PreInspectionB412Checklist from "./PreInspectionB412Checklist";
 import PreInspectionSignatureModal from "./PreInspectionSignatureModal";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import {
   areAllInspectionChecksComplete,
   getDefaultPreInspectionFormData,
 } from "./PreInspectionForms";
+import {
+  B412_PRE_INSPECTION_SECTIONS,
+  createEmptyB412PreInspectionData,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "./b412PreInspectionData";
 import { showToast } from "../../utilities/toast";
+
+const BASIC_INFORMATION_TAB = {
+  key: "basic",
+  label: "Basic Information",
+};
+
+const LEGACY_PRE_INSPECTION_TABS = [
+  BASIC_INFORMATION_TAB,
+  { key: "stations", label: "Station 1 and 2" },
+  { key: "station3-sling", label: "Station 3 and Sling" },
+  { key: "floats-onboard", label: "Floats and Onboard" },
+];
 
 export default function PreInspectionEntry({
   visible,
@@ -27,36 +47,48 @@ export default function PreInspectionEntry({
   onSave,
   userRole,
   rpcOptions = [],
+  lockedRpc = "",
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef(null);
 
-  const tabs = [
-    "Basic Information",
-    "Station 1 and 2",
-    "Station 3 and Sling",
-    "Floats and Onboard",
-  ];
+  const [formData, setFormData] = useState(() => ({
+    ...getDefaultPreInspectionFormData(userRole),
+    rpc: lockedRpc,
+  }));
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const normalizedRole = String(userRole || "").trim().toLowerCase();
+  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+    normalizedRole,
+  );
+  const hasAircraftType = Boolean(String(formData.aircraftType || "").trim());
+  const isB412 = hasAircraftType && isB412Aircraft(formData.aircraftType);
+  const isAS350 = hasAircraftType && isAS350Aircraft(formData.aircraftType);
+  const tabs = isB412
+    ? [
+        BASIC_INFORMATION_TAB,
+        ...B412_PRE_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412:${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+      ]
+    : isAS350
+      ? LEGACY_PRE_INSPECTION_TABS
+      : [BASIC_INFORMATION_TAB];
   const totalPages = tabs.length;
   const isLastPage = currentPage === totalPages - 1;
 
-  const [formData, setFormData] = useState(
-    getDefaultPreInspectionFormData(userRole),
-  );
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMechanic =
-    ["mechanic", "maintenance manager", "superadmin"].includes(userRole);
-
   useEffect(() => {
+    setFormData({ ...getDefaultPreInspectionFormData(userRole), rpc: lockedRpc });
     if (visible) {
       setCurrentPage(0);
-      setFormData(getDefaultPreInspectionFormData(userRole));
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: 0, animated: false });
       }
     }
-  }, [visible, userRole]);
+  }, [visible, userRole, lockedRpc]);
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -64,8 +96,47 @@ export default function PreInspectionEntry({
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(0);
+    }
+  }, [currentPage, totalPages]);
+
   const updateForm = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === "rpc" && value !== prev.rpc) {
+        const defaults = getDefaultPreInspectionFormData(userRole);
+        const clearedLegacyChecks = Object.fromEntries(
+          Object.entries(defaults).filter(
+            ([, defaultValue]) => typeof defaultValue === "boolean",
+          ),
+        );
+
+        return {
+          ...prev,
+          ...clearedLegacyChecks,
+          rpc: value,
+          flightLogId: null,
+          assignedPilot: null,
+          assignedMechanic: null,
+          aircraftType: "",
+          fob: "",
+          b412Data: undefined,
+        };
+      }
+
+      if (field === "aircraftType") {
+        return {
+          ...prev,
+          aircraftType: value,
+          b412Data: isB412Aircraft(value)
+            ? createEmptyB412PreInspectionData(prev.b412Data)
+            : undefined,
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleSave = async () => {
@@ -84,8 +155,8 @@ export default function PreInspectionEntry({
     try {
       await persistInspection(formData);
     } catch (error) {
-      console.error("Error saving pre-inspection:", error);
-      showToast("Failed to save pre-inspection");
+      console.error("Error saving pre-flight inspection:", error);
+      showToast(error.message || "Failed to save pre-flight inspection");
     }
   };
 
@@ -102,6 +173,10 @@ export default function PreInspectionEntry({
   };
 
   const validateBeforeSigning = (actionLabel) => {
+    if (!formData.flightLogId) {
+      showToast("Select the Flight Log for this inspection.");
+      return false;
+    }
     if (!formData.rpc || formData.rpc.trim() === "") {
       showToast("Aircraft RPC is required");
       return false;
@@ -117,7 +192,14 @@ export default function PreInspectionEntry({
       return false;
     }
 
-    if (!String(formData.fob || "").trim()) {
+    if (!String(formData.date || "").trim()) {
+      showToast("Date is required");
+      return false;
+    }
+
+    const fobValue = String(formData.fob || "").trim();
+    const numericFob = Number(fobValue);
+    if (!fobValue || !Number.isFinite(numericFob) || numericFob < 0) {
       showToast(`FOB must be filled in before ${actionLabel}.`);
       return false;
     }
@@ -130,10 +212,33 @@ export default function PreInspectionEntry({
     return true;
   };
 
+  const fobValue = String(formData.fob ?? "").trim();
+  const numericFob = Number(fobValue);
+  const hasDate = Boolean(String(formData.date || "").trim());
+  const isDraftValid =
+    Boolean(formData.flightLogId) &&
+    Boolean(String(formData.rpc || "").trim()) &&
+    Boolean(String(formData.aircraftType || "").trim()) &&
+    Boolean(String(formData.base || "").trim()) &&
+    hasDate &&
+    Boolean(fobValue) &&
+    Number.isFinite(numericFob) &&
+    numericFob >= 0 &&
+    areAllInspectionChecksComplete(formData);
+
   const persistInspection = async (nextFormData) => {
     setIsSubmitting(true);
     try {
-      await onSave(nextFormData);
+      await onSave(
+        isB412Aircraft(nextFormData.aircraftType)
+          ? {
+              ...nextFormData,
+              b412Data: createEmptyB412PreInspectionData(
+                nextFormData.b412Data,
+              ),
+            }
+          : { ...nextFormData, b412Data: undefined },
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -147,22 +252,18 @@ export default function PreInspectionEntry({
     const updatedFormData = {
       ...formData,
       releasedBy: {
-        name: signatureData.name,
-        id: signatureData.id,
-        signature: signatureData.signature,
+        ...signatureData,
         timestamp: new Date().toISOString(),
       },
       status: "released",
     };
 
-    setFormData(updatedFormData);
-
     try {
       await persistInspection(updatedFormData);
+      setFormData(updatedFormData);
       showToast("Pre-inspection has been released");
     } catch (error) {
-      console.error("Error releasing pre-inspection:", error);
-      showToast("Failed to release pre-inspection");
+      console.error("Error releasing pre-flight inspection:", error);
       throw error;
     }
   };
@@ -170,17 +271,34 @@ export default function PreInspectionEntry({
   const renderPage = () => {
     const currentTab = tabs[currentPage];
 
-    switch (currentTab) {
-      case "Basic Information":
+    if (currentTab?.b412SectionKey) {
+      return (
+        <PreInspectionB412Checklist
+          value={formData.b412Data}
+          onChange={(b412Data) => updateForm("b412Data", b412Data)}
+          fob={formData.fob}
+          onFobChange={(fob) => updateForm("fob", fob)}
+          isEditable
+          sectionKey={currentTab.b412SectionKey}
+        />
+      );
+    }
+
+    switch (currentTab?.key) {
+      case "basic":
         return (
           <PreInspectionModalInfo
             formData={formData}
             updateForm={updateForm}
             isEditable={true}
+            isRPCEditable={!lockedRpc}
+            isActive={visible}
+            showFlightLogPicker
+            onFlightLogChange={(log) => setFormData((prev) => ({ ...prev, flightLogId: log?._id || null, assignedPilot: log?.assignedPilot || null, assignedMechanic: log?.assignedMechanic || null }))}
             rpcOptions={rpcOptions}
           />
         );
-      case "Station 1 and 2":
+      case "stations":
         return (
           <PreInspectionModalStations
             formData={formData}
@@ -188,7 +306,7 @@ export default function PreInspectionEntry({
             isEditable={true}
           />
         );
-      case "Station 3 and Sling":
+      case "station3-sling":
         return (
           <PreInspectionModalSling
             formData={formData}
@@ -196,7 +314,7 @@ export default function PreInspectionEntry({
             isEditable={true}
           />
         );
-      case "Floats and Onboard":
+      case "floats-onboard":
         return (
           <PreInspectionModalFloatsOnboard
             formData={formData}
@@ -209,9 +327,12 @@ export default function PreInspectionEntry({
     }
   };
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+      <IosModalSafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
         <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
         {/* Tab Bar */}
@@ -226,10 +347,18 @@ export default function PreInspectionEntry({
             }}
           >
             <View>
-              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+              <AppText
+                style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}
+              >
                 New Entry - Pre-Inspection
               </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: "600", color: COLORS.grayDark }}>
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: COLORS.grayDark,
+                }}
+              >
                 Select Section
               </AppText>
             </View>
@@ -257,7 +386,7 @@ export default function PreInspectionEntry({
           >
             {tabs.map((tab, index) => (
               <TouchableOpacity
-                key={index}
+                key={tab.key}
                 onPress={() => setCurrentPage(index)}
                 style={{
                   paddingVertical: 8,
@@ -280,7 +409,7 @@ export default function PreInspectionEntry({
                       currentPage === index ? COLORS.white : COLORS.grayDark,
                   }}
                 >
-                  {tab}
+                  {tab.label}
                 </AppText>
               </TouchableOpacity>
             ))}
@@ -293,7 +422,6 @@ export default function PreInspectionEntry({
               marginTop: 12,
             }}
           />
-
         </View>
 
         {/* Page Content */}
@@ -314,13 +442,13 @@ export default function PreInspectionEntry({
                     setShowReleaseModal(true);
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isDraftValid}
                 style={{
                   backgroundColor: COLORS.primaryLight,
                   paddingVertical: 12,
                   borderRadius: 8,
                   alignItems: "center",
-                  opacity: isSubmitting ? 0.6 : 1,
+                  opacity: isSubmitting || !isDraftValid ? 0.6 : 1,
                 }}
               >
                 <AppText
@@ -410,8 +538,10 @@ export default function PreInspectionEntry({
           onSave={handleRelease}
           aircraftRPC={formData.rpc}
           actionLabel="release"
+          useNativeModal={false}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

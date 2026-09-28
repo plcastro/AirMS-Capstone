@@ -15,7 +15,9 @@ const isTruthy = (value) => {
 };
 
 const requireActionConfirmation = (req, res, next) => {
-  const headerConfirmed = ACTION_CONFIRM_KEYS.some((key) => isTruthy(req.headers[key]));
+  const headerConfirmed = ACTION_CONFIRM_KEYS.some((key) =>
+    isTruthy(req.headers[key]),
+  );
   const bodyConfirmed = isTruthy(req.body?.confirmAction);
 
   if (!headerConfirmed && !bodyConfirmed) {

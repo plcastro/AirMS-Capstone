@@ -22,10 +22,11 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   const visibleTasks =
     activeTab === "Completed" ? completedTasks : ongoingTasks;
   const isOnline = Boolean(mechanic?.isOnline ?? mechanic?.online);
+  const platform = String(mechanic?.platform || "").toUpperCase();
   const activePlatform =
-    mechanic?.platform === "web"
+    platform === "WEB"
       ? "Web"
-      : mechanic?.platform === "mobile"
+      : platform === "MOBILE"
         ? "Mobile"
         : "Unknown";
 
@@ -253,7 +254,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
               }}
             />
             <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>
-              {isOnline ? "Online" : "Offline"} • {activePlatform}
+              {isOnline ? `Online - ${activePlatform}` : "Offline"}
             </AppText>
           </View>
         </View>

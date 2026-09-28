@@ -1,18 +1,14 @@
 const admin = require("firebase-admin");
 const UserModel = require("../models/userModel");
 const { sendToUsers } = require("./realtimeEvents");
-
-const ROLE_TO_JOB_TITLE = {
-  "maintenance manager": "Maintenance Manager",
-  "officer-in-charge": "Officer-In-Charge",
-  mechanic: "Mechanic",
-  "warehouse department": "Warehouse Department",
-  pilot: "Pilot",
-  superadmin: "superadmin",
-};
+const { getUserIdsForRoles } = require("./notificationRecipients");
 
 const uniqueValues = (values = []) => [
-  ...new Set(values.map(String).filter(Boolean)),
+  ...new Set(
+    values
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map(String),
+  ),
 ];
 
 const parseServiceAccount = () => {
@@ -45,22 +41,6 @@ const getFirebaseMessaging = () => {
   }
 
   return admin.messaging();
-};
-
-const getUserIdsForRoles = async (roles = []) => {
-  if (!roles.length) {
-    return [];
-  }
-
-  const users = await UserModel.find({
-    jobTitle: {
-      $in: roles
-        .map((role) => ROLE_TO_JOB_TITLE[String(role).trim().toLowerCase()])
-        .filter(Boolean),
-    },
-  }).select("_id");
-
-  return users.map((user) => String(user._id));
 };
 
 const getPushTokensForUsers = async (userIds = []) => {
@@ -109,12 +89,16 @@ const sendPushNotificationToUsers = async ({
   body,
   recipientRoles = [],
   recipientUsers = [],
+  excludedUsers = [],
   data = {},
   android = {},
 }) => {
   try {
     const roleUserIds = await getUserIdsForRoles(recipientRoles);
-    const userIds = uniqueValues([...recipientUsers, ...roleUserIds]);
+    const excluded = new Set(uniqueValues(excludedUsers));
+    const userIds = uniqueValues([...recipientUsers, ...roleUserIds]).filter(
+      (userId) => !excluded.has(String(userId)),
+    );
     const fcmTokens = await getPushTokensForUsers(userIds);
 
     sendToUsers(userIds, "notification-created", {
@@ -139,35 +123,50 @@ const sendPushNotificationToUsers = async ({
       title,
     });
 
-    const response = await getFirebaseMessaging().sendEachForMulticast({
-      tokens: fcmTokens,
-      notification: {
-        title: String(title || "AirMS"),
-        body: String(body || "You have a new notification."),
-      },
-      data: stringifyData(data),
-      android: {
-        ...(android.collapseKey
-          ? { collapseKey: String(android.collapseKey) }
-          : {}),
-        priority: "high",
+    const messaging = getFirebaseMessaging();
+    const responses = [];
+    for (let offset = 0; offset < fcmTokens.length; offset += 500) {
+      const tokens = fcmTokens.slice(offset, offset + 500);
+      const batchResponse = await messaging.sendEachForMulticast({
+        tokens,
         notification: {
-          sound: "default",
-          ...(android.tag ? { tag: String(android.tag) } : {}),
-          ...(android.channelId
-            ? { channelId: String(android.channelId) }
-            : {}),
+          title: String(title || "AirMS"),
+          body: String(body || "You have a new notification."),
         },
-      },
-    });
+        data: stringifyData(data),
+        android: {
+          ...(android.collapseKey
+            ? { collapseKey: String(android.collapseKey) }
+            : {}),
+          priority: "high",
+          notification: {
+            sound: "default",
+            channelId: android.channelId
+              ? String(android.channelId)
+              : "airms-high-priority",
+            priority: "max",
+            visibility: "public",
+            defaultVibrateTimings: true,
+            ...(android.tag ? { tag: String(android.tag) } : {}),
+          },
+        },
+        apns: {
+          payload: { aps: { sound: "default", contentAvailable: true } },
+          headers: { "apns-priority": "10" },
+        },
+      });
+      batchResponse.responses.forEach((result, index) => {
+        responses.push({ result, token: tokens[index] });
+      });
+    }
 
     console.log("FCM push result", {
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      successCount: responses.filter(({ result }) => result.success).length,
+      failureCount: responses.filter(({ result }) => !result.success).length,
     });
 
     const invalidTokens = [];
-    response.responses.forEach((result, index) => {
+    responses.forEach(({ result, token }) => {
       if (result.success) return;
 
       const code = result.error?.code;
@@ -175,7 +174,7 @@ const sendPushNotificationToUsers = async ({
         code === "messaging/registration-token-not-registered" ||
         code === "messaging/invalid-registration-token"
       ) {
-        invalidTokens.push(fcmTokens[index]);
+        invalidTokens.push(token);
       } else {
         console.error("FCM push failed:", code, result.error?.message);
       }

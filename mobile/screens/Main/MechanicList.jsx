@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   View,
   FlatList,
@@ -9,10 +8,12 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import MechanicAssignment from "./MechanicAssignment";
+import { SearchBar } from "../../components/common/MobileModule";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const getMechanicStatus = (taskCount) =>
@@ -74,15 +75,19 @@ export default function MechanicList() {
       setMechanics(
         (usersData.data || [])
           .filter((user) => isAssignableUser(user) && user.status === "active")
-          .map((user) => ({
-            id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
-            avatar: user.image || null,
-            jobTitle: user.jobTitle,
-            isOnline: Boolean(user?.isOnline ?? user?.online),
-            online: Boolean(user?.isOnline ?? user?.online),
-            platform: user?.platform || "unknown",
-          })),
+          .map((user) => {
+            const isOnline = Boolean(user?.isOnline ?? user?.online);
+
+            return {
+              id: user._id,
+              name: `${user.firstName} ${user.lastName}`,
+              avatar: user.image || null,
+              jobTitle: user.jobTitle,
+              isOnline,
+              online: isOnline,
+              platform: isOnline ? user?.platform || "unknown" : "",
+            };
+          }),
       );
     } catch (error) {
       console.error("Error fetching assignable user list:", error);
@@ -118,13 +123,7 @@ export default function MechanicList() {
       };
     })
     .filter((mechanic) => {
-      if (
-        searchQuery &&
-        !mechanic.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      return true;
+      return matchesSearch(searchQuery, mechanic);
     });
 
   const renderMechanicItem = ({ item }) => {
@@ -228,21 +227,11 @@ export default function MechanicList() {
               marginBottom: 15,
             }}
           >
-            <AppInput
-              placeholder="Search by mechanic"
-              placeholderTextColor={COLORS.grayDark}
-              style={[
-                styles.searchInput,
-                {
-                  flex: 1,
-                  backgroundColor: COLORS.white,
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  height: 48,
-                },
-              ]}
+            <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
+              placeholder="Search by mechanic"
+              containerStyle={{ flex: 1, height: 48, marginBottom: 0 }}
             />
           </View>
           <View style={{ marginBottom: 15 }}>

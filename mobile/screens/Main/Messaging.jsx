@@ -6,23 +6,127 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, AppState, BackHandler, View } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  BackHandler,
+  Platform,
+  View,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import * as DocumentPicker from "expo-document-picker";
+import { File as ExpoFile } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import { upload } from "@vercel/blob/client";
 import { useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
+import { matchesSearch } from "../../utilities/search";
 import MessagingAvatar from "../../components/Messaging/MessagingAvatar";
 import ConversationListView from "../../components/Messaging/ConversationListView";
 import ChatView from "../../components/Messaging/ChatView";
+import { resizePickedImage } from "../../utilities/resizePickedImage";
+import { createMessagingSync } from "../../utilities/messagingSync";
 
-const LIVE_SYNC_INTERVAL_MS = 1000;
-const LIVE_SYNC_FAILURE_BACKOFF_MS = 10000;
+const MAX_MESSAGE_ATTACHMENTS = 5;
+const MAX_MESSAGE_ATTACHMENT_MB = 10;
+const MAX_MESSAGE_ATTACHMENT_BYTES = MAX_MESSAGE_ATTACHMENT_MB * 1024 * 1024;
+const MESSAGE_ATTACHMENT_UPLOAD_URL = `${API_BASE}/api/messages/attachments/upload`;
+const ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = new Set([
+  "application/msword",
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/csv",
+  "text/plain",
+]);
+const MESSAGE_ATTACHMENT_MIME_BY_EXTENSION = {
+  csv: "text/csv",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 
 const ignoreBackgroundMessagingError = () => {};
+
+const getFilenameExtension = (filename = "") => {
+  const match = String(filename)
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/);
+  return match?.[1] || "";
+};
+
+const getAttachmentMimeType = (file) => {
+  const declaredType = String(file?.type || "").toLowerCase();
+  if (declaredType && declaredType !== "application/octet-stream") {
+    return declaredType;
+  }
+
+  return (
+    MESSAGE_ATTACHMENT_MIME_BY_EXTENSION[getFilenameExtension(file?.name)] ||
+    declaredType
+  );
+};
+
+const getAttachmentValidationError = (file, size = file?.size) => {
+  if (Number(size || 0) > MAX_MESSAGE_ATTACHMENT_BYTES) {
+    return `${file?.name || "Attachment"} is larger than ${MAX_MESSAGE_ATTACHMENT_MB} MB.`;
+  }
+
+  const mimeType = getAttachmentMimeType(file);
+  if (
+    !mimeType.startsWith("image/") &&
+    !ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES.has(mimeType)
+  ) {
+    return `${file?.name || "Attachment"} is not a supported file type.`;
+  }
+
+  return "";
+};
+
+const sanitizeAttachmentPathnamePart = (filename = "attachment") =>
+  String(filename)
+    .replace(/[^\w.\-() ]+/g, "_")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "attachment";
+
+const buildAttachmentPathname = (userId, file, index) =>
+  `messages/${userId}/${Date.now()}-${index}-${sanitizeAttachmentPathnamePart(file.name)}`;
+
+const isLocalApiBase = (() => {
+  try {
+    return ["localhost", "127.0.0.1", "10.0.2.2"].includes(
+      new URL(API_BASE).hostname,
+    );
+  } catch {
+    return false;
+  }
+})();
+
+const isPrivateMessageAttachment = (url) =>
+  String(url || "").startsWith("messages/");
+
+const getAttachmentCacheKey = (messageId, attachmentIndex, url) =>
+  `${messageId}:${attachmentIndex}:${url}`;
+
+const getUploadErrorMessage = (error) => {
+  if (
+    error?.status === 413 ||
+    /too large|maximum size|exceeds.*size/i.test(error?.message || "")
+  ) {
+    return `Each attachment must be ${MAX_MESSAGE_ATTACHMENT_MB} MB or smaller.`;
+  }
+
+  return error?.message || "Failed to upload attachment. Please try again.";
+};
 
 const getDisplayName = (user = {}) =>
   `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
@@ -38,9 +142,16 @@ const getEntityId = (value) => value?._id || value?.id || value;
 
 const getAttachmentUrl = (url) => {
   if (!url) return "";
-  return String(url).startsWith("http") || String(url).startsWith("file:")
-    ? url
-    : `${API_BASE}${url}`;
+  const value = String(url);
+  if (
+    value.startsWith("http") ||
+    value.startsWith("file:") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+  return `${API_BASE}${value.startsWith("/") ? "" : "/"}${value}`;
 };
 
 const getAttachmentLabel = (attachments = []) => {
@@ -66,7 +177,11 @@ const formatConversationTime = (value) => {
     return `${displayHour}:${minutes} ${period}`;
   }
 
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
 };
 
 const getMessageStatus = (message, conversationType) => {
@@ -104,19 +219,21 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
 };
 
 const buildWsUrl = (token) => {
-  const wsBase = String(API_BASE || "").replace(/^http/i, (match) =>
-    match.toLowerCase() === "https" ? "wss" : "ws",
-  );
-  const separator = wsBase.includes("?") ? "&" : "?";
-  return `${wsBase}${separator}token=${encodeURIComponent(token)}`;
+  const wsBase = String(API_BASE || "")
+    .replace(/\/+$/, "")
+    .replace(/^http/i, (match) =>
+      match.toLowerCase() === "https" ? "wss" : "ws",
+    );
+  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
 };
 
-export default function Messaging({ navigation }) {
+export default function Messaging({ navigation, route }) {
   const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState({});
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [searchText, setSearchText] = useState("");
@@ -131,8 +248,10 @@ export default function Messaging({ navigation }) {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const selectedConversationRef = useRef(null);
-  const liveSyncPausedUntilRef = useRef(0);
+  const liveSyncRef = useRef(null);
   const notifiedMessageIdsRef = useRef(new Set());
+  const handledNotificationTargetRef = useRef("");
+  const attachmentUrlCacheRef = useRef(new Map());
 
   const currentUserId = user?.id || user?._id;
   const selectedConversationId = selectedConversation?.id || null;
@@ -198,9 +317,10 @@ export default function Messaging({ navigation }) {
     }
   }, [authFetch, currentUserId]);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async ({ signal } = {}) => {
     try {
-      const data = await authFetch(`${API_BASE}/api/messages/conversations`);
+      const data = await authFetch(`${API_BASE}/api/messages/conversations`, { signal });
+      if (signal?.aborted) return;
       setConversations(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       if (error.status === 404) {
@@ -213,7 +333,7 @@ export default function Messaging({ navigation }) {
   }, [authFetch]);
 
   const fetchThread = useCallback(
-    async (conversationId) => {
+    async (conversationId, signal) => {
       if (!conversationId) {
         setMessages([]);
         return;
@@ -221,43 +341,31 @@ export default function Messaging({ navigation }) {
 
       const data = await authFetch(
         `${API_BASE}/api/messages/${conversationId}`,
+        { signal },
       );
+      if (signal?.aborted || String(selectedConversationRef.current?.id) !== String(conversationId)) return;
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
-      fetchConversations();
+      await fetchConversations({ signal });
     },
     [authFetch, fetchConversations],
   );
 
-  const syncMessaging = useCallback(async () => {
+  const syncMessaging = useCallback(async (signal) => {
     const activeConversation = selectedConversationRef.current;
     if (activeConversation?.id) {
-      await fetchThread(activeConversation.id);
+      await fetchThread(activeConversation.id, signal);
       return;
     }
 
-    await fetchConversations();
+    await fetchConversations({ signal });
   }, [fetchConversations, fetchThread]);
 
-  const notifyIncomingChat = useCallback(
-    (messagePayload) => {
-      const messageId = String(messagePayload?._id || "");
-      if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
-      notifiedMessageIdsRef.current.add(messageId);
-
-      const senderId = String(getEntityId(messagePayload?.sender));
-      if (!senderId || senderId === String(currentUserId)) return;
-
-      const senderUser = usersById.get(senderId) || {};
-      const senderName = getDisplayName(senderUser);
-      const preview =
-        String(messagePayload?.body || "").trim() ||
-        getAttachmentLabel(messagePayload?.attachments || []) ||
-        "sent a message";
-      showToast(`${senderName}: ${preview}`);
-    },
-    [currentUserId, usersById],
-  );
+  const notifyIncomingChat = useCallback((messagePayload) => {
+    const messageId = String(messagePayload?._id || "");
+    if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return;
+    notifiedMessageIdsRef.current.add(messageId);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -275,16 +383,68 @@ export default function Messaging({ navigation }) {
   }, [fetchConversations, fetchUsers]);
 
   useEffect(() => {
-    if (selectedConversationId) {
-      fetchThread(selectedConversationId).catch((error) => {
-        showToast(error.message || "Failed to load conversation");
-      });
-    }
-  }, [fetchThread, selectedConversationId]);
+    selectedConversationRef.current = selectedConversation;
+    liveSyncRef.current?.request();
+  }, [selectedConversation]);
 
   useEffect(() => {
-    selectedConversationRef.current = selectedConversation;
-  }, [selectedConversation]);
+    const refreshBeforeMs = 30 * 1000;
+
+    messages.forEach((message) => {
+      if (String(message?._id || "").startsWith("temp-")) return;
+
+      (message.attachments || []).forEach((attachment, attachmentIndex) => {
+        if (!isPrivateMessageAttachment(attachment?.url)) return;
+
+        const cacheKey = getAttachmentCacheKey(
+          message._id,
+          attachmentIndex,
+          attachment.url,
+        );
+        const cached = attachmentUrlCacheRef.current.get(cacheKey);
+        if (
+          cached?.pending ||
+          cached?.retryAt > Date.now() ||
+          (cached?.url && cached.expiresAt > Date.now() + refreshBeforeMs)
+        ) {
+          return;
+        }
+
+        attachmentUrlCacheRef.current.set(cacheKey, { pending: true });
+        authFetch(
+          `${API_BASE}/api/messages/${message._id}/attachments/${attachmentIndex}`,
+        )
+          .then((data) => {
+            if (!data?.data?.url) return;
+            const expiresAt = data.data.expiresAt
+              ? new Date(data.data.expiresAt).getTime()
+              : Number.MAX_SAFE_INTEGER;
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              url: data.data.url,
+              expiresAt,
+            });
+            setResolvedAttachmentUrls((current) => ({
+              ...current,
+              [cacheKey]: data.data.url,
+            }));
+          })
+          .catch(() => {
+            attachmentUrlCacheRef.current.set(cacheKey, {
+              retryAt: Date.now() + 30 * 1000,
+            });
+          });
+      });
+    });
+  }, [authFetch, messages]);
+
+  const getDisplayAttachmentUrl = useCallback(
+    (url, messageId, attachmentIndex) => {
+      if (!isPrivateMessageAttachment(url)) return getAttachmentUrl(url);
+      const cacheKey = getAttachmentCacheKey(messageId, attachmentIndex, url);
+      return resolvedAttachmentUrls[cacheKey] || "";
+    },
+    [resolvedAttachmentUrls],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -312,51 +472,74 @@ export default function Messaging({ navigation }) {
     }, [navigation]),
   );
 
-  useEffect(() => {
-    let currentAppState = AppState.currentState;
-
-    const syncIfActive = () => {
-      if (currentAppState !== "active") return;
-      if (Date.now() < liveSyncPausedUntilRef.current) return;
-
-      syncMessaging().catch((error) => {
-        liveSyncPausedUntilRef.current =
-          Date.now() + LIVE_SYNC_FAILURE_BACKOFF_MS;
-        ignoreBackgroundMessagingError(error);
+  useFocusEffect(
+    useCallback(() => {
+      let appState = AppState.currentState;
+      const sync = createMessagingSync({
+        refresh: syncMessaging,
+        isActive: () => appState === "active",
+        isConnected: () => wsRef.current?.readyState === WebSocket.OPEN,
+        onError: ignoreBackgroundMessagingError,
       });
-    };
+      liveSyncRef.current = sync;
+      sync.request();
+      const subscription = AppState.addEventListener("change", (state) => {
+        appState = state;
+        if (state === "active") sync.request();
+        else sync.pause();
+      });
+      return () => {
+        liveSyncRef.current = null;
+        sync.dispose();
+        subscription.remove();
+      };
+    }, [syncMessaging]),
+  );
 
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      currentAppState = nextAppState;
-      if (nextAppState === "active") {
-        syncIfActive();
-      }
-    });
-
-    const intervalId = setInterval(syncIfActive, LIVE_SYNC_INTERVAL_MS);
-
-    return () => {
-      clearInterval(intervalId);
-      subscription.remove();
-    };
-  }, [syncMessaging]);
-
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let closedByEffect = false;
-
+    let appState = AppState.currentState;
+    let connectionGeneration = 0;
+    const disconnect = () => {
+      connectionGeneration += 1;
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+      const ws = wsRef.current;
+      wsRef.current = null;
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
     const connect = async () => {
+      const generation = ++connectionGeneration;
       const token = await getToken();
-      if (!token || !currentUserId) return;
-
+      if (closedByEffect || appState !== "active" || generation !== connectionGeneration || !token || !currentUserId) return;
       const ws = new WebSocket(buildWsUrl(token));
       wsRef.current = ws;
-
+      ws.onopen = () => liveSyncRef.current?.request();
       ws.onmessage = (event) => {
+        if (closedByEffect || appState !== "active") return;
         try {
           const payload = JSON.parse(event.data);
 
           if (payload.event === "chat:conversation") {
-            fetchConversations();
+            const group = payload.data?.group;
+            const removedConversationId = payload.data?.removedConversationId;
+            const currentSelected = selectedConversationRef.current;
+
+            if (
+              currentSelected?.type === "group" &&
+              String(currentSelected.id) === String(removedConversationId) &&
+              (!group ||
+                !(group.members || []).some((member) =>
+                  String(getEntityId(member)) === String(currentUserId),
+                ))
+            ) {
+              setSelectedConversation(null);
+              setMessages([]);
+            }
+            liveSyncRef.current?.request();
             return;
           }
 
@@ -377,7 +560,7 @@ export default function Messaging({ navigation }) {
                   : item,
               ),
             );
-            fetchConversations();
+            liveSyncRef.current?.request();
             return;
           }
 
@@ -385,12 +568,8 @@ export default function Messaging({ navigation }) {
             payload.event === "data-changed" &&
             String(payload.data?.url || "").startsWith("/api/messages")
           ) {
-            fetchConversations();
-            if (selectedConversationRef.current?.id) {
-              fetchThread(selectedConversationRef.current.id).catch((error) => {
-                ignoreBackgroundMessagingError(error);
-              });
-            }
+            liveSyncRef.current?.request();
+
             return;
           }
 
@@ -419,42 +598,36 @@ export default function Messaging({ navigation }) {
               return [...current, nextMessage];
             });
 
-            if (
-              String(getEntityId(nextMessage.sender)) !== String(currentUserId)
-            ) {
-              fetchThread(conversationId).catch((error) => {
-                ignoreBackgroundMessagingError(error);
-              });
-            }
+
           }
 
-          fetchConversations();
+          liveSyncRef.current?.request();
         } catch (error) {
           ignoreBackgroundMessagingError(error);
         }
       };
 
+
       ws.onclose = () => {
-        if (!closedByEffect) {
-          reconnectTimeoutRef.current = setTimeout(connect, 1500);
+        if (wsRef.current === ws) wsRef.current = null;
+        if (!closedByEffect && appState === "active") {
+          reconnectTimeoutRef.current = setTimeout(() => connect().catch(ignoreBackgroundMessagingError), 1500);
         }
       };
-
-      ws.onerror = () => {
-        ws.close();
-      };
+      ws.onerror = () => ws.close();
     };
-
-    connect();
-
+    connect().catch(ignoreBackgroundMessagingError);
+    const subscription = AppState.addEventListener("change", (state) => {
+      appState = state;
+      disconnect();
+      if (state === "active") connect().catch(ignoreBackgroundMessagingError);
+    });
     return () => {
       closedByEffect = true;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      wsRef.current?.close?.();
+      subscription.remove();
+      disconnect();
     };
-  }, [currentUserId, fetchConversations, fetchThread, getToken, notifyIncomingChat]);
+  }, [currentUserId, getToken, notifyIncomingChat]));
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -506,15 +679,7 @@ export default function Messaging({ navigation }) {
         ).getTime();
         return secondTime - firstTime;
       });
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) return merged;
-
-    return merged.filter((item) =>
-      [item.title, item.subtitle, item.user?.username, item.user?.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
-    );
+    return merged.filter((item) => matchesSearch(searchText, item));
   }, [conversations, searchText, users]);
 
   const selectedConversationDetails = useMemo(() => {
@@ -543,6 +708,31 @@ export default function Messaging({ navigation }) {
 
     return selectedConversation;
   }, [conversationItems, selectedConversation, usersById]);
+
+  useEffect(() => {
+    const targetConversationId = route?.params?.targetConversationId;
+    const targetConversationType = route?.params?.targetConversationType;
+    const refreshAt = route?.params?.refreshAt;
+    if (!targetConversationId || !targetConversationType) return;
+
+    const targetKey = `${targetConversationType}:${targetConversationId}:${refreshAt || ""}`;
+    if (handledNotificationTargetRef.current === targetKey) return;
+
+    const target = conversationItems.find(
+      (item) =>
+        String(item.type) === String(targetConversationType) &&
+        String(item.id) === String(targetConversationId),
+    );
+    if (!target) return;
+
+    handledNotificationTargetRef.current = targetKey;
+    setSelectedConversation(target);
+  }, [
+    conversationItems,
+    route?.params?.refreshAt,
+    route?.params?.targetConversationId,
+    route?.params?.targetConversationType,
+  ]);
 
   const getConversationPreview = (item) => {
     const lastMessage = item?.lastMessage;
@@ -579,16 +769,24 @@ export default function Messaging({ navigation }) {
     setMessages([]);
   };
 
-
   const handleSend = async () => {
     const body = draft.trim();
     if (!selectedConversation?.id || (!body && attachments.length === 0)) {
       return;
     }
 
+    const attachmentsToSend = [...attachments];
+    const invalidAttachment = attachmentsToSend.find((file) =>
+      getAttachmentValidationError(file),
+    );
+    if (invalidAttachment) {
+      showToast(getAttachmentValidationError(invalidAttachment));
+      return;
+    }
+
     const isGroup = selectedConversation.type === "group";
     const tempId = `temp-${Date.now()}`;
-    const pendingAttachments = attachments.map((file) => ({
+    const pendingAttachments = attachmentsToSend.map((file) => ({
       url: file.uri,
       name: file.name,
       mimeType: file.type,
@@ -611,21 +809,78 @@ export default function Messaging({ navigation }) {
 
     try {
       setSending(true);
-      const formData = new FormData();
-      formData.append(isGroup ? "conversationId" : "recipientId", selectedConversation.id);
-      formData.append("body", body);
-      attachments.forEach((file) => {
-        formData.append("attachments", {
-          uri: file.uri,
-          name: file.name,
-          type: file.type || "application/octet-stream",
-        });
-      });
+      let data;
 
-      const data = await authFetch(`${API_BASE}/api/messages`, {
-        method: "POST",
-        body: formData,
-      });
+      if (isLocalApiBase && attachmentsToSend.length > 0) {
+        const formData = new FormData();
+
+        formData.append(
+          isGroup ? "conversationId" : "recipientId",
+          selectedConversation.id,
+        );
+
+        formData.append("body", body);
+
+        attachmentsToSend.forEach((file) => {
+          formData.append("attachments", {
+            uri: file.uri,
+            name: file.name,
+            type: getAttachmentMimeType(file) || "application/octet-stream",
+          });
+        });
+
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        const token = await getToken();
+        if (!token) {
+          throw new Error("Session expired. Please log in again.");
+        }
+
+        const uploadedAttachments = [];
+        for (const [index, file] of attachmentsToSend.entries()) {
+          const mimeType = getAttachmentMimeType(file);
+          const uploadBody =
+            Platform.OS === "web"
+              ? await fetch(file.uri).then((response) => response.blob())
+              : new ExpoFile(file.uri);
+          const validationError = getAttachmentValidationError(
+            file,
+            uploadBody.size || file.size,
+          );
+          if (validationError) throw new Error(validationError);
+
+          const blob = await upload(
+            buildAttachmentPathname(currentUserId, file, index),
+            uploadBody,
+            {
+              access: "public",
+              handleUploadUrl: MESSAGE_ATTACHMENT_UPLOAD_URL,
+              headers: { Authorization: `Bearer ${token}` },
+              contentType: mimeType,
+            },
+          );
+          uploadedAttachments.push({
+            pathname: blob.pathname,
+            name: file.name,
+            mimeType: blob.contentType || mimeType,
+            size: uploadBody.size || file.size || 0,
+          });
+        }
+
+        data = await authFetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            [isGroup ? "conversationId" : "recipientId"]:
+              selectedConversation.id,
+            body,
+            attachments: uploadedAttachments,
+          }),
+        });
+      }
 
       setMessages((current) =>
         current
@@ -650,7 +905,11 @@ export default function Messaging({ navigation }) {
           item._id === tempId ? { ...item, deliveryStatus: "failed" } : item,
         ),
       );
-      showToast(error.message || "Failed to send message");
+      setDraft((current) => current || body);
+      setAttachments((current) =>
+        current.length > 0 ? current : attachmentsToSend,
+      );
+      showToast(getUploadErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -678,7 +937,30 @@ export default function Messaging({ navigation }) {
       size: asset.fileSize || 0,
     }));
 
-    setAttachments((current) => [...current, ...selected].slice(0, 5));
+    const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
+    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
+    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
+      try { return await resizePickedImage(file); }
+      catch { showToast('Could not prepare ' + file.name); return null; }
+    }));
+    const valid = prepared.filter(Boolean).filter((file) => {
+      const validationError = getAttachmentValidationError(file);
+      if (validationError) showToast(validationError);
+      return !validationError;
+    });
+    const availableSlots = Math.max(
+      0,
+      MAX_MESSAGE_ATTACHMENTS - attachments.length,
+    );
+    if (valid.length > availableSlots) {
+      showToast(
+        `You can attach up to ${MAX_MESSAGE_ATTACHMENTS} files per message.`,
+      );
+    }
+    setAttachments((current) => [
+      ...current,
+      ...valid.slice(0, availableSlots),
+    ]);
   };
 
   const handlePickFile = async () => {
@@ -705,7 +987,30 @@ export default function Messaging({ navigation }) {
       size: asset.size || 0,
     }));
 
-    setAttachments((current) => [...current, ...selected].slice(0, 5));
+    const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
+    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
+    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
+      try { return await resizePickedImage(file); }
+      catch { showToast('Could not prepare ' + file.name); return null; }
+    }));
+    const valid = prepared.filter(Boolean).filter((file) => {
+      const validationError = getAttachmentValidationError(file);
+      if (validationError) showToast(validationError);
+      return !validationError;
+    });
+    const availableSlots = Math.max(
+      0,
+      MAX_MESSAGE_ATTACHMENTS - attachments.length,
+    );
+    if (valid.length > availableSlots) {
+      showToast(
+        `You can attach up to ${MAX_MESSAGE_ATTACHMENTS} files per message.`,
+      );
+    }
+    setAttachments((current) => [
+      ...current,
+      ...valid.slice(0, availableSlots),
+    ]);
   };
 
   const removeAttachment = (index) => {
@@ -756,9 +1061,9 @@ export default function Messaging({ navigation }) {
     );
   };
 
-  const renderAvatar = (item, size = 42) => (
+  const renderAvatar = useCallback((item, size = 42) => (
     <MessagingAvatar item={item} size={size} getImageUrl={getImageUrl} />
-  );
+  ), []);
 
   const selectedGroupMembers =
     selectedConversationDetails?.type === "group"
@@ -816,13 +1121,14 @@ export default function Messaging({ navigation }) {
       removeAttachment={removeAttachment}
       handlePickImage={handlePickImage}
       handlePickFile={handlePickFile}
-      getAttachmentUrl={getAttachmentUrl}
+      getAttachmentUrl={getDisplayAttachmentUrl}
       handleSend={handleSend}
       sending={sending}
       membersModalOpen={membersModalOpen}
       selectedGroupMembers={selectedGroupMembers}
       renderAvatar={renderAvatar}
       getDisplayName={getDisplayName}
+      currentUserId={currentUserId}
     />
   );
 }

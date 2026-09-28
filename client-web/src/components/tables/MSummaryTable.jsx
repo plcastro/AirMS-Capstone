@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 export default function MSummaryTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -10,12 +10,13 @@ export default function MSummaryTable({ headers = [], data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) => record.index || record._id}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
+      size={"small"}
       pagination={{
         current: currentPage,
         pageSize,
@@ -30,4 +31,3 @@ export default function MSummaryTable({ headers = [], data = [], loading }) {
     />
   );
 }
-

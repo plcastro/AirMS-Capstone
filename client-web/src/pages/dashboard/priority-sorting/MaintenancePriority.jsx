@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  App as AntdApp,
   Button,
   Card,
   Col,
@@ -9,14 +8,20 @@ import {
   InputNumber,
   Row,
   Space,
+  Select,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
 import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
+import { AuthContext } from "../../../context/AuthContext";
+import ResultPopup from "../../../components/common/ResultPopup";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { Title, Text } = Typography;
 
@@ -50,6 +55,33 @@ const formatDueSummary = (record) => {
   return segments.length > 0 ? segments.join(" | ") : "N/A";
 };
 
+const normalizeSortValue = (value) => {
+  if (value === null || value === undefined || value === "") return "N/A";
+  return String(value);
+};
+
+const compareText = (left, right) =>
+  normalizeSortValue(left).localeCompare(normalizeSortValue(right), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+const compareNumber = (left, right) =>
+  Number(left ?? Number.POSITIVE_INFINITY) -
+  Number(right ?? Number.POSITIVE_INFINITY);
+
+const getRemainingSortValue = (record) => {
+  if (record.dueByHours !== null && record.dueByHours !== undefined) {
+    return Number(record.dueByHours);
+  }
+
+  if (record.dueByDays !== null && record.dueByDays !== undefined) {
+    return Number(record.dueByDays) * 24;
+  }
+
+  return Number.POSITIVE_INFINITY;
+};
+
 const formatDueBasis = (basis) => {
   switch (basis) {
     case "hours-and-calendar":
@@ -63,22 +95,70 @@ const formatDueBasis = (basis) => {
   }
 };
 
-const formatDate = (value) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
+function PriorityOverrideEditor({ record, onSave }) {
+  const [level, setLevel] = useState(
+    record.manualPriorityOverride?.level || "Auto",
+  );
+  const [reason, setReason] = useState(
+    record.manualPriorityOverride?.reason || "",
+  );
+  const [saving, setSaving] = useState(false);
+  return (
+    <Space
+      orientation="vertical"
+      size={4}
+      style={{ width: "100%", marginTop: 8 }}
+    >
+      <Select
+        aria-label={"Priority override for " + record.aircraft}
+        value={level}
+        disabled={saving}
+        style={{ width: "100%" }}
+        onChange={setLevel}
+        options={["Auto", "Critical", "High", "Medium", "Low"].map((value) => ({
+          value,
+          label: value,
+        }))}
+      />
+      {level !== "Auto" && (
+        <Input
+          aria-label={"Optional priority reason for " + record.aircraft}
+          placeholder="Reason (optional)"
+          value={reason}
+          disabled={saving}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      )}
+      <Button
+        size="small"
+        loading={saving}
+        onClick={async () => {
+          setSaving(true);
+          try {
+            await onSave(record.aircraft, level, reason);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        Save priority
+      </Button>
+    </Space>
+  );
+}
 
 export default function MaintenancePriority() {
-  const { message } = AntdApp.useApp();
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canOverride =
+    ["maintenance manager", "superadmin"].includes(role) ||
+    String(user?.access || "")
+      .trim()
+      .toLowerCase() === "superadmin";
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);
   const [savingRules, setSavingRules] = useState(false);
   const [priorityData, setPriorityData] = useState([]);
@@ -86,6 +166,12 @@ export default function MaintenancePriority() {
   const [rules, setRules] = useState(DEFAULT_RULES);
   const [draftRules, setDraftRules] = useState(DEFAULT_RULES);
   const [showControls, setShowControls] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchPriorityData = async (activeRules = rules) => {
     try {
@@ -114,7 +200,12 @@ export default function MaintenancePriority() {
       setMeta(result.meta || null);
     } catch (error) {
       console.error("Failed to fetch maintenance priority:", error);
-      message.error(error.message || "Failed to load maintenance priority");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load maintenance priority",
+      });
     } finally {
       setLoading(false);
     }
@@ -145,15 +236,63 @@ export default function MaintenancePriority() {
         await fetchPriorityData(loadedRules);
       } catch (error) {
         console.error("Failed to fetch maintenance priority rules:", error);
-        message.error(
-          error.message || "Failed to load maintenance priority rules",
-        );
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle:
+            error.message || "Failed to load maintenance priority rules",
+        });
         await fetchPriorityData(DEFAULT_RULES);
       }
     };
 
     loadRulesAndPriority();
   }, []);
+
+  const saveOverride = async (aircraft, level, reason) => {
+    try {
+      const response = await fetch(
+        API_BASE +
+          "/api/parts-monitoring/maintenance-priority/" +
+          encodeURIComponent(aircraft) +
+          "/override",
+        {
+          method: "PUT",
+          headers: {
+            ...(await getAuthHeader()),
+            "Content-Type": "application/json",
+            "x-action-confirmed": "true",
+          },
+          body: JSON.stringify({
+            level,
+            ...(level !== "Auto" ? { reason } : {}),
+          }),
+        },
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            result.error ||
+            `Request failed with status ${response.status}`,
+        );
+      }
+
+      await fetchPriorityData(rules);
+    } catch (error) {
+      console.error("Failed to save priority override:", error);
+
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Priority not saved",
+        subTitle: error.message || "Could not save priority.",
+      });
+    }
+  };
 
   const updateDraftRule = (key, value) => {
     setDraftRules((current) => ({
@@ -171,6 +310,12 @@ export default function MaintenancePriority() {
     if (!confirmed) return;
 
     setRules(draftRules);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Applied!",
+      subTitle: "Maintenance priority rules have been applied successfully.",
+    });
     await fetchPriorityData(draftRules);
   };
 
@@ -189,9 +334,14 @@ export default function MaintenancePriority() {
         {
           method: "PUT",
           headers: {
+            ...(await getAuthHeader()),
             "Content-Type": "application/json",
+            "x-action-confirmed": "true",
           },
-          body: JSON.stringify(draftRules),
+          body: JSON.stringify({
+            ...draftRules,
+            confirmAction: true,
+          }),
         },
       );
       const result = await response.json();
@@ -209,13 +359,21 @@ export default function MaintenancePriority() {
 
       setRules(savedRules);
       setDraftRules(savedRules);
-      message.success("Maintenance priority rules saved");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Priority Rules Saved!",
+        subTitle: "Maintenance priority rules have been saved successfully.",
+      });
       await fetchPriorityData(savedRules);
     } catch (error) {
       console.error("Failed to save maintenance priority rules:", error);
-      message.error(
-        error.message || "Failed to save maintenance priority rules",
-      );
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to save maintenance priority rules",
+      });
     } finally {
       setSavingRules(false);
     }
@@ -232,29 +390,21 @@ export default function MaintenancePriority() {
 
     setDraftRules(DEFAULT_RULES);
     setRules(DEFAULT_RULES);
+    setPopup({
+      open: true,
+      status: "success",
+      title: "Priority Rules Reset!",
+      subTitle: "Maintenance priority rules have been reset to default values.",
+    });
     await fetchPriorityData(DEFAULT_RULES);
   };
 
   const filteredData = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) {
-      return priorityData;
-    }
-
+    if (!debouncedSearchText.trim()) return priorityData;
     return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.sourceRow,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)),
+      matchesSearch(debouncedSearchText, item),
     );
-  }, [priorityData, searchText]);
+  }, [debouncedSearchText, priorityData]);
 
   const stats = useMemo(() => {
     const criticalCount = priorityData.filter(
@@ -292,29 +442,42 @@ export default function MaintenancePriority() {
       dataIndex: "rank",
       key: "rank",
       width: 50,
+      sorter: (left, right) => compareNumber(left.rank, right.rank),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Aircraft",
       dataIndex: "aircraft",
       key: "aircraft",
       width: 100,
+      sorter: (left, right) => compareText(left.aircraft, right.aircraft),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Model",
       dataIndex: "aircraftModel",
       key: "aircraftModel",
       width: 100,
+      sorter: (left, right) =>
+        compareText(left.aircraftModel, right.aircraftModel),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Next Inspection",
       dataIndex: "nextInspection",
       key: "nextInspection",
       width: 120,
+      sorter: (left, right) =>
+        compareText(left.nextInspection, right.nextInspection),
+      sortDirections: ["ascend", "descend"],
     },
     {
       title: "Remaining",
       key: "dueSoonest",
       width: 120,
+      sorter: (left, right) =>
+        getRemainingSortValue(left) - getRemainingSortValue(right),
+      sortDirections: ["ascend", "descend"],
       render: (_, record) => formatDueSummary(record),
     },
     {
@@ -324,7 +487,7 @@ export default function MaintenancePriority() {
       width: 120,
       render: (value, record) => (
         <span>
-          {formatDate(value)}
+          <DateOnlyCell value={value} />
           {record.dueBasis === "hours" && (
             <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
               not calendar overdue
@@ -361,23 +524,49 @@ export default function MaintenancePriority() {
       title: "Priority",
       dataIndex: "priorityLevel",
       key: "priorityLevel",
-      width: 110,
-      render: (value) => (
-        <Tag
-          color={PRIORITY_COLORS[value] || "default"}
-          style={{ fontWeight: 700 }}
-        >
-          {value}
-        </Tag>
+      width: canOverride ? 230 : 150,
+      render: (value, record) => (
+        <div>
+          <Tag
+            color={PRIORITY_COLORS[value] || "default"}
+            style={{ fontWeight: 700 }}
+          >
+            {value}
+          </Tag>
+          {record.manualPriorityOverride && (
+            <>
+              <Text strong>Manual</Text>
+              <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                Auto: {record.autoPriorityLevel}. {record.priorityReason}
+              </Text>
+              {!!record.manualPriorityOverride.reason && (
+                <Text type="secondary">
+                  {record.manualPriorityOverride.reason}
+                </Text>
+              )}
+            </>
+          )}
+          {canOverride && (
+            <PriorityOverrideEditor
+              key={
+                record.inspectionId +
+                ":" +
+                (record.manualPriorityOverride?.setAt || "auto")
+              }
+              record={record}
+              onSave={saveOverride}
+            />
+          )}
+        </div>
       ),
     },
     {
-      title: "Decision Basis",
+      title: "Automatic Decision Basis",
       dataIndex: "priorityReason",
       key: "priorityReason",
     },
     {
-      title: "Rule Trigger",
+      title: "Automatic Rule Trigger",
       dataIndex: "priorityTriggers",
       key: "priorityTriggers",
       render: (value) =>
@@ -403,12 +592,12 @@ export default function MaintenancePriority() {
         <Row gutter={[16, 16]} align="middle" justify="space-between">
           <Col xs={24} md={16}>
             <Title level={4} style={{ marginBottom: 4 }}>
-              Adjustable Rule-Based Maintenance Ranking
+              Maintenance Priority Ranking
             </Title>
             <Text type="secondary">
-              Adjust rule thresholds to control schedule escalation. Aircraft
-              are ranked by the active rules first, then by urgency and
-              turnaround.
+              Aircraft are ranked by effective priority, then by urgency and
+              turnaround. Manual priorities apply until the next-due inspection
+              changes.
             </Text>
           </Col>
           <Col xs={24} md={8}>
@@ -499,8 +688,11 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24}>
-              <Space wrap>
+            <Col
+              xs={24}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <Space wrap style={{ justifyContent: "flex-end" }}>
                 <Button type="primary" onClick={applyRules} loading={loading}>
                   Apply Rules
                 </Button>
@@ -562,7 +754,7 @@ export default function MaintenancePriority() {
         />
       )}
 
-      <Table
+      <ResponsiveTable
         rowKey={(record) =>
           [
             record.inspectionKey,
@@ -580,6 +772,14 @@ export default function MaintenancePriority() {
         pagination={false}
         scroll={{ x: 1600 }}
         bordered
+        size={"small"}
+      />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

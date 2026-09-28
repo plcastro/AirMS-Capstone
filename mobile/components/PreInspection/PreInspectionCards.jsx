@@ -1,14 +1,19 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import { ActivityIndicator, View, TouchableOpacity } from "react-native";
+import { FlatList, View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function PreInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
+  currentUser,
+  ...listProps
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
 
@@ -60,9 +65,12 @@ export default function PreInspectionCards({
     }
   };
 
-  if (!inspections || inspections.length === 0) {
-    return (
-      <View
+
+
+  return (
+    <>
+      {<FlatList
+         ListEmptyComponent={!inspections || inspections.length === 0 ? (<View
         style={{
           backgroundColor: COLORS.white,
           borderRadius: 20,
@@ -78,21 +86,26 @@ export default function PreInspectionCards({
           color={COLORS.grayMedium}
         />
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          No pre-inspections found
+          No pre-flight inspections found
         </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {inspections.map((inspection) => {
+      </View>) : (null)}
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={inspections}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         {...listProps}
+         renderItem={({ item: inspection }) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
         const inspectionKey = String(inspection._id || inspection.id || "");
         const exportLoading = exportingInspectionId === inspectionKey;
         const displayStatus = getDisplayStatus(inspection.status);
         const isViewOnly =
+          !isAssignedFlightCrew(currentUser, inspection) ||
           displayStatus === "released" ||
           displayStatus === "completed" ||
           isOfficerInCharge;
@@ -133,9 +146,7 @@ export default function PreInspectionCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   <View
                     style={{
                       backgroundColor: statusStyle.backgroundColor,
@@ -154,21 +165,6 @@ export default function PreInspectionCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  <TouchableOpacity
-                    onPress={() => handleExportPress(inspection)}
-                    disabled={Boolean(exportingInspectionId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={18}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -189,23 +185,35 @@ export default function PreInspectionCards({
                 </AppText>
               </View>
 
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
+              <CardActionRow
+                style={{ paddingHorizontal: 10, paddingBottom: 10 }}
               >
-                <MaterialCommunityIcons
-                  name={isViewOnly ? "eye-outline" : "pencil"}
-                  size={18}
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={18}
+                  />
+                )}
+                <ActionIconButton
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
                   color={isViewOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={18}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

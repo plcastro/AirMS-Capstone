@@ -23,28 +23,91 @@ import {
   getAuditActionCategory,
   getAuditActionCategoryOptions,
 } from "../../../utils/auditActions";
-import { Input, DatePicker, Space, Grid, message, Select, Card } from "antd";
+import { matchesSearch } from "../../../utils/search";
+import { ExportOutlined } from "@ant-design/icons";
+import {
+  Input,
+  DatePicker,
+  Space,
+  Grid,
+  message,
+  Select,
+  Card,
+  Button,
+} from "antd";
 import dayjs from "dayjs";
 import { AuthContext } from "../../../context/AuthContext";
+import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  addPdfExecutionFooter,
+  drawPdfReportHeader,
+  getExportExecutorName,
+  loadNgcpLogoDataUrl,
+} from "../../../components/common/ExportFile";
+import ResultPopup from "../../../components/common/ResultPopup";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
+const MAX_ACTIVITY_TREND_RANGE_DAYS = 30;
+
+const buildModuleName = (value) =>
+  String(value || "Activity Logs")
+    .trim()
+    .replace(/\bReport\b/gi, "")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join("");
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildReportFileName = (moduleName, extension) =>
+  `${buildModuleName(moduleName)}_${formatFileDate()}.${extension}`;
+
+const getPerformedByName = (log = {}) => {
+  const fullName = [log.firstName, log.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || log.displayName || "Unknown";
+};
 
 export default function UserLogs() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
   const [allUserLogs, setAllUserLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dateRange, setDateRange] = useState([
-    dayjs().subtract(30, "days"),
+    dayjs().subtract(7, "days"),
     dayjs(),
   ]);
   const [loading, setLoading] = useState(false);
   const [selectedActionType, setSelectedActionType] = useState("all");
   const [selectedScope, setSelectedScope] = useState("all");
   const [selectedScopeValue, setSelectedScopeValue] = useState("all");
+  const [exporting, setExporting] = useState(false);
+  const [pendingDateRange, setPendingDateRange] = useState(null);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const fetchUserLogs = useCallback(
     async (startDate = null, endDate = null, options = {}) => {
@@ -83,18 +146,34 @@ export default function UserLogs() {
           setAllUserLogs([]);
           return;
         }
-        const mappedLogs = json.data.map((log, index) => ({
-          _id: log._id,
-          index: index + 1,
-          dateTime: log.dateTime,
-          displayDateTime: log.dateTime
-            ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
-            : "N/A",
-          actionMade: log.actionMade || log.action || "N/A",
-          username: log.username || "Unknown",
-          platform: log.platform || "UNKNOWN",
-          base: log.base || "UNKNOWN",
-        }));
+        const mappedLogs = json.data.map((log, index) => {
+          const performedByName = getPerformedByName(log);
+          return {
+            _id: log._id,
+            index: index + 1,
+            dateTime: log.dateTime,
+            displayDateTime: log.dateTime
+              ? dayjs(log.dateTime).format("MM/DD/YYYY hh:mm A")
+              : "N/A",
+            actionMade: log.actionMade || log.action || "N/A",
+            username: performedByName,
+            displayName: performedByName,
+            firstName: log.firstName || "",
+            lastName: log.lastName || "",
+            platform: log.platform || "",
+            deviceModel: log.deviceModel || "",
+            locationText: log.locationText || "",
+            locationCoordinates:
+              log.locationLatitude !== null &&
+              log.locationLatitude !== undefined &&
+              log.locationLongitude !== null &&
+              log.locationLongitude !== undefined
+                ? `${Number(log.locationLatitude).toFixed(6)}, ${Number(
+                    log.locationLongitude,
+                  ).toFixed(6)}`
+                : "",
+          };
+        });
 
         setAllUserLogs(mappedLogs);
       } catch (error) {
@@ -114,21 +193,52 @@ export default function UserLogs() {
   };
 
   const handleDateRangeChange = (dates) => {
+    if (dates?.[0] && dates?.[1]) {
+      const selectedDays =
+        Math.abs(
+          dayjs(dates[1])
+            .startOf("day")
+            .diff(dayjs(dates[0]).startOf("day"), "day"),
+        ) + 1;
+
+      if (selectedDays > MAX_ACTIVITY_TREND_RANGE_DAYS) {
+        message.warning(
+          `Activity Trends can show up to ${MAX_ACTIVITY_TREND_RANGE_DAYS} days at a time.`,
+        );
+        setPendingDateRange(null);
+        return;
+      }
+    }
+
     setDateRange(dates);
+    setPendingDateRange(null);
     if (!dates || !dates[0] || !dates[1]) {
       message.info("Date range cleared. Showing all available logs.");
     }
   };
+
+  const handleCalendarChange = (dates) => {
+    setPendingDateRange(dates);
+  };
+
+  const disableDateOutsideTrendRange = (current) => {
+    if (!current) return false;
+
+    const anchorDate = pendingDateRange?.[0] || pendingDateRange?.[1];
+    if (!anchorDate) return false;
+
+    const dayDiff = Math.abs(
+      dayjs(current).startOf("day").diff(dayjs(anchorDate).startOf("day"), "day"),
+    );
+
+    return dayDiff >= MAX_ACTIVITY_TREND_RANGE_DAYS;
+  };
   const filteredLogs = useMemo(() => {
     let filtered = [...allUserLogs];
 
-    if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (log) =>
-          (log.actionMade && log.actionMade.toLowerCase().includes(query)) ||
-          (log.dateTime && log.dateTime.toLowerCase().includes(query)) ||
-          (log.username && log.username.toLowerCase().includes(query)),
+    if (debouncedSearchQuery.trim() !== "") {
+      filtered = filtered.filter((log) =>
+        matchesSearch(debouncedSearchQuery, log),
       );
     }
 
@@ -140,35 +250,30 @@ export default function UserLogs() {
 
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
       filtered = filtered.filter((log) =>
-        selectedScope === "base"
-          ? String(log.base || "UNKNOWN").toUpperCase() === selectedScopeValue
-          : String(log.platform || "UNKNOWN").toUpperCase() ===
-            selectedScopeValue,
+        String(log.platform || "").toUpperCase() === selectedScopeValue,
       );
     }
 
     return filtered;
-  }, [allUserLogs, searchQuery, selectedActionType, selectedScope, selectedScopeValue]);
+  }, [
+    allUserLogs,
+    debouncedSearchQuery,
+    selectedActionType,
+    selectedScope,
+    selectedScopeValue,
+  ]);
 
   const scopeValueOptions = useMemo(() => {
-    if (selectedScope === "base") {
-      const values = Array.from(
-        new Set(
-          allUserLogs.map((log) => String(log.base || "UNKNOWN").toUpperCase()),
-        ),
-      ).sort();
-      return [
-        { label: "All Base", value: "all" },
-        ...values.map((value) => ({ label: value, value })),
-      ];
-    }
-
     if (selectedScope === "platform") {
       const values = Array.from(
         new Set(
-          allUserLogs.map((log) =>
-            String(log.platform || "UNKNOWN").toUpperCase(),
-          ),
+          allUserLogs
+            .map((log) =>
+              String(log.platform || "")
+                .trim()
+                .toUpperCase(),
+            )
+            .filter(Boolean),
         ),
       ).sort();
       return [
@@ -202,6 +307,88 @@ export default function UserLogs() {
     };
   }, [dateRange, fetchUserLogs]);
   const actionTypeOptions = getAuditActionCategoryOptions();
+
+  const exportRows = useMemo(
+    () =>
+      filteredLogs.map((log) => ({
+        "Date / Time": log.dateTime
+          ? dayjs(log.dateTime).format("MMM DD, YYYY hh:mm A")
+          : "N/A",
+        "Performed By": log.displayName || "Unknown",
+        Action: log.actionMade || "N/A",
+        Platform: log.platform || "Not captured",
+        "Device Model": log.deviceModel || "Not captured",
+        Location: log.locationText || "Not captured",
+        Coordinates: log.locationCoordinates || "Not captured",
+      })),
+    [filteredLogs],
+  );
+
+  const handleExportLogs = async () => {
+    if (!exportRows.length) {
+      message.info("No activity logs available to export.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const fileName = buildReportFileName("Activity Logs", "pdf");
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF("l", "pt", "a4");
+      const columns = Object.keys(exportRows[0]);
+      const generatedAt = `Generated: ${dayjs().format("MMM DD, YYYY hh:mm A")}`;
+      const logoDataUrl = await loadNgcpLogoDataUrl().catch((error) => {
+        console.warn(error);
+        return null;
+      });
+      const startY = drawPdfReportHeader(doc, {
+        title: "Activity Logs Report",
+        subtitle: generatedAt,
+        logoDataUrl,
+        executedBy: getExportExecutorName(),
+      });
+
+      autoTable(doc, {
+        head: [columns],
+        body: exportRows.map((row) => columns.map((column) => row[column])),
+        startY,
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          overflow: "linebreak",
+          valign: "top",
+        },
+        headStyles: { fillColor: [38, 134, 111] },
+        columnStyles: {
+          2: { cellWidth: 300 },
+        },
+        margin: { left: 40, right: 40 },
+      });
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
+      doc.save(fileName);
+
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Activity Logs Exported!",
+        subTitle: "The activity logs PDF has been exported successfully.",
+      });
+    } catch (error) {
+      console.error("Activity logs export failed:", error);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Export Failed!",
+        subTitle: error.message || "Failed to export activity logs.",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const actionTrendData = useMemo(() => {
     const dailyStats = {};
@@ -289,32 +476,47 @@ export default function UserLogs() {
         <RangePicker
           value={dateRange}
           onChange={handleDateRangeChange}
-          format="YYYY-MM-DD"
+          onCalendarChange={handleCalendarChange}
+          disabledDate={disableDateOutsideTrendRange}
+          format="MM/DD/YYYY"
+          inputReadOnly
           allowClear
           size="large"
           style={{ width: isMobile ? "100%" : 320 }}
         />
-        <Select
-          value={selectedActionType}
-          onChange={setSelectedActionType}
-          options={actionTypeOptions}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
-        <Select
-          value={selectedScope}
-          onChange={(value) => {
-            setSelectedScope(value);
-            setSelectedScopeValue("all");
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            width: isMobile ? "100%" : "auto",
           }}
-          options={[
-            { label: "All Scope", value: "all" },
-            { label: "Base", value: "base" },
-            { label: "Platform", value: "platform" },
-          ]}
-          size="large"
-          style={{ width: isMobile ? "100%" : 180 }}
-        />
+        >
+          <Select
+            value={selectedActionType}
+            onChange={setSelectedActionType}
+            options={actionTypeOptions}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+
+          <Select
+            value={selectedScope}
+            onChange={(value) => {
+              setSelectedScope(value);
+              setSelectedScopeValue("all");
+            }}
+            options={[
+              { label: "All Scope", value: "all" },
+              { label: "Platform", value: "platform" },
+            ]}
+            size="large"
+            style={{
+              width: isMobile ? "50%" : 180,
+            }}
+          />
+        </div>
         {selectedScope !== "all" && (
           <Select
             value={selectedScopeValue}
@@ -323,6 +525,18 @@ export default function UserLogs() {
             size="large"
             style={{ width: isMobile ? "100%" : 180 }}
           />
+        )}
+        {canExportActivityLogs && (
+          <Button
+            type="primary"
+            size="large"
+            icon={<ExportOutlined />}
+            loading={exporting}
+            onClick={handleExportLogs}
+            style={{ width: isMobile ? "100%" : "auto" }}
+          >
+            Export PDF
+          </Button>
         )}
       </Space>
       <div style={{ marginBottom: 20 }}>
@@ -335,14 +549,14 @@ export default function UserLogs() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(date) => dayjs(date).format("MMM D")}
+                tickFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
                 tick={{ fontSize: 12 }}
               />
               <YAxis tick={{ fontSize: 12 }} width={32} />
               <Tooltip
-                labelFormatter={(date) => dayjs(date).format("MMM DD, YYYY")}
+                labelFormatter={(date) => dayjs(date).format("MM/DD/YYYY")}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12, marginTop: 15 }} />
 
               {AUDIT_ACTION_CHART_CATEGORIES.filter(
                 (category) =>
@@ -366,7 +580,13 @@ export default function UserLogs() {
       <div style={{ width: "100%", overflowX: "auto" }}>
         <ActivityLogTable data={filteredUsers} loading={loading} />
       </div>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
-

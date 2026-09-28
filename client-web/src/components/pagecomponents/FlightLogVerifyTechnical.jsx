@@ -322,7 +322,11 @@ export default function FlightLogVerifyTechnical({
         const verifiedLog = {
           ...entry,
           status: "verified",
-          verifiedAt: new Date().toLocaleDateString(),
+          verifiedAt: new Date().toLocaleDateString("en-US", {
+            month: "2-digit",
+            day: "2-digit",
+            year: "numeric",
+          }),
           vorCheckData,
         };
         onApprove?.(verifiedLog);
@@ -356,6 +360,8 @@ export default function FlightLogVerifyTechnical({
       <Modal
         title="Verify Technical Log"
         open={visible}
+        centered
+        zIndex={3000}
         onCancel={onClose}
         footer={null}
         width={600}
@@ -391,10 +397,10 @@ export default function FlightLogVerifyTechnical({
         {/* Approve / Cancel Buttons on last page */}
         {currentPage === pages.length - 1 && (
           <Row justify="end" style={{ marginTop: 20, gap: 10 }}>
+            <Button onClick={handleDiscard}>Cancel</Button>
             <Button type="primary" onClick={handleApprove}>
               Approve
             </Button>
-            <Button onClick={handleDiscard}>Cancel</Button>
           </Row>
         )}
       </Modal>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function CUsageTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -11,7 +11,7 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) =>
@@ -19,6 +19,7 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
         record.id ||
         `${record.rpc || record.aircraft || "unknown"}-${record.component || record.name || "item"}-${record.date || record.dateDiscovered || "na"}`
       }
+      size={"small"}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
       pagination={{
@@ -35,4 +36,3 @@ export default function CUsageTable({ headers = [], data = [], loading }) {
     />
   );
 }
-

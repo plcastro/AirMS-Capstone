@@ -1,9 +1,9 @@
-import React, { useContext, useRef, useState } from "react";
+import Modal from "./AppModal";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import AppText from "./AppText";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   TouchableOpacity,
   View
 } from "react-native";
@@ -21,9 +21,13 @@ export default function PinVerifiedSignatureModal({
   title = "Signature",
   description = "Draw your signature below.",
   confirmDescription = "Enter your 6-digit PIN to confirm this signature.",
+  requirePin = true,
+  initialSignature = '',
+  pinOnly = false,
   onClose,
   onSave,
   saveLabel = "Sign and Confirm",
+  useNativeModal = true,
 }) {
   const { user } = useContext(AuthContext);
   const signatureRef = useRef(null);
@@ -31,14 +35,19 @@ export default function PinVerifiedSignatureModal({
   const [signature, setSignature] = useState("");
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [advanceAfterSignature, setAdvanceAfterSignature] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const awaitingSignature = useRef(false);
+  useEffect(() => {
+    if (visible && initialSignature) { setSignature(initialSignature); setStep('pin'); setPin(''); setPinError(''); }
+  }, [visible, initialSignature]);
 
   const reset = () => {
     setStep("signature");
     setSignature("");
     setPin("");
     setSubmitting(false);
-    setAdvanceAfterSignature(false);
+    setPinError("");
+    awaitingSignature.current = false;
   };
 
   const handleClose = () => {
@@ -69,56 +78,56 @@ export default function PinVerifiedSignatureModal({
     }
   };
 
-  const handleSignatureSaved = (signatureData) => {
-    setSignature(signatureData);
-
-    if (advanceAfterSignature) {
-      setAdvanceAfterSignature(false);
-      setStep("pin");
-    }
-  };
-
-  const saveSignature = (advance = false) => {
-    setAdvanceAfterSignature(advance);
-    signatureRef.current?.readSignature();
-  };
-
-  const handleConfirm = async () => {
-    if (step === "signature") {
-      if (!signature) {
-        saveSignature(true);
+  const persistSignature = async (signatureData) => {
+    try {
+      setPinError("");
+      setSubmitting(true);
+      if (requirePin) await verifyPin();
+      const saveResult = await onSave?.(signatureData, { pin: requirePin ? pin : undefined });
+      if (saveResult === false) {
         return;
       }
-
-      setStep("pin");
-      return;
-    }
-
-    if (!/^\d{6}$/.test(pin)) {
-      showToast("Enter your 6-digit PIN to confirm this signature.");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      await verifyPin();
-      await onSave?.(signature);
       reset();
       onClose?.();
     } catch (error) {
-      showToast(error.message || "Could not verify your PIN.");
+      setPinError(error.message || "Could not save your signature.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
-    >
+  const handleSignatureSaved = async (signatureData) => {
+    if (!awaitingSignature.current) return;
+    awaitingSignature.current = false;
+    setSignature(signatureData);
+
+    if (requirePin) {
+      setSubmitting(false);
+      setStep("pin");
+    } else {
+      await persistSignature(signatureData);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (submitting || awaitingSignature.current) return;
+    if (step === "signature") {
+      if (!signatureRef.current) return;
+      setPinError("");
+      awaitingSignature.current = true;
+      setSubmitting(true);
+      signatureRef.current.readSignature();
+      return;
+    }
+
+    if (requirePin && !/^\d{6}$/.test(pin)) {
+      setPinError("Enter your 6-digit PIN to confirm this signature.");
+      return;
+    }
+    await persistSignature(signature);
+  };
+
+  const content = (
       <View
         style={{
           flex: 1,
@@ -167,7 +176,7 @@ export default function PinVerifiedSignatureModal({
             <>
               <View
                 style={{
-                  height: 190,
+                  height: 230,
                   borderWidth: 1,
                   borderColor: COLORS.grayMedium,
                   borderRadius: 8,
@@ -178,9 +187,11 @@ export default function PinVerifiedSignatureModal({
               >
                 <SignatureCanvas
                   ref={signatureRef}
+                  webviewProps={{ androidLayerType: "software" }}
                   onOK={handleSignatureSaved}
                   onEmpty={() => {
-                    setAdvanceAfterSignature(false);
+                    awaitingSignature.current = false;
+                    setSubmitting(false);
                     showToast("Please draw your signature before continuing.");
                   }}
                   webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
@@ -192,51 +203,15 @@ export default function PinVerifiedSignatureModal({
                   imageType="image/png"
                 />
               </View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={handleClose}
-                  disabled={submitting}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: COLORS.grayMedium,
-                  }}
-                >
-                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                    Cancel
-                  </AppText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    signatureRef.current?.clearSignature();
-                    setSignature("");
-                  }}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#D9534F",
-                  }}
-                >
-                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
-                    Clear
-                  </AppText>
-                </TouchableOpacity>
-              </View>
             </>
           ) : (
             <>
               <CodeInputField
                 code={pin}
-                setCode={setPin}
+                setCode={(value) => {
+                  setPin(value);
+                  setPinError("");
+                }}
                 maxLength={6}
                 secure
                 containerStyle={{
@@ -271,6 +246,15 @@ export default function PinVerifiedSignatureModal({
             </>
           )}
 
+          {!!pinError && (
+            <AppText
+              accessibilityRole="alert"
+              style={{ color: COLORS.dangerBorder || "#D9534F", fontSize: 12, marginBottom: 12 }}
+            >
+              {pinError}
+            </AppText>
+          )}
+
           <View
             style={{
               flexDirection: "row",
@@ -279,9 +263,46 @@ export default function PinVerifiedSignatureModal({
               marginTop: 20,
             }}
           >
-            {step === "pin" && (
+            <TouchableOpacity
+              onPress={handleClose}
+              disabled={submitting}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 18,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: COLORS.grayMedium,
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                Cancel
+              </AppText>
+            </TouchableOpacity>
+            {step === "signature" && (
               <TouchableOpacity
-                onPress={handleClose}
+                onPress={() => {
+                  signatureRef.current?.clearSignature();
+                  setSignature("");
+                  setPinError("");
+                }}
+                disabled={submitting}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 8,
+                  backgroundColor: "#D9534F",
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+                  Clear
+                </AppText>
+              </TouchableOpacity>
+            )}
+            {step === "pin" && !pinOnly && (
+              <TouchableOpacity
+                onPress={() => setStep("signature")}
                 disabled={submitting}
                 style={{
                   paddingVertical: 10,
@@ -293,7 +314,7 @@ export default function PinVerifiedSignatureModal({
                 }}
               >
                 <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                  Cancel
+                  Redraw
                 </AppText>
               </TouchableOpacity>
             )}
@@ -312,7 +333,7 @@ export default function PinVerifiedSignatureModal({
                 {submitting
                   ? "Please wait..."
                   : step === "signature"
-                    ? "Continue"
+                    ? requirePin ? "Continue" : "Save Signature"
                     : saveLabel}
               </AppText>
             </TouchableOpacity>
@@ -320,6 +341,36 @@ export default function PinVerifiedSignatureModal({
           </View>
         </View>
       </View>
+  );
+
+  if (!useNativeModal) {
+    if (!visible) return null;
+
+    return (
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 1000,
+          elevation: 1000,
+        }}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleClose}
+    >
+      {content}
     </Modal>
   );
 }

@@ -1,18 +1,22 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
-import {
-  ActivityIndicator,
+import { FlatList,
   View,
   TouchableOpacity
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
+import { isAssignedFlightCrew } from "../../../shared/flightCrewAccess";
 
 export default function PostInspectionCards({
   inspections,
   onEdit,
   onExport,
   userRole,
+  currentUser,
+  ...listProps
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
 
@@ -61,9 +65,12 @@ export default function PostInspectionCards({
     }
   };
 
-  if (!inspections || inspections.length === 0) {
-    return (
-      <View
+
+
+  return (
+    <>
+      {<FlatList
+         ListEmptyComponent={!inspections || inspections.length === 0 ? (<View
         style={{
           backgroundColor: COLORS.white,
           borderRadius: 20,
@@ -81,15 +88,21 @@ export default function PostInspectionCards({
         <AppText style={{ fontSize: 12, marginTop: 12 }}>
           No post-inspections found
         </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {inspections.map((inspection) => {
+      </View>) : (null)}
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={inspections}
+         keyExtractor={(item, index) => String(item._id || item.id || index)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         {...listProps}
+         renderItem={({ item: inspection }) => {
         const statusStyle = getStatusStyle(inspection.status);
         const isOfficerInCharge = userRole === "officer-in-charge";
+        const isCompleted = getDisplayStatus(inspection.status) === "completed";
+        const isViewOnly = isOfficerInCharge || isCompleted || !isAssignedFlightCrew(currentUser, inspection);
         const inspectionKey = String(inspection._id || inspection.id || "");
         const exportLoading = exportingInspectionId === inspectionKey;
 
@@ -131,9 +144,7 @@ export default function PostInspectionCards({
                   </AppText>
                 </View>
 
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
+                <View>
                   {/* Status */}
                   <View
                     style={{
@@ -153,22 +164,6 @@ export default function PostInspectionCards({
                       {statusStyle.label}
                     </AppText>
                   </View>
-
-                  {/* Export */}
-                  <TouchableOpacity
-                    onPress={() => handleExportPress(inspection)}
-                    disabled={Boolean(exportingInspectionId)}
-                  >
-                    {exportLoading ? (
-                      <ActivityIndicator size="small" color="#444" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="export-variant"
-                        size={21}
-                        color="#444"
-                      />
-                    )}
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -190,24 +185,33 @@ export default function PostInspectionCards({
                 </AppText>
               </View>
 
-              {/* ICON (bottom-right like logs style) */}
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 6,
-                  right: 8,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={isOfficerInCharge ? "eye-outline" : "pencil"}
-                  size={21}
-                  color={isOfficerInCharge ? COLORS.primaryLight : "#777"}
+              <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                {onExport && (
+                  <ActionIconButton
+                    icon="export-variant"
+                    tooltip="Export"
+                    onPress={() => handleExportPress(inspection)}
+                    disabled={Boolean(exportingInspectionId)}
+                    loading={exportLoading}
+                    color="#444"
+                    size={32}
+                    iconSize={21}
+                  />
+                )}
+                <ActionIconButton
+                  icon={isViewOnly ? "eye-outline" : "pencil"}
+                  tooltip={isViewOnly ? "View" : "Edit"}
+                  onPress={() => onEdit?.(inspection)}
+                  color={isViewOnly ? COLORS.primaryLight : "#777"}
+                  size={32}
+                  iconSize={21}
                 />
-              </View>
+              </CardActionRow>
             </View>
           </TouchableOpacity>
         );
-      })}
+      }}
+       />}
     </>
   );
 }

@@ -2,13 +2,17 @@
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { styles } from "../../stylesheets/styles";
+import { COLORS } from "../../stylesheets/colors";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
 import LoginLayout from "../../Layout/LoginLayout";
@@ -25,6 +29,7 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
@@ -37,6 +42,10 @@ export default function ResetPassword() {
     passwordRequirements.hasUppercase &&
     passwordRequirements.hasNumber &&
     formData.confirmPassword &&
+    formData.newPassword === formData.confirmPassword;
+  const passwordsMatch =
+    formData.newPassword.length > 0 &&
+    formData.confirmPassword.length > 0 &&
     formData.newPassword === formData.confirmPassword;
 
   const getRequirementStyle = (met) => ({
@@ -88,11 +97,12 @@ export default function ResetPassword() {
 
       if (!res.ok) throw new Error(data.message || "Failed to reset password.");
 
-      setSuccessMessage("Password reset successfully! Redirecting to login...");
-      setTimeout(() => navigation.replace("login"), 3000);
+      setRedirecting(true);
+      setSuccessMessage("Password reset successfully. Taking you to login...");
+      setTimeout(() => navigation.replace("login"), 1600);
     } catch (err) {
       console.error("Reset password error:", err);
-      setError(err.message || "Network error. Please try again.");
+      setError(err.message || "Network error. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -103,7 +113,39 @@ export default function ResetPassword() {
       <LoginLayout
         cardTitle="Invalid Reset Link"
         cardsubTitle="This password reset link is invalid or has expired."
-      />
+      >
+        <View style={invalidStyles.container}>
+          <View style={invalidStyles.iconWrap}>
+            <MaterialCommunityIcons
+              name="link-variant-off"
+              size={38}
+              color="#cf1322"
+            />
+          </View>
+
+          <AppText style={invalidStyles.message}>
+            Request a new password reset link to continue. For your account
+            security, old or incomplete links cannot be used.
+          </AppText>
+
+          <Button
+            label="REQUEST NEW LINK"
+            onPress={() => navigation.replace("forgotPassword")}
+            buttonStyle={[styles.primaryBtn, invalidStyles.primaryButton]}
+            buttonTextStyle={styles.primaryBtnTxt}
+          />
+
+          <Button
+            label="BACK TO LOGIN"
+            onPress={() => navigation.replace("login")}
+            buttonStyle={[styles.secondaryBtn, invalidStyles.secondaryButton]}
+            buttonTextStyle={[
+              styles.secondaryBtnTxt,
+              invalidStyles.secondaryButtonText,
+            ]}
+          />
+        </View>
+      </LoginLayout>
     );
   }
 
@@ -150,6 +192,13 @@ export default function ResetPassword() {
               value={formData.confirmPassword}
               onChangeText={(text) => handleChange("confirmPassword", text)}
             />
+            {passwordsMatch && (
+              <AppText
+                style={{ color: "#26866F", fontSize: 12, marginTop: 6 }}
+              >
+                Passwords match.
+              </AppText>
+            )}
           </View>
 
           {/* REQUIREMENTS BOX */}
@@ -158,7 +207,9 @@ export default function ResetPassword() {
               Password Requirements:
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.minLength)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.minLength)}
+            >
               {passwordRequirements.minLength ? "[OK]" : "[ ]"} At least 8
               characters
             </AppText>
@@ -170,7 +221,9 @@ export default function ResetPassword() {
               letter
             </AppText>
 
-            <AppText style={getRequirementStyle(passwordRequirements.hasNumber)}>
+            <AppText
+              style={getRequirementStyle(passwordRequirements.hasNumber)}
+            >
               {passwordRequirements.hasNumber ? "[OK]" : "[ ]"} One number
             </AppText>
           </View>
@@ -180,27 +233,46 @@ export default function ResetPassword() {
             {error ? <AppText style={styles.error}>{error}</AppText> : null}
 
             {successMessage ? (
-              <AppText style={{ color: "green", marginTop: 5 }}>
-                {successMessage}
-              </AppText>
+              <View
+                style={{
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  marginTop: 5,
+                }}
+              >
+                {redirecting ? (
+                  <ActivityIndicator color="#26866F" size="small" />
+                ) : null}
+                <AppText style={{ color: "green", marginLeft: 8 }}>
+                  {successMessage}
+                </AppText>
+              </View>
             ) : null}
           </View>
 
           {/* BUTTON */}
           <View style={{ marginTop: 10 }}>
             <Button
-              label={loading ? "RESETTING..." : "RESET PASSWORD"}
+              label={
+                redirecting
+                  ? "REDIRECTING..."
+                  : loading
+                    ? "RESETTING..."
+                    : "RESET PASSWORD"
+              }
               onPress={handleSubmit}
               buttonStyle={[styles.primaryBtn, { marginTop: 10 }]}
               buttonTextStyle={styles.primaryBtnTxt}
-              disabled={loading || !isFormValid}
+              disabled={loading || redirecting}
             />
           </View>
 
           {/* FOOTER LINK */}
           <TouchableOpacity
-            onPress={() => nav.replace("login")}
+            onPress={() => navigation.replace("login")}
             activeOpacity={0.8}
+            disabled={redirecting}
             style={{ marginTop: 25, alignItems: "center" }}
           >
             <AppText style={{ color: "#374151", textAlign: "center" }}>
@@ -216,3 +288,40 @@ export default function ResetPassword() {
     </KeyboardAvoidingView>
   );
 }
+
+const invalidStyles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  iconWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff2f0",
+    borderWidth: 1,
+    borderColor: "#ffccc7",
+    marginBottom: 16,
+  },
+  message: {
+    maxWidth: 330,
+    color: COLORS.grayDark,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  primaryButton: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  secondaryButton: {
+    width: "100%",
+    borderColor: COLORS.primaryLight,
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+  },
+});

@@ -6,9 +6,11 @@ export const confirmAction = ({
   okText = "Confirm",
   cancelText = "Cancel",
   okButtonProps,
+  modal,
 } = {}) =>
   new Promise((resolve) => {
-    Modal.confirm({
+    const modalApi = modal || Modal;
+    modalApi.confirm({
       title,
       content,
       okText,

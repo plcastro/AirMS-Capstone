@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { Card, Col, Row, Segmented, Space, Table, Tag, Typography } from "antd";
+import { Card, Col, Row, Segmented, Space, Typography } from "antd";
+import { renderStatusTag } from "../../../utils/statusTags";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Pie,
   PieChart,
@@ -27,34 +29,10 @@ const COLORS = [
   "#52c41a",
 ];
 
-const STATUS_COLORS = {
-  completed: "success",
-  delivered: "success",
-  approved: "success",
-  accepted: "processing",
-  released: "processing",
-  "pending acceptance": "warning",
-  "pending release": "warning",
-  pending: "warning",
-  "parts requested": "processing",
-  "availability checked": "cyan",
-  "to be ordered": "gold",
-  ordered: "blue",
-  cancelled: "error",
-  rejected: "error",
-};
-
 const normalizeStatus = (value) =>
   String(value || "Unknown")
     .replace(/_/g, " ")
     .trim();
-
-const formatDate = (value) => {
-  if (!value) return "---";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "---";
-  return date.toLocaleDateString("en-CA");
-};
 
 const getRecordDate = (record = {}) =>
   record.date ||
@@ -72,6 +50,39 @@ const countBy = (records, getKey) =>
 
 const toChartData = (counts) =>
   Object.entries(counts).map(([name, value]) => ({ name, value }));
+
+const getColorIndexForLabel = (label = "") => {
+  const hash = String(label)
+    .split("")
+    .reduce((sum, char) => {
+      return sum + char.charCodeAt(0);
+    }, 0);
+
+  return hash % COLORS.length;
+};
+
+const colorizeByLabel = (data, labelKey = "month") => {
+  const usedIndexes = new Set();
+
+  return data.map((entry, index) => {
+    const preferredIndex = getColorIndexForLabel(entry[labelKey] || entry.name);
+    const availableIndex = COLORS.findIndex(
+      (_, colorIndex) => !usedIndexes.has(colorIndex),
+    );
+    const colorIndex = usedIndexes.has(preferredIndex)
+      ? availableIndex >= 0
+        ? availableIndex
+        : index % COLORS.length
+      : preferredIndex;
+
+    usedIndexes.add(colorIndex);
+
+    return {
+      ...entry,
+      fill: COLORS[colorIndex],
+    };
+  });
+};
 
 const getWeekStart = (date) => {
   const next = new Date(date);
@@ -112,11 +123,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
       const weekStart = getWeekStart(date);
       const key = weekStart.toISOString().slice(0, 10);
       buckets[key] = {
-        label: weekStart.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "2-digit",
-        }),
+        label: weekStart.toLocaleDateString("en-US"),
         order: weekStart.getTime(),
         value: (buckets[key]?.value || 0) + 1,
       };
@@ -126,10 +133,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
     const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
     const key = monthStart.toISOString().slice(0, 7);
     buckets[key] = {
-      label: monthStart.toLocaleDateString("en-US", {
-        month: "short",
-        year: "2-digit",
-      }),
+      label: monthStart.toLocaleDateString("en-US"),
       order: monthStart.getTime(),
       value: (buckets[key]?.value || 0) + 1,
     };
@@ -142,13 +146,7 @@ const buildTimeSeriesData = (records, timeframe = "monthly") => {
 
 const StatusTag = ({ status }) => {
   const label = normalizeStatus(status);
-  const color = STATUS_COLORS[label.toLowerCase()] || "default";
-
-  return (
-    <Tag color={color} style={{ fontWeight: 600, borderRadius: 4 }}>
-      {label.toUpperCase()}
-    </Tag>
-  );
+  return renderStatusTag(label);
 };
 
 const EmptyChart = () => (
@@ -157,48 +155,149 @@ const EmptyChart = () => (
   </div>
 );
 
+const ColorCodedLegend = ({ items, payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: "8px 14px",
+      margin: 0,
+      padding: "10px 6px 0",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {(items || payload).map((entry) => {
+      const color = entry.color || entry.payload?.fill || "#8c8c8c";
+      const label = entry.value || entry.payload?.name || "Item";
+
+      return (
+        <li
+          key={`${label}-${color}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: 150,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 10,
+              height: 10,
+              flex: "0 0 10px",
+              borderRadius: 2,
+              background: color,
+            }}
+          />
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={String(label)}
+          >
+            {label}
+          </span>
+        </li>
+      );
+    })}
+  </ul>
+);
+
 const StatusPie = ({ data }) => {
   if (!data.length) return <EmptyChart />;
 
+  const colorizedData = data.map((entry, index) => ({
+    ...entry,
+    fill: COLORS[index % COLORS.length],
+  }));
+
   return (
-    <ResponsiveContainer width="100%" height={230}>
+    <ResponsiveContainer width="100%" height={250}>
       <PieChart>
         <Pie
-          data={data}
+          data={colorizedData}
           dataKey="value"
           nameKey="name"
           cx="50%"
           cy="50%"
           outerRadius={68}
           label
-        >
-          {data.map((entry, index) => (
-            <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
+        />
         <Tooltip />
-        <Legend verticalAlign="bottom" height={36} />
+        <Legend
+          verticalAlign="bottom"
+          align="center"
+          height={78}
+          content={<ColorCodedLegend />}
+        />
       </PieChart>
     </ResponsiveContainer>
   );
 };
 
-const MonthlyBar = ({ data, dataKey = "value", name = "Records" }) => {
+const ColorCodedBarShape = ({ fill, height, payload, width, x, y }) => {
+  if (x == null || y == null || width == null || height == null) return null;
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={4}
+      ry={4}
+      fill={payload?.fill || fill}
+    />
+  );
+};
+
+const MonthlyBar = ({
+  colorByEntry = true,
+  data,
+  dataKey = "value",
+  name = "Records",
+}) => {
   if (!data.length) return <EmptyChart />;
+
+  const chartData = colorByEntry ? colorizeByLabel(data) : data;
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
+      <BarChart
+        data={chartData}
+        margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="month" />
         <YAxis allowDecimals={false} />
         <Tooltip />
-        <Legend />
+        <Legend
+          verticalAlign="bottom"
+          align="center"
+          height={colorByEntry ? 78 : 36}
+          content={
+            colorByEntry ? (
+              <ColorCodedLegend
+                items={chartData.map((row) => ({
+                  value: row.month,
+                  color: row.fill,
+                }))}
+              />
+            ) : undefined
+          }
+        />
         <Bar
           dataKey={dataKey}
           name={name}
           fill="#26866f"
           radius={[4, 4, 0, 0]}
+          shape={colorByEntry ? <ColorCodedBarShape /> : undefined}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -241,7 +340,12 @@ export function FlightLogReport({ records = [], loading = false }) {
   const columns = [
     { title: "Control No.", dataIndex: "controlNo", key: "controlNo" },
     { title: "Aircraft", dataIndex: "rpc", key: "rpc" },
-    { title: "Date", dataIndex: "date", key: "date", render: formatDate },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -284,12 +388,14 @@ export function FlightLogReport({ records = [], loading = false }) {
                 month: item.name,
                 value: item.value,
               }))}
+              colorByEntry
               name="Logs"
             />
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,
@@ -340,7 +446,12 @@ export function InspectionReport({
   const columns = [
     { title: "Aircraft", dataIndex: aircraftLabel, key: "aircraft" },
     { title: "Aircraft Type", dataIndex: "aircraftType", key: "aircraftType" },
-    { title: "Date", dataIndex: "date", key: "date", render: formatDate },
+    {
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -384,12 +495,14 @@ export function InspectionReport({
                 month: item.name,
                 value: item.value,
               }))}
+              colorByEntry
               name="Inspections"
             />
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,
@@ -438,7 +551,11 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
       title: "Requested",
       dataIndex: "dateRequested",
       key: "dateRequested",
-      render: formatDate,
+      sorter: (left, right) =>
+        new Date(left.dateRequested || 0).getTime() -
+        new Date(right.dateRequested || 0).getTime(),
+      sortDirections: ["descend", "ascend"],
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
     },
     {
       title: "Status",
@@ -486,7 +603,8 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
           </Card>
         </Col>
         <Col xs={24}>
-          <Table
+          <ResponsiveTable
+            size={"small"}
             columns={columns}
             dataSource={records.map((record, index) => ({
               ...record,

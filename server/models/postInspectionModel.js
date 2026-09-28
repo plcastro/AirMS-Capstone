@@ -1,9 +1,31 @@
 const mongoose = require("mongoose");
+const b412Checklist = require("../../shared/b412PostInspectionChecklist.json");
+
+const b412CheckFields = Object.fromEntries(
+  b412Checklist.sections.flatMap((section) =>
+    section.items.map((item) => [
+      item.key,
+      { type: Boolean, default: false },
+    ]),
+  ),
+);
+
+const b412ChecksSchema = new mongoose.Schema(b412CheckFields, { _id: false });
+
+const b412PostInspectionDataSchema = new mongoose.Schema(
+  {
+    checks: { type: b412ChecksSchema, default: () => ({}) },
+  },
+  { _id: false },
+);
 
 const signatureSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
     id: { type: String, default: "" },
+    licenseNo: { type: String, default: "" },
+    userId: { type: String, default: "" },
+    title: { type: String, default: "" },
     signature: { type: String, default: "" },
     timestamp: { type: String, default: "" },
   },
@@ -12,6 +34,7 @@ const signatureSchema = new mongoose.Schema(
 
 const postInspectionSchema = new mongoose.Schema(
   {
+    flightLogId: { type: mongoose.Schema.Types.ObjectId, ref: "FlightLog", default: null, index: true },
     preInspectionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PreInspection",
@@ -28,6 +51,8 @@ const postInspectionSchema = new mongoose.Schema(
     date: { type: String, required: true },
     dateAdded: { type: String, default: "" },
     createdBy: { type: String, default: "" },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    confirmation: { type: mongoose.Schema.Types.Mixed, default: null },
     notes: { type: String, default: "" },
     status: {
       type: String,
@@ -123,6 +148,9 @@ const postInspectionSchema = new mongoose.Schema(
     cabin_batterySwitchOff_off: { type: Boolean, default: false },
     releasedBy: { type: signatureSchema, default: () => ({}) },
     acceptedBy: { type: signatureSchema, default: () => ({}) },
+    // Bell 412 EP uses an aircraft-specific checklist. It remains undefined on
+    // AS350/legacy records and is initialized for B412 records by the controller.
+    b412Data: { type: b412PostInspectionDataSchema, default: undefined },
   },
   { collection: "post_inspections", timestamps: true },
 );

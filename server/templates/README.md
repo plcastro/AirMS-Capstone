@@ -1,6 +1,6 @@
 Place the Word templates used by inspection export in this directory:
 
-- pre-inspection.docx
-- post-inspection.docx
+- pre-flight inspection.docx
+- post-flight inspection.docx
 
 The export endpoint reads these exact filenames.

@@ -7,6 +7,7 @@ const path = require("path");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const connectToDatabase = require("./config/db");
+const { ensureUserIndexes } = require("./utils/userIndexes");
 const userRoutes = require("./routes/userRoute");
 const logRoutes = require("./routes/logRoute");
 const maintenanceLogRoutes = require("./routes/maintenanceLogRoute");
@@ -25,11 +26,14 @@ const messageRoutes = require("./routes/messageRoute");
 const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
+const reportExportRoutes = require("./routes/reportExportRoute");
 const sendEmail = require("./utils/sendEmail");
 const http = require("http");
 const {
   startInvitationLifecycleJob,
 } = require("./utils/invitationLifecycleService");
+const { startSessionRetentionJob } = require("./utils/sessionRetentionService");
+const { startFlightNotificationJob, drainFlightNotifications } = require("./utils/flightWorkflowNotificationOutbox");
 const {
   subscribeSSE,
   publishEvent,
@@ -37,12 +41,12 @@ const {
 } = require("./utils/realtimeEvents");
 const { requestContextMiddleware } = require("./middleware/requestContext");
 const { auditMutatingRequest } = require("./middleware/auditRequestMiddleware");
+const { responseTimeLogger } = require("./middleware/responseTimeLogger");
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8081",
-  "http://localhost:8000",
   "https://airms.online",
   "https://www.airms.online", // Expo / Metro bundler origin
   "http://10.0.2.2:3000",
@@ -75,15 +79,23 @@ const corsOptions = {
     "x-platform",
     "x-base",
     "x-session-id",
+    "x-client-active-at",
+    "x-device-platform",
+    "x-device-model",
+    "x-location-latitude",
+    "x-location-longitude",
+    "x-location-text",
     "x-action-confirmed",
     "x-confirm-action",
   ],
+  exposedHeaders: ["X-Response-Time", "Server-Timing"],
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
 const corsAllowedHeaders = corsOptions.allowedHeaders.join(", ");
 const corsAllowedMethods = corsOptions.methods.join(", ");
+const corsExposedHeaders = corsOptions.exposedHeaders.join(", ");
 
 // Defensive CORS fallback for preflight/proxy edge-cases.
 app.use((req, res, next) => {
@@ -94,6 +106,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", corsAllowedMethods);
     res.setHeader("Access-Control-Allow-Headers", corsAllowedHeaders);
+    res.setHeader("Access-Control-Expose-Headers", corsExposedHeaders);
   }
 
   if (req.method === "OPTIONS") {
@@ -103,10 +116,9 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(
-  cors(corsOptions),
-);
+app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+// app.use(responseTimeLogger);
 
 app.get("/api/events/stream", subscribeSSE);
 
@@ -132,6 +144,7 @@ app.use(
           "https://airms.online",
           "https://www.airms.online",
           "https://api.airms.online",
+          "https://airms-server.vercel.app",
           "ws:",
           "wss:",
         ],
@@ -146,7 +159,7 @@ app.use(
       features: {
         camera: [],
         microphone: [],
-        geolocation: [],
+        geolocation: ["self"],
         gyroscope: [],
         magnetometer: [],
       },
@@ -166,9 +179,16 @@ app.use((req, res, next) => {
 });
 
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     console.log("Connected to MongoDB");
+    try {
+      await ensureUserIndexes();
+    } catch (error) {
+      console.error("User index maintenance failed:", error);
+    }
     startInvitationLifecycleJob();
+    startSessionRetentionJob();
+    startFlightNotificationJob();
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
@@ -177,6 +197,8 @@ connectToDatabase()
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
+    // Also retry delivery on requests in serverless deployments where timers pause.
+    if (req.path.startsWith('/api/notifications')) await drainFlightNotifications().catch(() => {});
     next();
   } catch (error) {
     console.error("Database unavailable for request:", error.message);
@@ -199,6 +221,14 @@ app.use((req, res, next) => {
     }
 
     if (!String(req.originalUrl || "").startsWith("/api/")) {
+      return;
+    }
+
+    if (
+      method === "POST" &&
+      String(req.originalUrl || "").split("?")[0] ===
+        "/api/messages/attachments/upload"
+    ) {
       return;
     }
 
@@ -227,11 +257,12 @@ app.use("/api/aircraft", aircraftRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/inspections", inspectionRoutes);
 app.use("/api/inspections", inspectionExportRoutes);
-app.use("/api/pre-inspections", preInspectionRoutes);
-app.use("/api/post-inspections", postInspectionRoutes);
+app.use("/api/pre-flight", preInspectionRoutes);
+app.use("/api/post-flight", postInspectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
+app.use("/api/reports", reportExportRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
 app.use(
   "/uploads",
@@ -244,6 +275,8 @@ app.use(
 );
 
 app.set("trust proxy", 1);
+
+app.use("/api", require("./middleware/apiNotFound"));
 
 app.use((err, req, res, next) => {
   const statusCode = err.status || 500;
@@ -274,4 +307,4 @@ if (process.env.VERCEL !== "1") {
   });
 }
 
-module.exports = app;
+module.exports = server;

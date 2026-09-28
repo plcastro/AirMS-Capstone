@@ -1,4 +1,12 @@
-import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useState,
+  useContext,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { Layout, Button, theme, Grid, Row, Badge, notification } from "antd";
 import {
   MenuFoldOutlined,
@@ -9,17 +17,87 @@ import Sidebar from "./Sidebar";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
-import PushNotificationsCard from "../common/PushNotificationsCard";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
+import { debounce } from "../../utils/debounce";
+import AirmsFavicon from "../../assets/favicon.ico";
+import UserAvatar from "../common/UserAvatar";
+import {
+  hasNavAccess,
+  resolveUserRole,
+} from "../../../../shared/navigationAccess";
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
-
-const getUserInitials = (firstName = "", lastName = "", fallback = "U") => {
-  const initials = `${String(firstName).charAt(0)}${String(lastName).charAt(0)}`
-    .toUpperCase()
-    .trim();
-  return initials || fallback;
+const PushNotificationsCard = lazy(
+  () => import("../common/PushNotificationsCard"),
+);
+const ResultPopup = lazy(() => import("../common/ResultPopup"));
+const WEB_SETTINGS_KEY = "webProfileSettings";
+const MODULE_NAMES = {
+  sessions: "Sessions",
+  messages: "Messages",
+  tasks: "Tasks",
+  maintenance: "Maintenance",
+  "parts-requisition": "Parts Requisition",
+  "flight-log": "Flight Logs",
+  reports: "Reports",
+  users: "User Management",
+  "parts-monitoring": "Parts Lifespan Monitoring",
 };
+const AIRCRAFT_FH_WARNING_SEEN_KEY = "aircraftFhDueWarningSeen";
+const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
+const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
+const getUserScopedStorageKey = (baseKey, userId) =>
+  userId ? `${baseKey}:${userId}` : baseKey;
+
+const getAircraftFhDueSettings = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    return {
+      enabled: stored.aircraftFhDueNotificationsEnabled === true,
+      threshold:
+        typeof stored.aircraftFhDueThreshold === "number"
+          ? stored.aircraftFhDueThreshold
+          : 25,
+    };
+  } catch {
+    return { enabled: false, threshold: 25 };
+  }
+};
+
+const areBrowserNotificationsEnabled = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
+    return stored.notificationsEnabled === true;
+  } catch {
+    return false;
+  }
+};
+
+const getLocalDateKey = () => new Date().toISOString().slice(0, 10);
+
+const loadAircraftFhNotifications = (userId) => {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(
+        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+      ) || "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveAircraftFhNotifications = (notifications, userId) => {
+  localStorage.setItem(
+    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+    JSON.stringify(notifications.slice(0, 50)),
+  );
+  window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
+};
+
+const getAircraftFhUnreadCount = (userId) =>
+  loadAircraftFhNotifications(userId).filter((item) => !item.read).length;
 
 const DashboardLayout = () => {
   const [api, contextHolder] = notification.useNotification();
@@ -27,20 +105,44 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [resultPopup, setResultPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const seenNotificationIdsRef = useRef(new Set());
+  const seenAircraftFhWarningsRef = useRef(new Set());
+  const serverUnreadCountRef = useRef(0);
+  const initialSyncDoneRef = useRef(false);
   const { user, getAuthHeader } = useContext(AuthContext);
+  const userRole = resolveUserRole(user);
+  const canReceiveAircraftFhDueAlerts =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
   const nav = useNavigate();
   const location = useLocation();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
   const pageTitle = useMemo(() => {
+    const normalizePathname = (pathname = "") => {
+      const withoutTrailingSlash =
+        pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+
+      try {
+        return decodeURIComponent(withoutTrailingSlash);
+      } catch {
+        return withoutTrailingSlash;
+      }
+    };
+
     const routeTitles = {
       "/dashboard/user-management/view-users": "User Management",
       "/dashboard/user-management/activity-logs": "Activity Logs",
       "/dashboard/flight-log": "Flight Logs",
-      "/dashboard/pre-inspection": "Pre-Inspection",
-      "/dashboard/post-inspection": "Post-Inspection",
+      "/dashboard/pre-flight inspection": "Pre-Flight Inspection",
+      "/dashboard/post-flight inspection": "Post-Flight Inspection",
       "/dashboard/maintenance-log": "Maintenance Logs",
       "/dashboard/tasks": "Tasks",
       "/dashboard/mechanics": "Mechanics",
@@ -53,16 +155,232 @@ const DashboardLayout = () => {
       "/dashboard/profile": "Profile",
     };
 
-    return routeTitles[location.pathname] || "Dashboard";
+    return routeTitles[normalizePathname(location.pathname)] || "Dashboard";
   }, [location.pathname]);
+
+  useEffect(() => {
+    const nextPopup = location.state?.resultPopup;
+    if (!nextPopup) return;
+
+    setResultPopup({
+      open: true,
+      status: nextPopup.status || "success",
+      title: nextPopup.title || "Success",
+      subTitle: nextPopup.subTitle || "",
+    });
+
+    const { resultPopup: _resultPopup, ...restState } = location.state || {};
+    nav(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: Object.keys(restState).length ? restState : null,
+    });
+  }, [location.pathname, location.search, location.state, nav]);
 
   useEffect(() => {
     let isMounted = true;
 
+    const showNotification = ({
+      title = "New Notification",
+      description = "You have a new update.",
+      duration = 4,
+      onClick,
+    } = {}) => {
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        areBrowserNotificationsEnabled()
+      ) {
+        const nativeNotification = new Notification(title, {
+          body: description,
+          icon: AirmsFavicon,
+        });
+
+        if (onClick) {
+          nativeNotification.onclick = () => {
+            window.focus?.();
+            onClick();
+            nativeNotification.close?.();
+          };
+        }
+
+        return;
+      }
+
+      api.info({
+        message: title,
+        description,
+        placement: "topRight",
+        duration,
+        onClick,
+      });
+    };
+
+    const goToAircraftMonitoring = (aircraft) => {
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        aircraft: String(aircraft || ""),
+      });
+      nav(`/dashboard/parts-lifespan-monitoring?${params.toString()}`);
+    };
+
+    const loadSeenAircraftFhWarnings = () => {
+      try {
+        const stored = JSON.parse(
+          localStorage.getItem(
+            getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
+          ) || "[]",
+        );
+        seenAircraftFhWarningsRef.current = new Set(
+          Array.isArray(stored) ? stored.map(String) : [],
+        );
+      } catch {
+        seenAircraftFhWarningsRef.current = new Set();
+      }
+    };
+
+    const saveSeenAircraftFhWarnings = () => {
+      try {
+        localStorage.setItem(
+          getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
+          JSON.stringify(Array.from(seenAircraftFhWarningsRef.current)),
+        );
+      } catch {
+        // Best effort only; repeated warnings are still bounded by the ref.
+      }
+    };
+
+    const syncUnreadBadge = (serverUnread = serverUnreadCountRef.current) => {
+      serverUnreadCountRef.current = serverUnread;
+      const aircraftFhUnread = canReceiveAircraftFhDueAlerts
+        ? getAircraftFhUnreadCount(user?.id)
+        : 0;
+      setUnreadCount(serverUnread + aircraftFhUnread);
+    };
+
+    const addAircraftFhBellNotification = (notification) => {
+      const currentNotifications = loadAircraftFhNotifications(user?.id);
+      const existingIndex = currentNotifications.findIndex(
+        (item) => item._id === notification._id,
+      );
+      const nextNotifications =
+        existingIndex >= 0
+          ? currentNotifications.map((item, index) =>
+              index === existingIndex ? { ...item, ...notification } : item,
+            )
+          : [notification, ...currentNotifications];
+
+      saveAircraftFhNotifications(nextNotifications, user?.id);
+      syncUnreadBadge();
+    };
+
+    const checkAircraftFhDueWarnings = async () => {
+      if (!canReceiveAircraftFhDueAlerts) {
+        return;
+      }
+
+      const settings = getAircraftFhDueSettings();
+
+      if (!settings.enabled) {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/inspection-remaining-hours`,
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const threshold = Math.max(1, Number(settings.threshold) || 25);
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        const dueSoonRows = rows
+          .filter((row) => {
+            if (row?.remainingHours === null || row?.remainingHours === "") {
+              return false;
+            }
+
+            const remainingHours = Number(row?.remainingHours);
+            return (
+              Number.isFinite(remainingHours) && remainingHours <= threshold
+            );
+          })
+          .sort(
+            (left, right) =>
+              Number(left.remainingHours) - Number(right.remainingHours),
+          );
+
+        if (!dueSoonRows.length) {
+          return;
+        }
+
+        const nextWarning = dueSoonRows.find((row) => {
+          const warningKey = [
+            getLocalDateKey(),
+            row.aircraft,
+            row.inspectionKey || row.inspectionName,
+            threshold,
+          ].join("|");
+          return !seenAircraftFhWarningsRef.current.has(warningKey);
+        });
+
+        if (!nextWarning) {
+          return;
+        }
+
+        const warningKey = [
+          getLocalDateKey(),
+          nextWarning.aircraft,
+          nextWarning.inspectionKey || nextWarning.inspectionName,
+          threshold,
+        ].join("|");
+        const remainingHours = Number(nextWarning.remainingHours);
+        const title =
+          remainingHours <= 0
+            ? `${nextWarning.aircraft} Due by FH`
+            : `${nextWarning.aircraft} Almost Due`;
+        const description =
+          remainingHours <= 0
+            ? `${nextWarning.inspectionName || "Inspection"} is due by flight hours.`
+            : `${nextWarning.inspectionName || "Inspection"} is within ${remainingHours.toFixed(1)} FH.`;
+
+        seenAircraftFhWarningsRef.current.add(warningKey);
+        saveSeenAircraftFhWarnings();
+        addAircraftFhBellNotification({
+          _id: `aircraft-fh|${warningKey}`,
+          title,
+          description,
+          module: "parts-monitoring",
+          entityType: "parts-monitoring",
+          entityId: nextWarning.aircraft,
+          read: false,
+          createdAt: new Date().toISOString(),
+          metadata: {
+            aircraft: nextWarning.aircraft,
+            inspectionName: nextWarning.inspectionName || "",
+            inspectionKey: nextWarning.inspectionKey || "",
+            remainingHours,
+            threshold,
+          },
+        });
+
+        showNotification({
+          title,
+          description,
+          duration: 8,
+          onClick: () => goToAircraftMonitoring(nextWarning.aircraft),
+        });
+      } catch (error) {
+        console.error("Aircraft FH due warning check failed:", error);
+      }
+    };
+
     const syncNotifications = async () => {
       if (!user?.id) {
         if (isMounted) {
-          setUnreadCount(0);
+          syncUnreadBadge(0);
         }
         return;
       }
@@ -81,24 +399,53 @@ const DashboardLayout = () => {
 
         if (!isMounted) return;
 
-        setUnreadCount(notifications.filter((item) => !item.read).length);
+        syncUnreadBadge(notifications.filter((item) => !item.read).length);
 
         const nextSeenIds = new Set(seenNotificationIdsRef.current);
+
+        const newNotifications = [];
 
         notifications.forEach((item) => {
           if (item?._id && !nextSeenIds.has(item._id)) {
             nextSeenIds.add(item._id);
 
-            if (seenNotificationIdsRef.current.size > 0 && !item.read) {
-              api.info({
-                message: item.title || "New Notification",
-                description: item.description || "You have a new update.",
-                placement: "topRight",
-                duration: 4,
-              });
+            if (!item.read) {
+              newNotifications.push(item);
             }
           }
         });
+
+        if (!initialSyncDoneRef.current) {
+          initialSyncDoneRef.current = true;
+          seenNotificationIdsRef.current = nextSeenIds;
+          return;
+        }
+
+        if (newNotifications.length === 1) {
+          const item = newNotifications[0];
+
+          showNotification({
+            title: item.title || "New Notification",
+            description: item.description || "You have a new update.",
+            duration: 4,
+          });
+        } else if (newNotifications.length > 1) {
+          // Group by module
+          const modules = [
+            ...new Set(
+              newNotifications.map((n) => MODULE_NAMES[n.module] || "System"),
+            ),
+          ];
+
+          const moduleText =
+            modules.length === 1 ? modules[0] : modules.join(", ");
+
+          showNotification({
+            title: `${newNotifications.length} New Notifications`,
+            description: `You have new updates from ${moduleText}.`,
+            duration: 5,
+          });
+        }
 
         seenNotificationIdsRef.current = nextSeenIds;
       } catch (error) {
@@ -106,24 +453,96 @@ const DashboardLayout = () => {
       }
     };
 
-    syncNotifications();
+    loadSeenAircraftFhWarnings();
+    const scheduleSyncNotifications = debounce(syncNotifications, 500);
+    const scheduleAircraftFhDueWarnings = debounce(
+      checkAircraftFhDueWarnings,
+      800,
+    );
+
+    scheduleSyncNotifications();
+    scheduleAircraftFhDueWarnings();
+
+    const handleWebSettingsUpdated = () => {
+      loadSeenAircraftFhWarnings();
+      scheduleAircraftFhDueWarnings();
+    };
+    const handleAircraftFhNotificationsUpdated = () => {
+      syncUnreadBadge();
+    };
+
+    window.addEventListener("web-settings-updated", handleWebSettingsUpdated);
+    window.addEventListener(
+      AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+      handleAircraftFhNotificationsUpdated,
+    );
 
     const unsubscribeRealtime = subscribeRealtime((payload) => {
+      // console.log("Realtime payload:", JSON.stringify(payload, null, 2));
+
       const nextEvent = String(payload?.event || "");
+
+      if (
+        nextEvent === "notification:new" ||
+        nextEvent === "notification-created"
+      ) {
+        if (nextEvent === "notification-created") {
+          const eventData = payload?.data || {};
+          const notificationId =
+            eventData?.data?.notificationId ||
+            eventData?.data?._id ||
+            eventData?.notificationId ||
+            eventData?._id;
+
+          if (notificationId) {
+            seenNotificationIdsRef.current.add(String(notificationId));
+          }
+
+          showNotification({
+            title: eventData.title || "New Notification",
+            description: eventData.description || "You have a new update.",
+          });
+          setUnreadCount((current) => current + 1);
+        }
+
+        scheduleSyncNotifications();
+        return;
+      }
+
       if (
         nextEvent === "data-changed" ||
         nextEvent === "chat:message" ||
-        nextEvent === "chat:conversation"
+        nextEvent === "message:new" ||
+        nextEvent === "chat:conversation" ||
+        nextEvent === "logs:new"
       ) {
-        syncNotifications();
+        scheduleSyncNotifications();
+        if (
+          nextEvent === "data-changed" &&
+          (!payload?.data?.module ||
+            payload.data.module === "parts-monitoring" ||
+            payload.data.module === "parts-lifespan-monitoring")
+        ) {
+          scheduleAircraftFhDueWarnings();
+        }
       }
     });
 
     return () => {
       isMounted = false;
+      window.removeEventListener(
+        "web-settings-updated",
+        handleWebSettingsUpdated,
+      );
+      window.removeEventListener(
+        AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+        handleAircraftFhNotificationsUpdated,
+      );
       unsubscribeRealtime();
+      scheduleSyncNotifications.cancel();
+      scheduleAircraftFhDueWarnings.cancel();
     };
-  }, [user?.id, getAuthHeader, api]);
+  }, [user?.id, canReceiveAircraftFhDueAlerts, getAuthHeader, api, nav]);
 
   return (
     <>
@@ -165,7 +584,7 @@ const DashboardLayout = () => {
               justifyContent: "space-between",
               alignItems: "center",
               boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-              padding: "0 12px",
+              padding: screens.xs ? "0 6px" : "0 12px",
               position: "sticky",
               top: 0,
               zIndex: screens.xs ? 1100 : 100,
@@ -176,7 +595,7 @@ const DashboardLayout = () => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 6,
               }}
             >
               <Button
@@ -185,8 +604,8 @@ const DashboardLayout = () => {
                 onClick={() => setCollapsed(!collapsed)}
                 style={{
                   fontSize: 16,
-                  width: 46,
-                  height: 46,
+                  width: screens.xs ? 40 : 42,
+                  height: screens.xs ? 40 : 42,
                 }}
               />
               <span
@@ -200,11 +619,11 @@ const DashboardLayout = () => {
                 {pageTitle}
               </span>
             </div>
-            <Row align="middle" gutter={16}>
-              <Badge count={unreadCount} size="small" offset={[-15, 3]}>
+            <Row align="middle" gutter={10}>
+              <Badge count={unreadCount} size="small" offset={[-10, 3]}>
                 <Button
                   icon={<BellOutlined />}
-                  style={{ marginRight: 16 }}
+                  style={{ marginRight: screens.xs ? 4 : 8 }}
                   onClick={() => setNotificationsOpen(true)}
                 />
               </Badge>
@@ -216,46 +635,13 @@ const DashboardLayout = () => {
                 }}
                 onClick={() => nav("/dashboard/profile")}
               >
-                {user?.image ? (
-                  <img
-                    src={
-                      user.image.startsWith("http")
-                        ? user.image
-                        : `${API_BASE}${user.image}`
-                    }
-                    alt="User"
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      marginRight: 5,
-                      backgroundColor: "#E9F4F1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      userSelect: "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#26866F",
-                        fontWeight: 700,
-                        fontSize: 13,
-                      }}
-                    >
-                      {getUserInitials(user?.firstName, user?.lastName)}
-                    </span>
-                  </div>
-                )}
+                <UserAvatar
+                  image={user?.image}
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
+                  size={40}
+                  style={{ marginRight: 4, fontSize: 13 }}
+                />
                 {screens.md && (
                   <div
                     style={{
@@ -263,8 +649,8 @@ const DashboardLayout = () => {
                       flexDirection: "column",
                       justifyContent: "center",
                       lineHeight: 1.2,
-                      marginRight: 10,
-                      marginLeft: 10,
+                      marginRight: 8,
+                      marginLeft: 8,
                     }}
                   >
                     <span style={{ fontWeight: 600 }}>
@@ -282,6 +668,7 @@ const DashboardLayout = () => {
           </Header>
 
           <Content
+            className="airms-dashboard-content"
             style={{
               height: "calc(100vh - 64px)",
               overflowY: "auto",
@@ -294,10 +681,25 @@ const DashboardLayout = () => {
             <Outlet />
           </Content>
         </Layout>
-        <PushNotificationsCard
-          open={notificationsOpen}
-          onClose={() => setNotificationsOpen(false)}
-        />
+        <Suspense fallback={null}>
+          {notificationsOpen && (
+            <PushNotificationsCard
+              open={notificationsOpen}
+              onClose={() => setNotificationsOpen(false)}
+            />
+          )}
+          {resultPopup.open && (
+            <ResultPopup
+              open={resultPopup.open}
+              status={resultPopup.status}
+              title={resultPopup.title}
+              subTitle={resultPopup.subTitle}
+              onClose={() =>
+                setResultPopup((prev) => ({ ...prev, open: false }))
+              }
+            />
+          )}
+        </Suspense>
       </Layout>
     </>
   );

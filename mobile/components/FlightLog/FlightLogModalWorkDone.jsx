@@ -10,13 +10,17 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
+import DateInput from "../common/DateInput";
 
 export default function FlightLogModalWorkDone({
   workItems = [],
   onUpdateWorkItems,
   isEditable = true,
+  phase = "preparation",
 }) {
   const [showSignatureModal, setShowSignatureModal] = useState(null);
+
+  const canEdit = itemId => isEditable && (workItems.find(item => item.id === itemId)?.phase || "preparation") === phase;
 
   const workTypes = [
     "Discrepancy Correction",
@@ -28,6 +32,7 @@ export default function FlightLogModalWorkDone({
   const addWorkItem = () => {
     const newWorkItems = [...workItems, {
       id: Date.now().toString(),
+      phase,
       selectedWorkTypes: [],
       date: "",
       aircraft: "",
@@ -40,6 +45,7 @@ export default function FlightLogModalWorkDone({
   };
 
   const removeWorkItem = (itemId) => {
+    if (!canEdit(itemId)) return;
     if (workItems.length > 1) {
       const newWorkItems = workItems.filter(item => item.id !== itemId);
       onUpdateWorkItems(newWorkItems);
@@ -47,6 +53,7 @@ export default function FlightLogModalWorkDone({
   };
 
   const updateWorkItem = (itemId, field, value) => {
+    if (!canEdit(itemId)) return;
     const newWorkItems = workItems.map(item =>
       item.id === itemId ? { ...item, [field]: value } : item
     );
@@ -54,6 +61,7 @@ export default function FlightLogModalWorkDone({
   };
 
   const toggleWorkType = (itemId, type) => {
+    if (!canEdit(itemId)) return;
     const newWorkItems = workItems.map(item => {
       if (item.id === itemId) {
         const currentTypes = item.selectedWorkTypes || [];
@@ -97,13 +105,13 @@ export default function FlightLogModalWorkDone({
       </AppText>
       <AppInput
         style={{
-          backgroundColor: isEditable ? "#F2F2F2" : "#E8E8E8",
+          backgroundColor: canEdit(itemId) ? "#F2F2F2" : "#E8E8E8",
           borderRadius: 6,
           height: multiline ? 80 : 42,
           paddingHorizontal: 12,
           paddingVertical: multiline ? 10 : 0,
           fontSize: 12,
-          color: isEditable ? COLORS.black : COLORS.grayDark,
+          color: canEdit(itemId) ? COLORS.black : COLORS.grayDark,
           textAlignVertical: multiline ? "top" : "center",
         }}
         value={workItems.find(item => item.id === itemId)?.[fieldKey] || ""}
@@ -112,12 +120,30 @@ export default function FlightLogModalWorkDone({
         placeholderTextColor={COLORS.grayDark}
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
-        editable={isEditable}
+        editable={canEdit(itemId)}
       />
     </View>
   );
 
-  if (workItems.length === 0 && isEditable) {
+  const renderDateInput = (itemId, label, fieldKey) => (
+    <View style={{ marginBottom: 16 }}>
+      <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+        {label}:
+      </AppText>
+      <DateInput
+        value={workItems.find(item => item.id === itemId)?.[fieldKey] || ""}
+        onChangeText={(date) => updateWorkItem(itemId, fieldKey, date)}
+        editable={canEdit(itemId)}
+        style={{
+          backgroundColor: canEdit(itemId) ? "#F2F2F2" : "#E8E8E8",
+          borderRadius: 6,
+          minHeight: 42,
+        }}
+      />
+    </View>
+  );
+
+  if (workItems.length === 0) {
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <AppText style={{ fontSize: 14, fontWeight: "600", color: COLORS.grayDark, marginBottom: 16}}>
@@ -140,22 +166,26 @@ export default function FlightLogModalWorkDone({
         }}>
           <MaterialCommunityIcons name="tools" size={48} color={COLORS.grayMedium} />
           <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 12, textAlign: "center" }}>
-            No work items yet
+            {isEditable
+              ? "No work items yet"
+              : "No work done has been recorded yet"}
           </AppText>
-          <TouchableOpacity
-            onPress={addWorkItem}
-            style={{
-              backgroundColor: COLORS.primaryLight,
-              borderRadius: 6,
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-              marginTop: 16,
-            }}
-          >
-            <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>
-              + Add Work Done
-            </AppText>
-          </TouchableOpacity>
+          {isEditable && (
+            <TouchableOpacity
+              onPress={addWorkItem}
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                borderRadius: 6,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                marginTop: 16,
+              }}
+            >
+              <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "500" }}>
+                + Add Work Done
+              </AppText>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     );
@@ -193,9 +223,9 @@ export default function FlightLogModalWorkDone({
             alignItems: "center",
           }}>
             <AppText style={{ fontSize: 14, color: COLORS.white, fontWeight: "600"}}>
-              Work Done {workItems.length > 1 ? `#${index + 1}` : ""}
+              {(item.phase || "preparation") === "post_flight" ? "Post-flight work" : "Preparation work"} {workItems.length > 1 ? `#${index + 1}` : ""}
             </AppText>
-            {isEditable && workItems.length > 1 && (
+            {canEdit(item.id) && workItems.length > 1 && (
               <TouchableOpacity onPress={() => removeWorkItem(item.id)}>
                 <MaterialCommunityIcons name="close" size={20} color={COLORS.white} />
               </TouchableOpacity>
@@ -203,13 +233,14 @@ export default function FlightLogModalWorkDone({
           </View>
 
           <View style={{ padding: 20 }}>
+            {isEditable && !canEdit(item.id) && <AppText>This preparation work is retained from the signed release. Add a post-flight work item for later work.</AppText>}
             {/* Work Done Checkboxes */}
             <View style={{ marginBottom: 20 }}>
               <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 8, fontWeight: "500" }}>Work Done</AppText>
               {workTypes.map((type, idx) => (
                 <TouchableOpacity
                   key={idx}
-                  onPress={() => isEditable && toggleWorkType(item.id, type)}
+                  onPress={() => canEdit(item.id) && toggleWorkType(item.id, type)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}
                 >
                   <View style={{
@@ -220,7 +251,7 @@ export default function FlightLogModalWorkDone({
                     borderColor: COLORS.primaryLight,
                     backgroundColor: (item.selectedWorkTypes || []).includes(type) ? COLORS.primaryLight : "transparent",
                   }} />
-                  <AppText style={{ fontSize: 12, color: isEditable ? COLORS.black : COLORS.grayDark }}>
+                  <AppText style={{ fontSize: 12, color: canEdit(item.id) ? COLORS.black : COLORS.grayDark }}>
                     {type}
                   </AppText>
                 </TouchableOpacity>
@@ -228,8 +259,8 @@ export default function FlightLogModalWorkDone({
             </View>
 
             {/* Fields */}
-            {renderInput(item.id, "Date", "date", "MM/DD/YYYY")}
-            {renderInput(item.id, "Aircraft/T/", "aircraft", "Aircraft type")}
+            {renderDateInput(item.id, "Date", "date")}
+            {renderInput(item.id, "Aircraft Type", "aircraft", "Aircraft type")}
             {renderInput(item.id, "Work Done", "workDone", "Describe work done", true)}
             {renderInput(item.id, "Name", "name", "Technician name")}
             {renderInput(item.id, "Certificate Number", "certificateNumber", "Certificate number")}
@@ -239,7 +270,7 @@ export default function FlightLogModalWorkDone({
               <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
                 Signature:
               </AppText>
-              {isEditable ? (
+              {canEdit(item.id) ? (
                 <TouchableOpacity
                   onPress={() => setShowSignatureModal(item.id)}
                   style={{
@@ -285,7 +316,7 @@ export default function FlightLogModalWorkDone({
                   )}
                 </View>
               )}
-              {isEditable && item.signature && (
+              {canEdit(item.id) && item.signature && (
                 <TouchableOpacity
                   onPress={() => handleClearSignature(item.id)}
                   style={{ alignSelf: "flex-end", marginTop: 8 }}

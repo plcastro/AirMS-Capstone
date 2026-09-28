@@ -16,13 +16,55 @@ import {
   Empty,
   Spin,
   message,
-  notification as antdNotification,
 } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
+import {
+  hasNavAccess,
+  resolveUserRole,
+} from "../../../../shared/navigationAccess";
 
 const { Text } = Typography;
+const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
+const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
+const getUserScopedStorageKey = (baseKey, userId) =>
+  userId ? `${baseKey}:${userId}` : baseKey;
+
+const isAircraftFhNotification = (notificationId = "") =>
+  String(notificationId).startsWith("aircraft-fh|");
+
+const loadAircraftFhNotifications = (userId) => {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(
+        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+      ) || "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveAircraftFhNotifications = (notifications, userId) => {
+  localStorage.setItem(
+    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
+    JSON.stringify(notifications.slice(0, 50)),
+  );
+  window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
+};
+
+const mergeAircraftFhNotifications = (
+  notifications = [],
+  { canViewAircraftFhNotifications = false, userId = "" } = {},
+) => {
+  const serverNotifications = notifications.filter(
+    (item) => !isAircraftFhNotification(item?._id),
+  );
+  if (!canViewAircraftFhNotifications) return serverNotifications;
+  return [...serverNotifications, ...loadAircraftFhNotifications(userId)];
+};
 
 export default function PushNotificationsCard({ open, onClose }) {
   const { getAuthHeader, getValidToken, user } = useContext(AuthContext);
@@ -30,6 +72,10 @@ export default function PushNotificationsCard({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const reconnectTimeoutRef = useRef(null);
   const websocketRef = useRef(null);
+  const userRole = resolveUserRole(user);
+  const canViewAircraftFhNotifications =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
 
   const formatTimeAgo = (dateValue) => {
     const parsedDate = new Date(dateValue);
@@ -82,10 +128,20 @@ export default function PushNotificationsCard({ open, onClose }) {
         }
 
         const data = await response.json();
-        setNotifications(Array.isArray(data) ? data : []);
+        setNotifications(
+          mergeAircraftFhNotifications(Array.isArray(data) ? data : [], {
+            canViewAircraftFhNotifications,
+            userId: user?.id,
+          }),
+        );
       } catch (error) {
         console.error("Error fetching notifications:", error);
-        setNotifications([]);
+        setNotifications(
+          mergeAircraftFhNotifications([], {
+            canViewAircraftFhNotifications,
+            userId: user?.id,
+          }),
+        );
         if (!silent) {
           message.error("Failed to load notifications");
         }
@@ -95,7 +151,7 @@ export default function PushNotificationsCard({ open, onClose }) {
         }
       }
     },
-    [getAuthHeader, user?.id],
+    [canViewAircraftFhNotifications, getAuthHeader, user?.id],
   );
 
   const sortedNotifications = useMemo(
@@ -115,6 +171,29 @@ export default function PushNotificationsCard({ open, onClose }) {
   }, [fetchNotifications, open]);
 
   useEffect(() => {
+    const handleAircraftFhNotificationsUpdated = () => {
+      setNotifications((currentNotifications) =>
+        mergeAircraftFhNotifications(currentNotifications, {
+          canViewAircraftFhNotifications,
+          userId: user?.id,
+        }),
+      );
+    };
+
+    window.addEventListener(
+      AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+      handleAircraftFhNotificationsUpdated,
+    );
+
+    return () => {
+      window.removeEventListener(
+        AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+        handleAircraftFhNotificationsUpdated,
+      );
+    };
+  }, [canViewAircraftFhNotifications, user?.id]);
+
+  useEffect(() => {
     if (!user?.id) {
       return undefined;
     }
@@ -122,7 +201,12 @@ export default function PushNotificationsCard({ open, onClose }) {
     let isMounted = true;
 
     const getWebSocketUrl = (token) => {
-      return `wss://api.airms.online/ws?token=${token}`;
+      const wsBase = String(API_BASE || "")
+        .replace(/\/+$/, "")
+        .replace(/^http/i, (match) =>
+          match.toLowerCase() === "https" ? "wss" : "ws",
+        );
+      return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
     };
 
     const connect = async () => {
@@ -140,20 +224,14 @@ export default function PushNotificationsCard({ open, onClose }) {
           try {
             const payload = JSON.parse(event.data);
 
-            if (payload?.event !== "notification-created") {
+            if (
+              payload?.event !== "notification:new" &&
+              payload?.event !== "notification-created"
+            ) {
               return;
             }
 
             fetchNotifications({ silent: true });
-
-            const notification = payload.data || {};
-            antdNotification.info({
-              message: notification.title || "New notification",
-              description:
-                notification.description ||
-                "You have a new AirMS notification.",
-              placement: "topRight",
-            });
           } catch (error) {
             console.error("Notification websocket parse error:", error);
           }
@@ -185,6 +263,26 @@ export default function PushNotificationsCard({ open, onClose }) {
   }, [fetchNotifications, getValidToken, user?.id]);
 
   const markNotificationRead = async (notificationId) => {
+    if (isAircraftFhNotification(notificationId)) {
+      if (!canViewAircraftFhNotifications) return;
+
+      const nextLocalNotifications = loadAircraftFhNotifications(user?.id).map(
+        (notification) =>
+          notification._id === notificationId
+            ? { ...notification, read: true }
+            : notification,
+      );
+      saveAircraftFhNotifications(nextLocalNotifications, user?.id);
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification._id === notificationId
+            ? { ...notification, read: true }
+            : notification,
+        ),
+      );
+      return;
+    }
+
     try {
       const response = await fetch(
         `${API_BASE}/api/notifications/${notificationId}/read`,
@@ -213,18 +311,34 @@ export default function PushNotificationsCard({ open, onClose }) {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/notifications/mark-all-read`,
-        {
-          method: "POST",
-          headers: await getAuthHeader(),
-        },
+      const hasServerUnread = notifications.some(
+        (notification) =>
+          !isAircraftFhNotification(notification?._id) && !notification.read,
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to mark all notifications as read");
+      if (hasServerUnread) {
+        const response = await fetch(
+          `${API_BASE}/api/notifications/mark-all-read`,
+          {
+            method: "POST",
+            headers: await getAuthHeader(),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to mark all notifications as read");
+        }
       }
 
+      if (canViewAircraftFhNotifications) {
+        saveAircraftFhNotifications(
+          loadAircraftFhNotifications(user?.id).map((notification) => ({
+            ...notification,
+            read: true,
+          })),
+          user?.id,
+        );
+      }
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) => ({
           ...notification,
@@ -238,17 +352,73 @@ export default function PushNotificationsCard({ open, onClose }) {
     }
   };
 
+  const clearReadNotifications = async () => {
+    try {
+      const serverReadNotifications = notifications.filter(
+        (notification) =>
+          !isAircraftFhNotification(notification?._id) && notification.read,
+      );
+
+      if (serverReadNotifications.length > 0) {
+        const response = await fetch(
+          `${API_BASE}/api/notifications/clear-read`,
+          {
+            method: "POST",
+            headers: await getAuthHeader(),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to clear read notifications");
+        }
+      }
+
+      if (canViewAircraftFhNotifications) {
+        saveAircraftFhNotifications(
+          loadAircraftFhNotifications(user?.id).filter(
+            (notification) => !notification.read,
+          ),
+          user?.id,
+        );
+      }
+      setNotifications((currentNotifications) =>
+        currentNotifications.filter((notification) => !notification.read),
+      );
+      message.success("Read notifications cleared");
+    } catch (error) {
+      console.error("Error clearing read notifications:", error);
+      message.error("Failed to clear read notifications");
+    }
+  };
+
+  const confirmClearReadNotifications = () => {
+    Modal.confirm({
+      title: "Clear read notifications?",
+      content:
+        "This will remove all notifications you have already read from your notification list.",
+      okText: "Clear Read",
+      okButtonProps: { danger: true },
+      cancelText: "Cancel",
+      zIndex: 2000,
+      onOk: clearReadNotifications,
+      centered: true,
+    });
+  };
+
   const handleNotificationClick = async (notification) => {
     await markNotificationRead(notification._id);
     onClose?.();
 
     const moduleName = notification?.module || notification?.metadata?.module;
 
+    if (moduleName === "sessions") return;
+
     if (moduleName === "flight-logs") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
         targetFlightLogId: String(notification.entityId || ""),
+        targetSection: notification?.metadata?.targetSection || "flight",
         ...(status ? { notificationStatus: status } : {}),
       });
 
@@ -256,7 +426,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       return;
     }
 
-    if (moduleName === "pre-inspections") {
+    if (moduleName === "pre-flight inspections") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
@@ -264,11 +434,13 @@ export default function PushNotificationsCard({ open, onClose }) {
         ...(status ? { notificationStatus: status } : {}),
       });
 
-      window.location.assign(`/dashboard/pre-inspection?${params.toString()}`);
+      window.location.assign(
+        `/dashboard/pre-flight inspection?${params.toString()}`,
+      );
       return;
     }
 
-    if (moduleName === "post-inspections") {
+    if (moduleName === "post-flight inspections") {
       const status = notification?.metadata?.status || "";
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
@@ -276,7 +448,9 @@ export default function PushNotificationsCard({ open, onClose }) {
         ...(status ? { notificationStatus: status } : {}),
       });
 
-      window.location.assign(`/dashboard/post-inspection?${params.toString()}`);
+      window.location.assign(
+        `/dashboard/post-flight inspection?${params.toString()}`,
+      );
       return;
     }
 
@@ -297,12 +471,32 @@ export default function PushNotificationsCard({ open, onClose }) {
       return;
     }
 
+    if (
+      moduleName === "parts-monitoring" ||
+      moduleName === "parts-lifespan-monitoring"
+    ) {
+      if (!canViewAircraftFhNotifications) return;
+
+      const aircraft =
+        notification?.metadata?.aircraft || notification.entityId || "";
+      const params = new URLSearchParams({
+        refreshAt: String(Date.now()),
+        aircraft: String(aircraft),
+      });
+
+      window.location.assign(
+        `/dashboard/parts-lifespan-monitoring?${params.toString()}`,
+      );
+      return;
+    }
+
     window.location.assign(
       `/dashboard/parts-requisition?refreshAt=${Date.now()}&targetRequestId=${notification.entityId}`,
     );
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const readCount = notifications.length - unreadCount;
 
   const renderNotificationsList = () => {
     if (loading) {
@@ -387,10 +581,20 @@ export default function PushNotificationsCard({ open, onClose }) {
           marginTop: 16,
           display: "flex",
           justifyContent: "space-between",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
         <Button type="link" onClick={markAllAsRead}>
           Mark all as read
+        </Button>
+        <Button
+          danger
+          type="link"
+          onClick={confirmClearReadNotifications}
+          disabled={readCount === 0}
+        >
+          Clear read
         </Button>
         <Button danger type="link" onClick={fetchNotifications}>
           Refresh

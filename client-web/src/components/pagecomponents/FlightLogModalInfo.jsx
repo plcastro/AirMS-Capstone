@@ -1,31 +1,104 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { API_BASE } from "../../utils/API_BASE";
+import { AuthContext } from "../../context/AuthContext";
+import { isB412Aircraft } from "../../utils/b412FlightLog";
+import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
+
+const fieldCellStyle = {
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
 
 export default function FlightLogModalInfo({
   formData,
   updateForm,
   isEditable = true,
   isRPCEditable = true,
+  isActive = true,
   onAircraftDataLoaded,
 }) {
+  const { getAuthHeader } = useContext(AuthContext);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [ongoingAircraftRpcs, setOngoingAircraftRpcs] = useState([]);
+  const rpcRequestId = useRef(0);
+  const autoResolveRpc = useRef("");
+  const isActiveRef = useRef(isActive);
+  const callbacksRef = useRef({ updateForm, onAircraftDataLoaded });
 
-  const normalizeRpc = (value = "") => String(value || "").trim().toUpperCase();
+  useEffect(() => {
+    callbacksRef.current = { updateForm, onAircraftDataLoaded };
+  }, [updateForm, onAircraftDataLoaded]);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    if (!isActive) {
+      rpcRequestId.current += 1;
+      autoResolveRpc.current = "";
+    }
+  }, [isActive]);
+
+  const normalizeRpc = (value = "") =>
+    String(value || "")
+      .trim()
+      .toUpperCase();
+
+  const normalizeAircraftOptions = (payload) => {
+    const source = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+    return [
+      ...new Set(
+        source
+          .map((item) =>
+            typeof item === "string"
+              ? item
+              : item?.tailNum || item?.aircraft || item?.rpc || "",
+          )
+          .map(normalizeRpc)
+          .filter(Boolean),
+      ),
+    ].sort();
+  };
 
   useEffect(() => {
     const fetchAircraftOptions = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`);
-        const data = await response.json();
+        const [partsResult, aircraftResult, aircraftWithBasesResult] =
+          await Promise.allSettled([
+            fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-tail-numbers`).then(
+              (response) => response.json(),
+            ),
+            fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`).then(
+              (response) => response.json(),
+            ),
+          ]);
+        const partsData =
+          partsResult.status === "fulfilled" ? partsResult.value : null;
+        const aircraftData =
+          aircraftResult.status === "fulfilled" ? aircraftResult.value : null;
+        const aircraftWithBasesData =
+          aircraftWithBasesResult.status === "fulfilled"
+            ? aircraftWithBasesResult.value
+            : null;
+        const options = [
+          ...normalizeAircraftOptions(partsData),
+          ...normalizeAircraftOptions(aircraftData),
+          ...normalizeAircraftOptions(aircraftWithBasesData),
+        ];
 
-        if (response.ok && Array.isArray(data.data)) {
-          setAircraftOptions(data.data);
-        }
+        setAircraftOptions([...new Set(options)].sort());
       } catch (error) {
         console.error("Error fetching aircraft options:", error);
+        setAircraftOptions([]);
       }
     };
 
@@ -35,11 +108,20 @@ export default function FlightLogModalInfo({
   useEffect(() => {
     const fetchOngoingAircraftRpcs = async () => {
       try {
-        const statuses = ["pending_release", "pending_acceptance", "accepted"];
+        const headers = await getAuthHeader();
+        const statuses = [
+          "pending_release",
+          "pending_acceptance",
+          "accepted",
+          "submitted",
+          "returned_to_pilot",
+          "returned_to_mechanic",
+        ];
         const responses = await Promise.all(
           statuses.map((status) =>
             fetch(
-              `${API_BASE}/api/flightlogs?page=1&limit=500&status=${status}`,
+              `${API_BASE}/api/flightlogs?page=1&limit=300&status=${status}`,
+              { headers },
             ),
           ),
         );
@@ -49,9 +131,7 @@ export default function FlightLogModalInfo({
 
         const nextOngoingAircraft = payloads.flatMap((payload, index) =>
           responses[index].ok && Array.isArray(payload.data)
-            ? payload.data
-                .map((log) => normalizeRpc(log.rpc))
-                .filter(Boolean)
+            ? payload.data.map((log) => normalizeRpc(log.rpc)).filter(Boolean)
             : [],
         );
 
@@ -62,7 +142,7 @@ export default function FlightLogModalInfo({
     };
 
     fetchOngoingAircraftRpcs();
-  }, []);
+  }, [getAuthHeader]);
 
   const parseDatePickerValue = (value) => {
     if (!value) return null;
@@ -80,23 +160,47 @@ export default function FlightLogModalInfo({
     () => formData.aircraftType || "Aircraft type will load automatically",
     [formData.aircraftType],
   );
+  const isB412 = isB412Aircraft(formData.aircraftType);
+  const aircraftClassLabel = !formData.aircraftType
+    ? "Rotary Winged Aircraft"
+    : isB412
+      ? "Rotary Winged Aircraft - Twin Engine"
+      : "Rotary Winged Aircraft - Single Engine";
 
-  const availableAircraftOptions = useMemo(() => {
+  const aircraftSelectOptions = useMemo(() => {
     const ongoingSet = new Set(ongoingAircraftRpcs);
     const currentRpc = normalizeRpc(formData.rpc);
 
-    return aircraftOptions.filter((rpc) => {
+    return aircraftOptions.map((rpc) => {
       const normalizedRpc = normalizeRpc(rpc);
-      return !ongoingSet.has(normalizedRpc) || normalizedRpc === currentRpc;
+      const disabled =
+        ongoingSet.has(normalizedRpc) && normalizedRpc !== currentRpc;
+
+      return {
+        disabled,
+        label: disabled ? `${rpc} (ongoing flight log)` : rpc,
+        value: rpc,
+      };
     });
   }, [aircraftOptions, formData.rpc, ongoingAircraftRpcs]);
 
   const handleRPCSelect = async (rpc) => {
+    if (!isActiveRef.current) return;
+
+    const requestId = rpcRequestId.current + 1;
+    rpcRequestId.current = requestId;
+    autoResolveRpc.current = normalizeRpc(rpc);
     updateForm("rpc", rpc);
+    updateForm("aircraftType", "");
+    onAircraftDataLoaded?.(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/parts-monitoring/${rpc}`);
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+      );
       const data = await response.json();
+
+      if (!isActiveRef.current || requestId !== rpcRequestId.current) return;
 
       if (response.ok && data?.data) {
         updateForm("aircraftType", data.data.aircraftType || "");
@@ -106,72 +210,168 @@ export default function FlightLogModalInfo({
         onAircraftDataLoaded?.(null);
       }
     } catch (error) {
+      if (!isActiveRef.current || requestId !== rpcRequestId.current) return;
       console.error("Error fetching aircraft type:", error);
       updateForm("aircraftType", "");
       onAircraftDataLoaded?.(null);
     }
   };
 
+  // Load monitoring totals even when the confirmation already supplied a type.
+  useEffect(() => {
+    const rpc = String(formData.rpc || "")
+      .trim()
+      .toUpperCase();
+    if (!isActive || !rpc || autoResolveRpc.current === rpc) {
+      return;
+    }
+
+    autoResolveRpc.current = rpc;
+    const requestId = rpcRequestId.current + 1;
+    rpcRequestId.current = requestId;
+    let isRequestActive = true;
+
+    const resolveExistingAircraft = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/parts-monitoring/${encodeURIComponent(rpc)}`,
+        );
+        const payload = await response.json();
+
+        if (!isRequestActive || requestId !== rpcRequestId.current) return;
+
+        const callbacks = callbacksRef.current;
+        if (response.ok && payload?.data) {
+          callbacks.updateForm("aircraftType", payload.data.aircraftType || "");
+          callbacks.onAircraftDataLoaded?.(payload.data);
+        } else {
+          callbacks.updateForm("aircraftType", "");
+          callbacks.onAircraftDataLoaded?.(null);
+        }
+      } catch (error) {
+        if (!isRequestActive || requestId !== rpcRequestId.current) return;
+        console.error("Error resolving existing aircraft type:", error);
+        const callbacks = callbacksRef.current;
+        callbacks.updateForm("aircraftType", "");
+        callbacks.onAircraftDataLoaded?.(null);
+      }
+    };
+
+    resolveExistingAircraft();
+
+    return () => {
+      isRequestActive = false;
+      if (autoResolveRpc.current === rpc) {
+        autoResolveRpc.current = "";
+      }
+    };
+  }, [formData.rpc, isActive]);
+
   return (
     <div className="fl-section">
       <div className="fl-section-title">BASIC INFORMATION</div>
 
       <div className="fl-card">
-        <div className="fl-card-header">Rotary Winged Aircraft - Single Engine</div>
+        <div className="fl-card-header">{aircraftClassLabel}</div>
         <div className="fl-card-body">
-          <div className="fl-field-row">
-            <span className="fl-label">RP-C: *</span>
-            <div className="fl-dropdown-container">
-              <Select
-                className="fl-rpc-select"
-                value={formData.rpc || undefined}
-                placeholder="Select RP/C"
-                onChange={handleRPCSelect}
-                disabled={!isEditable || !isRPCEditable}
-                showSearch
-                optionFilterProp="label"
-                popupMatchSelectWidth
-                getPopupContainer={() => document.body}
-                options={availableAircraftOptions.map((rpc) => ({
-                  value: rpc,
-                  label: rpc,
-                }))}
+          <div className="fl-entry-grid fl-entry-grid--basic">
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">RP-C: *</span>
+              <div className="fl-dropdown-container fl-dropdown-container--stacked">
+                <Select
+                  size="large"
+                  className="fl-rpc-select"
+                  value={formData.rpc || undefined}
+                  placeholder="Select RP/C"
+                  onChange={handleRPCSelect}
+                  disabled={!isEditable || !isRPCEditable}
+                  aria-required="true"
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth
+                  getPopupContainer={() => document.body}
+                  options={aircraftSelectOptions}
+                />
+              </div>
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Aircraft Type:</span>
+              <Input size="large" value={aircraftTypeLabel} disabled />
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Date: *</span>
+              <DatePicker
+                size="large"
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                inputReadOnly
+                value={parseDatePickerValue(formData.date)}
+                onChange={(date) =>
+                  updateForm(
+                    "date",
+                    date && dayjs.isDayjs(date)
+                      ? date.format("MM/DD/YYYY")
+                      : "",
+                  )
+                }
+                disabled={!isEditable}
+                required
+                aria-required="true"
+              />
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Assigned Pilot:</span>
+              <FlightAssignedPilotSelect
+                value={formData.assignedPilot}
+                onChange={(value) => updateForm("assignedPilot", value)}
+                disabled={!isEditable}
+                isActive={isActive}
+              />
+            </div>
+
+            <div
+              className="fl-field-stack fl-entry-grid-span-2"
+              style={fieldCellStyle}
+            >
+              <span className="fl-label">Control No.:</span>
+              <Input
+                size="large"
+                value={formData.controlNo || ""}
+                onChange={(e) => updateForm("controlNo", e.target.value)}
+                placeholder="Enter control number"
+                disabled={!isEditable}
               />
             </div>
           </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Aircraft Type:</span>
-            <Input className="fl-input" value={aircraftTypeLabel} disabled />
-          </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Date:</span>
-            <DatePicker
-              className="fl-input"
-              style={{ width: "100%" }}
-              format="MM/DD/YYYY"
-              value={parseDatePickerValue(formData.date)}
-              onChange={(date) =>
-                updateForm(
-                  "date",
-                  date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
-                )
-              }
-              disabled={!isEditable}
-            />
-          </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Control No.:</span>
-            <Input
-              className="fl-input"
-              value={formData.controlNo || ""}
-              onChange={(e) => updateForm("controlNo", e.target.value)}
-              placeholder="Enter control number"
-              disabled={!isEditable}
-            />
-          </div>
+          {formData.preFlightInspection?.signature && (
+            <div className="fl-confirmation-summary">
+              <strong>Pre-flight inspection confirmed</strong>
+              <div>
+                {formData.preFlightInspection.name} — recorded{" "}
+                {new Date(
+                  formData.preFlightInspection.recordedAt,
+                ).toLocaleString()}
+              </div>
+              <img
+                src={formData.preFlightInspection.signature}
+                alt="Pre-flight confirmation signature"
+                style={{ width: 180, height: 80, objectFit: "contain" }}
+              />
+              {!!formData.preFlightInspection.remarks && (
+                <>
+                  <div style={{ whiteSpace: "pre-wrap" }}>
+                    Discrepancies: {formData.preFlightInspection.remarks}
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>
+                    Resolution: {formData.preFlightInspection.resolution}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useContext } from "react";
 import AppText from "../../components/common/AppText";
 import {
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
   View,
-  Pressable
+  Pressable,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureSetItem } from "../../utilities/secureStorage";
+import { secureDeleteItem, secureSetItem } from "../../utilities/secureStorage";
 
 import { styles } from "../../stylesheets/styles";
 import Button from "../../components/Button";
@@ -21,6 +22,28 @@ import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
+import { setStoredAccessToken } from "../../utilities/authStorage";
+import { buildLoginLocationHeaders } from "../../utilities/loginLocation";
+
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
+
+const storeTrustedDeviceTokenForAccounts = async (accounts = [], token) => {
+  if (!token) return;
+
+  const keys = new Set(
+    accounts.map(getTrustedDeviceStorageKey).filter(Boolean),
+  );
+  await Promise.all([...keys].map((key) => secureSetItem(key, token)));
+  await secureDeleteItem("trustedDeviceToken");
+};
 
 export default function OTP() {
   const route = useRoute();
@@ -33,6 +56,9 @@ export default function OTP() {
   const [pinReady, setPinReady] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [message, setMessage] = useState("");
+  const [messageStatus, setMessageStatus] = useState("error");
+  const [verifiedTitle, setVerifiedTitle] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const rememberMe = Boolean(route.params?.rememberMe);
   const [trustDevice, setTrustDevice] = useState(rememberMe);
   const MAX_CODE_LENGTH = 6;
@@ -54,7 +80,7 @@ export default function OTP() {
   }, [resendTimer]);
 
   const handlePasswordResetOtpVerify = async () => {
-    if (!pinReady) return;
+    if (!pinReady || isVerifying) return;
 
     if (!token) {
       setMessage("Missing verification token.");
@@ -62,6 +88,8 @@ export default function OTP() {
     }
 
     try {
+      setIsVerifying(true);
+      setMessageStatus("error");
       const res = await fetch(`${API_BASE}/api/user/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,62 +98,88 @@ export default function OTP() {
 
       const data = await parseResponse(res);
       if (res.ok) {
-        navigation.navigate("resetPassword", { token });
+        setMessageStatus("success");
+        setMessage("OTP verified. Redirecting...");
+        showToast("OTP verified. Redirecting...");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        navigation.replace("resetPassword", { token });
       } else {
-        setMessage(data.message || "Invalid OTP");
+        const message = String(data?.message || "");
+        setMessage(
+          message.toLowerCase().includes("expired")
+            ? "OTP expired! Please request a new one."
+            : message || "Invalid OTP",
+        );
       }
     } catch (err) {
       console.error("OTP verification error:", err);
-      setMessage("Failed to verify OTP. Try again.");
+      setMessage("Failed to verify OTP. Please try again later.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleLoginOtpVerify = async () => {
-    if (!pinReady) return;
+    if (!pinReady || isVerifying) return;
 
     if (!token) {
       setMessage("Missing verification token.");
       return;
     }
 
+    const loginClient =
+      route.params?.client || (Platform.OS === "web" ? "web" : "mobile");
+    const loginPlatform =
+      String(loginClient).toLowerCase() === "web" ? "WEB" : "MOBILE";
+
     try {
+      setIsVerifying(true);
+      setMessageStatus("error");
       const res = await fetch(`${API_BASE}/api/user/login/verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
-          "x-platform": "MOBILE",
+          "x-platform": loginPlatform,
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           token,
           otp: code,
           rememberMe,
-          base: route.params?.base,
-          client: route.params?.client || "mobile",
+          location: route.params?.loginLocation,
+          client: loginClient,
           trustDevice: rememberMe ? trustDevice : false,
-          trustedDeviceLabel: "mobile-app",
+          trustedDeviceLabel:
+            String(loginClient).toLowerCase() === "web" ? "web-app" : "mobile-app",
         }),
       });
 
       const data = await parseResponse(res);
       if (!res.ok) {
-        setMessage(data.message || "Invalid OTP");
+        const message = String(data?.message || "");
+        const isExpired = message.toLowerCase().includes("expired");
+        setMessage(
+          isExpired
+            ? "OTP expired. Please log in again."
+            : message || "Invalid OTP",
+        );
+        if (isExpired) {
+          setToken(null);
+          setTimeout(() => navigation.replace("login"), 1500);
+        }
         return;
       }
 
-      const { user, token: accessToken, refreshToken } = data;
+      const { user, token: accessToken, refreshToken, session } = data;
       if (data?.trustedDeviceToken) {
-        await secureSetItem(
-          "trustedDeviceToken",
-          data.trustedDeviceToken,
-        );
-        await AsyncStorage.setItem(
-          "trustedDeviceToken",
+        await storeTrustedDeviceTokenForAccounts(
+          [route.params?.identifier, user?.email, user?.username],
           data.trustedDeviceToken,
         );
       }
 
-      await AsyncStorage.setItem("currentUserToken", String(accessToken));
+      await setStoredAccessToken(String(accessToken));
 
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       if (rememberMe) {
@@ -133,18 +187,30 @@ export default function OTP() {
           "rememberedIdentifier",
           route.params?.identifier || user?.email || "",
         );
-        await AsyncStorage.setItem("rememberedBase", route.params?.base || "");
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
-        await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       await loginUser({
         user,
+        session:
+          session ||
+          {
+            location: route.params?.loginLocation,
+            sessionId: data.sessionId,
+            platform: loginPlatform,
+          },
         accessToken,
         refreshToken,
         rememberMe,
       });
+
+      setVerifiedTitle("Login Verified");
+      setMessageStatus("success");
+      setMessage("OTP verified. Redirecting...");
+      showToast("Login verified");
+      await new Promise((resolve) => setTimeout(resolve, 1200));
 
       const pendingRedirect = await readPendingRedirect();
       if (pendingRedirect?.screen) {
@@ -159,7 +225,9 @@ export default function OTP() {
       navigation.replace("dashboard");
     } catch (err) {
       console.error("Login OTP verification error:", err);
-      setMessage("Failed to verify OTP. Try again.");
+      setMessage("Failed to verify OTP. Please try again later.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -184,8 +252,9 @@ export default function OTP() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": route.params?.base || "",
-          "x-platform": "MOBILE",
+          "x-platform": Platform.OS === "web" ? "WEB" : "MOBILE",
+          ...buildLoginLocationHeaders(route.params?.loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify(resendPayload),
       });
@@ -205,7 +274,7 @@ export default function OTP() {
       }
     } catch (err) {
       console.error("Resend OTP error:", err);
-      setMessage("Failed to send OTP. Try again later.");
+      setMessage("Failed to send OTP. Please try again later.");
       showToast("Failed to resend OTP.");
     }
   };
@@ -221,7 +290,10 @@ export default function OTP() {
       >
         <LoginLayout
           cardTitle={
-            mode === "login-2fa" ? "Login Verification" : "Account Verification"
+            verifiedTitle ||
+            (mode === "login-2fa"
+              ? "Login Verification"
+              : "Account Verification")
           }
           cardsubTitle={
             "Please enter the 6-digit code sent to " +
@@ -233,6 +305,7 @@ export default function OTP() {
             setCode={setCode}
             setPinReady={setPinReady}
             maxLength={MAX_CODE_LENGTH}
+            secure={false}
           />
 
           <Button
@@ -242,7 +315,7 @@ export default function OTP() {
                 ? handleLoginOtpVerify
                 : handlePasswordResetOtpVerify
             }
-            disabled={!pinReady}
+            disabled={!pinReady || isVerifying}
             buttonStyle={[
               styles.primaryBtn,
               { minWidth: "100%", marginBottom: 10 },
@@ -262,9 +335,7 @@ export default function OTP() {
                 Remember this device for 30 days
               </AppText>
               <Pressable
-                onPress={() =>
-                  rememberMe && setTrustDevice((prev) => !prev)
-                }
+                onPress={() => rememberMe && setTrustDevice((prev) => !prev)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: trustDevice }}
                 disabled={!rememberMe}
@@ -306,7 +377,13 @@ export default function OTP() {
             buttonStyle={[styles.secondaryBtn, { minWidth: "100%" }]}
             buttonTextStyle={styles.secondaryBtnTxt}
           />
-          <AppText style={{ color: "red", marginTop: 10, textAlign: "left" }}>
+          <AppText
+            style={{
+              color: messageStatus === "success" ? "#26866F" : "red",
+              marginTop: 10,
+              textAlign: "left",
+            }}
+          >
             {pinReady ? message : ""}
           </AppText>
         </LoginLayout>

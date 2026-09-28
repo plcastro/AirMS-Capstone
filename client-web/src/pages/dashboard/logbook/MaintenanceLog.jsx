@@ -5,27 +5,118 @@ import {
   ArrowLeftOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import MLogTable from "../../../components/tables/MLogTable";
 import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
+import DateTimeCell from "../../../components/common/DateTimeCell";
+import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
+import { canExportModule } from "../../../../../shared/exportAccess";
+import {
+  addPdfExecutionFooter,
+  getExportExecutorName,
+} from "../../../components/common/ExportFile";
 
 const { Title, Text } = Typography;
 const NGCP_LOGO_PATH = "/images/ngcp-logo.png";
+const NGCP_LOGO_ASPECT_RATIO = 493 / 243;
 const BRAND = "#26866f";
 const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
-
 const formatPdfValue = (value, fallback = "") =>
   value === null || value === undefined || value === ""
     ? fallback
     : String(value);
 
-const buildSafeFileName = (value, fallback = "MaintenanceLog") =>
+const buildSafeFileToken = (value, fallback = "Unknown") =>
   String(value || fallback)
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    .replace(/[^A-Za-z0-9.-]+/g, "") || fallback;
+
+const formatFileDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatFileDate();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatReportDate = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return formatReportDate();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+};
+
+const buildWorkDoneReportFileName = (record = {}) => {
+  const aircraft =
+    record.aircraft || record.rpc || record.aircraftNo || "Aircraft";
+  const date =
+    record.dateDefectRectified ||
+    record.dateRectified ||
+    record.completedAt ||
+    record.updatedAt ||
+    record.createdAt;
+  return `WorkDoneReport_${buildSafeFileToken(aircraft, "Aircraft")}_${formatFileDate(date)}`;
+};
+
+const getMechanicInCharge = (record = {}) =>
+  record.mechanicInCharge || record.reportedBy || "";
+
+const getInspector = (record = {}) =>
+  record.inspector || record.approvedBy || "";
+
+const getMechanicLicenseNo = (record = {}) =>
+  record.mechanicLicenseNo ||
+  record.mechanicLicense ||
+  record.mechanicInCharge?.licenseNo ||
+  record.releasedBy?.licenseNo ||
+  record.licenseNo ||
+  "";
+const getInspectorLicenseNo = (record = {}) =>
+  record.inspectorLicenseNo ||
+  record.inspectorLicense ||
+  record.inspector?.licenseNo ||
+  record.approvedBy?.licenseNo ||
+  "";
+
+const formatAmtLicense = (value) => {
+  const licenseNo = formatPdfValue(value, "N/A");
+  return `${licenseNo} - AMT`;
+};
+
+const getReportDate = (record = {}) =>
+  formatReportDate(
+    record.dateDefectRectified ||
+      record.dateRectified ||
+      record.completedAt ||
+      record.updatedAt ||
+      record.createdAt,
+  );
+
+const getMaintenanceUpdatedAt = (record = {}) =>
+  record.dateDefectRectified ||
+  record.dateRectified ||
+  record.completedAt ||
+  record.updatedAt ||
+  record.createdAt ||
+  "";
+
+const getLatestMaintenanceUpdatedAt = (entries = []) =>
+  entries.reduce((latest, entry) => {
+    const value = getMaintenanceUpdatedAt(entry);
+    const time = value ? new Date(value).getTime() : Number.NaN;
+    if (!Number.isFinite(time)) return latest;
+
+    const latestTime = latest ? new Date(latest).getTime() : Number.NaN;
+    return !Number.isFinite(latestTime) || time > latestTime ? value : latest;
+  }, "");
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -155,14 +246,17 @@ const drawMaintenanceReportHeader = (
 
   doc.rect(centerX, metadataY, centerWidth, rowHeight * 4);
   if (logoDataUrl) {
-    doc.addImage(
-      logoDataUrl,
-      "PNG",
-      centerX + 10,
-      metadataY + 4,
-      centerWidth - 20,
-      38,
+    const maxLogoWidth = centerWidth - 24;
+    const maxLogoHeight = rowHeight * 4 - 8;
+    const logoWidth = Math.min(
+      maxLogoWidth,
+      maxLogoHeight * NGCP_LOGO_ASPECT_RATIO,
     );
+    const logoHeight = logoWidth / NGCP_LOGO_ASPECT_RATIO;
+    const logoX = centerX + (centerWidth - logoWidth) / 2;
+    const logoY = metadataY + (rowHeight * 4 - logoHeight) / 2;
+
+    doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoWidth, logoHeight);
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(32);
@@ -222,15 +316,91 @@ const drawMaintenanceReportHeader = (
   };
 };
 
+const drawMaintenanceReportSignoff = (doc, record, header, startY) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const bottomMargin = 28;
+  const certificationHeight = 44;
+  const signoffHeight = 66;
+  const totalHeight = certificationHeight + signoffHeight;
+  let y = startY + 8;
+
+  if (y + totalHeight > pageHeight - bottomMargin) {
+    doc.addPage();
+    y = bottomMargin;
+  }
+
+  doc.setDrawColor(25, 25, 25);
+  doc.setLineWidth(0.9);
+  doc.rect(header.marginX, y, header.contentWidth, totalHeight);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const certificationLines = doc.splitTextToSize(
+    "I hereby certify that unless otherwise specified, the work has been carried out in accordance with the current rules of CAAP and in respect to that work the aircraft or aircraft component is considered fit for return to service.",
+    header.contentWidth - 24,
+  );
+  doc.text(certificationLines, header.marginX + 12, y + 16);
+
+  const dateY = y + certificationHeight + 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(
+    `Date: ${getReportDate(record)}`,
+    header.marginX + header.contentWidth / 2,
+    dateY,
+    {
+      align: "center",
+    },
+  );
+
+  const signoffY = dateY + 22;
+  const signoffColumnWidth = header.contentWidth / 2;
+  const leftCenterX = header.marginX + signoffColumnWidth / 2;
+  const rightCenterX =
+    header.marginX + signoffColumnWidth + signoffColumnWidth / 2;
+  const mechanicLicense = formatAmtLicense(getMechanicLicenseNo(record));
+  const inspectorLicense = formatAmtLicense(getInspectorLicenseNo(record));
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(
+    `Mechanic-in-charge: ${formatPdfValue(getMechanicInCharge(record))}`,
+    leftCenterX,
+    signoffY,
+    { align: "center" },
+  );
+  doc.text(
+    `Inspector: ${formatPdfValue(getInspector(record))}`,
+    rightCenterX,
+    signoffY,
+    { align: "center" },
+  );
+
+  doc.setFontSize(10);
+  doc.text(mechanicLicense, leftCenterX, signoffY + 22, { align: "center" });
+  doc.text(inspectorLicense, rightCenterX, signoffY + 22, { align: "center" });
+};
+
 export default function MaintenanceLog() {
-  const { getAuthHeader } = useContext(AuthContext);
+  const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportMaintenanceLogs = canExportModule(
+    user?.jobTitle,
+    "maintenanceLogs",
+  );
   const [allEntries, setAllEntries] = useState([]);
   const [searchValue, setSearchValue] = useState("");
+  const debouncedSearchValue = useDebouncedValue(searchValue, 300);
   const [loading, setLoading] = useState(true);
   const [viewLevel, setViewLevel] = useState("dashboard");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWO, setSelectedWO] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
   const [seenLogIds, setSeenLogIds] = useState(() => {
     try {
       const stored = JSON.parse(
@@ -248,7 +418,7 @@ export default function MaintenanceLog() {
     overflowX: "hidden",
   };
   const contentWrapStyle = {
-    maxWidth: 1280,
+    maxWidth: "100%",
     margin: "0 auto",
   };
   const persistSeenLogIds = (nextSet) => {
@@ -323,10 +493,23 @@ export default function MaintenanceLog() {
           };
         });
 
+        // console.log(
+        //   "Maintenance log mechanic license numbers:",
+        //   normalized.map((entry) => ({
+        //     id: entry.sourceTaskId || entry._id || entry.id,
+        //     mechanicLicenseNo: getMechanicLicenseNo(entry),
+        //   })),
+        // );
         setAllEntries(normalized);
       } catch (error) {
         console.error("Failed to fetch maintenance logs:", error);
         setAllEntries([]);
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to fetch maintenance logs.",
+        });
       } finally {
         setLoading(false);
       }
@@ -334,6 +517,14 @@ export default function MaintenanceLog() {
 
     fetchMaintenanceLogs();
   }, [getAuthHeader]);
+
+  // useEffect(() => {
+  //   if (!selectedWO) return;
+  //   console.log(
+  //     "Selected maintenance log mechanicLicenseNo:",
+  //     getMechanicLicenseNo(selectedWO),
+  //   );
+  // }, [selectedWO]);
 
   const formatDisplayDate = (value) => {
     if (!value) return "N/A";
@@ -347,23 +538,11 @@ export default function MaintenanceLog() {
   };
 
   const filteredEntries = useMemo(() => {
-    const needle = searchValue.trim().toLowerCase();
-    if (!needle) {
-      return allEntries;
-    }
-
+    if (!debouncedSearchValue.trim()) return allEntries;
     return allEntries.filter((entry) =>
-      [
-        entry.aircraft,
-        entry.taskTitle,
-        entry.defects,
-        entry.correctiveActionDone,
-        entry.reportedBy,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
+      matchesSearch(debouncedSearchValue, entry),
     );
-  }, [allEntries, searchValue]);
+  }, [allEntries, debouncedSearchValue]);
 
   const uniqueAircraft = useMemo(
     () => [
@@ -409,30 +588,53 @@ export default function MaintenanceLog() {
     else if (viewLevel === "aircraft") setViewLevel("dashboard");
   };
 
-  const renderReadOnlyField = (label, value) => (
-    <Space.Compact style={{ width: "100%" }}>
-      <span
-        style={{
-          minWidth: 120,
-          padding: "0 11px",
-          border: "1px solid #d9d9d9",
-          borderRight: 0,
-          borderRadius: "6px 0 0 6px",
-          background: "#fafafa",
-          lineHeight: "30px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-      <Input
-        value={value || ""}
-        readOnly
-        style={{ borderRadius: "0 6px 6px 0" }}
-      />
-    </Space.Compact>
-  );
+  const renderReadOnlyField = (label, value, isTag = false) => {
+    const labelStyle = {
+      width: 170,
+      flex: "0 0 170px",
+      padding: "0 11px",
+      fontWeight: 600,
+      lineHeight: "32px",
+      border: "1px solid #d9d9d9",
+      borderRight: 0,
+      background: "#fafafa",
+      whiteSpace: "normal",
+    };
+    const fieldStyle = {
+      display: "flex",
+      alignItems: "stretch",
+      width: "100%",
+    };
 
+    if (isTag) {
+      return (
+        <div style={fieldStyle}>
+          <span style={labelStyle}>{label}</span>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 32,
+              display: "flex",
+              alignItems: "center",
+              padding: "0 11px",
+              border: "1px solid #d9d9d9",
+              background: "#fff",
+            }}
+          >
+            {renderStatusTag(value)}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={fieldStyle}>
+        <span style={labelStyle}>{label}</span>
+        <Input value={value || ""} readOnly />
+      </div>
+    );
+  };
   const fetchAircraftExportData = async (aircraft) => {
     if (!aircraft) return null;
 
@@ -462,11 +664,13 @@ export default function MaintenanceLog() {
           return null;
         }),
       ]);
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
 
       const doc = new jsPDF("p", "pt", "a4");
-      const fileName = buildSafeFileName(
-        `MaintenanceLog-${selectedWO?.sourceTaskId || selectedWO?.id || selectedWO?._id || "record"}`,
-      );
+      const fileName = buildWorkDoneReportFileName(selectedWO);
       const bodyRows = (
         Array.isArray(selectedWO.workDetails) &&
         selectedWO.workDetails.length > 0
@@ -480,7 +684,7 @@ export default function MaintenanceLog() {
       )
         .map((item) => formatPdfValue(item?.description || item, "").trim())
         .filter(Boolean)
-        .map((description, index) => ["", `${index + 1}. ${description}`]);
+        .map((description, index) => [String(index + 1), description]);
 
       const drawPageHeader = () =>
         drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
@@ -510,7 +714,7 @@ export default function MaintenanceLog() {
           minCellHeight: 16,
         },
         columnStyles: {
-          0: { cellWidth: header.numberColumnWidth },
+          0: { cellWidth: header.numberColumnWidth, halign: "center" },
           1: { cellWidth: header.contentWidth - header.numberColumnWidth },
         },
         didDrawPage: (data) => {
@@ -521,141 +725,216 @@ export default function MaintenanceLog() {
         },
       });
 
+      drawMaintenanceReportSignoff(
+        doc,
+        selectedWO,
+        header,
+        doc.lastAutoTable?.finalY || header.startY,
+      );
+
+      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
       doc.save(`${fileName}.pdf`);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Maintenance Log Exported!",
+        subTitle: "The maintenance log PDF has been exported successfully.",
+      });
     } catch (error) {
       console.error("Failed to export maintenance log:", error);
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Maintenance log PDF export failed.",
+      });
     } finally {
       setExporting(false);
     }
   };
 
+  const resultPopup = (
+    <ResultPopup
+      open={popup.open}
+      status={popup.status}
+      title={popup.title}
+      subTitle={popup.subTitle}
+      onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+    />
+  );
+
   if (viewLevel === "dashboard") {
     return (
-      <div style={pageScrollStyle}>
-        <div style={contentWrapStyle}>
-          <Card
-            style={{ marginBottom: 14, borderRadius: 12 }}
-            styles={{ body: { padding: 16 } }}
-          >
-            <Row gutter={[12, 12]} align="middle" justify="space-between">
-              <Col xs={24} md={10}>
-                <Space orientation="vertical" size={2}>
-                  <Text type="secondary" style={{ letterSpacing: 0.3 }}>
-                    MAINTENANCE LOGBOOK
-                  </Text>
-                  <Title level={4} style={{ margin: 0 }}>
-                    Aircraft Maintenance Logs
-                  </Title>
-                </Space>
-              </Col>
-              <Col xs={24} md={10}>
+      <div className="fl-page">
+        <Card
+          style={{
+            marginBottom: 10,
+            borderRadius: 10,
+          }}
+          styles={{ body: { padding: "10px 12px" } }}
+        >
+          <Row align="middle" justify="space-between">
+            <Col>
+              <Space wrap size={[12, 12]}>
                 <Input
                   size="large"
+                  style={{ width: "min(320px, calc(100vw - 64px))" }}
                   placeholder="Search aircraft, task title, defects, or reporter..."
                   prefix={<SearchOutlined />}
                   allowClear
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                 />
-              </Col>
-              <Col xs={24} md={4}>
+              </Space>
+            </Col>
+            <Col
+              style={{
+                marginLeft: "auto",
+              }}
+            >
+              <Space size={8} wrap>
                 <div
                   style={{
                     border: "1px solid #e6f2ed",
                     background: "#f7fcfa",
-                    borderRadius: 10,
-                    padding: "8px 10px",
+                    borderRadius: 8,
+                    padding: "5px 8px",
                     textAlign: "center",
+                    lineHeight: 1.2,
+                    minWidth: 72,
                   }}
                 >
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
                     Aircraft
                   </Text>
+
                   <div
-                    style={{ fontWeight: 700, color: "#1f5f49", fontSize: 18 }}
+                    style={{
+                      fontWeight: 700,
+                      color: "#1f5f49",
+                      fontSize: 16,
+                      marginTop: 2,
+                    }}
                   >
                     {uniqueAircraft.length}
                   </div>
                 </div>
-              </Col>
-            </Row>
-          </Card>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
 
-          <Row gutter={[16, 16]}>
-            {!loading && uniqueAircraft.length === 0 && (
-              <Col span={24}>
-                <Card style={{ borderRadius: 12 }}>
-                  <Text type="secondary">
-                    No maintenance logs found yet. Completed task-assignment
-                    records will appear here automatically.
-                  </Text>
-                </Card>
-              </Col>
-            )}
+        <Row
+          gutter={[16, 16]}
+          align="stretch"
+          style={{ alignItems: "stretch" }}
+        >
+          {!loading && uniqueAircraft.length === 0 && (
+            <Col span={24}>
+              <Card style={{ borderRadius: 12 }}>
+                <Text type="secondary">
+                  No maintenance logs found yet. Completed task-assignment
+                  records will appear here automatically.
+                </Text>
+              </Card>
+            </Col>
+          )}
 
-            {uniqueAircraft.map((reg) => {
-              const entriesForAircraft = filteredEntries.filter(
-                (entry) => entry.aircraft === reg,
-              );
-              const sample = entriesForAircraft[0];
-              const newCount = entriesForAircraft.filter((entry) => {
-                const stableId = getLogStableId(entry);
-                return stableId && !seenLogIds.has(stableId);
-              }).length;
+          {uniqueAircraft.map((reg) => {
+            const entriesForAircraft = filteredEntries.filter(
+              (entry) => entry.aircraft === reg,
+            );
+            const sample = entriesForAircraft[0];
+            const latestUpdatedAt =
+              getLatestMaintenanceUpdatedAt(entriesForAircraft);
+            const newCount = entriesForAircraft.filter((entry) => {
+              const stableId = getLogStableId(entry);
+              return stableId && !seenLogIds.has(stableId);
+            }).length;
 
-              return (
-                <Col xs={24} sm={12} md={8} lg={6} key={reg}>
-                  <Card
-                    hoverable
-                    onClick={() => navigateToAircraft(reg)}
-                    styles={{ body: { padding: 0 } }}
-                    style={{ borderRadius: 12, overflow: "hidden" }}
+            return (
+              <Col
+                xs={24}
+                sm={12}
+                md={8}
+                lg={6}
+                key={reg}
+                style={{ display: "flex" }}
+              >
+                <Card
+                  hoverable
+                  onClick={() => navigateToAircraft(reg)}
+                  styles={{ body: { padding: 0, height: "100%" } }}
+                  style={{
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flex: 1,
+                      minHeight: 120,
+                    }}
                   >
-                    <div style={{ display: "flex", minHeight: 120 }}>
-                      <div style={{ width: 7, background: BRAND }} />
-                      <div style={{ padding: 16, flex: 1 }}>
-                        <Title
-                          level={5}
-                          style={{
-                            margin: "0 0 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <span>{reg}</span>
-                          {newCount > 0 ? buildNewBadge() : null}
-                        </Title>
-                        <Text type="secondary">
-                          SOURCE: {sample?.type || "Task Assignment"}
-                        </Text>
-                        <br />
-                        <Text type="secondary">
-                          ENTRIES: {entriesForAircraft.length}
-                        </Text>
+                    <div
+                      style={{ width: 7, background: BRAND, flexShrink: 0 }}
+                    />
+
+                    <div
+                      style={{
+                        padding: 16,
+                        flex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <Title
+                        level={5}
+                        style={{
+                          margin: "0 0 8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span>{reg}</span>
+                        {newCount > 0 ? buildNewBadge() : null}
+                      </Title>
+
+                      <Text type="secondary">
+                        SOURCE: {sample?.type || "Task Assignment"}
+                      </Text>
+
+                      <Text type="secondary">
+                        ENTRIES: {entriesForAircraft.length}
+                      </Text>
+
+                      <div style={{ marginTop: 4 }}>
+                        <Text type="secondary">LAST UPDATED:</Text>
+                        <DateTimeCell value={latestUpdatedAt} />
+                      </div>
+
+                      <div style={{ height: 22, marginTop: "auto" }}>
                         {newCount > 0 ? (
-                          <>
-                            <br />
-                            <Text style={{ color: "#d46b08", fontWeight: 600 }}>
-                              {newCount} new work done
-                            </Text>
-                          </>
+                          <Text style={{ color: "#d46b08", fontWeight: 600 }}>
+                            {newCount} new work done
+                          </Text>
                         ) : null}
                       </div>
                     </div>
-                  </Card>
-                </Col>
-              );
-            })}
-          </Row>
-          <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-            <Col span={24} style={{ textAlign: "right" }}>
-              <Text type="secondary">
-                Showing <Text strong>{uniqueAircraft.length}</Text> aircraft/s
-              </Text>
-            </Col>
-          </Row>
-        </div>
+                  </div>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+
+        {resultPopup}
       </div>
     );
   }
@@ -668,191 +947,160 @@ export default function MaintenanceLog() {
             icon={<ArrowLeftOutlined />}
             type="text"
             onClick={goBack}
-            style={{ marginBottom: 12, paddingInline: 0 }}
+            style={{
+              marginBottom: 12,
+              paddingInline: 0,
+              color: "#1f5f49",
+            }}
           >
             Back to Aircraft Logs
           </Button>
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={14}>
-              <Card
-                style={{
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid #e8f0ec",
-                }}
-                styles={{ body: { padding: 0 } }}
-              >
-                <div
-                  style={{
-                    padding: "18px 20px",
-                    background:
-                      "linear-gradient(135deg, #1f5f49 0%, #26866f 55%, #52a18b 100%)",
-                    color: "#fff",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "rgba(255,255,255,0.85)",
-                      fontSize: 12,
-                      letterSpacing: 0.6,
-                    }}
-                  >
-                    MAINTENANCE SNAPSHOT
-                  </Text>
-                  <Title
-                    level={3}
-                    style={{ margin: "4px 0 2px", color: "#fff" }}
-                  >
-                    {selectedAircraft?.aircraft || "N/A"}
-                  </Title>
-                  <Text style={{ color: "rgba(255,255,255,0.88)" }}>
-                    Completed task records synced to maintenance logs
-                  </Text>
-                </div>
-
-                <div style={{ padding: 18 }}>
-                  <Row gutter={[12, 12]}>
-                    {[
-                      {
-                        label: "Reported By",
-                        value: selectedAircraft?.reportedBy || "N/A",
-                      },
-                      {
-                        label: "Status",
-                        value: selectedAircraft?.status || "N/A",
-                      },
-                      {
-                        label: "ACFT S/N",
-                        value: selectedAircraft?.sn || "N/A",
-                      },
-                      {
-                        label: "Work Orders",
-                        value: String(selectedAircraft?.entries?.length || 0),
-                      },
-                    ].map((item) => (
-                      <Col xs={24} sm={12} key={item.label}>
-                        <div
-                          style={{
-                            border: "1px solid #edf3f0",
-                            background: "#fbfdfc",
-                            borderRadius: 10,
-                            padding: "10px 12px",
-                            minHeight: 72,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              textTransform: "uppercase",
-                              letterSpacing: 0.4,
-                              color: "#5a7268",
-                            }}
-                          >
-                            {item.label}
-                          </Text>
-                          <Text
-                            strong
-                            style={{
-                              fontSize: 16,
-                              marginTop: 2,
-                              color: "#1b3d2f",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {item.value}
-                          </Text>
-                        </div>
-                      </Col>
-                    ))}
-                  </Row>
-                </div>
-              </Card>
-            </Col>
-
-            <Col xs={24} lg={10}>
-              <Card
-                title={
+          {/* Aircraft Information */}
+          <Card
+            title="Aircraft Information"
+            style={{
+              marginBottom: 16,
+              borderRadius: 12,
+              border: "1px solid #e8f0ec",
+            }}
+            styles={{
+              header: {
+                borderBottom: "1px solid #edf3f0",
+                fontWeight: 600,
+                color: "#1b3d2f",
+              },
+            }}
+          >
+            <Row gutter={[16, 12]}>
+              {[
+                {
+                  label: "Aircraft",
+                  value: selectedAircraft?.aircraft || "N/A",
+                },
+                {
+                  label: "Last Reported By",
+                  value: selectedAircraft?.reportedBy || "N/A",
+                },
+                {
+                  label: "Status",
+                  value: selectedAircraft?.status || "N/A",
+                  isStatus: true,
+                },
+                {
+                  label: "ACFT S/N",
+                  value: selectedAircraft?.sn || "N/A",
+                },
+                {
+                  label: "Work Orders",
+                  value: String(selectedAircraft?.entries?.length || 0),
+                },
+              ].map((item) => (
+                <Col xs={24} sm={12} lg={8} key={item.label}>
                   <div
                     style={{
+                      border: "1px solid #edf3f0",
+                      background: "#fbfdfc",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      minHeight: 60,
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
+                      flexDirection: "column",
+                      justifyContent: "center",
                     }}
                   >
-                    <Text strong style={{ color: "#1b3d2f" }}>
-                      Work Orders
-                    </Text>
-                    <span
+                    <Text
+                      type="secondary"
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 28,
-                        height: 24,
-                        padding: "0 8px",
-                        borderRadius: 999,
-                        background: "#e6f4ef",
-                        color: "#1f5f49",
-                        fontWeight: 700,
-                        fontSize: 12,
+                        fontSize: 11,
+                        marginBottom: 3,
                       }}
                     >
-                      {selectedAircraft?.entries?.length || 0}
-                    </span>
+                      {item.label}
+                    </Text>
+
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "#1b3d2f",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {item.isStatus ? renderStatusTag(item.value) : item.value}
+                    </div>
                   </div>
-                }
-                style={{
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid #e8f0ec",
-                }}
-                styles={{
-                  body: { padding: 0 },
-                  header: { borderBottom: "1px solid #edf3f0" },
-                }}
-              >
-                <div>
-                  <MLogTable
-                    headers={[
-                      { title: "W.O. #", key: "id", width: "20%" },
-                      {
-                        title: "DATE",
-                        key: "dateDefectRectified",
-                        width: "30%",
-                      },
-                    ]}
-                    data={(selectedAircraft?.entries || []).map((entry) => ({
-                      ...entry,
-                      id: (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          {entry.id || "N/A"}
-                          {!seenLogIds.has(getLogStableId(entry))
-                            ? buildNewBadge()
-                            : null}
-                        </span>
-                      ),
-                      dateDefectRectified: formatDisplayDate(
-                        entry.dateDefectRectified,
-                      ),
-                    }))}
-                    onRowClick={navigateToReport}
-                    isSimple={true}
-                  />
-                </div>
-              </Card>
-            </Col>
-          </Row>
+                </Col>
+              ))}
+            </Row>
+          </Card>
+
+          {/* Work Orders */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              paddingBottom: 8,
+            }}
+          >
+            <Text
+              strong
+              style={{
+                color: "#1b3d2f",
+                fontSize: 16,
+              }}
+            >
+              Select a work order to view details.
+            </Text>
+          </div>
+          <MLogTable
+            headers={[
+              { title: "W.O. #", key: "id", width: "15%" },
+              { title: "TASK TITLE", key: "taskTitle", width: "25%" },
+              {
+                title: "MECHANIC IN CHARGE",
+                key: "mechanicInCharge",
+                width: "20%",
+              },
+              { title: "INSPECTOR", key: "inspector", width: "20%" },
+              { title: "DATE", key: "dateDefectRectified", width: "15%" },
+            ]}
+            data={(selectedAircraft?.entries || []).map((entry) => ({
+              ...entry,
+              id: (
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  {entry.id || "N/A"}
+                  {!seenLogIds.has(getLogStableId(entry))
+                    ? buildNewBadge()
+                    : null}
+                </span>
+              ),
+              taskTitle:
+                entry.taskTitle || entry.task?.title || entry.title || "N/A",
+              mechanicInCharge:
+                entry.mechanicInCharge ||
+                entry.mechanic ||
+                entry.assignedMechanic ||
+                "N/A",
+              inspector:
+                entry.inspector ||
+                entry.inspectedBy ||
+                entry.inspectorName ||
+                "N/A",
+              dateDefectRectified: formatDisplayDate(entry.dateDefectRectified),
+            }))}
+            onRowClick={navigateToReport}
+            onExport={(record) => {
+              // call your existing export function here
+              handleExport(record);
+            }}
+            isSimple={true}
+          />
         </div>
+
+        {resultPopup}
       </div>
     );
   }
@@ -871,17 +1119,19 @@ export default function MaintenanceLog() {
                 Back
               </Button>
             </Col>
-            <Col>
-              <Button
-                icon={<ExportOutlined />}
-                type="primary"
-                style={{ backgroundColor: BRAND, border: "none" }}
-                onClick={handleExport}
-                loading={exporting}
-              >
-                Export
-              </Button>
-            </Col>
+            {canExportMaintenanceLogs && (
+              <Col>
+                <Button
+                  icon={<ExportOutlined />}
+                  type="primary"
+                  style={{ backgroundColor: BRAND, border: "none" }}
+                  onClick={handleExport}
+                  loading={exporting}
+                >
+                  Export
+                </Button>
+              </Col>
+            )}
           </Row>
 
           <Card style={{ marginBottom: 15, borderRadius: 12 }}>
@@ -889,32 +1139,54 @@ export default function MaintenanceLog() {
               <Col xs={24} md={12}>
                 {renderReadOnlyField("Aircraft:", selectedWO?.aircraft)}
               </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Task ID:",
                   selectedWO?.sourceTaskId || selectedWO?.id,
                 )}
               </Col>
-              <Col xs={24} md={12}>
-                {renderReadOnlyField("Reported By:", selectedWO?.reportedBy)}
-              </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
-                  "Task Status:",
-                  selectedWO?.sourceTaskStatus,
+                  "Mechanic-in-charge:",
+                  getMechanicInCharge(selectedWO),
                 )}
               </Col>
+
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Log Status:", selectedWO?.status)}
+                {renderReadOnlyField("Inspector:", getInspector(selectedWO))}
               </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("AMT:", getMechanicLicenseNo(selectedWO))}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("AMT:", getInspectorLicenseNo(selectedWO))}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+              </Col>
+
               <Col xs={24} md={12}>
                 {renderReadOnlyField(
                   "Rectified:",
                   formatDisplayDate(selectedWO?.dateDefectRectified),
                 )}
               </Col>
+
               <Col xs={24} md={12}>
-                {renderReadOnlyField("Task Title:", selectedWO?.taskTitle)}
+                {renderReadOnlyField(
+                  "Task Status:",
+                  selectedWO?.sourceTaskStatus,
+                  true,
+                )}
+              </Col>
+
+              <Col xs={24} md={12}>
+                {renderReadOnlyField("Log Status:", selectedWO?.status, true)}
               </Col>
             </Row>
           </Card>
@@ -937,6 +1209,7 @@ export default function MaintenanceLog() {
             />
           </Card>
         </div>
+        {resultPopup}
       </div>
     );
   }

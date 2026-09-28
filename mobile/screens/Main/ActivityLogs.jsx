@@ -1,133 +1,250 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import AppText from "../../components/common/AppText";
-import AppInput from "../../components/common/AppInput";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
 import { showToast } from "../../utilities/toast";
 import AreaChart from "../../components/common/AreaChart";
+import { SearchBar } from "../../components/common/MobileModule";
+import { exportReportPdf } from "../../utilities/reportExport";
+import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
+import {
+  AUDIT_ACTION_CHART_CATEGORIES,
+  buildEmptyAuditCategoryCounts,
+  getAuditActionCategory,
+  getAuditActionCategoryOptions,
+} from "../../utilities/auditActions";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 
-const ACTION_TYPES = ["all", "create", "update", "delete", "login", "logout"];
+const ACTION_TYPE_OPTIONS = getAuditActionCategoryOptions();
 const DATE_RANGE_OPTIONS = [
   { label: "Last 7 days", value: "7" },
   { label: "Last 30 days", value: "30" },
-  { label: "Last 90 days", value: "90" },
-  { label: "All time", value: "all" },
+];
+const SCOPE_TYPE_OPTIONS = [
+  { label: "All Scope", value: "all" },
+  { label: "Platform", value: "platform" },
 ];
 const LOGS_PER_PAGE = 10;
-const HIDDEN_ACTION_KEYWORDS = [
-  "viewed",
-  "succeeded",
-  "successful",
-  "successfully",
-];
+const ACTIVITY_TREND_SERIES = AUDIT_ACTION_CHART_CATEGORIES.map(
+  ({ value, label, color }) => ({
+    key: value,
+    name: label,
+    color,
+  }),
+);
+const ACTION_TAG_COLORS = AUDIT_ACTION_CHART_CATEGORIES.reduce(
+  (colors, category) => ({
+    ...colors,
+    [category.value]: { bg: "#F2F4F7", text: category.color },
+  }),
+  {},
+);
 
-const getActionCategory = (actionText = "") => {
-  const text = String(actionText).toLowerCase();
-  if (["created", "added", "inserted", "new"].some((k) => text.includes(k)))
-    return "create";
-  if (
-    ["updated", "modified", "changed", "edited"].some((k) => text.includes(k))
-  )
-    return "update";
-  if (
-    ["deleted", "removed", "destroyed", "erased"].some((k) => text.includes(k))
-  )
-    return "delete";
-  if (
-    ["log in", "logged in", "login", "signed in"].some((k) => text.includes(k))
-  )
-    return "login";
-  if (
-    ["log out", "logged out", "logout", "signed out"].some((k) =>
-      text.includes(k),
-    )
-  )
-    return "logout";
-  return "other";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const formatDevicePlatform = (devicePlatform, platform) => {
+  const normalizedDevice = String(devicePlatform || "")
+    .trim()
+    .toUpperCase();
+  if (normalizedDevice === "MOBILE_IOS") return "IOS";
+  if (normalizedDevice === "MOBILE_ANDROID") return "ANDROID";
+  if (normalizedDevice) return normalizedDevice.replace(/_/g, " ");
+  return String(platform || "unknown")
+    .trim()
+    .toUpperCase();
 };
 
-const ACTION_TAG_COLORS = {
-  create: { bg: "#E7F7ED", text: "#157A38" },
-  update: { bg: "#E7F0FF", text: "#1F5FBF" },
-  delete: { bg: "#FDEAEA", text: "#B42318" },
-  login: { bg: "#EAF7FE", text: "#0B6B9E" },
-  logout: { bg: "#FFF2E8", text: "#AD4E00" },
-  other: { bg: "#F2F4F7", text: "#344054" },
+const getPerformedByName = (item = {}) => {
+  const fullName = [item.firstName, item.lastName]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return fullName || item.displayName || "Unknown";
 };
 
-const buildEmptyDailyCategories = () => ({
-  create: 0,
-  update: 0,
-  delete: 0,
-  login: 0,
-  logout: 0,
-  other: 0,
-});
+const startOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
+const buildTrendData = (items = [], dateRangeFilter = "7") => {
+  const dailyStats = {};
+
+  items.forEach((log) => {
+    if (!log.dateTime) return;
+
+    const parsedDate = new Date(log.dateTime);
+
+    if (Number.isNaN(parsedDate.getTime())) return;
+
+    const dateKey = parsedDate.toISOString().slice(0, 10);
+
+    if (!dailyStats[dateKey]) {
+      dailyStats[dateKey] = {
+        label: dateKey,
+        ...buildEmptyAuditCategoryCounts(),
+      };
+    }
+
+    const category = getAuditActionCategory(log.actionMade);
+
+    dailyStats[dateKey][category]++;
+  });
+
+  const endDate = endOfDay(new Date());
+
+  let startDate;
+
+  if (dateRangeFilter === "all") {
+    const dates = Object.keys(dailyStats).sort();
+
+    startDate = dates.length
+      ? startOfDay(new Date(`${dates[0]}T00:00:00`))
+      : startOfDay(new Date());
+  } else {
+    const days = Number(dateRangeFilter);
+
+    startDate = startOfDay(new Date(endDate.getTime() - (days - 1) * DAY_MS));
+  }
+
+  const filledData = [];
+
+  let cursor = startDate;
+
+  while (cursor <= endDate) {
+    const dateKey = cursor.toISOString().slice(0, 10);
+
+    filledData.push(
+      dailyStats[dateKey] || {
+        label: dateKey,
+        ...buildEmptyAuditCategoryCounts(),
+      },
+    );
+
+    cursor = new Date(cursor.getTime() + DAY_MS);
+  }
+
+  return filledData;
+};
 
 export default function ActivityLogs() {
+  const { user } = useContext(AuthContext);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionType, setActionType] = useState("all");
-  const [scopeFilter, setScopeFilter] = useState("all");
+  const [scopeType, setScopeType] = useState("all");
+  const [scopeValue, setScopeValue] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("30");
+  const [openFilter, setOpenFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
+  const canExportActivityLogs = canExportModule(user?.jobTitle, "activityLogs");
 
-  const fetchLogs = useCallback(async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      const token = await AsyncStorage.getItem("currentUserToken");
-      const response = await fetch(
-        `${API_BASE}/api/logs/getAllUserLogs?page=1&limit=1000`,
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  const fetchLogs = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (!silent) setLoading(true);
+        const query = new URLSearchParams({ page: "1", limit: "1000" });
+
+        if (dateRangeFilter !== "all") {
+          const days = Number(dateRangeFilter);
+          if (Number.isFinite(days) && days > 0) {
+            const endDate = new Date();
+            const startDate = new Date(
+              endDate.getTime() - days * 24 * 60 * 60 * 1000,
+            );
+            query.set("startDate", startDate.toISOString());
+            query.set("endDate", endDate.toISOString());
+          }
+        }
+
+        const response = await fetch(
+          `${API_BASE}/api/logs/getAllUserLogs?${query.toString()}`,
+          {
+            headers: await getAuthHeaders(),
           },
-        },
-      );
+        );
 
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(json?.message || "Failed to fetch logs");
-      }
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json?.message || "Failed to fetch logs");
+        }
 
-      const mapped = Array.isArray(json.data)
-        ? json.data.map((item, index) => ({
+        const responseLogs = Array.isArray(json.data) ? json.data : [];
+        const mapped = responseLogs.map((item, index) => {
+          const performedByName = getPerformedByName(item);
+          return {
             _id: item._id || String(index),
             index: index + 1,
             dateTime: item.dateTime,
             actionMade: item.actionMade || item.action || "N/A",
-            username: item.username || "Unknown",
-            base: String(item.base || item.loginBase || "unknown")
-              .trim()
-              .toUpperCase(),
+            username: performedByName,
+            displayName: performedByName,
+            firstName: item.firstName || "",
+            lastName: item.lastName || "",
             platform: String(item.platform || "unknown")
               .trim()
-              .toLowerCase(),
-          }))
-        : [];
+              .toUpperCase(),
+            devicePlatform: String(item.devicePlatform || "")
+              .trim()
+              .toUpperCase(),
+            deviceModel: String(item.deviceModel || "").trim(),
+            locationText: String(item.locationText || "").trim(),
+            locationCoordinates:
+              item.locationLatitude !== null &&
+              item.locationLatitude !== undefined &&
+              item.locationLongitude !== null &&
+              item.locationLongitude !== undefined
+                ? `${Number(item.locationLatitude).toFixed(6)}, ${Number(
+                    item.locationLongitude,
+                  ).toFixed(6)}`
+                : "",
+            platformLabel: formatDevicePlatform(
+              item.devicePlatform,
+              item.platform,
+            ),
+          };
+        });
 
-      setLogs(mapped);
-    } catch (error) {
-      console.error("Fetch logs error:", error);
-      showToast(error.message || "Failed to fetch logs");
-    } finally {
-      if (!silent) setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        setLogs(mapped);
+      } catch (error) {
+        console.error("Fetch logs error:", error);
+        showToast(error.message || "Failed to fetch logs");
+      } finally {
+        if (!silent) setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [dateRangeFilter],
+  );
 
   useEffect(() => {
     fetchLogs();
@@ -155,12 +272,6 @@ export default function ActivityLogs() {
 
   const filteredLogs = useMemo(() => {
     let next = [...logs];
-    next = next.filter((item) => {
-      const actionText = String(item.actionMade || "").toLowerCase();
-      return !HIDDEN_ACTION_KEYWORDS.some((keyword) =>
-        actionText.includes(keyword),
-      );
-    });
     if (dateRangeFilter !== "all") {
       const days = Number(dateRangeFilter);
       if (Number.isFinite(days) && days > 0) {
@@ -173,38 +284,28 @@ export default function ActivityLogs() {
     }
     if (actionType !== "all") {
       next = next.filter(
-        (item) => getActionCategory(item.actionMade) === actionType,
+        (item) => getAuditActionCategory(item.actionMade) === actionType,
       );
     }
 
-    if (scopeFilter !== "all") {
-      const [scopeType, scopeValue] = String(scopeFilter).split(":");
-      if (scopeType === "base") {
+    if (scopeType !== "all" && scopeValue !== "all") {
+      if (scopeType === "platform") {
         next = next.filter(
-          (item) => String(item.base || "unknown") === String(scopeValue),
-        );
-      } else if (scopeType === "platform") {
-        next = next.filter(
-          (item) => String(item.platform || "unknown") === String(scopeValue),
+          (item) =>
+            String(item.platform || "unknown").toUpperCase() ===
+              String(scopeValue).toUpperCase() ||
+            String(item.platformLabel || "unknown").toUpperCase() ===
+              String(scopeValue).toUpperCase(),
         );
       }
     }
 
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return next;
-
-    return next.filter((item) =>
-      [item.actionMade, item.username, item.dateTime, item.base, item.platform]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [actionType, dateRangeFilter, logs, scopeFilter, searchQuery]);
+    return next.filter((item) => matchesSearch(searchQuery, item));
+  }, [actionType, dateRangeFilter, logs, scopeType, scopeValue, searchQuery]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [actionType, dateRangeFilter, scopeFilter, searchQuery]);
+  }, [actionType, dateRangeFilter, scopeType, scopeValue, searchQuery]);
 
   const totalPages = Math.max(
     1,
@@ -218,61 +319,23 @@ export default function ActivityLogs() {
   const actionCounts = useMemo(() => {
     return filteredLogs.reduce(
       (counts, log) => {
-        const category = getActionCategory(log.actionMade);
+        const category = getAuditActionCategory(log.actionMade);
         counts[category] = (counts[category] || 0) + 1;
         return counts;
       },
-      { ...buildEmptyDailyCategories() },
+      { ...buildEmptyAuditCategoryCounts() },
     );
   }, [filteredLogs]);
 
   const trendSeries = useMemo(() => {
-    const dailyStats = {};
+    return buildTrendData(filteredLogs, dateRangeFilter);
+  }, [dateRangeFilter, filteredLogs]);
 
-    filteredLogs.forEach((log) => {
-      const parsedDate = new Date(log.dateTime);
-      if (Number.isNaN(parsedDate.getTime())) return;
-      const dateKey = parsedDate.toISOString().slice(0, 10);
-
-      if (!dailyStats[dateKey]) {
-        dailyStats[dateKey] = {
-          date: dateKey,
-          ...buildEmptyDailyCategories(),
-        };
-      }
-
-      const category = getActionCategory(log.actionMade);
-      dailyStats[dateKey][category] += 1;
-    });
-
-    const sortedKeys = Object.keys(dailyStats).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    const windowKeys = sortedKeys.slice(-8);
-
-    return windowKeys.map((dateKey) => {
-      const row = dailyStats[dateKey];
-      const labelDate = new Date(`${dateKey}T00:00:00`);
-      return {
-        date: dateKey,
-        label: Number.isNaN(labelDate.getTime())
-          ? dateKey
-          : labelDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-        value: Object.values(row)
-          .filter((value) => typeof value === "number")
-          .reduce((sum, value) => sum + value, 0),
-        ...row,
-      };
-    });
-  }, [filteredLogs]);
   const groupedSummary = useMemo(() => {
     const byUser = {};
     const byModule = {};
     filteredLogs.forEach((item) => {
-      const userKey = String(item.username || "Unknown");
+      const userKey = String(item.displayName || "Unknown");
       byUser[userKey] = (byUser[userKey] || 0) + 1;
       const actionText = String(item.actionMade || "").toLowerCase();
       const module = actionText.includes("task")
@@ -297,37 +360,179 @@ export default function ActivityLogs() {
     return { topUsers, topModules };
   }, [filteredLogs]);
 
-  const scopeOptions = useMemo(() => {
-    const platformValues = Array.from(
-      new Set(logs.map((item) => item.platform).filter(Boolean)),
-    ).sort((a, b) => {
-      if (a === "unknown") return 1;
-      if (b === "unknown") return -1;
-      return a.localeCompare(b);
-    });
-    const baseValues = Array.from(
-      new Set([
-        "MANILA",
-        "CEBU",
-        "CDO",
-        ...logs.map((item) => item.base).filter(Boolean),
-      ]),
-    ).sort();
+  const scopeValueOptions = useMemo(() => {
+    if (scopeType === "platform") {
+      const values = Array.from(
+        new Set([
+          "WEB",
+          "MOBILE",
+          ...logs
+            .flatMap((item) => [
+              String(item.platform || "")
+                .trim()
+                .toUpperCase(),
+              String(item.platformLabel || "")
+                .trim()
+                .toUpperCase(),
+            ])
+            .filter(Boolean),
+        ]),
+      ).sort();
+      return [
+        { label: "All Platform", value: "all" },
+        ...values.map((value) => ({ label: value, value })),
+      ];
+    }
+    return [];
+  }, [logs, scopeType]);
 
-    return [
-      { label: "All Platform/Base", value: "all" },
-      ...platformValues.map((value) => ({
-        label: `Platform > ${value[0].toUpperCase() + value.slice(1)}`,
-        value: `platform:${value}`,
-      })),
-      ...baseValues.map((value) => ({
-        label: `Base > ${value}`,
-        value: `base:${value}`,
-      })),
-    ];
-  }, [logs]);
+  const selectedActionLabel =
+    ACTION_TYPE_OPTIONS.find((option) => option.value === actionType)?.label ||
+    "Action Type";
+  const selectedDateRangeLabel =
+    DATE_RANGE_OPTIONS.find((option) => option.value === dateRangeFilter)
+      ?.label || "Date Range";
+  const selectedScopeTypeLabel =
+    SCOPE_TYPE_OPTIONS.find((option) => option.value === scopeType)?.label ||
+    "Scope";
+  const selectedScopeValueLabel =
+    scopeValueOptions.find((option) => option.value === scopeValue)?.label ||
+    "All Platform";
+  const visibleTrendSeries = useMemo(
+    () =>
+      actionType === "all"
+        ? ACTIVITY_TREND_SERIES
+        : ACTIVITY_TREND_SERIES.filter((series) => series.key === actionType),
+    [actionType],
+  );
 
-  const formatDisplayDate = (dateValue) => {
+  const toggleFilter = (filterKey) => {
+    setOpenFilter((current) => (current === filterKey ? null : filterKey));
+  };
+
+  const selectFilterValue = (setter, value) => {
+    setter(value);
+    setOpenFilter(null);
+  };
+
+  const renderFilterDropdown = ({
+    filterKey,
+    label,
+    selectedLabel,
+    options,
+    onSelect,
+    widthStyle,
+  }) => {
+    const isOpen = openFilter === filterKey;
+
+    return (
+      <View
+        key={filterKey}
+        style={[
+          styles.filterDropdownWrap,
+          widthStyle,
+          isOpen ? styles.filterDropdownWrapOpen : null,
+          Platform.OS === "android" && isOpen && filterKey === "action"
+            ? styles.filterDropdownWrapOpenAndroid
+            : null,
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.unifiedFilterButton}
+          activeOpacity={0.82}
+          onPress={() => toggleFilter(filterKey)}
+        >
+          <MaterialCommunityIcons
+            name="tune"
+            size={16}
+            color={COLORS.primaryLight}
+            style={{ marginRight: 6 }}
+          />
+          <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+            {selectedLabel || label}
+          </AppText>
+          <MaterialCommunityIcons
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        </TouchableOpacity>
+
+        {isOpen && (
+          <View style={styles.unifiedDropdownMenu}>
+            <ScrollView
+              style={styles.unifiedDropdownScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              {options.map((option, index) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.unifiedDropdownItem,
+                    index < options.length - 1
+                      ? styles.unifiedDropdownItemBordered
+                      : null,
+                  ]}
+                  onPress={() => onSelect(option.value)}
+                >
+                  <AppText
+                    style={styles.unifiedDropdownItemText}
+                    numberOfLines={2}
+                  >
+                    {option.label}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const filterControls = [
+    {
+      filterKey: "action",
+      label: "Action Type",
+      selectedLabel: selectedActionLabel,
+      options: ACTION_TYPE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setActionType, value),
+    },
+    {
+      filterKey: "dateRange",
+      label: "Date Range",
+      selectedLabel: selectedDateRangeLabel,
+      options: DATE_RANGE_OPTIONS,
+      onSelect: (value) => selectFilterValue(setDateRangeFilter, value),
+    },
+    {
+      filterKey: "scope",
+      label: "Scope",
+      selectedLabel: selectedScopeTypeLabel,
+      options: SCOPE_TYPE_OPTIONS,
+      onSelect: (value) => {
+        setScopeType(value);
+        setScopeValue("all");
+        setOpenFilter(null);
+      },
+    },
+    ...(scopeType === "all"
+      ? []
+      : [
+          {
+            filterKey: "scopeValue",
+            label: "Platform",
+            selectedLabel: selectedScopeValueLabel,
+            options: scopeValueOptions,
+            onSelect: (value) => selectFilterValue(setScopeValue, value),
+          },
+        ]),
+  ];
+  const shouldScrollFilters = filterControls.length > 2;
+
+  const formatDisplayDate = useCallback((dateValue) => {
     const parsedDate = new Date(dateValue);
     if (Number.isNaN(parsedDate.getTime())) return "N/A";
 
@@ -338,7 +543,49 @@ export default function ActivityLogs() {
       hour: "numeric",
       minute: "2-digit",
     });
-  };
+  }, []);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!filteredLogs.length) {
+      showToast("No activity logs available to export.");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      await exportReportPdf({
+        title: "Activity Logs Report",
+        sections: [
+          {
+            title: "Activity Logs",
+            columns: [
+              "Date / Time",
+              "Performed By",
+              "Action",
+              "Platform",
+              "Device Model",
+              "Location",
+              "Coordinates",
+            ],
+            rows: filteredLogs.map((log) => ({
+              "Date / Time": formatDisplayDate(log.dateTime),
+              "Performed By": log.displayName || "Unknown",
+              Action: log.actionMade || "N/A",
+              Platform: log.platformLabel || log.platform || "Not captured",
+              "Device Model": log.deviceModel || "Not captured",
+              Location: log.locationText || "Not captured",
+              Coordinates: log.locationCoordinates || "Not captured",
+            })),
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Activity logs PDF export failed:", error);
+      showToast(error.message || "Failed to export activity logs.");
+    } finally {
+      setExporting(false);
+    }
+  }, [filteredLogs, formatDisplayDate]);
 
   if (loading) {
     return (
@@ -350,22 +597,15 @@ export default function ActivityLogs() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={COLORS.grayDark}
-        />
-        <AppInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search logs"
-          placeholderTextColor={COLORS.grayDark}
-          style={styles.searchInput}
-        />
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search logs"
+      />
 
       <ScrollView
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -378,85 +618,85 @@ export default function ActivityLogs() {
           />
         }
       >
-        <View style={styles.filtersRow}>
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Action Type</AppText>
-            <Picker selectedValue={actionType} onValueChange={setActionType}>
-              {ACTION_TYPES.map((type) => (
-                <Picker.Item
-                  key={type}
-                  value={type}
-                  label={
-                    type === "all"
-                      ? "All Actions"
-                      : type[0].toUpperCase() + type.slice(1)
-                  }
-                />
-              ))}
-            </Picker>
+        {shouldScrollFilters ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            contentContainerStyle={styles.filtersScrollContent}
+            style={[
+              styles.filtersScroll,
+              Platform.OS === "android" && openFilter === "action"
+                ? styles.filtersScrollOpenAndroid
+                : null,
+            ]}
+          >
+            {filterControls.map((filter) =>
+              renderFilterDropdown({
+                ...filter,
+                widthStyle: styles.scrollableFilterDropdownWrap,
+              }),
+            )}
+          </ScrollView>
+        ) : (
+          <View style={styles.filtersRow}>
+            {filterControls.map((filter) => renderFilterDropdown(filter))}
           </View>
+        )}
 
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Date Range</AppText>
-            <Picker
-              selectedValue={dateRangeFilter}
-              onValueChange={setDateRangeFilter}
-            >
-              {DATE_RANGE_OPTIONS.map((value) => (
-                <Picker.Item
-                  key={value.value}
-                  value={value.value}
-                  label={value.label}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          <View style={styles.filterCard}>
-            <AppText style={styles.filterLabel}>Scope</AppText>
-            <Picker selectedValue={scopeFilter} onValueChange={setScopeFilter}>
-              {scopeOptions.map((value) => (
-                <Picker.Item
-                  key={value.value}
-                  value={value.value}
-                  label={value.label}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        {canExportActivityLogs && (
+          <TouchableOpacity
+            activeOpacity={0.86}
+            disabled={exporting || filteredLogs.length === 0}
+            onPress={handleExportPdf}
+            style={[
+              styles.exportButton,
+              (exporting || filteredLogs.length === 0) &&
+                styles.exportButtonDisabled,
+            ]}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <MaterialCommunityIcons
+                name="file-pdf-box"
+                size={18}
+                color={COLORS.white}
+              />
+            )}
+            <AppText style={styles.exportButtonText}>
+              {exporting ? "Exporting..." : "Export PDF"}
+            </AppText>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.analyticsCard}>
           <AppText style={styles.analyticsTitle}>Activity Trends</AppText>
-          <AreaChart data={trendSeries} height={130} />
-          <View style={styles.trendLabelsRow}>
-            {trendSeries.map((point) => (
-              <AppText key={point.date} style={styles.trendLabel}>
-                {point.label}
-              </AppText>
+          <AreaChart
+            data={trendSeries}
+            height={160}
+            series={visibleTrendSeries}
+            showLegend={false}
+            xKey="label"
+          />
+          <View style={styles.legendRow}>
+            {AUDIT_ACTION_CHART_CATEGORIES.filter(
+              (category) =>
+                actionType === "all" || category.value === actionType,
+            ).map((category) => (
+              <View key={category.value} style={styles.legendItem}>
+                <View
+                  style={[
+                    styles.legendDot,
+                    { backgroundColor: category.color },
+                  ]}
+                />
+                <AppText style={styles.legendText} numberOfLines={1}>
+                  {category.label} ({actionCounts[category.value] || 0})
+                </AppText>
+              </View>
             ))}
-          </View>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Create</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.create}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Update</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.update}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Delete</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.delete}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Login</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.login}</AppText>
-            </View>
-            <View style={styles.kpiChip}>
-              <AppText style={styles.kpiLabel}>Logout</AppText>
-              <AppText style={styles.kpiValue}>{actionCounts.logout}</AppText>
-            </View>
           </View>
           <View style={styles.groupSummaryWrap}>
             <AppText style={styles.groupSummaryTitle}>Top Users</AppText>
@@ -487,7 +727,7 @@ export default function ActivityLogs() {
           </View>
         ) : (
           paginatedLogs.map((item) => {
-            const actionCategory = getActionCategory(item.actionMade);
+            const actionCategory = getAuditActionCategory(item.actionMade);
             const actionColors =
               ACTION_TAG_COLORS[actionCategory] || ACTION_TAG_COLORS.other;
             return (
@@ -514,24 +754,37 @@ export default function ActivityLogs() {
                 </View>
 
                 <AppText style={styles.userText}>
-                  User: {item.username || "Unknown"}
+                  Performed by: {item.displayName || "Unknown"}
                 </AppText>
                 <AppText style={styles.dateText}>
                   {formatDisplayDate(item.dateTime)}
                 </AppText>
 
                 <View style={styles.metaTagsRow}>
-                  <View style={[styles.tag, styles.baseTag]}>
-                    <AppText style={[styles.tagText, styles.baseTagText]}>
-                      BASE: {item.base || "UNKNOWN"}
-                    </AppText>
-                  </View>
                   <View style={[styles.tag, styles.platformTag]}>
                     <AppText style={[styles.tagText, styles.platformTagText]}>
-                      {String(item.platform || "unknown").toUpperCase()}
+                      {item.platformLabel || "UNKNOWN"}
                     </AppText>
                   </View>
+                  {!!item.deviceModel && (
+                    <View style={[styles.tag, styles.deviceTag]}>
+                      <AppText style={[styles.tagText, styles.deviceTagText]}>
+                        Device: {item.deviceModel}
+                      </AppText>
+                    </View>
+                  )}
                 </View>
+                {!!item.locationText && (
+                  <AppText style={styles.locationText}>
+                    Logging in from: {item.locationText}
+                  </AppText>
+                )}
+                {!!item.locationCoordinates && (
+                  <AppText style={styles.locationCoordinateText}>
+                    Latitude and longitude coordinates:{" "}
+                    {item.locationCoordinates}
+                  </AppText>
+                )}
               </View>
             );
           })
@@ -577,54 +830,120 @@ const styles = StyleSheet.create({
     padding: 10,
     height: "100%",
   },
-  searchBar: {
+  filtersRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+    zIndex: 20,
+  },
+  filtersScroll: {
+    height: 48,
+    marginBottom: 20,
+    overflow: "visible",
+    zIndex: 20,
+  },
+  filtersScrollOpenAndroid: {
+    height: 312,
+    zIndex: 1000,
+  },
+  filtersScrollContent: {
+    columnGap: 12,
+    paddingRight: 8,
+    overflow: "visible",
+  },
+  filterDropdownWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  scrollableFilterDropdownWrap: {
+    flex: 0,
+    width: 172,
+  },
+  filterDropdownWrapOpen: {
+    zIndex: 1000,
+    elevation: 6,
+  },
+  filterDropdownWrapOpenAndroid: {
+    height: 312,
+  },
+  unifiedFilterButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: COLORS.white,
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-    shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: COLORS.grayMedium,
+    height: 48,
+    paddingHorizontal: 12,
   },
-  searchInput: {
+  unifiedFilterButtonText: {
     flex: 1,
-    color: COLORS.black,
+    minWidth: 0,
     fontSize: 12,
-    marginLeft: 6,
-    height: 40,
+    color: COLORS.black,
+    fontWeight: "600",
   },
-  filtersRow: {
-    flexDirection: "column",
-    rowGap: 8,
-    marginBottom: 10,
-  },
-  filterCard: {
-    flex: 1,
+  unifiedDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    left: 0,
+    right: 0,
+    maxHeight: 260,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.grayMedium,
     overflow: "hidden",
+    zIndex: 1000,
+    elevation: 5,
     shadowColor: "#0A0D12",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
-    minHeight: 56,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  unifiedDropdownScroll: {
+    maxHeight: 258,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
     justifyContent: "center",
   },
-  filterLabel: {
-    fontSize: 10,
-    color: COLORS.grayDark,
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  exportButton: {
+    minHeight: 46,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    columnGap: 8,
+    shadowColor: "#0A0D12",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  exportButtonDisabled: {
+    backgroundColor: COLORS.grayMedium,
+    opacity: 0.75,
+  },
+  exportButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
     fontWeight: "700",
-    paddingHorizontal: 12,
-    paddingTop: 8,
   },
   analyticsCard: {
     backgroundColor: COLORS.white,
@@ -640,36 +959,28 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     marginBottom: 8,
   },
-  trendLabelsRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    columnGap: 4,
-  },
-  trendLabel: {
-    color: COLORS.grayDark,
-    fontSize: 10,
-  },
-  kpiRow: {
-    marginTop: 8,
+  legendRow: {
+    marginTop: 6,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    columnGap: 10,
+    rowGap: 5,
   },
-  kpiChip: {
-    backgroundColor: "#F4F7F8",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+  legendItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    maxWidth: "48%",
   },
-  kpiLabel: {
+  legendDot: {
+    borderRadius: 4,
+    height: 7,
+    marginRight: 5,
+    width: 7,
+  },
+  legendText: {
     color: COLORS.grayDark,
     fontSize: 10,
-  },
-  kpiValue: {
-    color: COLORS.black,
-    fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   groupSummaryWrap: { marginTop: 8 },
   groupSummaryTitle: { fontSize: 11, fontWeight: "700", color: COLORS.black },
@@ -718,6 +1029,12 @@ const styles = StyleSheet.create({
   },
   userText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
   dateText: { marginTop: 2, color: COLORS.grayDark, fontSize: 12 },
+  locationText: { marginTop: 8, color: "#111827", fontSize: 12 },
+  locationCoordinateText: {
+    marginTop: 2,
+    color: COLORS.grayDark,
+    fontSize: 11,
+  },
   metaTagsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -731,10 +1048,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tagText: { fontSize: 10, fontWeight: "700" },
-  baseTag: { backgroundColor: "#EEF4FF", borderColor: "#D5E3FF" },
-  baseTagText: { color: "#2B5CC7" },
   platformTag: { backgroundColor: "#F0FDF4", borderColor: "#CFF5DA" },
   platformTagText: { color: "#137333" },
+  deviceTag: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  deviceTagText: { color: "#9A3412" },
   paginationRow: {
     marginTop: 4,
     flexDirection: "row",

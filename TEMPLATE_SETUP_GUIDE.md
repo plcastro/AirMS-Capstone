@@ -11,12 +11,14 @@ The system allows users to export pre-flight and post-flight inspections as prop
 ### 1. Install Required Dependencies
 
 #### Server Dependencies
+
 ```bash
 cd server
 npm install pizzip docxtemplater
 ```
 
 **Package Descriptions:**
+
 - `pizzip`: A JavaScript/TypeScript library for reading/writing ZIP archives (used internally by docxtemplater)
 - `docxtemplater`: A JavaScript library that generates Word documents from templates by replacing placeholder tags
 
@@ -26,12 +28,13 @@ The Word template files should be placed in the `server/templates/` directory:
 
 ```
 server/templates/
-├── pre-inspection.docx
+├── pre-flight inspection.docx
 └── post-inspection.docx
 ```
 
 **Template Files:**
-- `AS 350 PRE-FLIGHT INSPECTION 2d.doc` → rename to `pre-inspection.docx`
+
+- `AS 350 PRE-FLIGHT INSPECTION 2d.doc` → rename to `pre-flight inspection.docx`
 - `AS 350 B3 POST INSPECTION 2d.doc` → rename to `post-inspection.docx`
 
 ### 3. Update Templates with Merge Fields
@@ -61,7 +64,7 @@ The following routes are automatically available once the services and controlle
 
 ```
 GET /api/inspections/pre/:id/export-document
-  - Export pre-inspection as Word document
+  - Export pre-flight inspection as Word document
   - Requires: Authentication
   - Returns: .docx file
 
@@ -77,10 +80,10 @@ Add to `server/server.js` or your main application file:
 
 ```javascript
 // Import the inspection export routes
-const inspectionExportRoutes = require('./routes/inspectionExportRoutes');
+const inspectionExportRoutes = require("./routes/inspectionExportRoutes");
 
 // Add the routes (ensure this is after other inspection routes)
-app.use('/api/inspections', inspectionExportRoutes);
+app.use("/api/inspections", inspectionExportRoutes);
 ```
 
 ### 6. Mobile App Configuration
@@ -104,7 +107,7 @@ server/
 ├── routes/
 │   └── inspectionExportRoutes.js        # Route definitions
 ├── templates/
-│   ├── pre-inspection.docx
+│   ├── pre-flight inspection.docx
 │   └── post-inspection.docx
 └── ...
 
@@ -127,30 +130,38 @@ mobile/
 ## Troubleshooting
 
 ### Template Not Found Error
-**Problem**: "Template not found: pre-inspection.docx"
-**Solution**: 
+
+**Problem**: "Template not found: pre-flight inspection.docx"
+**Solution**:
+
 - Verify the template file exists in `server/templates/`
 - Check file naming is exact (lowercase, .docx extension)
 - Ensure file permissions allow reading
 
 ### Document Generation Fails
+
 **Problem**: "Failed to generate document: ..."
 **Solution**:
+
 - Verify template has valid merge field syntax
 - Ensure inspection data contains required fields
 - Check server logs for specific error details
 
 ### Mobile Export Not Working
+
 **Problem**: Export button doesn't work or throws error
 **Solution**:
+
 - Verify API endpoint is accessible from mobile device
 - Check authentication token is valid
 - Ensure network connectivity
 - Review browser/app console for error messages
 
 ### Merge Fields Not Replaced
+
 **Problem**: Word document shows {fieldName} instead of values
 **Solution**:
+
 - Verify field names exactly match the template placeholders
 - Check that data object contains the fields
 - Ensure template fields are properly formatted in Word
@@ -158,14 +169,17 @@ mobile/
 ## API Response Details
 
 ### Success Response
+
 - Status: 200 OK
 - Content-Type: `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
 - Body: Binary .docx file
 
 ### Error Response
+
 - Status: 400 (Bad Request) or 500 (Server Error)
 - Content-Type: `application/json`
-- Body: 
+- Body:
+
 ```json
 {
   "error": "Error description",
@@ -207,6 +221,7 @@ The `formatInspectionData` function in `documentTemplateService.js` handles the 
 ## Support
 
 For issues or questions about the template system:
+
 1. Check the Troubleshooting section above
 2. Review server logs at `server/tmp/logs/`
 3. Check mobile console output in development mode

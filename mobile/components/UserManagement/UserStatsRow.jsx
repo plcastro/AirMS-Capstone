@@ -1,10 +1,6 @@
 import React from "react";
 import AppText from "../common/AppText";
-import {
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 
 const STAT_ITEMS = [
@@ -14,9 +10,21 @@ const STAT_ITEMS = [
   { key: "deactivated", label: "Deactivated", valueKey: "deactivated" },
 ];
 
-export default function UserStatsRow({ counts, statusFilter = "all", onStatusPress }) {
+export default function UserStatsRow({
+  counts,
+  statusFilter = "all",
+  onStatusPress,
+}) {
+  const shouldScrollStats = STAT_ITEMS.length > 2;
+
   return (
-    <View style={styles.statsRow}>
+    <ScrollView
+      horizontal={shouldScrollStats}
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.statsRow}
+      style={styles.statsScroller}
+    >
       {STAT_ITEMS.map((item) => {
         const isActive = statusFilter === item.key;
         return (
@@ -26,41 +34,75 @@ export default function UserStatsRow({ counts, statusFilter = "all", onStatusPre
             activeOpacity={0.85}
             onPress={() => onStatusPress?.(item.key)}
           >
-            <AppText style={[styles.statLabel, isActive && styles.statLabelActive]}>
+            <AppText
+              style={[styles.statLabel, isActive && styles.statLabelActive]}
+            >
               {item.label}
             </AppText>
-            <AppText style={[styles.statValue, isActive && styles.statValueActive]}>
+            <AppText
+              style={[styles.statValue, isActive && styles.statValueActive]}
+            >
               {counts[item.valueKey] ?? 0}
             </AppText>
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
+  statsScroller: {
+    height: 70,
+    marginBottom: 6,
+    flexGrow: 0,
+  },
+
   statsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    gap: 6,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    padding: 9,
-    borderRadius: 10,
-    elevation: 2,
     alignItems: "center",
+    columnGap: 8,
+    paddingVertical: 0,
+    paddingRight: 4,
   },
+
+  statCard: {
+    width: 104,
+    height: 70,
+    backgroundColor: COLORS.white,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   statCardActive: {
     backgroundColor: "#E6F4F1",
     borderWidth: 1,
     borderColor: COLORS.primaryLight,
   },
-  statLabel: { fontSize: 10, color: COLORS.grayDark, marginBottom: 4 },
-  statLabelActive: { color: COLORS.primary },
-  statValue: { fontSize: 15, fontWeight: "bold" },
-  statValueActive: { color: COLORS.primaryLight },
+
+  statLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: COLORS.grayDark,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+
+  statLabelActive: {
+    color: COLORS.primary,
+  },
+
+  statValue: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: "bold",
+    color: COLORS.black,
+    textAlign: "center",
+  },
+
+  statValueActive: {
+    color: COLORS.primaryLight,
+  },
 });

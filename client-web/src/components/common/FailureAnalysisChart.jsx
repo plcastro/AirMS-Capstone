@@ -10,6 +10,40 @@ import {
   YAxis,
 } from "recharts";
 
+const ColorCodedLegend = ({ payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px 16px",
+      margin: 0,
+      padding: "0 0 8px",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {payload.map((entry) => (
+      <li
+        key={`${entry.value}-${entry.color}`}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 10,
+            height: 10,
+            flex: "0 0 10px",
+            borderRadius: 2,
+            background: entry.color || "#8c8c8c",
+          }}
+        />
+        <span>{entry.value}</span>
+      </li>
+    ))}
+  </ul>
+);
+
 export const FailureAnalysisChart = ({ data = [] }) => {
   const rawData = Array.isArray(data) ? data : [];
   // Sort data so the components needing attention appear first.
@@ -63,7 +97,11 @@ export const FailureAnalysisChart = ({ data = [] }) => {
               boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
             }}
           />
-          <Legend verticalAlign="top" height={36} />
+          <Legend
+            verticalAlign="top"
+            height={44}
+            content={<ColorCodedLegend />}
+          />
           <Bar
             dataKey="failures"
             name="Critical Component Count"

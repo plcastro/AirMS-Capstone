@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table } from "antd";
+import ResponsiveTable from "../common/ResponsiveTable";
 
 export default function MHistoryTable({ headers = [], data = [], loading }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -11,12 +11,13 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
   };
 
   return (
-    <Table
+    <ResponsiveTable
       columns={headers}
       dataSource={data}
       rowKey={(record) => record.key}
       loading={loading}
       scroll={{ x: "max-content", y: "100%" }}
+      size={"small"}
       pagination={{
         current: currentPage,
         pageSize,
@@ -31,4 +32,3 @@ export default function MHistoryTable({ headers = [], data = [], loading }) {
     />
   );
 }
-

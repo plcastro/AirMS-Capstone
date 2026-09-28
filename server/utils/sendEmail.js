@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
 
-module.exports = async ({ to, subject, text, html }) => {
+module.exports = async ({ to, subject, text, html, attachments = [] }) => {
   if (!to) throw new Error("No recipient defined for email");
 
   try {
@@ -23,6 +23,7 @@ module.exports = async ({ to, subject, text, html }) => {
       subject,
       text,
       html,
+      attachments,
     });
 
     return info;

@@ -1,24 +1,37 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
-  View,
-  TouchableOpacity,
-  ScrollView
-} from "react-native";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { BASE_OPTIONS } from "../UserManagement/constants";
+import { isB412Aircraft } from "./b412PreInspectionData";
+import DateInput from "../common/DateInput";
+import InspectionFlightLogPicker from "./InspectionFlightLogPicker";
+import FlightLogCrewAssignment from "../FlightLog/FlightLogCrewAssignment";
 
 export default function PreInspectionModalInfo({
   formData,
   updateForm,
   isEditable = true,
+  isRPCEditable = true,
   rpcOptions = [],
+  isActive = true,
+  showFlightLogPicker = false,
+  onFlightLogChange,
 }) {
   const [showRPCDropdown, setShowRPCDropdown] = useState(false);
   const [showBaseDropdown, setShowBaseDropdown] = useState(false);
+  const aircraftTypeRequestRef = useRef(0);
+  const fobRequestRef = useRef(0);
+  const isB412 = isB412Aircraft(formData.aircraftType);
+  const canEditRPC = isEditable && isRPCEditable;
+
+  useEffect(() => () => {
+    aircraftTypeRequestRef.current += 1;
+    fobRequestRef.current += 1;
+  }, []);
 
   const dynamicRpcOptions = Array.from(
     new Set(
@@ -28,43 +41,13 @@ export default function PreInspectionModalInfo({
     ),
   );
 
-  const formatDate = (date) => {
-    if (!date) return "";
-
-    let dateObj;
-
-    if (date instanceof Date) {
-      dateObj = date;
-    } else if (typeof date === "string") {
-      const parts = date.split("/");
-      if (parts.length === 3) {
-        const month = parseInt(parts[0], 10) - 1;
-        const day = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-        dateObj = new Date(year, month, day);
-      } else {
-        dateObj = new Date(date);
-      }
-    } else if (typeof date === "number") {
-      dateObj = new Date(date);
-    } else {
-      return "";
-    }
-
-    if (isNaN(dateObj.getTime())) return "";
-
-    return dateObj.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-    });
-  };
-
   const toggleRPCDropdown = () => {
     setShowRPCDropdown(!showRPCDropdown);
   };
 
   const resolveAircraftTypeByRpc = async (rpc) => {
+    const requestId = ++aircraftTypeRequestRef.current;
+
     try {
       if (!rpc) return;
       const response = await fetch(
@@ -73,12 +56,17 @@ export default function PreInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== aircraftTypeRequestRef.current) return;
+
       const resolvedType = data?.data?.aircraftType || "";
       if (resolvedType && resolvedType !== formData.aircraftType) {
         updateForm("aircraftType", resolvedType);
       }
     } catch (error) {
-      console.error("Error resolving aircraft type for pre-inspection:", error);
+      console.error(
+        "Error resolving aircraft type for pre-flight inspection:",
+        error,
+      );
     }
   };
 
@@ -118,6 +106,8 @@ export default function PreInspectionModalInfo({
   };
 
   const resolveFobByRpc = async (rpc, { force = false } = {}) => {
+    const requestId = ++fobRequestRef.current;
+
     try {
       if (!rpc || (!force && String(formData.fob || "").trim())) return;
 
@@ -127,6 +117,8 @@ export default function PreInspectionModalInfo({
       if (!response.ok) return;
 
       const data = await response.json();
+      if (requestId !== fobRequestRef.current) return;
+
       const flightLogs = Array.isArray(data?.data) ? data.data : [];
       const fob = getLatestFlightLogFuelOnBoard(flightLogs);
 
@@ -176,14 +168,15 @@ export default function PreInspectionModalInfo({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
+          backgroundColor: canEditRPC ? "#F8F8F8" : "#E8E8E8",
           borderRadius: 6,
           borderWidth: 1,
           borderColor: COLORS.grayMedium,
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? toggleRPCDropdown : null}
+        disabled={!canEditRPC}
+        onPress={canEditRPC ? toggleRPCDropdown : null}
       >
         <AppText
           style={{
@@ -193,7 +186,7 @@ export default function PreInspectionModalInfo({
         >
           {formData.rpc || "Select RP/C"}
         </AppText>
-        {isEditable && (
+        {canEditRPC && (
           <MaterialCommunityIcons
             name={showRPCDropdown ? "chevron-up" : "chevron-down"}
             size={20}
@@ -202,7 +195,7 @@ export default function PreInspectionModalInfo({
         )}
       </TouchableOpacity>
 
-      {showRPCDropdown && isEditable && (
+      {showRPCDropdown && canEditRPC && (
         <View
           style={{
             marginTop: 6,
@@ -275,7 +268,9 @@ export default function PreInspectionModalInfo({
           height: 42,
           paddingHorizontal: 12,
         }}
-        onPress={isEditable ? () => setShowBaseDropdown((current) => !current) : null}
+        onPress={
+          isEditable ? () => setShowBaseDropdown((current) => !current) : null
+        }
       >
         <AppText
           style={{
@@ -312,10 +307,13 @@ export default function PreInspectionModalInfo({
               style={{
                 paddingVertical: 12,
                 paddingHorizontal: 12,
-                borderBottomWidth: base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
+                borderBottomWidth:
+                  base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
                 borderBottomColor: COLORS.grayLight,
                 backgroundColor:
-                  formData.base === base ? COLORS.primaryLight + "10" : COLORS.white,
+                  formData.base === base
+                    ? COLORS.primaryLight + "10"
+                    : COLORS.white,
               }}
               onPress={() => {
                 updateForm("base", base);
@@ -325,7 +323,8 @@ export default function PreInspectionModalInfo({
               <AppText
                 style={{
                   fontSize: 12,
-                  color: formData.base === base ? COLORS.primaryLight : COLORS.black,
+                  color:
+                    formData.base === base ? COLORS.primaryLight : COLORS.black,
                 }}
               >
                 {base}
@@ -376,11 +375,18 @@ export default function PreInspectionModalInfo({
           <AppText
             style={{ fontSize: 14, color: COLORS.white, fontWeight: "600" }}
           >
-            Rotary Winged Aircraft - Single Engine
+            {isB412
+              ? "Rotary Winged Aircraft - Twin Engine"
+              : formData.aircraftType
+                ? "Rotary Winged Aircraft - Single Engine"
+                : "Aircraft Information"}
           </AppText>
         </View>
 
         <View style={{ padding: 20 }}>
+          {showFlightLogPicker && <InspectionFlightLogPicker rpc={formData.rpc} value={formData.flightLogId} onChange={onFlightLogChange} active={isActive} />}
+          {!showFlightLogPicker && <AppText style={{ marginBottom: 12 }}>Linked Flight Log: {formData.flightLogControlNo || formData.flightLogId || "Not linked"}</AppText>}
+          <FlightLogCrewAssignment formData={formData} updateForm={updateForm} canAssign={false} isActive={false} />
           <View style={{ marginBottom: 16 }}>
             <AppText
               style={{
@@ -434,26 +440,11 @@ export default function PreInspectionModalInfo({
             >
               Date:
             </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                backgroundColor: "#E8E8E8",
-                borderRadius: 6,
-                height: 42,
-                paddingHorizontal: 12,
-              }}
-            >
-              <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
-                {formatDate(formData.date)}
-              </AppText>
-              <MaterialCommunityIcons
-                name="calendar-blank"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </View>
+            <DateInput
+              value={formData.date}
+              onChangeText={(date) => updateForm("date", date)}
+              editable={isEditable}
+            />
           </View>
         </View>
       </View>

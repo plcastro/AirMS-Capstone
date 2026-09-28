@@ -16,7 +16,7 @@ const legSchema = new mongoose.Schema({
   totalTimeOn: { type: String, default: "" },
   totalTimeOff: { type: String, default: "" },
   date: { type: String, default: "" },
-  passengers: { type: String, default: "" },
+  passengers: { type: String, default: "0" },
 });
 
 // Fuel Servicing Schema
@@ -53,6 +53,7 @@ const oilServicingSchema = new mongoose.Schema({
 
 // Work Item Schema
 const workItemSchema = new mongoose.Schema({
+  phase: { type: String, enum: ['preparation', 'post_flight'], default: 'preparation' },
   id: { type: String, default: "" },
   selectedWorkTypes: { type: [String], default: [] },
   description: { type: String, default: "" },
@@ -88,9 +89,181 @@ const componentTimesSchema = new mongoose.Schema({
   toDateData: componentDataSchema,
 });
 
+// Bell 412 EP flight logs use a different component/servicing layout from the
+// legacy AS350 form. Keep those fields in their own optional subdocument so
+// existing records and clients retain their current shape.
+const b412GearboxTimeSchema = new mongoose.Schema(
+  {
+    tsn: { type: String, default: "" },
+    tso: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412EngineTimeSchema = new mongoose.Schema(
+  {
+    tsn: { type: String, default: "" },
+    tso: { type: String, default: "" },
+    cycle: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412ComponentTimeRowSchema = new mongoose.Schema(
+  {
+    airframe: { type: String, default: "" },
+    mrGearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    tr90Gearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    tr42Gearbox: { type: b412GearboxTimeSchema, default: () => ({}) },
+    landingCycle: { type: String, default: "" },
+    engine1: { type: b412EngineTimeSchema, default: () => ({}) },
+    engine2: { type: b412EngineTimeSchema, default: () => ({}) },
+    sling: { type: String, default: "" },
+    others: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412ComponentDataSchema = new mongoose.Schema(
+  {
+    broughtForwardData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    thisFlightData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    toDateData: {
+      type: b412ComponentTimeRowSchema,
+      default: () => ({}),
+    },
+    airframeNextInspectionDueAt: { type: String, default: "" },
+    engineNextInspectionDueAt: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412PassengerRowSchema = new mongoose.Schema(
+  {
+    legs: {
+      type: [String],
+      default: () => Array(6).fill(""),
+      validate: {
+        validator: (legs) => legs.length <= 6,
+        message: "A B412 passenger row cannot contain more than 6 legs",
+      },
+    },
+  },
+  { _id: false },
+);
+
+const b412FuelServicingSchema = new mongoose.Schema(
+  {
+    contCheck: { type: String, default: "" },
+    mainTankRemaining: { type: String, default: "" },
+    mainTankAdded: { type: String, default: "" },
+    mainTankTotal: { type: String, default: "" },
+    supplySystem1: { type: String, default: "" },
+    supplySystem2: { type: String, default: "" },
+    remarks: { type: String, default: "" },
+    refuellerName: { type: String, default: "" },
+    signature: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412OilQuantitySchema = new mongoose.Schema(
+  {
+    remaining: { type: String, default: "" },
+    added: { type: String, default: "" },
+    total: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412OilServicingSchema = new mongoose.Schema(
+  {
+    mechanicSignature: { type: String, default: "" },
+    engine1: { type: b412OilQuantitySchema, default: () => ({}) },
+    engine2: { type: b412OilQuantitySchema, default: () => ({}) },
+    mrGearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+    reductionGearbox: {
+      type: b412OilQuantitySchema,
+      default: () => ({}),
+    },
+    tr42Gearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+    tr90Gearbox: { type: b412OilQuantitySchema, default: () => ({}) },
+  },
+  { _id: false },
+);
+
+const b412CorrectionItemSchema = new mongoose.Schema(
+  {
+    category: { type: String, default: "" },
+    date: { type: String, default: "" },
+    aircraftTotalTime: { type: String, default: "" },
+    workDone: { type: String, default: "" },
+    nameSign: { type: String, default: "" },
+    certificateNo: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const b412FlightLogDataSchema = new mongoose.Schema(
+  {
+    serialNumber: { type: String, default: "" },
+    passengerRows: {
+      type: [b412PassengerRowSchema],
+      default: () =>
+        Array.from({ length: 4 }, () => ({ legs: Array(6).fill("") })),
+      validate: {
+        validator: (rows) => rows.length <= 4,
+        message: "A B412 flight log cannot contain more than 4 passenger rows",
+      },
+    },
+    componentData: { type: b412ComponentDataSchema, default: () => ({}) },
+    fuelServicing: {
+      type: [b412FuelServicingSchema],
+      default: () => Array.from({ length: 6 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 6,
+        message: "A B412 flight log cannot contain more than 6 fuel rows",
+      },
+    },
+    oilServicing: {
+      type: [b412OilServicingSchema],
+      default: () => Array.from({ length: 2 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 2,
+        message: "A B412 flight log cannot contain more than 2 oil rows",
+      },
+    },
+    discrepancyRemarks: { type: String, default: "" },
+    correctionItems: {
+      type: [b412CorrectionItemSchema],
+      default: () => Array.from({ length: 3 }, () => ({})),
+      validate: {
+        validator: (rows) => rows.length <= 3,
+        message: "A B412 flight log cannot contain more than 3 correction rows",
+      },
+    },
+  },
+  { _id: false },
+);
+
 // Person Signature Schema
 const personSignatureSchema = new mongoose.Schema({
+  scope: { type: String, default: '' },
+  // Optional historical metadata only; new signatures do not require or set it.
+  authorizationId: { type: String, default: '' },
+  authorizationReference: { type: String, default: '' },
+  licenseType: { type: String, default: '' },
   name: { type: String, default: "" },
+  id: { type: String, default: "" },
+  licenseNo: { type: String, default: "" },
+  userId: { type: String, default: "" },
+  title: { type: String, default: "" },
   signature: { type: String, default: "" },
   timestamp: { type: String, default: "" },
 });
@@ -103,6 +276,33 @@ const flightLogSchema = new mongoose.Schema(
     rpc: { type: String, default: "" },
     date: { type: String, default: "" },
     controlNo: { type: String, default: "" },
+    flightPurpose: { type: String, enum: ['company_transport', 'line_inspection', 'sling_work', 'training', 'maintenance_test', 'other', ''], default: '' },
+    purposeDetails: { type: String, default: '' },
+    noDefectsReported: { type: Boolean, default: false },
+    workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    pendingNotifications: { type: [mongoose.Schema.Types.Mixed], default: [], select: false },
+    amendments: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    completionReceipt: { type: mongoose.Schema.Types.Mixed, default: null },
+    monitoringBaseline: { type: mongoose.Schema.Types.Mixed, default: null },
+    submittedBy: personSignatureSchema,
+    completedBy: personSignatureSchema,
+    initialInspectionSignature: personSignatureSchema,
+    additionalLandings: { type: Number, default: 0, min: 0, validate: Number.isInteger },
+    inspectionFlow: { type: String, default: '' },
+    assignedPilot: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
+    assignedMechanic: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
     sling: { type: String, default: "" },
     remarks: { type: String, default: "" },
 
@@ -119,10 +319,33 @@ const flightLogSchema = new mongoose.Schema(
     // Component Times
     componentData: componentTimesSchema,
 
+    // Bell 412 EP-specific form and export data. Top-level legs remain dynamic
+    // while this shape retains the fields required by the B412 output.
+    b412Data: { type: b412FlightLogDataSchema, default: undefined },
+
     // Status and Tracking
     createdBy: { type: String, default: "" },
     createdByName: { type: String, default: "" },
     createdByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    preFlightInspection: {
+      type: new mongoose.Schema({
+        status: { type: String, enum: ['confirmed'], required: true },
+        signature: { type: String, required: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+        recordedAt: { type: Date, required: true },
+        remarks: { type: String, default: '' },
+        resolution: { type: String, default: '' },
+      }, { _id: false }),
+      default: undefined,
+    },
+    assignedPilot: {
+      type: new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+      }, { _id: false }),
+      default: null,
+    },
     status: {
       type: String,
       enum: [
@@ -131,11 +354,15 @@ const flightLogSchema = new mongoose.Schema(
         "released",
         "accepted",
         "completed",
+        "submitted",
+        "returned_to_mechanic",
+        "returned_to_pilot",
       ],
       default: "pending_release",
     },
     notifiedForCompletion: { type: Boolean, default: false },
     broughtForwardLocked: { type: Boolean, default: false },
+    additionalLandings: { type: Number, default: 0, min: 0, validate: Number.isSafeInteger },
 
     // Signatures
     releasedBy: personSignatureSchema,

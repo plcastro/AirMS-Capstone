@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Card, Col, Row, Statistic, Table, Tag } from "antd";
+import { Card, Col, Row, Statistic, Tag } from "antd";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
 
 const countCompletedLike = (records = [], statusKeys = ["status"]) =>
   records.filter((record) => {
@@ -55,13 +56,13 @@ export default function GeneralReports({
     },
     {
       key: "pre",
-      module: "Pre-Inspection",
+      module: "Pre-Flight Inspection",
       total: summary.total.preInspections,
       completed: summary.completed.preInspections,
     },
     {
       key: "post",
-      module: "Post-Inspection",
+      module: "Post-Flight Inspection",
       total: summary.total.postInspections,
       completed: summary.completed.postInspections,
     },
@@ -78,7 +79,10 @@ export default function GeneralReports({
       <Row gutter={[12, 12]}>
         <Col xs={24} sm={12} lg={8}>
           <Card size="small">
-            <Statistic title="All Records" value={rows.reduce((s, r) => s + r.total, 0)} />
+            <Statistic
+              title="All Records"
+              value={rows.reduce((s, r) => s + r.total, 0)}
+            />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={8}>
@@ -101,8 +105,8 @@ export default function GeneralReports({
         </Col>
       </Row>
 
-      <Table
-        size="small"
+      <ResponsiveTable
+        size={"small"}
         loading={loading}
         pagination={false}
         dataSource={rows}
@@ -121,7 +125,9 @@ export default function GeneralReports({
             width: 140,
             render: (_, row) => {
               const pct =
-                row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0;
+                row.total > 0
+                  ? Math.round((row.completed / row.total) * 100)
+                  : 0;
               const color = pct >= 70 ? "green" : pct >= 40 ? "gold" : "red";
               return <Tag color={color}>{pct}%</Tag>;
             },

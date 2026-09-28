@@ -1,14 +1,14 @@
+import Modal from "../common/AppModal";
 import React, { useEffect, useMemo, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
@@ -18,9 +18,16 @@ import {
   ROLE_MAP,
   ROLES_REQUIRING_LICENSE,
 } from "./constants";
+import * as ImageManipulator from "expo-image-manipulator";
 import AlertComp from "../AlertComp";
+import IosModalSafeAreaView from "../common/IosModalSafeAreaView";
 
-const buildUsername = ({ firstName, lastName, users = [], currentUserId = "" }) => {
+const buildUsername = ({
+  firstName,
+  lastName,
+  users = [],
+  currentUserId = "",
+}) => {
   const safeFirst = String(firstName || "").trim();
   const safeLast = String(lastName || "").trim();
   if (!safeFirst || !safeLast) return "";
@@ -63,9 +70,12 @@ export default function UserFormModal({
   onSubmit,
   users,
   userToEdit,
+  currentUserId,
   saving,
 }) {
   const isEdit = Boolean(userToEdit?._id);
+  const isEditingSelf =
+    isEdit && String(userToEdit?._id || "") === String(currentUserId || "");
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [imageUri, setImageUri] = useState("");
@@ -94,6 +104,7 @@ export default function UserFormModal({
       setPickedImageAsset(null);
     }
     setError("");
+    setShowDiscardAlert(false);
   }, [isEdit, userToEdit, visible]);
 
   useEffect(() => {
@@ -107,7 +118,8 @@ export default function UserFormModal({
   }, [form.firstName, form.lastName, isEdit, users, visible]);
 
   const requiresLicense = useMemo(
-    () => ROLES_REQUIRING_LICENSE.has(String(form.jobTitle || "").toLowerCase()),
+    () =>
+      ROLES_REQUIRING_LICENSE.has(String(form.jobTitle || "").toLowerCase()),
     [form.jobTitle],
   );
 
@@ -122,7 +134,8 @@ export default function UserFormModal({
           email: userToEdit?.email || "",
           username: userToEdit?.username || "",
           jobTitle: userToEdit?.jobTitle || "",
-          access: userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
+          access:
+            userToEdit?.access || ROLE_MAP[userToEdit?.jobTitle || ""] || "",
           licenseNo: userToEdit?.licenseNo || "",
         }
       : emptyForm;
@@ -193,7 +206,8 @@ export default function UserFormModal({
           return;
         }
       } else {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permission.status !== "granted") {
           setError("Media library permission is required to pick a photo.");
           return;
@@ -215,11 +229,27 @@ export default function UserFormModal({
 
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
-      setImageUri(asset.uri || "");
-      setPickedImageAsset(asset);
+
+      const resized = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+        },
+      );
+
+      setImageUri(resized.uri);
+
+      setPickedImageAsset({
+        ...asset,
+        uri: resized.uri,
+        fileName: asset.fileName || `user-${Date.now()}.jpg`,
+        mimeType: "image/jpeg",
+      });
       setError("");
     } catch (pickerError) {
-      setError("Failed to select image. Please try again.");
+      setError("Failed to select image. Please try again later.");
     } finally {
       setImageLoading(false);
     }
@@ -227,115 +257,167 @@ export default function UserFormModal({
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancelWithWarning}>
-        <View style={styles.backdrop}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={
+          showDiscardAlert
+            ? () => setShowDiscardAlert(false)
+            : handleCancelWithWarning
+        }
+      >
+        <IosModalSafeAreaView style={styles.backdrop}>
           <View style={styles.card}>
-            <AppText style={styles.title}>{isEdit ? "Edit User" : "Add User"}</AppText>
+            <AppText style={styles.title}>
+              {isEdit ? "Edit User" : "Add User"}
+            </AppText>
             <ScrollView showsVerticalScrollIndicator={false}>
-            <AppText style={styles.label}>Profile Image</AppText>
-            <View style={styles.imageRow}>
-              <View style={styles.imagePreviewWrap}>
-                {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                ) : (
-                  <AppText style={styles.imagePlaceholder}>No image</AppText>
-                )}
+              <AppText style={styles.label}>Profile Image</AppText>
+              <View style={styles.imageRow}>
+                <View style={styles.imagePreviewWrap}>
+                  {imageUri ? (
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.imagePreview}
+                    />
+                  ) : (
+                    <AppText style={styles.imagePlaceholder}>No image</AppText>
+                  )}
+                </View>
+                <View style={{ flex: 1, gap: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.imageBtn,
+                      imageLoading && styles.imageBtnDisabled,
+                    ]}
+                    onPress={() => pickImage(false)}
+                    disabled={imageLoading}
+                  >
+                    <AppText style={styles.imageBtnTxt}>
+                      Choose from Gallery
+                    </AppText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.imageBtn,
+                      imageLoading && styles.imageBtnDisabled,
+                    ]}
+                    onPress={() => pickImage(true)}
+                    disabled={imageLoading}
+                  >
+                    <AppText style={styles.imageBtnTxt}>Take Photo</AppText>
+                  </TouchableOpacity>
+                  {imageLoading ? (
+                    <ActivityIndicator color={COLORS.primaryLight} />
+                  ) : null}
+                </View>
               </View>
-              <View style={{ flex: 1, gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
-                  onPress={() => pickImage(false)}
-                  disabled={imageLoading}
-                >
-                  <AppText style={styles.imageBtnTxt}>Choose from Gallery</AppText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.imageBtn, imageLoading && styles.imageBtnDisabled]}
-                  onPress={() => pickImage(true)}
-                  disabled={imageLoading}
-                >
-                  <AppText style={styles.imageBtnTxt}>Take Photo</AppText>
-                </TouchableOpacity>
-                {imageLoading ? <ActivityIndicator color={COLORS.primaryLight} /> : null}
-              </View>
-            </View>
-            <AppText style={styles.label}>First Name</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.firstName}
-              onChangeText={(value) =>
-                updateField("firstName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
-              }
-              placeholder="Enter first name"
-            />
-            <AppText style={styles.label}>Last Name</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.lastName}
-              onChangeText={(value) =>
-                updateField("lastName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
-              }
-              placeholder="Enter last name"
-            />
-            <AppText style={styles.label}>Email</AppText>
-            <AppInput
-              style={styles.input}
-              value={form.email}
-              onChangeText={(value) => updateField("email", value)}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="Enter email"
-            />
-            <AppText style={styles.label}>Username</AppText>
-            <AppInput
-              style={[styles.input, styles.disabledInput]}
-              value={form.username}
-              onChangeText={(value) => updateField("username", value)}
-              editable={isEdit}
-              placeholder="Auto-generated"
-            />
+              <AppText style={styles.label}>First Name</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.firstName}
+                onChangeText={(value) =>
+                  updateField("firstName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
+                }
+                placeholder="Enter first name"
+              />
+              <AppText style={styles.label}>Last Name</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.lastName}
+                onChangeText={(value) =>
+                  updateField("lastName", value.replace(/[^a-zA-Z'\-\s]/g, ""))
+                }
+                placeholder="Enter last name"
+              />
+              <AppText style={styles.label}>Email</AppText>
+              <AppInput
+                style={styles.input}
+                value={form.email}
+                onChangeText={(value) => updateField("email", value)}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholder="Enter email"
+              />
+              <AppText style={styles.label}>Username</AppText>
+              <AppInput
+                style={[styles.input, styles.disabledInput]}
+                value={form.username}
+                onChangeText={(value) => updateField("username", value)}
+                editable={false}
+                placeholder="Auto-generated"
+              />
 
-            <AppText style={styles.label}>Job Title</AppText>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={form.jobTitle}
-                onValueChange={(value) => {
-                  updateField("jobTitle", value);
-                  updateField("access", ROLE_MAP[value] || "");
-                  if (!ROLES_REQUIRING_LICENSE.has(String(value).toLowerCase())) {
-                    updateField("licenseNo", "");
-                  }
-                }}
+              <AppText style={styles.label}>Job Title</AppText>
+              <View
+                style={[
+                  styles.pickerWrap,
+                  isEditingSelf && styles.disabledInput,
+                ]}
               >
-                <Picker.Item label="Select job title" value="" />
-                {JOB_TITLE_OPTIONS.map((item) => (
-                  <Picker.Item key={item} label={item} value={item} />
-                ))}
-              </Picker>
-            </View>
+                <Picker
+                  selectedValue={form.jobTitle}
+                  enabled={!isEditingSelf}
+                  onValueChange={(value) => {
+                    if (isEditingSelf) return;
+                    updateField("jobTitle", value);
+                    updateField("access", ROLE_MAP[value] || "");
+                    if (
+                      !ROLES_REQUIRING_LICENSE.has(String(value).toLowerCase())
+                    ) {
+                      updateField("licenseNo", "");
+                    }
+                  }}
+                >
+                  <Picker.Item label="Select job title" value="" />
+                  {JOB_TITLE_OPTIONS.map((item) => (
+                    <Picker.Item key={item} label={item} value={item} />
+                  ))}
+                </Picker>
+              </View>
+              {isEditingSelf ? (
+                <AppText style={styles.helperText}>
+                  Your own job title and access level are managed by another
+                  Superadmin.
+                </AppText>
+              ) : null}
 
-            <AppText style={styles.label}>Access</AppText>
-            <AppInput style={[styles.input, styles.disabledInput]} value={form.access} editable={false} />
+              <AppText style={styles.label}>Access</AppText>
+              <AppInput
+                style={[styles.input, styles.disabledInput]}
+                value={form.access}
+                editable={false}
+              />
 
-            {requiresLicense ? (
-              <>
-                <AppText style={styles.label}>License No. (6 digits)</AppText>
-                <AppInput
-                  style={styles.input}
-                  value={form.licenseNo}
-                  onChangeText={(value) => updateField("licenseNo", value.replace(/\D/g, "").slice(0, 6))}
-                  keyboardType="number-pad"
-                  placeholder="Enter license number"
-                />
-              </>
-            ) : null}
+              {requiresLicense ? (
+                <>
+                  <AppText style={styles.label}>License No. (6 digits)</AppText>
+                  <AppInput
+                    style={styles.input}
+                    value={form.licenseNo}
+                    onChangeText={(value) =>
+                      updateField(
+                        "licenseNo",
+                        value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                    keyboardType="number-pad"
+                    placeholder="Enter license number"
+                  />
+                </>
+              ) : null}
 
-            {error ? <AppText style={styles.error}>{error}</AppText> : null}
+              {error ? <AppText style={styles.error}>{error}</AppText> : null}
             </ScrollView>
 
             <View style={styles.actions}>
               <TouchableOpacity
-                style={[styles.btn, styles.secondary, saving && styles.imageBtnDisabled]}
+                style={[
+                  styles.btn,
+                  styles.secondary,
+                  saving && styles.imageBtnDisabled,
+                ]}
                 onPress={handleCancelWithWarning}
                 disabled={saving}
               >
@@ -346,32 +428,39 @@ export default function UserFormModal({
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.btn, styles.primary, saving && styles.imageBtnDisabled]}
+                style={[
+                  styles.btn,
+                  styles.primary,
+                  saving && styles.imageBtnDisabled,
+                ]}
                 onPress={validateAndSubmit}
                 disabled={saving}
               >
                 {saving ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <AppText style={styles.primaryTxt}>{isEdit ? "Save" : "Create"}</AppText>
+                  <AppText style={styles.primaryTxt}>
+                    {isEdit ? "Save" : "Create"}
+                  </AppText>
                 )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          <AlertComp
+            embedded
+            visible={showDiscardAlert}
+            title="Discard changes?"
+            message="You have unsaved changes. Cancel and discard them?"
+            cancelText="Keep editing"
+            confirmText="Discard"
+            onCancel={() => setShowDiscardAlert(false)}
+            onConfirm={() => {
+              setShowDiscardAlert(false);
+              onClose?.();
+            }}
+          />
+        </IosModalSafeAreaView>
       </Modal>
-      <AlertComp
-        visible={showDiscardAlert}
-        title="Discard changes?"
-        message="You have unsaved changes. Cancel and discard them?"
-        cancelText="Keep editing"
-        confirmText="Discard"
-        onCancel={() => setShowDiscardAlert(false)}
-        onConfirm={() => {
-          setShowDiscardAlert(false);
-          onClose?.();
-        }}
-      />
     </>
   );
 }
@@ -423,6 +512,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#C62828",
     fontSize: 12,
+  },
+  helperText: {
+    color: COLORS.grayDark,
+    fontSize: 12,
+    marginTop: 4,
   },
   actions: {
     flexDirection: "row",

@@ -13,7 +13,10 @@ const {
 
 const permissions = require("../config/permissions");
 
-const { requirePermission } = require("../middleware/permissions");
+const {
+  hasPermission,
+  requirePermission,
+} = require("../middleware/permissions");
 
 const {
   upload,
@@ -27,6 +30,7 @@ const {
   resendLoginOtp,
   refreshToken,
   updateSessionPreference,
+  unlockUser,
   logoutUser,
   registerMobilePushDevice,
   createUser,
@@ -40,7 +44,7 @@ const {
   updateUserImage,
   updatePIN,
   verifyPIN,
-  updateSignature,
+  // updateSignature,
   activateUser,
   resendActivation,
   resendActivationByAdmin,
@@ -49,6 +53,7 @@ const {
   completeSecuritySetup,
   revokeTrustedDevice,
   revokeAllTrustedDevices,
+  reverseGeocodeLoginLocation,
 } = require("../controllers/userController");
 
 const {
@@ -60,6 +65,31 @@ const {
   resetPin,
 } = require("../controllers/passwordResetController");
 
+const normalizeId = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const requireOwnProfileUpdate = (req, res, next) => {
+  const requestedUserId = normalizeId(req.params.id);
+  const actorUserId = normalizeId(
+    req.user?.id || req.user?._id || req.user?.userId || req.user?.sub,
+  );
+
+  if (requestedUserId && actorUserId && requestedUserId === actorUserId) {
+    return next();
+  }
+
+  if (hasPermission(req, permissions.USERS_UPDATE)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: "Forbidden",
+    requiredPermission: permissions.PROFILE_UPDATE,
+  });
+};
+
 /* =========================================
    AUTH
 ========================================= */
@@ -67,6 +97,7 @@ const {
 router.post("/login", rateLimiter, loginUser);
 router.post("/login/verify-otp", otpRequestLimiter, verifyLoginOtp);
 router.post("/login/resend-otp", otpRequestLimiter, resendLoginOtp);
+router.get("/reverse-geocode", rateLimiter, reverseGeocodeLoginLocation);
 
 router.post("/refresh-token", refreshToken);
 router.put(
@@ -150,6 +181,15 @@ router.put(
   updateUserStatus,
 );
 
+router.put(
+  "/unlock-user/:id",
+  verifyToken,
+  touchSessionActivity,
+  requirePermission(permissions.USERS_UPDATE),
+  requireActionConfirmation,
+  unlockUser,
+);
+
 /* =========================================
    PROFILE MANAGEMENT
 ========================================= */
@@ -158,7 +198,7 @@ router.put(
   "/update-user-profile/:id",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
+  requireOwnProfileUpdate,
   requireActionConfirmation,
   updateUserProfile,
 );
@@ -167,7 +207,7 @@ router.put(
   "/change-password/:id",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
+  requireOwnProfileUpdate,
   requireActionConfirmation,
   updatePassword,
 );
@@ -176,7 +216,7 @@ router.put(
   "/update-pin/:id",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
+  requireOwnProfileUpdate,
   requireActionConfirmation,
   updatePIN,
 );
@@ -192,7 +232,7 @@ router.put(
   "/update-user-image/:id",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
+  requireOwnProfileUpdate,
   requireActionConfirmation,
   upload.single("image"),
   processImage,
@@ -203,21 +243,21 @@ router.delete(
   "/update-user-image/:id",
   verifyToken,
   touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
+  requireOwnProfileUpdate,
   requireActionConfirmation,
   updateUserImage,
 );
 
-router.put(
-  "/updateSignature/:id",
-  verifyToken,
-  touchSessionActivity,
-  requirePermission(permissions.PROFILE_UPDATE),
-  requireActionConfirmation,
-  upload.single("signature"),
-  processImage,
-  updateSignature,
-);
+// router.put(
+//   "/updateSignature/:id",
+//   verifyToken,
+//   touchSessionActivity,
+//   requireOwnProfileUpdate,
+//   requireActionConfirmation,
+//   upload.single("signature"),
+//   processImage,
+//   updateSignature,
+// );
 
 /* =========================================
    ACTIVATION
@@ -270,7 +310,7 @@ router.post("/request-pin-reset/:id", requestPinReset);
 
 router.post("/verify-pin-otp", otpRequestLimiter, verifyPinOtp);
 
-router.post("/reset-pin", resetPin);
+router.post("/reset-pin", requireActionConfirmation, resetPin);
 
 /* =========================================
    ERROR HANDLER

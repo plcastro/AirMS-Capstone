@@ -12,6 +12,55 @@ import {
 
 const DEFAULT_SERIES = [{ key: "value", color: "#26866f", name: "Value" }];
 
+const ColorCodedLegend = ({ payload = [] }) => (
+  <ul
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: "8px 16px",
+      margin: 0,
+      padding: "12px 6px 0",
+      listStyle: "none",
+      fontSize: 12,
+      lineHeight: "16px",
+    }}
+  >
+    {payload.map((entry) => (
+      <li
+        key={`${entry.value}-${entry.color}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          maxWidth: 190,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 10,
+            height: 10,
+            flex: "0 0 10px",
+            borderRadius: 2,
+            background: entry.color || "#8c8c8c",
+          }}
+        />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={String(entry.value || "")}
+        >
+          {entry.value}
+        </span>
+      </li>
+    ))}
+  </ul>
+);
+
 const AreaChartComponent = ({ data, series = DEFAULT_SERIES, xKey = "month" }) => {
   if (!data || data.length === 0) {
     return (
@@ -43,7 +92,12 @@ const AreaChartComponent = ({ data, series = DEFAULT_SERIES, xKey = "month" }) =
             fillOpacity={0.22}
           />
         ))}
-        <Legend />
+        <Legend
+          verticalAlign="bottom"
+          align="center"
+          height={58}
+          content={<ColorCodedLegend />}
+        />
       </AreaChart>
     </ResponsiveContainer>
   );

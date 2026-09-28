@@ -1,21 +1,23 @@
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
 import { API_BASE } from "./API_BASE";
+import { saveExportFile } from "./saveExportFile";
+import { showToast } from "./toast";
+const sanitizeFileName = (value) =>
+  String(value || "N-A")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
-/**
- * Download and share inspection document from template
- * @param {string} inspectionId - ID of the inspection
- * @param {string} documentType - "pre" or "post"
- * @param {string} fileName - Name for the downloaded file
- * @param {string} format - "document" or "pdf"
- */
+const formatToday = () =>
+  new Date().toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+
 const downloadInspectionDocument = async (
   inspectionId,
   documentType,
   fileName,
-  format = "document"
 ) => {
   try {
     if (!inspectionId) {
@@ -23,128 +25,114 @@ const downloadInspectionDocument = async (
     }
 
     const token = await AsyncStorage.getItem("currentUserToken");
-    const exportPath = format === "pdf" ? "export-pdf" : "export-document";
-    const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/${exportPath}`;
 
-    // Create a file path for storage
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    const apiUrl = `${API_BASE}/api/inspections/${documentType}/${inspectionId}/export-pdf`;
 
-    // Show loading indicator
-    Alert.alert("Exporting", `Generating ${format === "pdf" ? "PDF" : "document"}...`);
+    const safeFileName = sanitizeFileName(fileName);
 
-    // Download the file
-    const downloadResult = await FileSystem.downloadAsync(apiUrl, fileUri, {
+    showToast("Generating PDF...");
+
+    // Fetch file
+    const response = await fetch(apiUrl, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    if (downloadResult.status !== 200) {
+    if (!response.ok) {
       throw new Error("Failed to download document from server");
     }
 
-    // Check if sharing is available
-    const canShare = await Sharing.isAvailableAsync();
-
-    if (!canShare) {
-      Alert.alert("Export Ready", `Document saved to:\n${fileUri}`);
-      return fileUri;
-    }
-
-    // Share the document
-    await Sharing.shareAsync(fileUri, getSharingOptions(fileName, format));
-
-    return fileUri;
+    return await saveExportFile({
+      fileName: safeFileName,
+      mimeType: "application/pdf",
+      bytes: await response.arrayBuffer(),
+    });
   } catch (error) {
-    console.error("Error downloading inspection document:", error);
-    Alert.alert(
-      "Export Failed",
-      error.message || "Unable to generate and download document"
+    console.error("Download error:", error);
+
+    showToast(
+      error.message || "Unable to generate document. Please try again later.",
     );
+
     throw error;
   }
 };
 
-const getSharingOptions = (fileName, format) =>
-  format === "pdf"
-    ? {
-        mimeType: "application/pdf",
-        dialogTitle: fileName,
-        UTI: "com.adobe.pdf",
+const downloadPartsLifespanExcel = async (aircraft) => {
+  try {
+    if (!aircraft) {
+      throw new Error("Select an aircraft before exporting.");
+    }
+
+    const token = await AsyncStorage.getItem("currentUserToken");
+    const safeAircraft = sanitizeFileName(aircraft);
+    const safeFileName = `${safeAircraft}-Parts-Lifespan-Monitoring.xlsx`;
+
+    showToast("Generating Excel file...");
+
+    const response = await fetch(
+      `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}/export-excel`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+    );
+
+    if (!response.ok) {
+      let message = "Failed to download parts lifespan workbook";
+      try {
+        const errorBody = await response.json();
+        message = errorBody?.message || message;
+      } catch {
+        // The endpoint may return a non-JSON proxy or server error.
       }
-    : {
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        dialogTitle: fileName,
-        UTI: "com.microsoft.word.doc",
-      };
+      throw new Error(message);
+    }
 
-const sanitizeFileName = (value) =>
-  String(value || "N-A")
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "-");
+    return await saveExportFile({
+      fileName: safeFileName,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      bytes: await response.arrayBuffer(),
+    });
+  } catch (error) {
+    console.error("Parts lifespan Excel export error:", error);
+    showToast(error.message || "Unable to export parts lifespan workbook.");
+    throw error;
+  }
+};
 
-/**
- * Export pre-inspection to Word document using template
- * @param {Object} inspection - Pre-inspection object with _id property
- */
-export const exportPreInspectionToWord = (inspection) => {
-  if (!inspection || !inspection._id) {
-    Alert.alert("Error", "Invalid inspection data");
+export const exportPreInspectionTemplatePdf = (inspection) => {
+  if (!inspection?._id) {
+    showToast("Invalid inspection data.");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.docx`
+    `Pre-Inspection-${inspection.rpc || "N-A"}-${inspection.date || formatToday()}.pdf`,
   );
 
   return downloadInspectionDocument(inspection._id, "pre", fileName);
 };
 
-export const exportPreInspectionTemplatePdf = (inspection) => {
-  if (!inspection || !inspection._id) {
-    Alert.alert("Error", "Invalid inspection data");
+export const exportPostInspectionTemplatePdf = (inspection) => {
+  if (!inspection?._id) {
+    showToast("Invalid inspection data.");
     return;
   }
 
   const fileName = sanitizeFileName(
-    `Pre-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`
-  );
-
-  return downloadInspectionDocument(inspection._id, "pre", fileName, "pdf");
-};
-
-/**
- * Export post-inspection to Word document using template
- * @param {Object} inspection - Post-inspection object with _id property
- */
-export const exportPostInspectionToWord = (inspection) => {
-  if (!inspection || !inspection._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.docx`
+    `Post-Inspection-${inspection.rpc || "N-A"}-${inspection.date || formatToday()}.pdf`,
   );
 
   return downloadInspectionDocument(inspection._id, "post", fileName);
 };
 
-export const exportPostInspectionTemplatePdf = (inspection) => {
-  if (!inspection || !inspection._id) {
-    Alert.alert("Error", "Invalid inspection data");
-    return;
-  }
-
-  const fileName = sanitizeFileName(
-    `Post-Inspection-${inspection.rpc || "N/A"}-${inspection.date || new Date().toLocaleDateString()}.pdf`
-  );
-
-  return downloadInspectionDocument(inspection._id, "post", fileName, "pdf");
-};
+export const exportPartsLifespanMonitoringExcel = (aircraft) =>
+  downloadPartsLifespanExcel(aircraft);
 
 export default {
-  exportPreInspectionToWord,
-  exportPostInspectionToWord,
   exportPreInspectionTemplatePdf,
   exportPostInspectionTemplatePdf,
+  exportPartsLifespanMonitoringExcel,
   downloadInspectionDocument,
+  downloadPartsLifespanExcel,
 };

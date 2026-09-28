@@ -1,3 +1,4 @@
+import { resizePickedImage } from "../../utilities/resizePickedImage";
 import React, { useContext, useEffect, useState } from "react";
 import AppPaperInput from "../../components/common/AppPaperInput";
 import {
@@ -32,6 +33,9 @@ import { showToast } from "../../utilities/toast";
 import { getUserImageUri, getUserInitials } from "../../utilities/avatar";
 import { useFontScale } from "../../Context/FontScaleContext";
 import { COLORS } from "../../stylesheets/colors";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
+import { hasNavAccess } from "../../../shared/navigationAccess";
 export default function Profile() {
   const { user, updateUser } = useContext(AuthContext);
   const {
@@ -45,10 +49,74 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [
+    aircraftFhDueNotificationsEnabled,
+    setAircraftFhDueNotificationsEnabled,
+  ] = useState(false);
+  const [aircraftFhDueThreshold, setAircraftFhDueThreshold] = useState(25);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
   const MOBILE_SETTINGS_KEY = "mobileProfileSettings";
 
   const MOBILE_FONT_RECOMMENDED = 1;
   const MOBILE_FONT_MAX = 1.3;
+  const userRole = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canManageAircraftFhDueAlerts =
+    hasNavAccess(userRole, "partsLifespan") &&
+    hasNavAccess(userRole, "maintenanceTracking");
+
+  const profileTabs = [
+    {
+      value: "info",
+      label: "Information",
+      icon: "account-details-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "info" && styles.segmentLabelActive,
+        { fontSize: scaled(10) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "info" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+    {
+      value: "security",
+      label: "Security",
+      icon: "shield-check-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "security" && styles.segmentLabelActive,
+        { fontSize: scaled(10) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "security" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+    {
+      value: "settings",
+      label: "Settings",
+      icon: "cog-outline",
+      labelStyle: [
+        styles.segmentLabel,
+        activeTab === "settings" && styles.segmentLabelActive,
+        { fontSize: scaled(10) },
+      ],
+      style: [
+        styles.segmentButton,
+        activeTab === "settings" && styles.segmentButtonActive,
+      ],
+      checkedColor: COLORS.white,
+      uncheckedColor: COLORS.grayDark,
+    },
+  ];
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -78,6 +146,16 @@ export default function Profile() {
             ? stored.notificationsEnabled
             : true,
         );
+        setAircraftFhDueNotificationsEnabled(
+          typeof stored.aircraftFhDueNotificationsEnabled === "boolean"
+            ? stored.aircraftFhDueNotificationsEnabled
+            : false,
+        );
+        setAircraftFhDueThreshold(
+          typeof stored.aircraftFhDueThreshold === "number"
+            ? stored.aircraftFhDueThreshold
+            : 25,
+        );
       } catch {}
     };
 
@@ -94,6 +172,14 @@ export default function Profile() {
         typeof next.notificationsEnabled === "boolean"
           ? next.notificationsEnabled
           : notificationsEnabled,
+      aircraftFhDueNotificationsEnabled:
+        typeof next.aircraftFhDueNotificationsEnabled === "boolean"
+          ? next.aircraftFhDueNotificationsEnabled
+          : aircraftFhDueNotificationsEnabled,
+      aircraftFhDueThreshold:
+        typeof next.aircraftFhDueThreshold === "number"
+          ? next.aircraftFhDueThreshold
+          : aircraftFhDueThreshold,
     };
     await AsyncStorage.setItem(MOBILE_SETTINGS_KEY, JSON.stringify(payload));
   };
@@ -212,14 +298,16 @@ export default function Profile() {
         selectedFile.fileName || `profile_${user.id || user._id}.jpg`;
       const fileType = selectedFile.mimeType || "image/jpeg";
 
-      const normalizedFile = {
-        uri: selectedFile.uri,
-        type: fileType,
-        name: fileName,
-      };
+      let normalizedFile;
+      try {
+        normalizedFile = await resizePickedImage({ uri: selectedFile.uri, type: fileType, name: fileName }, 800);
+      } catch {
+        showToast("Could not prepare the profile photo.");
+        return;
+      }
 
       const previousPreviewUri = previewUri;
-      setPreviewUri(selectedFile.uri);
+      setPreviewUri(normalizedFile.uri);
 
       Alert.alert(
         "Save Profile Image",
@@ -353,7 +441,9 @@ export default function Profile() {
         <Card style={styles.headerCard}>
           <Card.Content style={styles.avatarContainer}>
             <TouchableOpacity
-              onPress={() => runWithLoading("pick-image", () => handleImagePick())}
+              onPress={() =>
+                runWithLoading("pick-image", () => handleImagePick())
+              }
               style={styles.avatarTapTarget}
             >
               {previewUri ? (
@@ -405,8 +495,12 @@ export default function Profile() {
                 iconColor={COLORS.dangerBorder}
                 containerColor={COLORS.white}
                 style={[styles.iconActionButton, styles.removeIconActionButton]}
-                onPress={() => runWithLoading("remove-image", () => handleRemoveImage())}
-                disabled={(!user?.image && !previewUri) || Boolean(actionLoadingKey)}
+                onPress={() =>
+                  runWithLoading("remove-image", () => handleRemoveImage())
+                }
+                disabled={
+                  (!user?.image && !previewUri) || Boolean(actionLoadingKey)
+                }
                 accessibilityLabel="Remove profile image"
               />
             </View>
@@ -423,35 +517,7 @@ export default function Profile() {
             <SegmentedButtons
               value={activeTab}
               onValueChange={setActiveTab}
-              buttons={[
-                {
-                  value: "info",
-                  label: "Information",
-                  icon: "account-details-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-                {
-                  value: "security",
-                  label: "Security",
-                  icon: "shield-check-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-                {
-                  value: "settings",
-                  label: "Settings",
-                  icon: "cog-outline",
-                  labelStyle: { fontSize: scaled(12), fontWeight: "600" },
-                  style: styles.segmentButton,
-                  checkedColor: COLORS.primaryLight,
-                  uncheckedColor: COLORS.grayDark,
-                },
-              ]}
+              buttons={profileTabs}
               style={styles.segmented}
             />
           </Card.Content>
@@ -586,10 +652,118 @@ export default function Profile() {
                   </View>
                 </View>
 
+                {canManageAircraftFhDueAlerts && (
+                  <View style={[styles.settingRowCard, { marginTop: 12 }]}>
+                    <View style={styles.settingRow}>
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text
+                          style={[
+                            styles.settingLabel,
+                            { fontSize: scaled(14) },
+                          ]}
+                        >
+                          Aircraft FH Due Alerts
+                        </Text>
+                        <Text
+                          style={[styles.settingSub, { fontSize: scaled(12) }]}
+                        >
+                          Notify when an aircraft inspection is near its flight
+                          hour limit.
+                        </Text>
+                      </View>
+                      <Switch
+                        value={aircraftFhDueNotificationsEnabled}
+                        onValueChange={async (value) => {
+                          setAircraftFhDueNotificationsEnabled(value);
+                          await saveSettings({
+                            aircraftFhDueNotificationsEnabled: value,
+                          });
+                          showToast(
+                            value
+                              ? "Aircraft FH due alerts enabled."
+                              : "Aircraft FH due alerts disabled.",
+                          );
+                        }}
+                      />
+                    </View>
+                    <View style={styles.thresholdRow}>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Notify within
+                      </Text>
+                      <AppPaperInput
+                        mode="outlined"
+                        value={String(aircraftFhDueThreshold)}
+                        editable={aircraftFhDueNotificationsEnabled}
+                        keyboardType="number-pad"
+                        onChangeText={async (value) => {
+                          const digits = value.replace(/\D/g, "").slice(0, 3);
+                          const nextValue = Math.max(1, Number(digits) || 1);
+                          setAircraftFhDueThreshold(nextValue);
+                          await saveSettings({
+                            aircraftFhDueThreshold: nextValue,
+                          });
+                        }}
+                        style={styles.thresholdInput}
+                        contentStyle={{ fontSize: scaled(13) }}
+                      />
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        FH
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={[styles.settingRowCard, { marginTop: 12 }]}>
+                  <View style={styles.settingRow}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={[styles.settingLabel, { fontSize: scaled(14) }]}
+                      >
+                        Terms and Conditions
+                      </Text>
+                      <Text
+                        style={[styles.settingSub, { fontSize: scaled(12) }]}
+                      >
+                        Review system access, records, privacy, and acceptable
+                        use documents.
+                      </Text>
+                    </View>
+                    <IconButton
+                      icon="file-document-outline"
+                      size={20}
+                      iconColor={COLORS.primaryLight}
+                      containerColor={COLORS.white}
+                      style={styles.iconActionButton}
+                      onPress={() => setTermsVisible(true)}
+                      accessibilityLabel="View terms and conditions"
+                    />
+                    <IconButton
+                      icon="shield-lock-outline"
+                      size={20}
+                      iconColor={COLORS.primaryLight}
+                      containerColor={COLORS.white}
+                      style={styles.iconActionButton}
+                      onPress={() => setPrivacyVisible(true)}
+                      accessibilityLabel="View privacy policy"
+                    />
+                  </View>
+                </View>
               </Card.Content>
             </Card>
           )}
         </Card>
+        <PrivacyPolicyModal
+          visible={privacyVisible}
+          onClose={() => setPrivacyVisible(false)}
+        />
+        <TermsAndConditionsModal
+          visible={termsVisible}
+          onClose={() => setTermsVisible(false)}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -601,12 +775,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 14,
     marginBottom: 10,
-    borderRadius: 14,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     elevation: 2,
     backgroundColor: COLORS.white,
   },
   formCard: {
-    // elevation: 2,
     backgroundColor: COLORS.white,
   },
   avatarContainer: {
@@ -640,6 +814,15 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderBottomWidth: 0,
     backgroundColor: COLORS.white,
+  },
+  segmentButtonActive: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  segmentLabel: {
+    fontWeight: "700",
+  },
+  segmentLabelActive: {
+    color: COLORS.white,
   },
   sectionTitle: { fontWeight: "700", color: COLORS.black, marginBottom: 14 },
   input: { marginBottom: 16, backgroundColor: COLORS.white },
@@ -684,5 +867,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  thresholdRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    columnGap: 8,
+  },
+  thresholdInput: {
+    width: 88,
+    backgroundColor: COLORS.white,
   },
 });

@@ -1,8 +1,10 @@
 import React from "react";
 import { Layout, Row, Col, Card, Typography, Grid } from "antd";
 import { Outlet } from "react-router-dom";
-import AirMS_Hero from "../../assets/airms_hero.png";
-
+import Airms_LogoDark from "../../assets/airmslogo_dark.webp";
+const AirMS_Hero = "/images/airms_hero.webp";
+const AirMS_Hero640 = "/images/airms-hero_680.webp";
+const AirMS_Hero412 = "/images/airms-hero_412.webp";
 const { Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -11,13 +13,32 @@ const RootLayout = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
+  if (isMobile) {
+    return (
+      <Layout className="auth-mobile-shell">
+        <div className="auth-mobile-scrim" />
+
+        <div className="auth-mobile-brand" aria-label="AirMS">
+          <img src={Airms_LogoDark} alt="AirMS" width="178" height="53" />
+          <p className="auth-mobile-brand-title">
+            Aircraft Maintenance Made <span>Smarter</span>
+          </p>
+        </div>
+
+        <section className="auth-mobile-sheet" aria-label="Authentication">
+          <div className="auth-mobile-sheet-handle" />
+          <Outlet />
+        </section>
+      </Layout>
+    );
+  }
   return (
     <Layout
       style={{
         minHeight: "100dvh",
         backgroundColor: isMobile ? "transparent" : "#0f172a",
         backgroundImage: isMobile
-          ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${AirMS_Hero})`
+          ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${AirMS_Hero412})`
           : "none",
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -27,15 +48,31 @@ const RootLayout = () => {
       <Row style={{ minHeight: "100dvh" }}>
         <Col
           xs={0}
-          md={14}
+          md={12}
           style={{
             position: "relative",
-            backgroundImage: `url(${AirMS_Hero})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            overflow: "hidden",
             minHeight: "100vh",
           }}
         >
+          <picture>
+            <source media="(max-width: 480px)" srcSet={AirMS_Hero412} />
+            <source media="(max-width: 768px)" srcSet={AirMS_Hero640} />
+            <img
+              src={AirMS_Hero}
+              alt="Aircraft Maintenance Made Smarter"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </picture>
           <div
             style={{
               position: "absolute",
@@ -74,7 +111,7 @@ const RootLayout = () => {
 
         <Col
           xs={24}
-          md={10}
+          md={12}
           style={{
             display: "flex",
             alignItems: "center",

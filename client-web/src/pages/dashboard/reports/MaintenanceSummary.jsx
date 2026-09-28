@@ -3,25 +3,20 @@ import { Row, Col, Button, Tag, DatePicker, Space } from "antd";
 import { CheckCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
+import DateOnlyCell from "../../../components/common/DateOnlyCell";
 import MSummaryTable from "../../../components/tables/MSummaryTable";
 
 import RepairFrequencyChart from "../../../components/common/RepairFrequencyChart";
+import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
 
 dayjs.extend(isBetween);
 
 const { RangePicker } = DatePicker;
 
-const formatDate = (value) => {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "";
-
-  return date.toLocaleDateString("en-CA");
-};
-
 export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [dateRange, setDateRange] = useState(null);
 
   const isCompletedTask = (task = {}) => {
@@ -44,7 +39,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   const mappedTasks = tasks.map((task, index) => ({
     key: task._id || task.id || `${task.title}-${index}`,
     aircraft: task.aircraft || "---",
-    date: formatDate(getReportDate(task)),
+    date: getReportDate(task) || "",
     task: task.title || task.summary?.category || "---",
     assignedMechanic:
       task.assignedMechanic || task.assignedToName || task.assignedTo || "---",
@@ -52,9 +47,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
   }));
 
   const filteredData = mappedTasks.filter((item) => {
-    const matchesSearch =
-      item.aircraft.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.task.toLowerCase().includes(searchText.toLowerCase());
+    const matchesSearchText = matchesSearch(debouncedSearchText, item);
 
     let matchesDate = true;
     if (dateRange && dateRange[0] && dateRange[1] && item.date) {
@@ -62,7 +55,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       matchesDate = itemDate.isBetween(dateRange[0], dateRange[1], "day", "[]");
     }
 
-    return matchesSearch && matchesDate;
+    return matchesSearchText && matchesDate;
   });
 
   const visibleTaskKeys = new Set(filteredData.map((item) => item.key));
@@ -80,8 +73,9 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       if (!rawDate || isNaN(parsedDate.getTime())) return acc;
 
       const label = parsedDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
       });
 
       const existing = acc.find((entry) => entry.date === label);
@@ -95,7 +89,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
     }, [])
     .sort(
       (a, b) =>
-        new Date(`2000 ${a.date}`).getTime() - new Date(`2000 ${b.date}`).getTime(),
+        new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
   const headers = [
@@ -109,6 +103,7 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
       title: "Date",
       dataIndex: "date",
       key: "date",
+      render: (value) => <DateOnlyCell value={value} fallback="---" />,
     },
     {
       title: "Task",
@@ -181,7 +176,8 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
           <Space size="large" wrap>
             <RangePicker
               onChange={(values) => setDateRange(values)}
-              format="YYYY-MM-DD"
+              format="MM/DD/YYYY"
+              inputReadOnly
             />
             {(searchText || dateRange) && (
               <Button

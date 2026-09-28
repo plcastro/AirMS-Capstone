@@ -1,7 +1,7 @@
+import Modal from "../common/AppModal";
 import React from "react";
 import AppText from "../common/AppText";
-import {
-  Modal,
+import { FlatList,
   ScrollView,
   TouchableOpacity,
   View
@@ -40,24 +40,34 @@ export default function GroupMembersModal({
               <AppText style={{ fontSize: 13, color: COLORS.grayDark }}>No members</AppText>
             </View>
           ) : (
-            <ScrollView style={{ maxHeight: 320 }}>
-              {selectedGroupMembers.map((member) => (
-                <View
-                  key={String(member._id || member.id)}
-                  style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
-                >
-                  {renderAvatar({ type: "direct", user: member }, 38)}
-                  <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
-                    <AppText numberOfLines={1} style={{ fontSize: 14, fontWeight: "800", color: COLORS.black }}>
-                      {getDisplayName(member)}
-                    </AppText>
-                    <AppText numberOfLines={1} style={{ fontSize: 12, color: COLORS.grayDark }}>
-                      {member.jobTitle || "User"}
-                    </AppText>
+            <FlatList
+              style={{ maxHeight: 320 }}
+              data={selectedGroupMembers}
+              keyExtractor={(item, index) => String(item._id || item.id || index)}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              renderItem={({ item: member }) => {
+                const memberId = String(member._id || member.id);
+
+                return (
+                  <View
+                    key={memberId}
+                    style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
+                  >
+                    {renderAvatar({ type: "direct", user: member }, 38)}
+                    <View style={{ flex: 1, marginLeft: 10, minWidth: 0 }}>
+                      <AppText numberOfLines={1} style={{ fontSize: 14, fontWeight: "800", color: COLORS.black }}>
+                        {getDisplayName(member)}
+                      </AppText>
+                      <AppText numberOfLines={1} style={{ fontSize: 12, color: COLORS.grayDark }}>
+                        {member.jobTitle || "User"}
+                      </AppText>
+                    </View>
                   </View>
-                </View>
-              ))}
-            </ScrollView>
+                );
+              }}
+            />
           )}
         </View>
       </View>

@@ -378,6 +378,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   unifiedFilterButtonText: {
+    flex: 1,
+    minWidth: 0,
     fontSize: BODY_FONT_SIZE,
     color: COLORS.black,
   },

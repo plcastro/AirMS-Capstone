@@ -1,7 +1,6 @@
 import React from "react";
 import AppText from "../common/AppText";
-import AppInput from "../common/AppInput";
-import {
+import { FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
 import GroupModal from "./GroupModal";
+import { SearchBar } from "../common/MobileModule";
 
 export default function ConversationListView({
   navigation,
@@ -45,77 +45,32 @@ export default function ConversationListView({
           backgroundColor: COLORS.white,
         }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
+        <SearchBar
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search users or groups"
+          containerStyle={{
             height: 42,
             borderRadius: 21,
-            paddingHorizontal: 14,
+            borderWidth: 0,
             backgroundColor: "#F1F3F5",
+            marginBottom: 0,
           }}
-        >
-          <MaterialCommunityIcons
-            name="magnify"
-            size={20}
-            color={COLORS.grayDark}
-          />
-          <AppInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder="Search users or groups"
-            placeholderTextColor={COLORS.grayDark}
-            style={{
-              flex: 1,
-              marginLeft: 8,
-              fontSize: 13,
-              color: COLORS.black,
-            }}
-          />
-          {searchText ? (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={18}
-                color={COLORS.grayDark}
-              />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+          inputStyle={{ fontSize: 13 }}
+        />
       </View>
 
-      <ScrollView
+      <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 4, paddingBottom: "15%" }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-      >
-        {conversationItems.length === 0 ? (
-          <View
-            style={{
-              alignItems: "center",
-              marginTop: 56,
-              paddingHorizontal: 32,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="message-text-outline"
-              size={42}
-              color="#B7C6C2"
-            />
-            <AppText
-              style={{
-                marginTop: 10,
-                fontSize: 14,
-                color: COLORS.grayDark,
-                textAlign: "center",
-              }}
-            >
-              No conversations
-            </AppText>
-          </View>
-        ) : (
-          conversationItems.map((item) => {
+        data={conversationItems}
+        keyExtractor={(item, index) => String(item.type + ":" + item.id)}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        renderItem={({ item: item }) => {
             const unreadCount = item.unreadCount || 0;
             const hasUnread = unreadCount > 0;
             const preview = getConversationPreview(item);
@@ -217,9 +172,31 @@ export default function ConversationListView({
                 </View>
               </TouchableOpacity>
             );
-          })
-        )}
-      </ScrollView>
+          }}
+        ListEmptyComponent={<View
+            style={{
+              alignItems: "center",
+              marginTop: 56,
+              paddingHorizontal: 32,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="message-text-outline"
+              size={42}
+              color="#B7C6C2"
+            />
+            <AppText
+              style={{
+                marginTop: 10,
+                fontSize: 14,
+                color: COLORS.grayDark,
+                textAlign: "center",
+              }}
+            >
+              No conversations
+            </AppText>
+          </View>}
+      />
       <TouchableOpacity
         onPress={() => setGroupModalOpen(true)}
         activeOpacity={0.85}

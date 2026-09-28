@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Picker } from "@react-native-picker/picker";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import AppText from "../../components/common/AppText";
 import AppInput from "../../components/common/AppInput";
 import {
@@ -23,6 +30,8 @@ import {
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
 
 const DEFAULT_RULES = {
   criticalDueDays: 5,
@@ -53,7 +62,33 @@ const formatDueSummary = (record) => {
   return parts.length ? parts.join(" / ") : "N/A";
 };
 
+function PriorityOverrideEditor({ record, onSave }) {
+  const [level, setLevel] = useState(record.manualPriorityOverride?.level || "Auto");
+  const [reason, setReason] = useState(record.manualPriorityOverride?.reason || "");
+  const [saving, setSaving] = useState(false);
+  return <View style={{ marginTop: 10 }}>
+    <AppText style={moduleStyles.label}>Priority override</AppText>
+    <Picker accessibilityLabel={"Priority override for " + record.aircraft} selectedValue={level}
+      enabled={!saving} onValueChange={setLevel}>
+      {["Auto", "Critical", "High", "Medium", "Low"].map((value) => <Picker.Item key={value} label={value} value={value} />)}
+    </Picker>
+    {level !== "Auto" && <AppInput accessibilityLabel="Optional priority reason" placeholder="Reason (optional)"
+      value={reason} editable={!saving} onChangeText={setReason}
+      style={{ borderWidth: 1, borderColor: COLORS.grayMedium, borderRadius: 6, padding: 10, marginBottom: 8, color: COLORS.black }} />}
+    <TouchableOpacity accessibilityRole="button" disabled={saving} style={moduleStyles.button}
+      onPress={async () => {
+        setSaving(true);
+        try { await onSave(record.aircraft, level, reason); }
+        finally { setSaving(false); }
+      }}><AppText style={moduleStyles.buttonText}>{saving ? "Saving..." : "Save priority"}</AppText></TouchableOpacity>
+  </View>;
+}
+
 export default function MaintenancePriority() {
+  const { user, refreshSession } = useContext(AuthContext);
+  const role = String(user?.jobTitle || user?.access || "").trim().toLowerCase();
+  const canOverride = ["maintenance manager", "superadmin"].includes(role) ||
+    String(user?.access || "").trim().toLowerCase() === "superadmin";
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,19 +148,7 @@ export default function MaintenancePriority() {
   }, [loadRules]);
 
   const filteredData = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return priorityData;
-    return priorityData.filter((item) =>
-      [
-        item.aircraft,
-        item.aircraftModel,
-        item.nextInspection,
-        item.priorityLevel,
-        item.priorityReason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    return priorityData.filter((item) => matchesSearch(search, item));
   }, [priorityData, search]);
 
   const stats = useMemo(
@@ -160,6 +183,39 @@ export default function MaintenancePriority() {
     setRankingPage(0);
   }, [search]);
 
+  const getPrioritySaveHeaders = useCallback(async () => {
+    let headers = await getAuthHeaders({
+      "x-action-confirmed": "true",
+    });
+
+    if (!headers.Authorization && refreshSession) {
+      await refreshSession();
+      headers = await getAuthHeaders({
+        "x-action-confirmed": "true",
+      });
+    }
+
+    if (!headers.Authorization) {
+      throw new Error("Session not found. Please log in again.");
+    }
+
+    return headers;
+  }, [refreshSession]);
+
+  const saveOverride = async (aircraft, level, reason) => {
+    try {
+      const response = await fetch(API_BASE + "/api/parts-monitoring/maintenance-priority/" + encodeURIComponent(aircraft) + "/override", {
+        method: "PUT",
+        headers: { ...(await getPrioritySaveHeaders()), "Content-Type": "application/json" },
+        body: JSON.stringify({ level, ...(level !== "Auto" ? { reason } : {}) }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Could not save priority.");
+      await fetchPriorityData(rules);
+      showToast("Maintenance priority saved.");
+    } catch (error) { showToast(error.message || "Could not save priority."); }
+  };
+
   const saveRules = async () => {
     const confirmed = await confirmAction({
       title: "Save Priority Rules",
@@ -174,9 +230,7 @@ export default function MaintenancePriority() {
         `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
         {
           method: "PUT",
-          headers: await getAuthHeaders({
-            "x-action-confirmed": "true",
-          }),
+          headers: await getPrioritySaveHeaders(),
           body: JSON.stringify({
             ...draftRules,
             confirmAction: true,
@@ -364,6 +418,15 @@ export default function MaintenancePriority() {
               }
             />
           </View>
+          {record.manualPriorityOverride && <View style={{ marginTop: 8 }}>
+            <AppText style={{ fontWeight: "700", color: COLORS.primary }}>Manual priority</AppText>
+            <AppText style={moduleStyles.subtitle}>Auto: {record.autoPriorityLevel}</AppText>
+            {!!record.manualPriorityOverride.reason && <AppText style={moduleStyles.subtitle}>{record.manualPriorityOverride.reason}</AppText>}
+            <AppText style={moduleStyles.subtitle}>{(record.priorityTriggers || []).join(" | ")}</AppText>
+          </View>}
+          {canOverride && <PriorityOverrideEditor
+            key={record.inspectionId + ":" + (record.manualPriorityOverride?.setAt || "auto")}
+            record={record} onSave={saveOverride} />}
           <AppText style={[moduleStyles.subtitle, { marginTop: 10 }]}>
             {record.priorityReason || "No decision basis available."}
           </AppText>

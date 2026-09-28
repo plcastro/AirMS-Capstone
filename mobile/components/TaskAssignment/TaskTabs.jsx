@@ -1,7 +1,7 @@
 import {
   View,
   ScrollView,
-  RefreshControl
+  SectionList,
 } from "react-native";
 import AppText from "../common/AppText";
 import React, { useState, useContext } from "react";
@@ -12,16 +12,31 @@ import { AuthContext } from "../../Context/AuthContext";
 import AddTask from "./AddTask";
 import EditTask from "./EditTask";
 import { COLORS } from "../../stylesheets/colors";
+import { resolveUserRole } from "../../../shared/navigationAccess";
+import {
+  getTaskIdentifier,
+  sortTasksByCreatedDesc,
+} from "../../utilities/tasks";
+
+const OPEN_TASK_STATUSES = new Set(["pending", "returned", "ongoing"]);
+const COMPLETED_TASK_STATUSES = new Set(["completed", "turned in", "approved"]);
+
+const normalizeTaskStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
 
 export default function TaskTabs({
-  tasks,
+  tasks = [],
   employees = [],
   onTaskPress,
   onRefresh,
   refreshing = false,
 }) {
   const { user } = useContext(AuthContext);
-  const isHead = user?.jobTitle?.toLowerCase() === "maintenance manager";
+  const userRole = resolveUserRole(user);
+  const isHead = ["maintenance manager", "superadmin"].includes(userRole);
+  const now = new Date();
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];
   const headTabs = ["Tasks", "Submitted"];
@@ -30,8 +45,6 @@ export default function TaskTabs({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-
-  const now = new Date();
 
   const formatDisplayDate = (dateString) => {
     const date = new Date(dateString);
@@ -45,56 +58,50 @@ export default function TaskTabs({
     if (isHead) {
       switch (activeTab) {
         case "Tasks":
-          return tasks;
+          return sortTasksByCreatedDesc(tasks);
         case "Submitted":
-          return tasks.filter(
-            (t) => t.status === "Completed" || t.status === "Turned in",
+          return sortTasksByCreatedDesc(
+            tasks.filter((task) =>
+              ["completed", "turned in"].includes(
+                normalizeTaskStatus(task.status),
+              ),
+            ),
           );
         default:
           return [];
       }
     } else {
-      return tasks.filter((task) => {
-        const deadline = task.endDateTime || task.dueDate;
-        if (!deadline) return false;
-        const dueDate = new Date(deadline);
-        const today = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-        );
-        const isPastDue = dueDate < today;
+      return sortTasksByCreatedDesc(
+        tasks.filter((task) => {
+          const taskStatus = normalizeTaskStatus(task.status);
+          const deadline = task.endDateTime || task.dueDate;
+          if (!deadline) return false;
+          const dueDate = new Date(deadline);
+          const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          const isPastDue = dueDate < today;
 
-        switch (activeTab) {
-          case "Upcoming":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              !isPastDue
-            );
-          case "Past Due":
-            return (
-              (task.status === "Pending" ||
-                task.status === "Returned" ||
-                task.status === "Ongoing") &&
-              isPastDue
-            );
-          case "Completed":
-            return (
-              task.status === "Completed" ||
-              task.status === "Turned in" ||
-              task.status === "Approved"
-            );
-          default:
-            return false;
-        }
-      });
+          switch (activeTab) {
+            case "Upcoming":
+              return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
+            case "Past Due":
+              return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
+            case "Completed":
+              return COMPLETED_TASK_STATUSES.has(taskStatus);
+            default:
+              return false;
+          }
+        }),
+      );
     }
   };
 
   const getMechanicTabCount = (tab) =>
     tasks.filter((task) => {
+      const taskStatus = normalizeTaskStatus(task.status);
       const deadline = task.endDateTime || task.dueDate;
       if (!deadline) return false;
 
@@ -104,25 +111,11 @@ export default function TaskTabs({
 
       switch (tab) {
         case "Upcoming":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            !isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && !isPastDue;
         case "Past Due":
-          return (
-            (task.status === "Pending" ||
-              task.status === "Returned" ||
-              task.status === "Ongoing") &&
-            isPastDue
-          );
+          return OPEN_TASK_STATUSES.has(taskStatus) && isPastDue;
         case "Completed":
-          return (
-            task.status === "Completed" ||
-            task.status === "Turned in" ||
-            task.status === "Approved"
-          );
+          return COMPLETED_TASK_STATUSES.has(taskStatus);
         default:
           return false;
       }
@@ -148,16 +141,10 @@ export default function TaskTabs({
       grouped[formattedDate].push(task);
     });
 
-    return Object.keys(grouped)
-      .sort((a, b) => {
-        const dateA = new Date(a);
-        const dateB = new Date(b);
-        return activeTab === "Completed" ? dateB - dateA : dateA - dateB;
-      })
-      .map((date) => ({
-        title: date,
-        data: grouped[date],
-      }));
+    return Object.keys(grouped).map((date) => ({
+      title: date,
+      data: grouped[date],
+    }));
   };
 
   const getCardVariant = () => {
@@ -183,11 +170,17 @@ export default function TaskTabs({
 
   return (
     <View style={{ flex: 1 }}>
-      <View
-        style={{
+      <ScrollView
+        style={{ flexGrow: 0, flexShrink: 0, maxHeight: 48 }}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
           flexDirection: "row",
           justifyContent: "flex-start",
+          alignItems: "center",
           gap: 3,
+          paddingRight: 8,
+          paddingBottom: 8,
         }}
       >
         {tabsToRender.map((tab) => (
@@ -217,71 +210,33 @@ export default function TaskTabs({
             buttonTextStyle={styles.primaryBtnTxt}
           />
         )}
-      </View>
+      </ScrollView>
 
       {/* Task List */}
       <View style={styles.taskTable}>
-        <ScrollView
+        <SectionList
+          style={{ flex: 1 }}
+          sections={!isHead ? groupedTasks : [{ title: "", data: tasksToRender }]}
+          keyExtractor={(task) => String(getTaskIdentifier(task))}
+          initialNumToRender={12}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={{ padding: 10, paddingBottom: 110 }}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            ) : undefined
-          }
-        >
-          {!isHead && groupedTasks.length > 0
-            ? groupedTasks.map((section) => (
-                <View key={section.title}>
-                  <View
-                    style={{
-                      paddingVertical: 2,
-                      paddingHorizontal: 6,
-                      marginBottom: 5,
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                    }}
-                  >
-                    <AppText
-                      style={{
-                        fontWeight: "700",
-                        fontSize: 12,
-                      }}
-                    >
-                      {section.title}
-                    </AppText>
-                  </View>
-
-                  {section.data.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      data={task}
-                      variant={getCardVariant()}
-                      onPress={onTaskPress}
-                      onStartTask={() => handleTaskAction(task, "start")}
-                      onEditTask={() => handleTaskAction(task, "edit")}
-                      onDeleteTask={() => handleTaskAction(task, "delete")}
-                    />
-                  ))}
-                </View>
-              ))
-            : tasksToRender.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  data={task}
-                  variant={getCardVariant()}
-                  onPress={onTaskPress}
-                  onStartTask={() => handleTaskAction(task, "start")}
-                  onEditTask={() => handleTaskAction(task, "edit")}
-                  onDeleteTask={() => handleTaskAction(task, "delete")}
-                />
-              ))}
-
-          {tasksToRender.length === 0 && (
-            <AppText style={{ textAlign: "center", marginTop: 20 }}>
-              No tasks available
-            </AppText>
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          renderSectionHeader={({ section }) => section.title ? (
+            <AppText style={{ padding: 6, fontWeight: "700", fontSize: 12 }}>{section.title}</AppText>
+          ) : null}
+          renderItem={({ item: task }) => (
+            <TaskCard data={task} variant={getCardVariant()} onPress={onTaskPress}
+              onStartTask={() => handleTaskAction(task, "start")}
+              onEditTask={() => handleTaskAction(task, "edit")}
+              onDeleteTask={() => handleTaskAction(task, "delete")}
+            />
           )}
-        </ScrollView>
+          ListEmptyComponent={<AppText style={{ textAlign: "center", marginTop: 20 }}>No tasks available</AppText>}
+        />
       </View>
 
       {/* Add Task Modal - only render for head */}

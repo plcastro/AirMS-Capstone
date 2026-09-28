@@ -3,10 +3,12 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
   Button,
+  Calendar,
   Card,
   Checkbox,
   Col,
@@ -21,10 +23,10 @@ import {
   Space,
   Table,
   Tabs,
-  Tag,
+  Tooltip,
   Typography,
   DatePicker,
-  App,
+  App as AntdApp,
 } from "antd";
 import {
   DeleteOutlined,
@@ -33,10 +35,18 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 import { confirmAction } from "../../../utils/confirmAction";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
+import { formatTaskInspectionLabel } from "../../../utils/taskInspectionLabel";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
@@ -45,6 +55,35 @@ const MINIMUM_TASK_MINUTES = 60;
 const BASE_TASK_MINUTES = 10;
 const CONTEXT_SWITCH_MINUTES_PER_ITEM = 2;
 const DEFAULT_ITEM_MINUTES = 12;
+const TASK_MODAL_WIDTH = "min(1280px, calc(100vw - 48px))";
+const TASK_MODAL_BODY_STYLE = {
+  maxHeight: "calc(100vh - 180px)",
+  overflowY: "auto",
+  paddingBottom: 8,
+};
+const TASK_DETAIL_MODAL_WIDTH = "min(1180px, calc(100vw - 48px))";
+const TASK_CALENDAR_STORAGE_KEY = "airms.taskCalendar.enabled";
+const TASK_CALENDAR_ENV_ENABLED =
+  import.meta.env.VITE_TASK_CALENDAR_ENABLED === "true";
+const MECHANIC_CALENDAR_COLORS = [
+  { bg: "#e6f4ff", border: "#91caff", text: "#0958d9" },
+  { bg: "#f6ffed", border: "#b7eb8f", text: "#237804" },
+  { bg: "#fff7e6", border: "#ffd591", text: "#ad6800" },
+  { bg: "#fff0f6", border: "#ffadd2", text: "#c41d7f" },
+  { bg: "#f9f0ff", border: "#d3adf7", text: "#531dab" },
+  { bg: "#e6fffb", border: "#87e8de", text: "#006d75" },
+  { bg: "#fff1f0", border: "#ffa39e", text: "#cf1322" },
+  { bg: "#f0f5ff", border: "#adc6ff", text: "#1d39c4" },
+];
+
+const getTaskCalendarFeatureFlag = () => {
+  if (typeof window === "undefined") return TASK_CALENDAR_ENV_ENABLED;
+
+  const storedValue = window.localStorage.getItem(TASK_CALENDAR_STORAGE_KEY);
+  if (storedValue === "true") return true;
+  if (storedValue === "false") return false;
+  return TASK_CALENDAR_ENV_ENABLED;
+};
 
 const normalizeStatus = (value) =>
   String(value || "")
@@ -53,10 +92,45 @@ const normalizeStatus = (value) =>
 const isTurnedIn = (task) => normalizeStatus(task?.status) === "turned in";
 const isReviewed = (task) =>
   task?.isApproved || normalizeStatus(task?.status) === "approved";
+const isForReview = (task) =>
+  !isReviewed(task) &&
+  (isTurnedIn(task) || normalizeStatus(task?.status) === "completed");
+const getDisplayStatus = (task) =>
+  isReviewed(task) ? "Approved" : task?.status;
+const getTaskDate = (task, key) => {
+  const value = task?.[key];
+  const date = value ? dayjs(value) : null;
+  return date?.isValid() ? date : null;
+};
+const isTaskOnCalendarDate = (task, date) => {
+  const start =
+    getTaskDate(task, "startDateTime") || getTaskDate(task, "dueDate");
+  const end =
+    getTaskDate(task, "endDateTime") || getTaskDate(task, "dueDate") || start;
+  if (!start) return false;
+
+  return (
+    !start.isAfter(date.endOf("day")) && !end.isBefore(date.startOf("day"))
+  );
+};
+const getStableColorIndex = (value = "") => {
+  const text = String(value || "unassigned");
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash =
+      (hash * 31 + text.charCodeAt(index)) % MECHANIC_CALENDAR_COLORS.length;
+  }
+  return hash;
+};
 
 const addMinutesToDate = (date, minutes) => {
   const safeDate = date instanceof Date ? date : new Date(date);
   return new Date(safeDate.getTime() + minutes * 60 * 1000);
+};
+
+const addDaysToDate = (date, days) => {
+  const safeDate = date instanceof Date ? date : new Date(date);
+  return new Date(safeDate.getTime() + days * 24 * 60 * 60 * 1000);
 };
 
 const estimateChecklistItemMinutes = (item = {}) => {
@@ -71,11 +145,36 @@ const estimateChecklistItemMinutes = (item = {}) => {
     .join(" ")
     .toLowerCase();
 
-  if (["soap", "hoist", "overhaul", "cargo swing"].some((key) => text.includes(key))) return 30;
-  if (["coupling", "mast", "reduction gear", "free wheel", "damper"].some((key) => text.includes(key))) return 20;
-  if (["rotor", "swash", "pitch change", "servocontrol", "drive shaft"].some((key) => text.includes(key))) return 15;
-  if (["fuel", "oil", "hydraulic", "brake", "gear", "structure"].some((key) => text.includes(key))) return 12.5;
-  if (["door", "window", "seat", "harness", "pitot", "camera", "light"].some((key) => text.includes(key))) return 10;
+  if (
+    ["soap", "hoist", "overhaul", "cargo swing"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 30;
+  if (
+    ["coupling", "mast", "reduction gear", "free wheel", "damper"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 20;
+  if (
+    ["rotor", "swash", "pitch change", "servocontrol", "drive shaft"].some(
+      (key) => text.includes(key),
+    )
+  )
+    return 15;
+  if (
+    ["fuel", "oil", "hydraulic", "brake", "gear", "structure"].some((key) =>
+      text.includes(key),
+    )
+  )
+    return 12.5;
+  if (
+    ["door", "window", "seat", "harness", "pitot", "camera", "light"].some(
+      (key) => text.includes(key),
+    )
+  )
+    return 10;
   return DEFAULT_ITEM_MINUTES;
 };
 
@@ -97,20 +196,17 @@ const estimateInspectionSchedule = (checklistItems = []) => {
     itemCount: validItems.length,
     minutes,
     hours: Math.round((minutes / 60) * 100) / 100,
+    days: Math.max(1, Math.ceil(minutes / 60)),
   };
 };
 
 const formatEstimatedDuration = (minutes) => {
-  const wholeMinutes = Math.max(0, Math.round(minutes));
-  const hours = Math.floor(wholeMinutes / 60);
-  const remainingMinutes = wholeMinutes % 60;
-  if (hours === 0) return `${remainingMinutes} min`;
-  if (remainingMinutes === 0) return `${hours} hr`;
-  return `${hours} hr ${remainingMinutes} min`;
+  const days = Math.max(1, Math.ceil(Math.max(0, minutes) / 60));
+  return `${days} day${days === 1 ? "" : "s"}`;
 };
 
 const formatDisplayDateTime = (value) =>
-  value ? dayjs(value).format("MMM D, YYYY h:mm A") : "Not set";
+  value ? dayjs(value).format("MM/DD/YYYY h:mm A") : "Not set";
 
 const isPastDueTask = (task) => {
   const deadline = task?.endDateTime || task?.dueDate;
@@ -122,6 +218,53 @@ const isPastDueTask = (task) => {
 };
 
 const getDefaultStart = () => addMinutesToDate(new Date(), 5);
+
+const getScheduleDraftDates = (dueDate) => {
+  const fallbackStart = getDefaultStart();
+  const parsedDue = dueDate ? dayjs(dueDate) : null;
+
+  if (!parsedDue?.isValid()) {
+    return {
+      startDateTime: dayjs(fallbackStart),
+      endDateTime: dayjs(addDaysToDate(fallbackStart, 1)),
+    };
+  }
+
+  const endDateTime = parsedDue.hour(17).minute(0).second(0).millisecond(0);
+  if (endDateTime.isBefore(dayjs())) {
+    return {
+      startDateTime: dayjs(fallbackStart),
+      endDateTime: dayjs(addDaysToDate(fallbackStart, 1)),
+    };
+  }
+
+  return {
+    startDateTime: endDateTime.subtract(1, "day").hour(8).minute(0),
+    endDateTime,
+  };
+};
+
+const findInspectionOptionForDraft = (inspectionOptions = [], draft = {}) => {
+  const draftName = String(draft.inspectionName || "")
+    .trim()
+    .toLowerCase();
+  const draftModel = String(draft.aircraftModel || "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  return inspectionOptions.find((inspection) => {
+    const optionName = String(inspection.name || "")
+      .trim()
+      .toLowerCase();
+    const optionModel = String(inspection.aircraftModel || "")
+      .replace(/\s+/g, "")
+      .toLowerCase();
+    return (
+      optionName === draftName &&
+      (!draftModel || !optionModel || optionModel === draftModel)
+    );
+  });
+};
 
 const createCustomChecklistItem = (index = 0) => ({
   inspectionName: "Custom Task",
@@ -138,21 +281,120 @@ const createCustomChecklistItem = (index = 0) => ({
   correctiveAction: "",
   environmentalCondition: "",
   engineModel: "",
-  conditions: { modificationStatus: "", modificationNumbers: [], effectivity: [] },
+  conditions: {
+    modificationStatus: "",
+    modificationNumbers: [],
+    effectivity: [],
+  },
   interval: { flightHours: 0, calendarMonths: 0, specificInterval: "" },
 });
 
+const getChecklistItemKey = (item = {}) =>
+  [
+    String(item.taskId || "").trim(),
+    String(item.taskName || "")
+      .trim()
+      .toLowerCase(),
+    String(item.inspectionTypeFull || item.inspectionName || "")
+      .trim()
+      .toLowerCase(),
+  ]
+    .filter(Boolean)
+    .join("|");
+
+const normalizeChecklistItems = (
+  rawItems = [],
+  { title = "", inspectionType = "", selectedInspection = null } = {},
+) =>
+  (Array.isArray(rawItems) ? rawItems : [])
+    .filter((item) => String(item?.taskName || "").trim())
+    .map((item, index) => {
+      const isCustom = inspectionType === CUSTOM_INSPECTION_ID;
+      const taskId = String(item.taskId || "").trim();
+      return {
+        ...item,
+        taskId: taskId || `custom-${Date.now()}-${index + 1}`,
+        taskName: String(item.taskName || "").trim(),
+        description: String(item.description || "").trim(),
+        documentation: String(item.documentation || "").trim(),
+        inspectionName: isCustom
+          ? title || "Custom Task"
+          : item.inspectionName || selectedInspection?.name || title,
+        inspectionType: isCustom ? "Custom" : item.inspectionType || "",
+        inspectionTypeFull: isCustom
+          ? "Custom Task"
+          : item.inspectionTypeFull ||
+            item.inspectionName ||
+            selectedInspection?.name ||
+            "",
+      };
+    });
+
+const buildChecklistState = (
+  items = [],
+  previousItems = [],
+  previousState = [],
+) => {
+  const previousByKey = new Map();
+  previousItems.forEach((item, index) => {
+    const key = getChecklistItemKey(item);
+    if (key) previousByKey.set(key, Boolean(previousState[index]));
+  });
+
+  return items.map((item) => {
+    const key = getChecklistItemKey(item);
+    return key && previousByKey.has(key) ? previousByKey.get(key) : false;
+  });
+};
+
+const getChecklistCounts = (task = {}) => {
+  const total = Array.isArray(task.checklistItems)
+    ? task.checklistItems.length
+    : 0;
+  const done = Array.isArray(task.checklistState)
+    ? task.checklistState.slice(0, total).filter(Boolean).length
+    : 0;
+
+  return { done, total };
+};
+
+const getChecklistMeta = (item = {}) =>
+  [item.taskId, item.inspectionTypeFull || item.inspectionName]
+    .filter(Boolean)
+    .join(" | ");
+
+const toUniqueSelectOptions = (items = [], getValue, getLabel = getValue) => {
+  const seen = new Set();
+  return items.reduce((options, item, index) => {
+    const value = getValue(item, index);
+    if (value === null || value === undefined || value === "") return options;
+    const key = String(value);
+    if (seen.has(key)) return options;
+    seen.add(key);
+    options.push({
+      value,
+      label: getLabel(item, index),
+    });
+    return options;
+  }, []);
+};
+
 export default function TaskAssignment() {
-  const { message: messageApi } = App.useApp();
   const { user, getAuthHeader } = useContext(AuthContext);
+  const { modal } = AntdApp.useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [inspectionOptions, setInspectionOptions] = useState([]);
+  const [auxiliaryDataLoaded, setAuxiliaryDataLoaded] = useState(false);
   const [selectedAircraft, setSelectedAircraft] = useState("all");
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [activeTab, setActiveTab] = useState("assigned");
+  const [taskCalendarEnabled] = useState(getTaskCalendarFeatureFlag);
   const [selectedTask, setSelectedTask] = useState(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -165,8 +407,21 @@ export default function TaskAssignment() {
     open: false,
     mode: null,
   });
-  const role = user?.jobTitle?.toLowerCase() || "";
-  const isManager = ["maintenance manager", "superadmin"].includes(role);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+  const consumedCreateDraftRef = useRef("");
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const access = String(user?.access || "")
+    .trim()
+    .toLowerCase();
+  const isSuperadmin = role === "superadmin" || access === "superadmin";
+  const isManager = role === "maintenance manager" || isSuperadmin;
   const watchedInspectionType = Form.useWatch("inspectionType", form);
   const rawChecklistItems = Form.useWatch("checklistItems", form);
   const watchedChecklistItems = useMemo(
@@ -191,9 +446,12 @@ export default function TaskAssignment() {
       setTasks(Array.isArray(taskData.data) ? taskData.data : []);
 
       if (isManager) {
-        const userResponse = await fetch(`${API_BASE}/api/user/assignable-users`, {
-          headers,
-        });
+        const userResponse = await fetch(
+          `${API_BASE}/api/user/assignable-users`,
+          {
+            headers,
+          },
+        );
         const userData = await userResponse.json();
         if (!userResponse.ok)
           throw new Error(userData.message || "Failed to load users");
@@ -202,7 +460,12 @@ export default function TaskAssignment() {
         setUsers([]);
       }
     } catch (error) {
-      messageApi.error(error.message || "Failed to load tasks");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load tasks",
+      });
     } finally {
       setLoading(false);
     }
@@ -238,21 +501,25 @@ export default function TaskAssignment() {
 
         if (aircraftResponse.ok) {
           const aircraftData = await aircraftResponse.json();
-          setAircraftOptions(Array.isArray(aircraftData?.data) ? aircraftData.data : []);
+          setAircraftOptions(
+            Array.isArray(aircraftData?.data) ? aircraftData.data : [],
+          );
         }
 
         if (inspectionsResponse.ok) {
           const inspectionData = await inspectionsResponse.json();
           const options = Array.from(
             new Map(
-              (Array.isArray(inspectionData) ? inspectionData : []).map((inspection) => [
-                inspection._id,
-                {
-                  id: inspection._id,
-                  name: inspection.inspectionName,
-                  aircraftModel: inspection.aircraftModel,
-                },
-              ]),
+              (Array.isArray(inspectionData) ? inspectionData : []).map(
+                (inspection) => [
+                  inspection._id,
+                  {
+                    id: inspection._id,
+                    name: inspection.inspectionName,
+                    aircraftModel: inspection.aircraftModel,
+                  },
+                ],
+              ),
             ).values(),
           );
           setInspectionOptions(options);
@@ -260,6 +527,8 @@ export default function TaskAssignment() {
       } catch {
         setAircraftOptions([]);
         setInspectionOptions([]);
+      } finally {
+        setAuxiliaryDataLoaded(true);
       }
     };
 
@@ -271,6 +540,12 @@ export default function TaskAssignment() {
     setActiveTab(nextTab);
   }, [isManager]);
 
+  useEffect(() => {
+    if (!taskCalendarEnabled && activeTab === "calendar") {
+      setActiveTab(isManager ? "assigned" : "upcoming");
+    }
+  }, [activeTab, isManager, taskCalendarEnabled]);
+
   const mechanics = useMemo(
     () =>
       users
@@ -281,96 +556,216 @@ export default function TaskAssignment() {
         )
         .map((item) => {
           const id = item._id || item.id;
+          const activeTaskCount = tasks.filter(
+            (task) =>
+              String(task.assignedTo || "") === String(id) &&
+              ACTIVE_OPEN.has(normalizeStatus(task.status)),
+          ).length;
           return {
             ...item,
             id,
             name:
               item.name ||
               `${item.firstName || ""} ${item.lastName || ""}`.trim(),
-            isBusy: tasks.some(
-              (task) =>
-                String(task.assignedTo || "") === String(id) &&
-                ACTIVE_OPEN.has(normalizeStatus(task.status)),
-            ),
+            activeTaskCount,
+            isBusy: activeTaskCount > 0,
           };
         }),
     [tasks, users],
   );
 
-  const availableMechanics = useMemo(
-    () => mechanics.filter((item) => !item.isBusy),
-    [mechanics],
+  const getTaskAssigneeId = useCallback((task = {}) => {
+    const assignee = task.assignedTo;
+    if (assignee && typeof assignee === "object") {
+      return assignee._id || assignee.id || "";
+    }
+    return assignee || "";
+  }, []);
+
+  const getTaskAssigneeName = useCallback(
+    (task = {}) => {
+      const assigneeId = getTaskAssigneeId(task);
+      const matchedMechanic = mechanics.find(
+        (item) => String(item.id) === String(assigneeId),
+      );
+
+      return (
+        task.assignedToName ||
+        matchedMechanic?.name ||
+        (task.assignedTo && typeof task.assignedTo === "object"
+          ? [task.assignedTo.firstName, task.assignedTo.lastName]
+              .filter(Boolean)
+              .join(" ")
+          : "") ||
+        "Assigned mechanic"
+      );
+    },
+    [getTaskAssigneeId, mechanics],
+  );
+
+  const getMechanicActiveTaskCount = useCallback(
+    (mechanicId, excludedTask = null) => {
+      const excludedTaskId = excludedTask?.id || excludedTask?._id || "";
+      return tasks.filter(
+        (task) =>
+          String(task.assignedTo || "") === String(mechanicId) &&
+          String(task.id || task._id || "") !== String(excludedTaskId) &&
+          ACTIVE_OPEN.has(normalizeStatus(task.status)),
+      ).length;
+    },
+    [tasks],
+  );
+
+  const getTaskMechanicColor = useCallback(
+    (task = {}) => {
+      const colorKey =
+        getTaskAssigneeId(task) || getTaskAssigneeName(task) || "unassigned";
+      return MECHANIC_CALENDAR_COLORS[getStableColorIndex(colorKey)];
+    },
+    [getTaskAssigneeId, getTaskAssigneeName],
+  );
+
+  const mechanicSelectOptions = useMemo(() => {
+    const seen = new Set();
+    const options = mechanics.reduce((list, item) => {
+      if (!item.id) return list;
+      const key = String(item.id);
+      if (seen.has(key)) return list;
+      seen.add(key);
+      list.push({
+        value: item.id,
+        label: `${item.name}${
+          item.activeTaskCount
+            ? ` (${item.activeTaskCount} active task${
+                item.activeTaskCount === 1 ? "" : "s"
+              })`
+            : ""
+        }`,
+        disabled: false,
+      });
+      return list;
+    }, []);
+
+    if (editingTask) {
+      const assignedTo = getTaskAssigneeId(editingTask);
+      const hasCurrentAssignee = options.some(
+        (option) => String(option.value) === String(assignedTo),
+      );
+
+      if (assignedTo && !hasCurrentAssignee) {
+        options.unshift({
+          value: assignedTo,
+          label: getTaskAssigneeName(editingTask),
+          disabled: false,
+        });
+      }
+    }
+
+    return options;
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics]);
+
+  const aircraftSelectOptions = useMemo(
+    () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
+    [aircraftOptions],
+  );
+
+  const inspectionSelectOptions = useMemo(
+    () => [
+      { value: CUSTOM_INSPECTION_ID, label: "Custom Task" },
+      ...toUniqueSelectOptions(
+        inspectionOptions,
+        (inspection) => inspection.id,
+        formatTaskInspectionLabel,
+      ),
+    ],
+    [inspectionOptions],
   );
 
   const myTasks = useMemo(
     () =>
       isManager
         ? tasks
-        : tasks.filter((task) => String(task.assignedTo) === String(user?.id)),
-    [isManager, tasks, user?.id],
+        : tasks.filter(
+            (task) => String(getTaskAssigneeId(task)) === String(user?.id),
+          ),
+    [getTaskAssigneeId, isManager, tasks, user?.id],
   );
 
   const filteredByTab = useMemo(() => {
     return myTasks.filter((task) => {
-      if (!isManager && selectedAircraft !== "all" && task.aircraft !== selectedAircraft) {
+      if (
+        !isManager &&
+        selectedAircraft !== "all" &&
+        task.aircraft !== selectedAircraft
+      ) {
         return false;
       }
 
       if (activeTab === "assigned")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
-      if (activeTab === "for_review")
-        return (
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved)
-        );
+      if (activeTab === "for_review") return isForReview(task);
       if (activeTab === "reviewed") return isReviewed(task);
       if (activeTab === "ongoing")
         return ACTIVE_OPEN.has(normalizeStatus(task.status));
       if (activeTab === "upcoming")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task);
+        return (
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task)
+        );
       if (activeTab === "past_due")
-        return ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task);
+        return (
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task)
+        );
       if (activeTab === "completed")
-        return normalizeStatus(task.status) === "completed" || isTurnedIn(task);
+        return (
+          normalizeStatus(task.status) === "completed" ||
+          isTurnedIn(task) ||
+          isReviewed(task)
+        );
       return true;
     });
   }, [activeTab, isManager, myTasks, selectedAircraft]);
 
   const displayedTasks = useMemo(() => {
-    return filteredByTab.filter((task) => {
-      const needle = query.trim().toLowerCase();
-      if (!needle) return true;
-      return [task.id, task.title, task.aircraft, task.assignedToName].some(
-        (value) =>
-          String(value || "")
-            .toLowerCase()
-            .includes(needle),
-      );
+    return filteredByTab.filter((task) => matchesSearch(debouncedQuery, task));
+  }, [debouncedQuery, filteredByTab]);
+
+  const calendarTasks = useMemo(() => {
+    return myTasks.filter((task) => {
+      if (
+        !isManager &&
+        selectedAircraft !== "all" &&
+        task.aircraft !== selectedAircraft
+      ) {
+        return false;
+      }
+
+      return matchesSearch(debouncedQuery, task);
     });
-  }, [filteredByTab, query]);
+  }, [debouncedQuery, isManager, myTasks, selectedAircraft]);
 
   const counts = useMemo(
     () => ({
       assigned: myTasks.filter((task) =>
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
-      forReview: myTasks.filter(
-        (task) =>
-          isTurnedIn(task) ||
-          (normalizeStatus(task.status) === "completed" && !task.isApproved),
-      ).length,
+      forReview: myTasks.filter((task) => isForReview(task)).length,
       reviewed: myTasks.filter((task) => isReviewed(task)).length,
       ongoing: myTasks.filter((task) =>
         ACTIVE_OPEN.has(normalizeStatus(task.status)),
       ).length,
       upcoming: myTasks.filter(
-        (task) => ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task),
+        (task) =>
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && !isPastDueTask(task),
       ).length,
       pastDue: myTasks.filter(
-        (task) => ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task),
+        (task) =>
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task),
       ).length,
       completed: myTasks.filter(
-        (task) => normalizeStatus(task.status) === "completed" || isTurnedIn(task),
+        (task) =>
+          normalizeStatus(task.status) === "completed" ||
+          isTurnedIn(task) ||
+          isReviewed(task),
       ).length,
     }),
     [myTasks],
@@ -391,27 +786,31 @@ export default function TaskAssignment() {
   };
 
   const ensureEndAfterStart = (task, startDate) => {
-    const nextStart = startDate instanceof Date ? startDate : new Date(startDate);
+    const nextStart =
+      startDate instanceof Date ? startDate : new Date(startDate);
     const currentEnd = task?.endDateTime ? new Date(task.endDateTime) : null;
     if (currentEnd && currentEnd > nextStart) return task.endDateTime;
-    return new Date(nextStart.getTime() + 60 * 1000).toISOString();
+    return addDaysToDate(nextStart, 1).toISOString();
   };
 
   const loadInspectionTasks = async (inspectionId) => {
     if (inspectionId === CUSTOM_INSPECTION_ID) {
       const items = [createCustomChecklistItem(0)];
-      const start = form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
+      const start =
+        form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
       const estimate = estimateInspectionSchedule(items);
       form.setFieldsValue({
         title: form.getFieldValue("title") || "Custom Task",
         maintenanceType: "Custom Task",
         checklistItems: items,
-        endDateTime: dayjs(addMinutesToDate(start.toDate(), estimate.minutes)),
+        endDateTime: dayjs(addDaysToDate(start.toDate(), estimate.days)),
       });
       return;
     }
 
-    const inspection = inspectionOptions.find((item) => item.id === inspectionId);
+    const inspection = inspectionOptions.find(
+      (item) => item.id === inspectionId,
+    );
     if (!inspection) return;
 
     form.setFieldsValue({ title: inspection.name });
@@ -436,45 +835,141 @@ export default function TaskAssignment() {
           seen.add(key);
           return true;
         });
-      const start = form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
+      const start =
+        form.getFieldValue("startDateTime") || dayjs(getDefaultStart());
       const estimate = estimateInspectionSchedule(items);
       form.setFieldsValue({
         checklistItems: items,
         maintenanceType: "Inspection",
-        endDateTime: dayjs(addMinutesToDate(start.toDate(), estimate.minutes)),
+        endDateTime: dayjs(addDaysToDate(start.toDate(), estimate.days)),
       });
     } catch (error) {
-      messageApi.error(error.message || "Failed to fetch inspection tasks");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to fetch inspection tasks",
+      });
       form.setFieldsValue({ checklistItems: [] });
     }
   };
 
-  const openCreateTask = () => {
+  const openCreateTask = async (draft = null) => {
     const start = getDefaultStart();
     form.resetFields();
     form.setFieldsValue({
       startDateTime: dayjs(start),
-      endDateTime: dayjs(addMinutesToDate(start, 60)),
+      endDateTime: dayjs(addDaysToDate(start, 1)),
       priority: "Normal",
       maintenanceType: "Inspection",
       checklistItems: [],
     });
     setEditingTask(null);
     setCreateOpen(true);
+
+    if (!draft) return;
+
+    const matchedInspection = findInspectionOptionForDraft(
+      inspectionOptions,
+      draft,
+    );
+    const scheduleDates = getScheduleDraftDates(draft.dueDate);
+    const inspectionType = matchedInspection?.id || CUSTOM_INSPECTION_ID;
+    const remaining = [
+      draft.remainingHours !== null && draft.remainingHours !== undefined
+        ? `${draft.remainingHours} FH remaining`
+        : "",
+      draft.remainingDays !== null && draft.remainingDays !== undefined
+        ? `${draft.remainingDays} day(s) remaining`
+        : "",
+      draft.dueAtHours !== null && draft.dueAtHours !== undefined
+        ? `Due at ${draft.dueAtHours} FH`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    form.setFieldsValue({
+      aircraft: draft.aircraft || undefined,
+      inspectionType,
+      title: draft.inspectionName
+        ? `Schedule ${draft.inspectionName}`
+        : "Schedule inspection",
+      priority: draft.priority || "Normal",
+      maintenanceType: "Preventive Maintenance",
+      ...scheduleDates,
+      checklistItems: matchedInspection
+        ? []
+        : [
+            {
+              ...createCustomChecklistItem(0),
+              taskName: draft.inspectionName || "Inspection planning",
+              inspectionName: draft.inspectionName || "Inspection planning",
+              inspectionTypeFull: draft.inspectionName || "Inspection planning",
+              description: [
+                draft.dueStatus ? `Due status: ${draft.dueStatus}` : "",
+                remaining,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+    });
+
+    if (matchedInspection) {
+      await loadInspectionTasks(matchedInspection.id);
+      form.setFieldsValue({
+        aircraft: draft.aircraft || undefined,
+        inspectionType: matchedInspection.id,
+        priority: draft.priority || "Normal",
+        maintenanceType: "Preventive Maintenance",
+        ...scheduleDates,
+      });
+    }
   };
 
+  useEffect(() => {
+    const draft = location.state?.createTaskFromInspectionLimit;
+    if (!draft || !auxiliaryDataLoaded) return;
+
+    const draftKey = [
+      draft.aircraft,
+      draft.inspectionName,
+      draft.dueDate,
+      draft.dueAtHours,
+    ].join("|");
+    if (consumedCreateDraftRef.current === draftKey) return;
+    consumedCreateDraftRef.current = draftKey;
+
+    openCreateTask(draft);
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [
+    auxiliaryDataLoaded,
+    inspectionOptions,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ]);
+
   const openEditTask = (task) => {
+    const assignedTo = getTaskAssigneeId(task);
     setEditingTask(task);
     form.resetFields();
     form.setFieldsValue({
       title: task.title,
       aircraft: task.aircraft,
-      assignedTo: task.assignedTo,
+      assignedTo,
       priority: task.priority || "Normal",
       maintenanceType: task.maintenanceType || "Inspection",
       startDateTime: task.startDateTime ? dayjs(task.startDateTime) : null,
       endDateTime: task.endDateTime ? dayjs(task.endDateTime) : null,
-      checklistItems: Array.isArray(task.checklistItems) ? task.checklistItems : [],
+      checklistItems: Array.isArray(task.checklistItems)
+        ? task.checklistItems
+        : [],
       inspectionType: CUSTOM_INSPECTION_ID,
     });
     setCreateOpen(true);
@@ -482,16 +977,33 @@ export default function TaskAssignment() {
 
   const deleteTask = async (task) => {
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/${task.id || task._id}`, {
-        method: "DELETE",
-        headers: await getAuthHeader(),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/tasks/${task.id || task._id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "x-action-confirmed": "true",
+            ...(await getAuthHeader()),
+          },
+        },
+      );
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Failed to delete task");
-      messageApi.success("Task deleted");
+      if (!response.ok)
+        throw new Error(data.message || "Failed to delete task");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Deleted!",
+        subTitle: "The task has been deleted successfully.",
+      });
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to delete task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to delete task",
+      });
     }
   };
 
@@ -501,6 +1013,7 @@ export default function TaskAssignment() {
       title: "Start Task",
       content: "Start this task now?",
       okText: "Start",
+      modal,
     });
     if (!confirmed) return;
 
@@ -513,11 +1026,21 @@ export default function TaskAssignment() {
     };
     try {
       await upsertTask(next);
-      messageApi.success("Task started");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Started!",
+        subTitle: "The task has been started successfully.",
+      });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to start task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to start task",
+      });
     }
   };
 
@@ -526,8 +1049,16 @@ export default function TaskAssignment() {
     const now = new Date().toISOString();
     const next = {
       ...selectedTask,
-      status: options.undo ? "Ongoing" : turnIn ? "Turned in" : selectedTask.status,
-      completedAt: options.undo ? null : turnIn ? now : selectedTask.completedAt,
+      status: options.undo
+        ? "Ongoing"
+        : turnIn
+          ? "Turned in"
+          : selectedTask.status,
+      completedAt: options.undo
+        ? null
+        : turnIn
+          ? now
+          : selectedTask.completedAt,
       endDateTime: ensureEndAfterStart(
         selectedTask,
         selectedTask.startDateTime || selectedTask.createdAt || new Date(),
@@ -539,7 +1070,12 @@ export default function TaskAssignment() {
         ? next.checklistState
         : [];
       if (checklist.length > 0 && checklist.some((value) => !value)) {
-        messageApi.error("Please complete all checklist items before turning in");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: "Please complete all checklist items before turning in",
+        });
         return;
       }
     }
@@ -551,59 +1087,82 @@ export default function TaskAssignment() {
           ? "Move this task back to ongoing?"
           : "Turn in this completed task for review?",
         okText: options.undo ? "Undo" : "Turn In",
+        modal,
       });
       if (!confirmed) return;
     }
 
     try {
       await upsertTask(next);
-      messageApi.success(options.undo ? "Turn in undone" : turnIn ? "Task turned in" : "Draft saved");
+      const title = options.undo
+        ? "Turn In Undone!"
+        : turnIn
+          ? "Task Turned In!"
+          : "Draft Saved!";
+      setPopup({
+        open: true,
+        status: "success",
+        title,
+        subTitle: "The task has been updated successfully.",
+      });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to update task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update task",
+      });
     }
   };
 
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
-      const confirmed = await confirmAction({
-        title: editingTask ? "Save Task" : "Create Task",
-        content: editingTask
-          ? "Save changes to this task assignment?"
-          : "Create this task assignment?",
-        okText: editingTask ? "Save" : "Create",
-      });
-      if (!confirmed) return;
-
       const selectedMechanic = mechanics.find(
         (item) => String(item.id) === String(values.assignedTo),
       );
+      const selectedMechanicActiveTaskCount = getMechanicActiveTaskCount(
+        values.assignedTo,
+        editingTask,
+      );
+      const mechanicName = selectedMechanic?.name || "Selected mechanic";
+      const confirmed = await confirmAction({
+        title:
+          selectedMechanicActiveTaskCount > 0
+            ? "Mechanic Has Active Tasks"
+            : editingTask
+              ? "Save Task"
+              : "Create Task",
+        content:
+          selectedMechanicActiveTaskCount > 0
+            ? `${mechanicName} already has ${selectedMechanicActiveTaskCount} active task${
+                selectedMechanicActiveTaskCount === 1 ? "" : "s"
+              }. Continue assigning this task?`
+            : `${mechanicName} has no active tasks. ${
+                editingTask
+                  ? "Save changes to this task assignment?"
+                  : "Create this task assignment?"
+              }`,
+        okText:
+          selectedMechanicActiveTaskCount > 0
+            ? "Assign Anyway"
+            : editingTask
+              ? "Save"
+              : "Create",
+        modal,
+      });
+      if (!confirmed) return;
+
       const selectedInspection = inspectionOptions.find(
         (item) => String(item.id) === String(values.inspectionType),
       );
-      const checklistItems = Array.isArray(values.checklistItems)
-        ? values.checklistItems
-            .filter((item) => String(item?.taskName || "").trim())
-            .map((item, index) => ({
-              ...item,
-              taskId: item.taskId || `custom-${Date.now()}-${index + 1}`,
-              taskName: String(item.taskName || "").trim(),
-              inspectionName:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? values.title || "Custom Task"
-                  : item.inspectionName || values.title,
-              inspectionType:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? "Custom"
-                  : item.inspectionType,
-              inspectionTypeFull:
-                values.inspectionType === CUSTOM_INSPECTION_ID
-                  ? "Custom Task"
-                  : item.inspectionTypeFull,
-            }))
-        : [];
+      const checklistItems = normalizeChecklistItems(values.checklistItems, {
+        title: values.title,
+        inspectionType: values.inspectionType,
+        selectedInspection,
+      });
       const taskTitle = String(
         values.title ||
           selectedInspection?.name ||
@@ -631,10 +1190,13 @@ export default function TaskAssignment() {
           estimatedHours: estimateInspectionSchedule(checklistItems).hours,
         },
         checklistItems,
-        checklistState: Array.isArray(editingTask?.checklistState)
-          ? editingTask.checklistState.slice(0, checklistItems.length)
-          : checklistItems.map(() => false),
+        checklistState: buildChecklistState(
+          checklistItems,
+          editingTask?.checklistItems,
+          editingTask?.checklistState,
+        ),
         confirmAction: true,
+        confirmBusyMechanic: selectedMechanicActiveTaskCount > 0,
       };
 
       const url = editingTask
@@ -649,30 +1211,48 @@ export default function TaskAssignment() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.message || "Failed to save task");
-      messageApi.success(editingTask ? "Task updated" : "Task created");
+      if (!response.ok) throw new Error(data.message || "Failed to save task");
+      setPopup({
+        open: true,
+        status: "success",
+        title: editingTask ? "Task Updated!" : "Task Created!",
+        subTitle: editingTask
+          ? "The task has been updated successfully."
+          : "The task has been created successfully.",
+      });
       form.resetFields();
       setEditingTask(null);
       setCreateOpen(false);
       await load();
     } catch (error) {
       if (!error?.errorFields)
-        messageApi.error(error.message || "Failed to create task");
+        setPopup({
+          open: true,
+          status: "error",
+          title: "Operation failed!",
+          subTitle: error.message || "Failed to create task",
+        });
     }
   };
 
   const submitReturn = async () => {
     if (!selectedTask || !reviewNote.trim()) {
-      messageApi.error("Return remarks are required");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: "Return remarks are required",
+      });
       return;
     }
 
     const confirmed = await confirmAction({
       title: "Return Task",
-      content: "Return this task to the mechanic with the selected checklist changes?",
+      content:
+        "Return this task to the mechanic with the selected checklist changes?",
       okText: "Return",
       okButtonProps: { danger: true },
+      modal,
     });
     if (!confirmed) return;
 
@@ -695,14 +1275,24 @@ export default function TaskAssignment() {
         reviewedAt: new Date().toISOString(),
         checklistState: nextChecklist,
       });
-      messageApi.success("Task returned");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Returned!",
+        subTitle: "The task has been returned successfully.",
+      });
       setReviewOpen(false);
       setChecklistOpen(false);
       setReviewNote("");
       setItemsToUncheck([]);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to return task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to return task",
+      });
     }
   };
 
@@ -722,35 +1312,139 @@ export default function TaskAssignment() {
         approvedAt: new Date().toISOString(),
         reviewedAt: new Date().toISOString(),
       });
-      messageApi.success("Task approved");
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Task Approved!",
+        subTitle: "The task has been approved successfully.",
+      });
       setSignatureState({ open: false, mode: null });
       setChecklistOpen(false);
       await load();
     } catch (error) {
-      messageApi.error(error.message || "Failed to approve task");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to approve task",
+      });
     }
   };
 
-  const requestApprove = async () => {
+  const requestReturn = (task) => {
+    if (!isManager || !isForReview(task)) return;
+    setSelectedTask(task);
+    setReviewNote("");
+    setItemsToUncheck([]);
+    setReviewOpen(true);
+  };
+
+  const requestApprove = async (task) => {
+    if (!isManager || !isForReview(task)) return;
+    setSelectedTask(task);
     const confirmed = await confirmAction({
       title: "Approve Task",
       content: "Approve this turned-in task?",
       okText: "Approve",
+      modal,
     });
     if (confirmed) setSignatureState({ open: true, mode: "approve" });
   };
 
-  const tabs = isManager
-    ? [
-        { key: "assigned", label: `Assigned (${counts.assigned})` },
-        { key: "for_review", label: `For Review (${counts.forReview})` },
-        { key: "reviewed", label: `Reviewed (${counts.reviewed})` },
-      ]
-    : [
-        { key: "upcoming", label: `Upcoming (${counts.upcoming})` },
-        { key: "past_due", label: `Past Due (${counts.pastDue})` },
-        { key: "completed", label: `Completed (${counts.completed})` },
-      ];
+  const tabs = [
+    ...(isManager
+      ? [
+          { key: "assigned", label: `Assigned (${counts.assigned})` },
+          { key: "for_review", label: `For Review (${counts.forReview})` },
+          { key: "reviewed", label: `Reviewed (${counts.reviewed})` },
+        ]
+      : [
+          { key: "upcoming", label: `Upcoming (${counts.upcoming})` },
+          { key: "past_due", label: `Past Due (${counts.pastDue})` },
+          { key: "completed", label: `Completed (${counts.completed})` },
+        ]),
+    ...(taskCalendarEnabled
+      ? [{ key: "calendar", label: `Calendar (${calendarTasks.length})` }]
+      : []),
+  ];
+
+  const renderTaskCalendarDate = (date) => {
+    const allTasksForDate = calendarTasks.filter((task) =>
+      isTaskOnCalendarDate(task, date),
+    );
+    const tasksForDate = allTasksForDate.slice(0, 4);
+
+    if (!tasksForDate.length) return null;
+
+    return (
+      <Space orientation="vertical" size={2} style={{ width: "100%" }}>
+        {tasksForDate.map((task) => {
+          const mechanicColor = getTaskMechanicColor(task);
+          const mechanicName = getTaskAssigneeName(task);
+          const taskLabel = `${task.aircraft ? `${task.aircraft} - ` : ""}${
+            task.title || task.maintenanceType || "Task"
+          }`;
+
+          return (
+            <button
+              key={`${task._id || task.id}-${date.format("YYYY-MM-DD")}`}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedTask(task);
+                setChecklistOpen(true);
+              }}
+              style={{
+                width: "100%",
+                border: `1px solid ${mechanicColor.border}`,
+                borderRadius: 6,
+                background: mechanicColor.bg,
+                padding: "2px 6px",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              <Text
+                style={{
+                  display: "block",
+                  maxWidth: "100%",
+                  color: mechanicColor.text,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: 1.4,
+                }}
+                ellipsis={{
+                  tooltip: `${taskLabel} | ${mechanicName}`,
+                }}
+              >
+                {taskLabel}
+              </Text>
+              {isManager && (
+                <Text
+                  style={{
+                    display: "block",
+                    maxWidth: "100%",
+                    color: mechanicColor.text,
+                    fontSize: 11,
+                    lineHeight: 1.3,
+                    opacity: 0.78,
+                  }}
+                  ellipsis={{ tooltip: mechanicName }}
+                >
+                  {mechanicName}
+                </Text>
+              )}
+            </button>
+          );
+        })}
+        {allTasksForDate.length > tasksForDate.length && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            +{allTasksForDate.length - tasksForDate.length} more
+          </Text>
+        )}
+      </Space>
+    );
+  };
 
   return (
     <div style={{ padding: 20 }}>
@@ -762,6 +1456,8 @@ export default function TaskAssignment() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tasks"
               prefix={<SearchOutlined />}
+              size="large"
+              allowClear
             />
           </Col>
           {isManager && (
@@ -770,6 +1466,7 @@ export default function TaskAssignment() {
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={openCreateTask}
+                size="large"
               >
                 Task
               </Button>
@@ -778,6 +1475,7 @@ export default function TaskAssignment() {
           {!isManager && (
             <Col xs={24} md={6}>
               <Select
+                size="large"
                 style={{ width: "100%" }}
                 value={selectedAircraft}
                 onChange={setSelectedAircraft}
@@ -798,80 +1496,146 @@ export default function TaskAssignment() {
           onChange={setActiveTab}
           items={tabs}
         />
-      </Card>
-
-      <Table
-        style={{ marginTop: 12 }}
-        loading={loading}
-        rowKey={(record) => record._id || record.id}
-        dataSource={displayedTasks}
-        pagination={{ pageSize: 10 }}
-        onRow={(record) => ({
-          onClick: () => {
-            setSelectedTask(record);
-            setChecklistOpen(true);
-          },
-        })}
-        columns={[
-          { title: "Task ID", dataIndex: "id" },
-          { title: "Title", dataIndex: "title" },
-          { title: "Aircraft", dataIndex: "aircraft" },
-          { title: "Assigned To", dataIndex: "assignedToName" },
-          {
-            title: "Progress",
-            render: (_, record) => {
-              const total = record.checklistItems?.length || 0;
-              const done = record.checklistState?.filter(Boolean).length || 0;
-              return total ? (
-                <Progress percent={Math.round((done / total) * 100)} size="small" />
-              ) : (
-                "-"
-              );
-            },
-          },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => <Tag>{value || "Pending"}</Tag>,
-          },
-          {
-            title: "Due",
-            render: (_, record) =>
-              formatDisplayDateTime(record.endDateTime || record.dueDate),
-          },
-          ...(isManager
-            ? [
-                {
-                  title: "Actions",
-                  render: (_, record) => {
-                    const canEditDelete =
-                      activeTab === "assigned" &&
-                      normalizeStatus(record.status) === "pending";
-                    if (!canEditDelete) return null;
-                    return (
-                      <Space onClick={(event) => event.stopPropagation()}>
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => openEditTask(record)}
-                        />
-                        <Popconfirm
-                          title="Delete task?"
-                          description="This task assignment will be removed permanently."
-                          okText="Delete"
-                          okButtonProps={{ danger: true }}
-                          onConfirm={() => deleteTask(record)}
-                        >
-                          <Button size="small" danger icon={<DeleteOutlined />} />
-                        </Popconfirm>
-                      </Space>
-                    );
-                  },
+        {activeTab === "calendar" && taskCalendarEnabled ? (
+          <Card
+            style={{ marginTop: 12 }}
+            loading={loading}
+            styles={{ body: { padding: 12 } }}
+          >
+            <Calendar
+              cellRender={(date, info) =>
+                info.type === "date"
+                  ? renderTaskCalendarDate(date)
+                  : info.originNode
+              }
+            />
+          </Card>
+        ) : (
+          <ResponsiveTable
+            style={{ marginTop: 12 }}
+            loading={loading}
+            size={"small"}
+            rowKey={(record, index) =>
+              `${record._id || record.id || "task"}-${index}`
+            }
+            dataSource={displayedTasks}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: "max-content" }}
+            mobileBreakpoint="sm"
+            mobilePrimaryColumn="title"
+            mobileSecondaryColumn="id"
+            mobileMetaLimit={5}
+            onRow={(record) => ({
+              onClick: () => {
+                setSelectedTask(record);
+                setChecklistOpen(true);
+              },
+            })}
+            columns={[
+              { title: "Task ID", dataIndex: "id" },
+              { title: "Title", dataIndex: "title" },
+              { title: "Aircraft", dataIndex: "aircraft" },
+              { title: "Assigned To", dataIndex: "assignedToName" },
+              {
+                title: "Progress",
+                render: (_, record) => {
+                  const { done, total } = getChecklistCounts(record);
+                  return total ? (
+                    <Progress
+                      percent={Math.round((done / total) * 100)}
+                      size="small"
+                    />
+                  ) : (
+                    "-"
+                  );
                 },
-              ]
-            : []),
-        ]}
-      />
+              },
+              {
+                title: "Status",
+                dataIndex: "status",
+                render: (_, record) =>
+                  renderStatusTag(getDisplayStatus(record), "Pending"),
+              },
+              {
+                title: "Due",
+                render: (_, record) => (
+                  <DateTimeCell
+                    value={record.endDateTime || record.dueDate}
+                    fallback="Not set"
+                  />
+                ),
+              },
+              ...(isManager
+                ? [
+                    {
+                      title: "Actions",
+                      render: (_, record) => {
+                        const status = normalizeStatus(record.status);
+                        const canEditDelete =
+                          activeTab === "assigned" &&
+                          (isSuperadmin || status === "pending");
+                        const canReview =
+                          activeTab === "for_review" && isForReview(record);
+                        if (canReview) {
+                          return (
+                            <Space onClick={(event) => event.stopPropagation()}>
+                              <Button
+                                size="small"
+                                danger
+                                onClick={() => requestReturn(record)}
+                              >
+                                Return
+                              </Button>
+                              <Button
+                                size="small"
+                                type="primary"
+                                onClick={() => requestApprove(record)}
+                              >
+                                Approve
+                              </Button>
+                            </Space>
+                          );
+                        }
+                        if (!canEditDelete) return null;
+                        return (
+                          <Space
+                            size={12}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Tooltip title="Edit">
+                              <Button
+                                size="small"
+                                aria-label="Edit"
+                                icon={<EditOutlined />}
+                                onClick={() => openEditTask(record)}
+                              />
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <Popconfirm
+                                title="Delete task?"
+                                description="This task assignment will be removed permanently."
+                                okText="Delete"
+                                okButtonProps={{ danger: true }}
+                                onConfirm={() => deleteTask(record)}
+                              >
+                                <Button
+                                  size="small"
+                                  danger
+                                  aria-label="Delete"
+                                  icon={<DeleteOutlined />}
+                                />
+                              </Popconfirm>
+                            </Tooltip>
+                          </Space>
+                        );
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )}
+      </Card>
 
       <Modal
         open={createOpen}
@@ -879,10 +1643,15 @@ export default function TaskAssignment() {
           setCreateOpen(false);
           setEditingTask(null);
         }}
+        zIndex={3000}
         onOk={handleCreate}
         title={editingTask ? "Edit Task" : "Task"}
         okText={editingTask ? "Save" : "Add Task"}
-        width={960}
+        width={TASK_MODAL_WIDTH}
+        centered
+        styles={{
+          body: TASK_MODAL_BODY_STYLE,
+        }}
       >
         <Form form={form} layout="vertical">
           <Space orientation="vertical" size={6} style={{ width: "100%" }}>
@@ -897,10 +1666,7 @@ export default function TaskAssignment() {
                     size="large"
                     placeholder="Tail No."
                     showSearch
-                    options={aircraftOptions.map((aircraft) => ({
-                      value: aircraft,
-                      label: aircraft,
-                    }))}
+                    options={aircraftSelectOptions}
                   />
                 </Form.Item>
               </Col>
@@ -908,20 +1674,16 @@ export default function TaskAssignment() {
                 <Form.Item
                   label="Inspection"
                   name="inspectionType"
-                  rules={[{ required: true, message: "Inspection is required" }]}
+                  rules={[
+                    { required: true, message: "Inspection is required" },
+                  ]}
                 >
                   <Select
                     size="large"
                     placeholder="Pick Inspection"
                     disabled={Boolean(editingTask)}
                     onChange={loadInspectionTasks}
-                    options={[
-                      { value: CUSTOM_INSPECTION_ID, label: "Custom Task" },
-                      ...inspectionOptions.map((inspection) => ({
-                        value: inspection.id,
-                        label: inspection.name,
-                      })),
-                    ]}
+                    options={inspectionSelectOptions}
                   />
                 </Form.Item>
               </Col>
@@ -931,8 +1693,14 @@ export default function TaskAssignment() {
                     label="Custom Task Name"
                     name="title"
                     rules={[
-                      { required: true, message: "Custom task name is required" },
-                      { min: 3, message: "Task name must be at least 3 characters" },
+                      {
+                        required: true,
+                        message: "Custom task name is required",
+                      },
+                      {
+                        min: 3,
+                        message: "Task name must be at least 3 characters",
+                      },
                     ]}
                   >
                     <Input size="large" placeholder="Enter task name" />
@@ -948,16 +1716,18 @@ export default function TaskAssignment() {
                   <Select
                     size="large"
                     placeholder="Pick Mechanic"
-                    options={(editingTask ? mechanics : availableMechanics).map((item) => ({
-                      value: item.id,
-                      label: `${item.name}${item.isBusy ? " (busy)" : ""}`,
-                      disabled: !editingTask && item.isBusy,
-                    }))}
+                    showSearch
+                    optionFilterProp="label"
+                    options={mechanicSelectOptions}
                   />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item label="Priority" name="priority" initialValue="Normal">
+                <Form.Item
+                  label="Priority"
+                  name="priority"
+                  initialValue="Normal"
+                >
                   <Select
                     size="large"
                     options={["Low", "Normal", "High"].map((value) => ({
@@ -978,7 +1748,8 @@ export default function TaskAssignment() {
                   <DatePicker
                     size="large"
                     style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
+                    format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1008,7 +1779,8 @@ export default function TaskAssignment() {
                   <DatePicker
                     size="large"
                     style={{ width: "100%" }}
-                    format="YYYY-MM-DD HH:mm"
+                    format="MM/DD/YYYY HH:mm"
+                    inputReadOnly
                     showTime={{ format: "HH:mm" }}
                   />
                 </Form.Item>
@@ -1032,11 +1804,33 @@ export default function TaskAssignment() {
               </Col>
               <Col xs={24}>
                 <Divider titlePlacement="left">Checklist</Divider>
-                <Text type="secondary">
-                  Estimated duration: {formatEstimatedDuration(scheduleEstimate.minutes)} |{" "}
-                  {scheduleEstimate.itemCount} checklist item
-                  {scheduleEstimate.itemCount === 1 ? "" : "s"}
-                </Text>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Text type="secondary">
+                    Estimated duration:{" "}
+                    {formatEstimatedDuration(scheduleEstimate.minutes)}
+                  </Text>
+                  <Text
+                    strong
+                    style={{
+                      background: "#f0f7f5",
+                      border: "1px solid #cfe5de",
+                      borderRadius: 999,
+                      color: "#155f4e",
+                      padding: "3px 10px",
+                    }}
+                  >
+                    {scheduleEstimate.itemCount} item
+                    {scheduleEstimate.itemCount === 1 ? "" : "s"}
+                  </Text>
+                </div>
                 <Form.List
                   name="checklistItems"
                   rules={[
@@ -1052,46 +1846,142 @@ export default function TaskAssignment() {
                   ]}
                 >
                   {(fields, { add, remove }, { errors }) => (
-                    <Space orientation="vertical" style={{ width: "100%", marginTop: 12 }}>
-                      {fields.map((field, index) => {
-                        const item = watchedChecklistItems?.[index] || {};
-                        return (
-                          <Card
-                            key={field.key}
-                            size="small"
-                            title={[item.taskId, item.inspectionTypeFull].filter(Boolean).join(" | ") || `Item ${index + 1}`}
-                            extra={
-                              watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                                <Button danger size="small" onClick={() => remove(field.name)}>
-                                  Remove
-                                </Button>
-                              ) : null
-                            }
-                          >
-                            <Form.Item
-                              {...field}
-                              name={[field.name, "taskName"]}
-                              rules={[{ required: true, message: "Checklist item is required" }]}
-                            >
-                              <Input
-                                placeholder="Checklist item"
-                                disabled={watchedInspectionType !== CUSTOM_INSPECTION_ID}
-                              />
-                            </Form.Item>
-                            {watchedInspectionType === CUSTOM_INSPECTION_ID ? (
-                              <Form.Item {...field} name={[field.name, "description"]}>
-                                <Input.TextArea rows={2} placeholder="Description / notes" />
-                              </Form.Item>
-                            ) : (
-                              <Text type="secondary">{item.description || item.documentation || ""}</Text>
-                            )}
-                          </Card>
-                        );
-                      })}
+                    <Space
+                      orientation="vertical"
+                      style={{ width: "100%", marginTop: 12 }}
+                    >
+                      <Table
+                        bordered
+                        size="small"
+                        rowKey="key"
+                        dataSource={fields}
+                        pagination={
+                          fields.length > 5
+                            ? {
+                                pageSize: 5,
+                                showSizeChanger: false,
+                                size: "small",
+                              }
+                            : false
+                        }
+                        scroll={{ x: 900 }}
+                        columns={[
+                          {
+                            title: "#",
+                            width: 56,
+                            align: "center",
+                            render: (_, field) =>
+                              fields.findIndex(
+                                (item) => item.key === field.key,
+                              ) + 1,
+                          },
+                          {
+                            title: "Checklist Item",
+                            width: 360,
+                            render: (_, field) => {
+                              const { key: _fieldKey, ...fieldProps } = field;
+                              const item =
+                                watchedChecklistItems?.[field.name] || {};
+
+                              return (
+                                <Space
+                                  orientation="vertical"
+                                  size={4}
+                                  style={{ width: "100%" }}
+                                >
+                                  {!!getChecklistMeta(item) && (
+                                    <Text
+                                      type="secondary"
+                                      style={{ fontSize: 12 }}
+                                    >
+                                      {getChecklistMeta(item)}
+                                    </Text>
+                                  )}
+                                  <Form.Item
+                                    {...fieldProps}
+                                    name={[field.name, "taskName"]}
+                                    style={{ marginBottom: 0 }}
+                                    rules={[
+                                      {
+                                        required: true,
+                                        message: "Checklist item is required",
+                                      },
+                                    ]}
+                                  >
+                                    <Input
+                                      placeholder="Checklist item"
+                                      disabled={
+                                        watchedInspectionType !==
+                                        CUSTOM_INSPECTION_ID
+                                      }
+                                    />
+                                  </Form.Item>
+                                </Space>
+                              );
+                            },
+                          },
+                          {
+                            title: "Details",
+                            render: (_, field) => {
+                              const { key: _fieldKey, ...fieldProps } = field;
+                              const item =
+                                watchedChecklistItems?.[field.name] || {};
+
+                              if (
+                                watchedInspectionType === CUSTOM_INSPECTION_ID
+                              ) {
+                                return (
+                                  <Form.Item
+                                    {...fieldProps}
+                                    name={[field.name, "description"]}
+                                    style={{ marginBottom: 0 }}
+                                  >
+                                    <Input.TextArea
+                                      rows={1}
+                                      placeholder="Description / notes"
+                                    />
+                                  </Form.Item>
+                                );
+                              }
+
+                              return (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {item.description ||
+                                    (item.documentation
+                                      ? `Reference: ${item.documentation}`
+                                      : "No additional notes.")}
+                                </Text>
+                              );
+                            },
+                          },
+                          ...(watchedInspectionType === CUSTOM_INSPECTION_ID
+                            ? [
+                                {
+                                  title: "Action",
+                                  width: 80,
+                                  align: "center",
+                                  render: (_, field) => (
+                                    <Tooltip title="Remove item">
+                                      <Button
+                                        danger
+                                        size="small"
+                                        aria-label="Remove checklist item"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => remove(field.name)}
+                                      />
+                                    </Tooltip>
+                                  ),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                       {watchedInspectionType === CUSTOM_INSPECTION_ID && (
                         <Button
                           icon={<PlusOutlined />}
-                          onClick={() => add(createCustomChecklistItem(fields.length))}
+                          onClick={() =>
+                            add(createCustomChecklistItem(fields.length))
+                          }
                         >
                           Add Checklist Item
                         </Button>
@@ -1110,15 +2000,56 @@ export default function TaskAssignment() {
         open={checklistOpen}
         onCancel={() => setChecklistOpen(false)}
         title={selectedTask?.title || "Task Checklist"}
-        width={900}
+        width={TASK_DETAIL_MODAL_WIDTH}
+        centered
+        zIndex={3000}
         footer={null}
       >
         {selectedTask && (
-          <Space orientation="vertical" style={{ width: "100%" }} size={14}>
-            <Text type="secondary">
-              Aircraft: {selectedTask.aircraft} | Due:{" "}
-              {selectedTask.endDateTime || selectedTask.dueDate || "-"}
-            </Text>
+          <Space orientation="vertical" style={{ width: "100%" }} size={8}>
+            {(() => {
+              const { done, total } = getChecklistCounts(selectedTask);
+              const percent = total ? Math.round((done / total) * 100) : 0;
+
+              return (
+                <Card
+                  size="small"
+                  styles={{ body: { padding: "8px 10px" } }}
+                  style={{ borderRadius: 8 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text strong>{selectedTask.aircraft || "Aircraft"}</Text>
+
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {done}/{total} done
+                    </Text>
+                  </div>
+
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Due:{" "}
+                    {formatDisplayDateTime(
+                      selectedTask.endDateTime || selectedTask.dueDate,
+                    )}
+                  </Text>
+
+                  {total > 0 && (
+                    <Progress
+                      percent={percent}
+                      size="small"
+                      showInfo={false}
+                      strokeColor="#26866F"
+                      style={{ marginTop: 4 }}
+                    />
+                  )}
+                </Card>
+              );
+            })()}
             {!!selectedTask.returnComments && (
               <Card
                 size="small"
@@ -1144,7 +2075,7 @@ export default function TaskAssignment() {
                 <div style={{ marginTop: 6 }}>
                   {isReviewed(selectedTask) ? (
                     <>
-                      <Tag color="green">Approved</Tag>
+                      {renderStatusTag("approved")}
                       <Text type="secondary">
                         {selectedTask.approvedBy
                           ? `Approved by ${selectedTask.approvedBy}`
@@ -1173,7 +2104,7 @@ export default function TaskAssignment() {
                     </>
                   ) : (
                     <>
-                      <Tag color="orange">Pending Approval</Tag>
+                      {renderStatusTag("pending approval")}
                       <Text type="secondary">
                         Pending review by Maintenance Manager
                       </Text>
@@ -1183,59 +2114,158 @@ export default function TaskAssignment() {
               </Card>
             )}
 
-            {(selectedTask.checklistItems || []).map((item, index) => {
-              const isDone = Array.isArray(selectedTask.checklistState)
-                ? Boolean(selectedTask.checklistState[index])
-                : false;
-              const readOnly =
-                isManager ||
-                isReviewed(selectedTask) ||
-                isTurnedIn(selectedTask) ||
-                normalizeStatus(selectedTask.status) === "completed";
-              return (
-                <div
-                  key={`${item.taskId || item.taskName}-${index}`}
-                  style={{ display: "flex", gap: 8 }}
-                >
-                  <Checkbox
-                    checked={isDone}
-                    disabled={readOnly}
-                    onChange={(e) => {
-                      const state = Array.isArray(selectedTask.checklistState)
-                        ? [...selectedTask.checklistState]
-                        : (selectedTask.checklistItems || []).map(() => false);
-                      state[index] = e.target.checked;
-                      setSelectedTask((prev) => ({
-                        ...prev,
-                        checklistState: state,
-                      }));
-                    }}
-                  />
-                  <div>
-                    {!isManager && (
-                      <div>
-                        <Text type="secondary">
-                          {[item.taskId, item.inspectionTypeFull]
-                            .filter(Boolean)
-                            .join(" | ")}
+            {selectedTask.checklistItems?.length ? (
+              <Table
+                bordered
+                size="small"
+                rowKey={(record) => record.key}
+                dataSource={(selectedTask.checklistItems || []).map(
+                  (item, index) => ({
+                    ...item,
+                    checklistIndex: index,
+                    key: `${item.taskId || item.taskName || "item"}-${index}`,
+                  }),
+                )}
+                pagination={
+                  selectedTask.checklistItems.length > 3
+                    ? {
+                        pageSize: 3,
+                        showSizeChanger: false,
+                        size: "small",
+                      }
+                    : false
+                }
+                scroll={{ x: 900 }}
+                onRow={(record) => {
+                  const isDone = Array.isArray(selectedTask.checklistState)
+                    ? Boolean(
+                        selectedTask.checklistState[record.checklistIndex],
+                      )
+                    : false;
+                  return {
+                    style: {
+                      background: isDone ? "#f6ffed" : undefined,
+                    },
+                  };
+                }}
+                columns={[
+                  {
+                    title: "#",
+                    width: 56,
+                    align: "center",
+                    render: (_, record) => record.checklistIndex + 1,
+                  },
+                  {
+                    title: "Done",
+                    width: 76,
+                    align: "center",
+                    render: (_, record) => {
+                      const isDone = Array.isArray(selectedTask.checklistState)
+                        ? Boolean(
+                            selectedTask.checklistState[record.checklistIndex],
+                          )
+                        : false;
+                      const readOnly =
+                        isManager ||
+                        isReviewed(selectedTask) ||
+                        isTurnedIn(selectedTask) ||
+                        normalizeStatus(selectedTask.status) === "completed";
+
+                      return (
+                        <Checkbox
+                          checked={isDone}
+                          disabled={readOnly}
+                          aria-label={`Checklist item ${
+                            record.checklistIndex + 1
+                          }`}
+                          onChange={(e) => {
+                            const state = Array.isArray(
+                              selectedTask.checklistState,
+                            )
+                              ? [...selectedTask.checklistState]
+                              : (selectedTask.checklistItems || []).map(
+                                  () => false,
+                                );
+                            state[record.checklistIndex] = e.target.checked;
+                            setSelectedTask((prev) => ({
+                              ...prev,
+                              checklistState: state,
+                            }));
+                          }}
+                        />
+                      );
+                    },
+                  },
+                  {
+                    title: "Checklist Item",
+                    width: 360,
+                    render: (_, record) => (
+                      <Space
+                        orientation="vertical"
+                        size={2}
+                        style={{ width: "100%" }}
+                      >
+                        {!!getChecklistMeta(record) && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {getChecklistMeta(record)}
+                          </Text>
+                        )}
+                        <Text strong style={{ overflowWrap: "anywhere" }}>
+                          {record.taskName || "Checklist item"}
                         </Text>
-                      </div>
-                    )}
-                    <Text strong>{item.taskName || "Checklist item"}</Text>
-                    {!!item.documentation && (
-                      <div>
-                        <Text type="secondary">AMM: {item.documentation}</Text>
-                      </div>
-                    )}
-                    {item.description && (
-                      <div>
-                        <Text type="secondary">{item.description}</Text>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                        {!!record.documentation && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Reference: {record.documentation}
+                          </Text>
+                        )}
+                      </Space>
+                    ),
+                  },
+                  {
+                    title: "Details",
+                    render: (_, record) =>
+                      record.description ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {record.description}
+                        </Text>
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          No additional notes.
+                        </Text>
+                      ),
+                  },
+                  {
+                    title: "Status",
+                    width: 90,
+                    align: "center",
+                    render: (_, record) => {
+                      const isDone = Array.isArray(selectedTask.checklistState)
+                        ? Boolean(
+                            selectedTask.checklistState[record.checklistIndex],
+                          )
+                        : false;
+                      return (
+                        <Text
+                          strong
+                          style={{
+                            color: isDone ? "#2e7d32" : "#667085",
+                            fontSize: 12,
+                          }}
+                        >
+                          {isDone ? "Done" : "Open"}
+                        </Text>
+                      );
+                    },
+                  },
+                ]}
+              />
+            ) : (
+              <Card size="small" style={{ background: "#fafafa" }}>
+                <Text type="secondary">
+                  No checklist items were added to this task.
+                </Text>
+              </Card>
+            )}
 
             {!isManager && (
               <>
@@ -1259,7 +2289,9 @@ export default function TaskAssignment() {
                         }))
                       }
                       placeholder="Enter findings, symptoms, affected parts, and inspection results here..."
-                      disabled={isReviewed(selectedTask) || isTurnedIn(selectedTask)}
+                      disabled={
+                        isReviewed(selectedTask) || isTurnedIn(selectedTask)
+                      }
                     />
                   </>
                 )}
@@ -1267,21 +2299,19 @@ export default function TaskAssignment() {
             )}
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
-              {isManager &&
-                isTurnedIn(selectedTask) &&
-                !isReviewed(selectedTask) && (
-                  <>
-                    <Button danger onClick={() => setReviewOpen(true)}>
-                      Return
-                    </Button>
-                    <Button
-                      type="primary"
-                      onClick={requestApprove}
-                    >
-                      Approve
-                    </Button>
-                  </>
-                )}
+              {isManager && isForReview(selectedTask) && (
+                <>
+                  <Button danger onClick={() => requestReturn(selectedTask)}>
+                    Return
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => requestApprove(selectedTask)}
+                  >
+                    Approve
+                  </Button>
+                </>
+              )}
 
               {!isManager &&
                 normalizeStatus(selectedTask.status) === "pending" && (
@@ -1296,12 +2326,16 @@ export default function TaskAssignment() {
                   <Button
                     type="primary"
                     onClick={() => {
-                      const checklist = Array.isArray(selectedTask.checklistState)
+                      const checklist = Array.isArray(
+                        selectedTask.checklistState,
+                      )
                         ? selectedTask.checklistState
                         : [];
                       const allChecked =
                         selectedTask.checklistItems?.length > 0 &&
-                        selectedTask.checklistItems.every((_, index) => checklist[index]);
+                        selectedTask.checklistItems.every(
+                          (_, index) => checklist[index],
+                        );
                       handleSaveDraftOrTurnIn(allChecked);
                     }}
                   >
@@ -1320,7 +2354,9 @@ export default function TaskAssignment() {
                 !isReviewed(selectedTask) && (
                   <Button
                     type="primary"
-                    onClick={() => handleSaveDraftOrTurnIn(false, { undo: true })}
+                    onClick={() =>
+                      handleSaveDraftOrTurnIn(false, { undo: true })
+                    }
                   >
                     Undo Turn In
                   </Button>
@@ -1334,6 +2370,8 @@ export default function TaskAssignment() {
         open={reviewOpen}
         title="Return Task"
         okText="Return"
+        centered
+        zIndex={3000}
         onOk={submitReturn}
         onCancel={() => setReviewOpen(false)}
         width={720}
@@ -1347,7 +2385,11 @@ export default function TaskAssignment() {
                 ({ index }) => (selectedTask?.checklistState || [])[index],
               )
               .map(({ item, index }) => (
-                <Col xs={24} md={12} key={`${item.taskId || item.taskName}-${index}`}>
+                <Col
+                  xs={24}
+                  md={12}
+                  key={`${item.taskId || item.taskName}-${index}`}
+                >
                   <Checkbox
                     checked={!itemsToUncheck.includes(index)}
                     onChange={(e) => {
@@ -1389,7 +2431,13 @@ export default function TaskAssignment() {
         onCancel={() => setSignatureState({ open: false, mode: null })}
         onSave={submitApprove}
       />
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
-

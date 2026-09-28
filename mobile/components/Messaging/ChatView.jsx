@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import Modal from "../common/AppModal";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
   ActivityIndicator,
   Image,
   Linking,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
@@ -49,30 +50,29 @@ export default function ChatView({
 }) {
   const isNearBottomRef = useRef(true);
   const lastConversationIdRef = useRef(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
-  const scrollToLatest = (animated = true) => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToEnd({ animated });
-    });
-  };
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  const lastLatestIdRef = useRef(null);
+  const scrollToLatest = useCallback((animated = true) => {
+    scrollRef.current?.scrollToOffset({ offset: 0, animated });
+  }, [scrollRef]);
 
   useEffect(() => {
-    const currentConversationId = selectedConversation?.id || "";
-    const openedNewConversation =
-      currentConversationId &&
-      currentConversationId !== lastConversationIdRef.current;
-
-    if (openedNewConversation) {
-      lastConversationIdRef.current = currentConversationId;
-      isNearBottomRef.current = true;
-      setTimeout(() => scrollToLatest(false), 50);
-      return;
+    const conversationId = selectedConversation?.id || "";
+    const opened = conversationId !== lastConversationIdRef.current;
+    const latest = messages[messages.length - 1];
+    const newLatest = latest?._id !== lastLatestIdRef.current;
+    const ownNewMessage = newLatest && latest &&
+      String(getEntityId(latest.sender)) === String(currentUserId);
+    lastConversationIdRef.current = conversationId;
+    lastLatestIdRef.current = latest?._id;
+    if (opened || ownNewMessage) isNearBottomRef.current = true;
+    if (opened || (newLatest && isNearBottomRef.current)) {
+      const timeout = setTimeout(() => scrollToLatest(!opened), 50);
+      return () => clearTimeout(timeout);
     }
-
-    if (isNearBottomRef.current) {
-      setTimeout(() => scrollToLatest(true), 50);
-    }
-  }, [messages, selectedConversation?.id]);
+  }, [messages, selectedConversation?.id, currentUserId, getEntityId, scrollToLatest]);
   const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -91,6 +91,160 @@ export default function ChatView({
       hideSub.remove();
     };
   }, []);
+
+  const renderMessage = useCallback(({ item }) => {
+              const mine =
+                String(getEntityId(item.sender)) === String(currentUserId);
+
+              return (
+                <View
+                  key={item._id}
+                  style={{
+                    alignItems: mine ? "flex-end" : "flex-start",
+                    marginBottom: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      maxWidth: "78%",
+                      backgroundColor: mine ? COLORS.primaryLight : "#E9ECEF",
+                      borderRadius: 18,
+                      borderBottomRightRadius: mine ? 5 : 18,
+                      borderBottomLeftRadius: mine ? 18 : 5,
+                      paddingVertical: 9,
+                      paddingHorizontal: 13,
+                    }}
+                  >
+                    {item.body ? (
+                      <AppText
+                        style={{
+                          color: mine ? COLORS.white : COLORS.black,
+                          fontSize: 14,
+                          lineHeight: 19,
+                        }}
+                      >
+                        {item.body}
+                      </AppText>
+                    ) : null}
+                    {(item.attachments || []).map((attachment, attachmentIndex) => {
+                      const url = getAttachmentUrl(
+                        attachment.url,
+                        item._id,
+                        attachmentIndex,
+                      );
+                      const isImage =
+                        attachment.kind === "image" ||
+                        attachment.mimeType?.startsWith("image/");
+
+                      return (
+                        <TouchableOpacity
+                          key={`${item._id}-${attachment.url}-${attachment.name}`}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (!url) return;
+                            if (isImage) {
+                              setImagePreview({
+                                url,
+                                name: attachment.name || "Attachment",
+                              });
+                              return;
+                            }
+                            Linking.openURL(url);
+                          }}
+                          style={{
+                            marginTop: item.body ? 8 : 0,
+                            borderRadius: 12,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {isImage && url ? (
+                            <View>
+                              <Image
+                                source={{ uri: url }}
+                                style={{
+                                  width: 210,
+                                  height: 150,
+                                  borderRadius: 12,
+                                  backgroundColor: "#DDE5E2",
+                                }}
+                                resizeMode="cover"
+                              />
+                              <AppText
+                                numberOfLines={1}
+                                style={{
+                                  marginTop: 5,
+                                  maxWidth: 210,
+                                  color: mine ? COLORS.white : COLORS.black,
+                                  fontSize: 12,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {attachment.name || "Attachment"}
+                              </AppText>
+                            </View>
+                          ) : (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                maxWidth: 220,
+                                paddingVertical: 8,
+                                paddingHorizontal: 10,
+                                borderRadius: 12,
+                                backgroundColor: mine
+                                  ? "rgba(255,255,255,0.18)"
+                                  : "#FFFFFF",
+                              }}
+                            >
+                              <MaterialCommunityIcons
+                                name="file-outline"
+                                size={20}
+                                color={mine ? COLORS.white : COLORS.black}
+                              />
+                              <AppText
+                                numberOfLines={1}
+                                style={{
+                                  marginLeft: 8,
+                                  flex: 1,
+                                  color: mine ? COLORS.white : COLORS.black,
+                                  fontSize: 13,
+                                  fontWeight: "700",
+                                }}
+                              >
+                                {attachment.name || "Attachment"}
+                              </AppText>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* --- RESTORED TIME AND STATUS --- */}
+                  <AppText
+                    style={{
+                      marginTop: 3,
+                      paddingRight: mine ? 4 : 0,
+                      paddingLeft: mine ? 0 : 4,
+                      color: COLORS.grayDark,
+                      fontSize: 10,
+                    }}
+                  >
+                    {[
+                      item.createdAt
+                        ? formatConversationTime(item.createdAt)
+                        : null,
+                      mine
+                        ? getMessageStatus(item, selectedConversation?.type)
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </AppText>
+                </View>
+              );
+
+  }, [currentUserId, getEntityId, getAttachmentUrl, formatConversationTime, getMessageStatus, selectedConversation?.type]);
 
   return (
     <SafeAreaView
@@ -180,8 +334,17 @@ export default function ChatView({
           </View>
 
           {/* --- MESSAGES LIST --- */}
-          <ScrollView
+          <FlatList
+            key={String(selectedConversation?.id || "chat")}
             ref={scrollRef}
+            data={reversedMessages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => String(item._id)}
+            inverted
+            initialNumToRender={12}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             style={{ flex: 1 }}
             contentContainerStyle={{
               paddingHorizontal: 12,
@@ -192,12 +355,7 @@ export default function ChatView({
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
             onScroll={(event) => {
-              const { contentOffset, contentSize, layoutMeasurement } =
-                event.nativeEvent;
-              const distanceFromBottom =
-                contentSize.height -
-                (contentOffset.y + layoutMeasurement.height);
-              isNearBottomRef.current = distanceFromBottom < 80;
+              isNearBottomRef.current = event.nativeEvent.contentOffset.y < 80;
             }}
             scrollEventThrottle={16}
             onContentSizeChange={() => {
@@ -205,134 +363,7 @@ export default function ChatView({
                 scrollToLatest(true);
               }
             }}
-          >
-            {messages.map((item) => {
-              const mine =
-                String(getEntityId(item.sender)) === String(currentUserId);
-
-              return (
-                <View
-                  key={item._id}
-                  style={{
-                    alignItems: mine ? "flex-end" : "flex-start",
-                    marginBottom: 8,
-                  }}
-                >
-                  <View
-                    style={{
-                      maxWidth: "78%",
-                      backgroundColor: mine ? COLORS.primaryLight : "#E9ECEF",
-                      borderRadius: 18,
-                      borderBottomRightRadius: mine ? 5 : 18,
-                      borderBottomLeftRadius: mine ? 18 : 5,
-                      paddingVertical: 9,
-                      paddingHorizontal: 13,
-                    }}
-                  >
-                    {item.body ? (
-                      <AppText
-                        style={{
-                          color: mine ? COLORS.white : COLORS.black,
-                          fontSize: 14,
-                          lineHeight: 19,
-                        }}
-                      >
-                        {item.body}
-                      </AppText>
-                    ) : null}
-                    {(item.attachments || []).map((attachment) => {
-                      const url = getAttachmentUrl(attachment.url);
-                      const isImage =
-                        attachment.kind === "image" ||
-                        attachment.mimeType?.startsWith("image/");
-
-                      return (
-                        <TouchableOpacity
-                          key={`${item._id}-${attachment.url}-${attachment.name}`}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            if (url) Linking.openURL(url);
-                          }}
-                          style={{
-                            marginTop: item.body ? 8 : 0,
-                            borderRadius: 12,
-                            overflow: "hidden",
-                          }}
-                        >
-                          {isImage && url ? (
-                            <Image
-                              source={{ uri: url }}
-                              style={{
-                                width: 210,
-                                height: 150,
-                                borderRadius: 12,
-                                backgroundColor: "#DDE5E2",
-                              }}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                maxWidth: 220,
-                                paddingVertical: 8,
-                                paddingHorizontal: 10,
-                                borderRadius: 12,
-                                backgroundColor: mine
-                                  ? "rgba(255,255,255,0.18)"
-                                  : "#FFFFFF",
-                              }}
-                            >
-                              <MaterialCommunityIcons
-                                name="file-outline"
-                                size={20}
-                                color={mine ? COLORS.white : COLORS.black}
-                              />
-                              <AppText
-                                numberOfLines={1}
-                                style={{
-                                  marginLeft: 8,
-                                  flex: 1,
-                                  color: mine ? COLORS.white : COLORS.black,
-                                  fontSize: 13,
-                                  fontWeight: "700",
-                                }}
-                              >
-                                {attachment.name || "Attachment"}
-                              </AppText>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* --- RESTORED TIME AND STATUS --- */}
-                  <AppText
-                    style={{
-                      marginTop: 3,
-                      paddingRight: mine ? 4 : 0,
-                      paddingLeft: mine ? 0 : 4,
-                      color: COLORS.grayDark,
-                      fontSize: 10,
-                    }}
-                  >
-                    {[
-                      item.createdAt
-                        ? formatConversationTime(item.createdAt)
-                        : null,
-                      mine
-                        ? getMessageStatus(item, selectedConversation?.type)
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </AppText>
-                </View>
-              );
-            })}
-          </ScrollView>
+          />
 
           {/* --- INPUT FOOTER --- */}
           <View
@@ -369,6 +400,18 @@ export default function ChatView({
                   borderColor: "#ECEFEE",
                 }}
               >
+                <AppText
+                  style={{
+                    width: "100%",
+                    marginBottom: 2,
+                    color: COLORS.grayDark,
+                    fontSize: 11,
+                    fontWeight: "800",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Attached files
+                </AppText>
                 {attachments.map((file, index) => (
                   <View
                     key={`${file.name}-${file.uri}-${index}`}
@@ -518,6 +561,76 @@ export default function ChatView({
             renderAvatar={renderAvatar}
             getDisplayName={getDisplayName}
           />
+
+          <Modal
+            visible={Boolean(imagePreview)}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setImagePreview(null)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.92)",
+                paddingTop: insets.top + 8,
+                paddingBottom: insets.bottom + 12,
+              }}
+            >
+              <View
+                style={{
+                  minHeight: 52,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 12,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => setImagePreview(null)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.white}
+                  />
+                </TouchableOpacity>
+                <AppText
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    marginLeft: 8,
+                    color: COLORS.white,
+                    fontSize: 14,
+                    fontWeight: "700",
+                  }}
+                >
+                  {imagePreview?.name || "Attachment"}
+                </AppText>
+              </View>
+
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 8,
+                }}
+              >
+                {imagePreview?.url ? (
+                  <Image
+                    source={{ uri: imagePreview.url }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="contain"
+                  />
+                ) : null}
+              </View>
+            </View>
+          </Modal>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

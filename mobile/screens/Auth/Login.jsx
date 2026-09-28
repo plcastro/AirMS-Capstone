@@ -4,12 +4,17 @@ import AppInput from "../../components/common/AppInput";
 import {
   View,
   KeyboardAvoidingView,
+  Platform,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { secureGetItem } from "../../utilities/secureStorage";
-import { Picker } from "@react-native-picker/picker";
+import {
+  secureDeleteItem,
+  secureGetItem,
+  secureSetItem,
+} from "../../utilities/secureStorage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
 import { useNavigation } from "@react-navigation/native";
@@ -19,38 +24,61 @@ import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
+import { COLORS } from "../../stylesheets/colors";
+import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
+import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
 import {
   readPendingRedirect,
   clearPendingRedirect,
 } from "../../utilities/pendingRedirect";
+import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
+import { setStoredAccessToken } from "../../utilities/authStorage";
+import {
+  buildLoginLocationHeaders,
+  detectLoginLocation,
+} from "../../utilities/loginLocation";
+
+const getTrustedDeviceStorageKey = (account) => {
+  const normalizedAccount = String(account || "")
+    .trim()
+    .toLowerCase();
+  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
+};
+
+const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
 
 export default function Login() {
   const nav = useNavigation();
   const { loginUser } = useContext(AuthContext);
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
-  const [selectedBase, setSelectedBase] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
+  const [loginLocation, setLoginLocation] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
+  const loginClient = Platform.OS === "web" ? "web" : "mobile";
+  const loginPlatform = Platform.OS === "web" ? "WEB" : "MOBILE";
   // Load saved credentials on mount
   useEffect(() => {
     const loadSavedCredentials = async () => {
       try {
         const savedRememberMe = await AsyncStorage.getItem("rememberMe");
+        setRememberMe(savedRememberMe === "true");
         if (savedRememberMe === "true") {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
+          const savedPassword = await secureGetItem(REMEMBERED_PASSWORD_KEY);
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: "",
+            password: savedPassword || "",
           });
-          setSelectedBase((await AsyncStorage.getItem("rememberedBase")) || "");
-          setRememberMe(true);
         }
       } catch (err) {
         console.error(err);
@@ -66,12 +94,12 @@ export default function Login() {
   const validate = () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
-      return setMessage("Please enter your username/email and password");
+      return setMessage("Username/email and password are required");
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
-    if (!password.trim()) return setMessage("Please enter your password");
-    if (!selectedBase) {
-      return setMessage("Please select where you are logging in from");
+    if (!password.trim()) return setMessage("Password is required");
+    if (!loginLocation?.text) {
+      return setMessage("Detect your login location before signing in.");
     }
 
     login();
@@ -82,10 +110,10 @@ export default function Login() {
     setMessage("");
 
     try {
-      const trustedDeviceToken =
-        (await secureGetItem("trustedDeviceToken")) ||
-        (await AsyncStorage.getItem("trustedDeviceToken")) ||
-        "";
+      const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
+      const trustedDeviceToken = trustedDeviceKey
+        ? await secureGetItem(trustedDeviceKey)
+        : "";
 
       const parseResponse = async (res) => {
         const text = await res.text();
@@ -100,14 +128,16 @@ export default function Login() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-base": selectedBase,
+          "x-platform": loginPlatform,
+          ...buildLoginLocationHeaders(loginLocation),
+          ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
           identifier: formData.identifier.trim(),
           password: formData.password.trim(),
-          client: "mobile",
+          client: loginClient,
           rememberMe,
-          base: selectedBase,
+          location: loginLocation,
           trustedDeviceToken,
         }),
       });
@@ -128,6 +158,15 @@ export default function Login() {
       }
 
       if (data.requireLoginOtp && data.verification?.token) {
+        if (rememberMe) {
+          await secureSetItem(
+            REMEMBERED_PASSWORD_KEY,
+            formData.password.trim(),
+          );
+        } else {
+          await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
+        }
+
         nav.replace("otpScreen", {
           mode: "login-2fa",
           token: data.verification.token,
@@ -135,25 +174,25 @@ export default function Login() {
           maskedEmail: data.verification.maskedEmail,
           identifier: formData.identifier.trim(),
           rememberMe,
-          base: selectedBase,
-          client: "mobile",
+          loginLocation,
+          client: loginClient,
         });
         return;
       }
 
-      const { user, token, refreshToken } = data;
+      const { user, token, refreshToken, session } = data;
       if (!user || !token) {
         setMessage(data.message || "Invalid login response");
         return;
       }
 
       if (user?.status === "deactivated") {
-        setMessage("This account is deactivated. Please contact support");
+        setMessage("This account is deactivated. Please contact AirMS support");
         return;
       }
 
       // ✅ FIXED TOKEN STORAGE (MATCHS API + CONTEXT)
-      await AsyncStorage.setItem("currentUserToken", String(token));
+      await setStoredAccessToken(String(token));
 
       await AsyncStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       if (rememberMe) {
@@ -161,10 +200,10 @@ export default function Login() {
           "rememberedIdentifier",
           formData.identifier.trim(),
         );
-        await AsyncStorage.setItem("rememberedBase", selectedBase);
+        await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
-        await AsyncStorage.removeItem("rememberedBase");
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       }
 
       // security redirect
@@ -180,6 +219,11 @@ export default function Login() {
 
       await loginUser({
         user,
+        session: session || {
+          location: loginLocation,
+          sessionId: data.sessionId,
+          platform: loginPlatform,
+        },
         accessToken: token,
         refreshToken,
         rememberMe,
@@ -201,7 +245,7 @@ export default function Login() {
       nav.replace("dashboard");
     } catch (err) {
       console.error(err);
-      setMessage("Login error. Try again later.");
+      setMessage("Login error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -214,6 +258,24 @@ export default function Login() {
 
     nav.navigate("forgotPassword", { email });
   };
+
+  const handleDetectLocation = async () => {
+    try {
+      setDetectingLocation(true);
+      setMessage("");
+      const nextLocation = await detectLoginLocation();
+      setLoginLocation(nextLocation);
+    } catch (error) {
+      setLoginLocation(null);
+      setMessage(error.message || "Could not detect your login location.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
+
+  useEffect(() => {
+    handleDetectLocation();
+  }, []);
 
   if (loading) {
     return <LoadingScreen message="Signing you in..." showLogo />;
@@ -238,7 +300,7 @@ export default function Login() {
           <AppInput
             style={styles.formInput}
             maxLength={256}
-            placeholder="Username or Email"
+            placeholder="Enter your username or email"
             placeholderTextColor="gray"
             autoCapitalize="none"
             keyboardType="default"
@@ -250,7 +312,7 @@ export default function Login() {
             <AppInput
               style={[styles.formInput, { paddingRight: 50 }]}
               maxLength={256}
-              placeholder="Password"
+              placeholder="Enter your password"
               placeholderTextColor="gray"
               autoCapitalize="none"
               secureTextEntry={!showPassword} // Toggle based on state
@@ -275,18 +337,47 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
-          <AppText style={styles.label}>Logging in from</AppText>
-          <View style={styles.loginPickerContainer}>
-            <Picker
-              selectedValue={selectedBase}
-              onValueChange={setSelectedBase}
-              style={styles.loginPicker}
-            >
-              <Picker.Item label="Select base" value="" />
-              <Picker.Item label="Manila" value="MANILA" />
-              <Picker.Item label="Cebu" value="CEBU" />
-              <Picker.Item label="CDO" value="CDO" />
-            </Picker>
+          <AppText style={styles.label}>Login Location</AppText>
+
+          <View style={loginLocationStyles.wrap}>
+            <View style={loginLocationStyles.panel}>
+              <MaterialCommunityIcons
+                name={loginLocation?.text ? "map-marker-check" : "map-marker"}
+                size={22}
+                color={loginLocation?.text ? COLORS.primary : "gray"}
+              />
+
+              <View style={loginLocationStyles.textWrap}>
+                <AppText
+                  style={[
+                    loginLocationStyles.locationText,
+                    {
+                      color: loginLocation?.text ? "#111827" : "gray",
+                    },
+                  ]}
+                >
+                  {loginLocation?.text || "Detecting your location..."}
+                </AppText>
+
+                {loginLocation?.text && (
+                  <AppText style={loginLocationStyles.statusText}>
+                    Location detected for login security
+                  </AppText>
+                )}
+
+                {!loginLocation && getMessage && (
+                  <TouchableOpacity
+                    onPress={handleDetectLocation}
+                    disabled={detectingLocation}
+                    activeOpacity={0.7}
+                  >
+                    <AppText style={loginLocationStyles.retryText}>
+                      {detectingLocation ? "Detecting..." : "Try again"}
+                    </AppText>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>
@@ -309,12 +400,92 @@ export default function Login() {
           <Button
             onPress={validate}
             label="LOGIN"
-            disabled={loading}
+            disabled={loading || detectingLocation}
             buttonStyle={[styles.primaryBtn]}
             buttonTextStyle={styles.primaryBtnTxt}
           />
+          <View style={{ marginTop: 16, alignItems: "center" }}>
+            <AppText style={{ color: "gray", textAlign: "center" }}>
+              By signing in, you agree to the
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
+              <TouchableOpacity onPress={() => setTermsVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Terms and Conditions
+                </AppText>
+              </TouchableOpacity>
+              <AppText style={{ color: "gray" }}> and </AppText>
+              <TouchableOpacity onPress={() => setPrivacyVisible(true)}>
+                <AppText style={{ color: "#059670", fontWeight: "700" }}>
+                  Privacy Policy
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
         </LoginLayout>
       </ScrollView>
+      <PrivacyPolicyModal
+        visible={privacyVisible}
+        onClose={() => setPrivacyVisible(false)}
+      />
+      <TermsAndConditionsModal
+        visible={termsVisible}
+        onClose={() => setTermsVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
+
+const loginLocationStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 12,
+  },
+  panel: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 48,
+  },
+  textWrap: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  coordinateText: {
+    color: COLORS.grayDark,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  detectButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    columnGap: 8,
+  },
+  detectButtonDisabled: {
+    opacity: 0.65,
+  },
+  detectButtonText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});

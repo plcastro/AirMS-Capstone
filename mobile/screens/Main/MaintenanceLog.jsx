@@ -1,13 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AppText from "../../components/common/AppText";
-import {
+import { FlatList,
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
 import { API_BASE } from "../../utilities/API_BASE";
 import { formatDate, getAuthHeaders } from "../../utilities/mobileApi";
+import { exportMaintenanceLogPdf } from "../../utilities/pdfExport";
 import {
   EmptyState,
   FieldRow,
@@ -17,9 +20,15 @@ import {
   SearchBar,
   SectionTitle,
   StatusChip,
+  StatusField,
+  StatusTag,
   moduleStyles,
 } from "../../components/common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import { canExportModule } from "../../../shared/exportAccess";
+import { resolveUserRole } from "../../../shared/navigationAccess";
 
 const normalizeLog = (entry) => {
   const workDetails =
@@ -51,13 +60,38 @@ const normalizeLog = (entry) => {
   };
 };
 
+const getMechanicInCharge = (record = {}) =>
+  record.mechanicInCharge || record.reportedBy || "";
+
+const getInspector = (record = {}) => record.inspector || record.approvedBy || "";
+
+const getMechanicLicenseNo = (record = {}) =>
+  record.mechanicLicenseNo || record.licenseNo || "";
+
+const getInspectorLicenseNo = (record = {}) => record.inspectorLicenseNo || "";
+const SEEN_MAINTENANCE_LOG_IDS_KEY = "maintenanceLogSeenIds";
+
+const getLogStableId = (entry) =>
+  String(entry?.sourceTaskId || entry?.id || entry?._id || "");
+
 export default function MaintenanceLog() {
+  const { user, session } = useContext(AuthContext);
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [selectedBase, setSelectedBase] = useState("all");
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
+  const [exportingWorkOrder, setExportingWorkOrder] = useState(false);
+  const [seenLogIds, setSeenLogIds] = useState(new Set());
+  const userRole = resolveUserRole(user);
+  const isMechanic = userRole === "mechanic";
+  const userBase = String(session?.base || "").trim().toUpperCase();
+  const canExportMaintenanceLogs = canExportModule(
+    userRole,
+    "maintenanceLogs",
+  );
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -85,51 +119,82 @@ export default function MaintenanceLog() {
     fetchLogs();
   }, [fetchLogs]);
 
+  useEffect(() => {
+    const loadSeenIds = async () => {
+      try {
+        const rawValue = await AsyncStorage.getItem(
+          SEEN_MAINTENANCE_LOG_IDS_KEY,
+        );
+        const parsed = rawValue ? JSON.parse(rawValue) : [];
+        setSeenLogIds(new Set(Array.isArray(parsed) ? parsed : []));
+      } catch {
+        setSeenLogIds(new Set());
+      }
+    };
+
+    loadSeenIds();
+  }, []);
+
+  useEffect(() => {
+    if (isMechanic && userBase) {
+      setSelectedBase(userBase);
+    }
+  }, [isMechanic, userBase]);
+
+  const fetchAircraftExportData = async (aircraft) => {
+    if (!aircraft) return null;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/parts-monitoring/${encodeURIComponent(aircraft)}`,
+        { headers: await getAuthHeaders() },
+      );
+      const payload = await response.json();
+      return response.ok ? payload?.data || null : null;
+    } catch (error) {
+      console.warn("Unable to load aircraft export details:", error);
+      return null;
+    }
+  };
+
   const baseOptions = useMemo(
-    () => [
-      "all",
-      ...new Set(
-        entries
-          .map((entry) => String(entry.base || "").trim().toUpperCase())
-          .filter(Boolean),
-      ),
-    ],
-    [entries],
+    () => {
+      if (isMechanic) {
+        return userBase ? [userBase] : [];
+      }
+
+      return [
+        "all",
+        ...new Set(
+          entries
+            .map((entry) => String(entry.base || "").trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      ];
+    },
+    [entries, isMechanic, userBase],
   );
 
   const filteredEntries = useMemo(() => {
-    const needle = search.trim().toLowerCase();
+    const effectiveBase = isMechanic ? userBase : selectedBase;
     const baseFiltered =
-      selectedBase === "all"
+      effectiveBase === "all"
         ? entries
         : entries.filter(
             (entry) =>
-              String(entry.base || "").trim().toUpperCase() === selectedBase,
+              String(entry.base || "").trim().toUpperCase() === effectiveBase,
           );
 
-    if (!needle) return baseFiltered;
-
-    return baseFiltered.filter((entry) =>
-      [
-        entry.aircraft,
-        entry.taskTitle,
-        entry.defects,
-        entry.correctiveActionDone,
-        entry.reportedBy,
-        entry.base,
-        entry.sourceTaskId,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
-  }, [entries, search, selectedBase]);
+    return baseFiltered.filter((entry) => matchesSearch(search, entry));
+  }, [entries, search, selectedBase, isMechanic, userBase]);
 
   const aircraftGroups = useMemo(() => {
     const map = new Map();
     filteredEntries.forEach((entry) => {
       if (!entry.aircraft) return;
       const current = map.get(entry.aircraft) || [];
-      map.set(entry.aircraft, [...current, entry]);
+      current.push(entry);
+      map.set(entry.aircraft, current);
     });
     return Array.from(map.entries()).map(([aircraft, rows]) => ({
       aircraft,
@@ -138,33 +203,113 @@ export default function MaintenanceLog() {
     }));
   }, [filteredEntries]);
 
+  const groupsWithNewCounts = useMemo(() => aircraftGroups.map((group) => ({
+    ...group,
+    newCount: group.rows.filter((entry) => {
+      const id = getLogStableId(entry);
+      return id && !seenLogIds.has(id);
+    }).length,
+  })), [aircraftGroups, seenLogIds]);
+
+  const selectedBaseLabel =
+    (isMechanic ? userBase : selectedBase) === "all"
+      ? "All Bases"
+      : isMechanic
+        ? userBase || "Base"
+        : selectedBase;
+
+  const selectBase = (base) => {
+    setSelectedBase(base);
+    setShowBaseDropdown(false);
+  };
+
+  const openAircraftGroup = async (group) => {
+    const nextSeenIds = new Set(seenLogIds);
+    group.rows.forEach((entry) => {
+      const stableId = getLogStableId(entry);
+      if (stableId) nextSeenIds.add(stableId);
+    });
+    setSeenLogIds(nextSeenIds);
+    await AsyncStorage.setItem(
+      SEEN_MAINTENANCE_LOG_IDS_KEY,
+      JSON.stringify(Array.from(nextSeenIds)),
+    );
+    setSelectedAircraft(group);
+  };
+
   if (selectedWorkOrder) {
     return (
       <ModuleContainer>
-        <TouchableOpacity
-          style={[moduleStyles.row, { marginBottom: 10 }]}
-          onPress={() => setSelectedWorkOrder(null)}
+        <View
+          style={[
+            moduleStyles.row,
+            { justifyContent: "space-between", marginBottom: 10 },
+          ]}
         >
-          <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-          <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
-            Back to work orders
-          </AppText>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={moduleStyles.row}
+            onPress={() => setSelectedWorkOrder(null)}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
+            <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
+              Back to work orders
+            </AppText>
+          </TouchableOpacity>
+          {canExportMaintenanceLogs && (
+            <TouchableOpacity
+              style={[
+                moduleStyles.button,
+                { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 0 },
+              ]}
+              disabled={exportingWorkOrder}
+              onPress={async () => {
+                setExportingWorkOrder(true);
+                try {
+                  const aircraftData = await fetchAircraftExportData(
+                    selectedWorkOrder.aircraft,
+                  );
+                  await exportMaintenanceLogPdf(selectedWorkOrder, {
+                    aircraftData,
+                  });
+                } finally {
+                  setExportingWorkOrder(false);
+                }
+              }}
+            >
+              <MaterialCommunityIcons name="export-variant" size={18} color={COLORS.white} />
+              <AppText style={[moduleStyles.buttonText, { marginLeft: 6 }]}>
+                {exportingWorkOrder ? "Exporting..." : "Export"}
+              </AppText>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <InfoCard
           title="Work Done Report"
           subtitle={selectedWorkOrder.sourceTaskId || selectedWorkOrder.id}
-          right={<StatusChip label={selectedWorkOrder.status} />}
+          right={<StatusTag label={selectedWorkOrder.status} />}
         >
           <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
             <FieldRow label="Aircraft" value={selectedWorkOrder.aircraft} />
             <FieldRow label="Base" value={selectedWorkOrder.base} />
-            <FieldRow label="Reported By" value={selectedWorkOrder.reportedBy} />
+            <FieldRow
+              label="Mechanic-in-charge"
+              value={getMechanicInCharge(selectedWorkOrder)}
+            />
+            <FieldRow label="Inspector" value={getInspector(selectedWorkOrder)} />
+            <FieldRow
+              label="Mechanic License No."
+              value={getMechanicLicenseNo(selectedWorkOrder)}
+            />
+            <FieldRow
+              label="Inspector License No."
+              value={getInspectorLicenseNo(selectedWorkOrder)}
+            />
             <FieldRow
               label="Rectified"
               value={formatDate(selectedWorkOrder.dateDefectRectified)}
             />
-            <FieldRow label="Task Status" value={selectedWorkOrder.sourceTaskStatus} />
+            <StatusField label="Task Status" value={selectedWorkOrder.sourceTaskStatus} />
             <FieldRow label="Task Title" value={selectedWorkOrder.taskTitle} />
           </View>
         </InfoCard>
@@ -183,7 +328,7 @@ export default function MaintenanceLog() {
 
   if (selectedAircraft) {
     return (
-      <ModuleContainer>
+      <ModuleContainer scrollable={false}>
         <TouchableOpacity
           style={[moduleStyles.row, { marginBottom: 10 }]}
           onPress={() => setSelectedAircraft(null)}
@@ -205,8 +350,16 @@ export default function MaintenanceLog() {
         </InfoCard>
 
         <SectionTitle title="Work Orders" />
-        {selectedAircraft.rows.map((entry) => (
-          <InfoCard
+        {<FlatList
+           style={{ flex: 1 }}
+           contentContainerStyle={{ paddingBottom: 110 }}
+           keyboardShouldPersistTaps="handled"
+           data={selectedAircraft.rows}
+           keyExtractor={(item, index) => String(item._id || item.id || index)}
+           initialNumToRender={12}
+           maxToRenderPerBatch={8}
+           windowSize={7}
+           renderItem={({ item: entry }) => (<InfoCard
             key={entry._id || entry.id}
             title={entry.sourceTaskId || entry.id}
             subtitle={entry.taskTitle || "Untitled task"}
@@ -219,60 +372,163 @@ export default function MaintenanceLog() {
                 value={formatDate(entry.dateDefectRectified)}
               />
               <FieldRow label="Base" value={entry.base} />
-              <FieldRow label="Status" value={entry.status} />
+              <StatusField label="Status" value={entry.status} />
             </View>
-          </InfoCard>
-        ))}
+          </InfoCard>)}
+         />}
       </ModuleContainer>
     );
   }
 
   return (
-    <ModuleContainer>
+    <ModuleContainer scrollable={false}>
       <SearchBar
         value={search}
         onChangeText={setSearch}
         placeholder="Search maintenance logs"
       />
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          borderRadius: 8,
-          marginBottom: 12,
-          overflow: "hidden",
-          backgroundColor: COLORS.white,
-        }}
-      >
-        <Picker selectedValue={selectedBase} onValueChange={setSelectedBase}>
-          {baseOptions.map((base) => (
-            <Picker.Item
-              key={base}
-              label={base === "all" ? "All Bases" : base}
-              value={base}
+      {!isMechanic && (
+        <View style={{ marginBottom: 12 }}>
+          <TouchableOpacity
+            style={styles.unifiedFilterButton}
+            activeOpacity={0.82}
+            onPress={() => setShowBaseDropdown((open) => !open)}
+          >
+            <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
+              {selectedBaseLabel}
+            </AppText>
+            <MaterialCommunityIcons
+              name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={COLORS.grayDark}
             />
-          ))}
-        </Picker>
-      </View>
+          </TouchableOpacity>
+
+          {showBaseDropdown && (
+            <View style={[styles.unifiedDropdownMenu, { maxHeight: 300 }]}>
+              <ScrollView nestedScrollEnabled>
+                {baseOptions.map((base, index) => (
+                  <TouchableOpacity
+                    key={base}
+                    style={[
+                      styles.unifiedDropdownItem,
+                      index < baseOptions.length - 1
+                        ? styles.unifiedDropdownItemBordered
+                        : null,
+                    ]}
+                    onPress={() => selectBase(base)}
+                  >
+                    <AppText style={styles.unifiedDropdownItemText}>
+                      {base === "all" ? "All Bases" : base}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
       {loading && <LoadingState />}
       {!loading && aircraftGroups.length === 0 && (
         <EmptyState text="No maintenance logs found yet." />
       )}
-      {aircraftGroups.map((group) => (
-        <InfoCard
-          key={group.aircraft}
-          title={group.aircraft}
-          subtitle="Completed task records"
-          right={<StatusChip label={`${group.rows.length} WO`} />}
-          onPress={() => setSelectedAircraft(group)}
-        >
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            <FieldRow label="Source" value="Task Assignment" />
-            <FieldRow label="Base" value={group.sample?.base} />
-            <FieldRow label="Latest" value={formatDate(group.sample?.dateDefectRectified)} />
-          </View>
-        </InfoCard>
-      ))}
+      {<FlatList
+         style={{ flex: 1 }}
+         contentContainerStyle={{ paddingBottom: 110 }}
+         keyboardShouldPersistTaps="handled"
+         data={groupsWithNewCounts}
+         keyExtractor={(item, index) => String(item.aircraft)}
+         initialNumToRender={12}
+         maxToRenderPerBatch={8}
+         windowSize={7}
+         renderItem={({ item: group }) => ((() => {
+          const newCount = group.newCount;
+
+          return (
+            <InfoCard
+              key={group.aircraft}
+              title={group.aircraft}
+              subtitle="Completed task records"
+              right={
+                <View style={{ alignItems: "flex-end", gap: 6 }}>
+                  <StatusChip label={`${group.rows.length} WO`} />
+                  {newCount > 0 && (
+                    <View style={styles.newBadge}>
+                      <AppText style={styles.newBadgeText}>
+                        {newCount} NEW
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+              }
+              onPress={() => openAircraftGroup(group)}
+            >
+              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                <FieldRow label="Source" value="Task Assignment" />
+                <FieldRow label="Base" value={group.sample?.base} />
+                <FieldRow label="Latest" value={formatDate(group.sample?.dateDefectRectified)} />
+              </View>
+            </InfoCard>
+          );
+        })())}
+       />}
     </ModuleContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  unifiedFilterButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  unifiedFilterButtonText: {
+    flex: 1,
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  unifiedDropdownMenu: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    zIndex: 1000,
+  },
+  unifiedDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  unifiedDropdownItemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  unifiedDropdownItemText: {
+    color: COLORS.black,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  newBadge: {
+    backgroundColor: "#FFF3E0",
+    borderColor: "#FFD8A8",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  newBadgeText: {
+    color: "#8A3F00",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+});

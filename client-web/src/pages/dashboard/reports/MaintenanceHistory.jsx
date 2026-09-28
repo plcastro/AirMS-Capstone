@@ -3,6 +3,7 @@ import { Row, Col, Card, Typography } from "antd";
 
 import { SDMChart, ARTChart } from "../../../components/common/PieChart";
 import MHistoryTable from "../../../components/tables/MHistoryTable";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 
 const { Title, Text } = Typography;
 
@@ -15,15 +16,6 @@ const PIE_COLORS = [
   "#ac139f",
 ];
 const ART_COLORS = ["#881fe5", "#1890ff", "#058b4a", "#d78f2b", "#9b1104"];
-
-const formatDate = (value) => {
-  if (!value) return "---";
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "---";
-
-  return date.toLocaleDateString("en-CA");
-};
 
 const getDiscoveredAt = (task = {}) =>
   task.maintenanceHistory?.defectDiscoveredAt ||
@@ -73,77 +65,79 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedRectificationBucket, setSelectedRectificationBucket] =
     useState(null);
+  const [cutoff] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const tasksWithMeta = useMemo(
+    () =>
+      tasks.map((task, index) => {
+        const discoveredAtRaw = getDiscoveredAt(task);
+        const rectifiedAtRaw = getRectifiedAt(task);
+        const discoveredDate = discoveredAtRaw
+          ? new Date(discoveredAtRaw)
+          : null;
+        const rectifiedDate = rectifiedAtRaw ? new Date(rectifiedAtRaw) : null;
+        const hasValidDiscoveredDate =
+          discoveredDate && !isNaN(discoveredDate.getTime());
+        const hasValidRectifiedDate =
+          rectifiedDate && !isNaN(rectifiedDate.getTime());
+        const isRecent =
+          hasValidDiscoveredDate && discoveredDate.getTime() >= cutoff;
+        const isSameDay =
+          hasValidDiscoveredDate &&
+          hasValidRectifiedDate &&
+          (task.maintenanceHistory?.sameDayRepair ||
+            discoveredDate.toDateString() === rectifiedDate.toDateString());
 
-  const tasksWithMeta = tasks.map((task, index) => {
-    const discoveredAtRaw = getDiscoveredAt(task);
-    const rectifiedAtRaw = getRectifiedAt(task);
-    const discoveredDate = discoveredAtRaw ? new Date(discoveredAtRaw) : null;
-    const rectifiedDate = rectifiedAtRaw ? new Date(rectifiedAtRaw) : null;
-    const hasValidDiscoveredDate =
-      discoveredDate && !isNaN(discoveredDate.getTime());
-    const hasValidRectifiedDate =
-      rectifiedDate && !isNaN(rectifiedDate.getTime());
-    const isRecent = hasValidDiscoveredDate && discoveredDate.getTime() >= cutoff;
-    const isSameDay =
-      hasValidDiscoveredDate &&
-      hasValidRectifiedDate &&
-      (task.maintenanceHistory?.sameDayRepair ||
-        discoveredDate.toDateString() === rectifiedDate.toDateString());
+        const rectificationBucket = getRectificationBucket(
+          discoveredAtRaw,
+          rectifiedAtRaw,
+        );
+        const rectificationHours = getRectificationHours(
+          discoveredAtRaw,
+          rectifiedAtRaw,
+        );
 
-    const rectificationBucket = getRectificationBucket(
-      discoveredAtRaw,
-      rectifiedAtRaw,
-    );
-    const rectificationHours = getRectificationHours(
-      discoveredAtRaw,
-      rectifiedAtRaw,
-    );
-
-    return {
-      task,
-      index,
-      row: {
-        key: task._id || task.id || `${task.title}-${index}`,
-        aircraft: task.aircraft || "---",
-        dateDiscovered: formatDate(discoveredAtRaw),
-        dateRectified: formatDate(rectifiedAtRaw),
-        task: task.title || task.summary?.category || "---",
-        assignedMechanic:
-          task.assignedMechanic ||
-          task.assignedToName ||
-          task.assignedTo ||
-          "---",
-      },
-      aircraft: task.aircraft || "Unassigned",
-      isRecent,
-      isSameDay,
-      rectificationBucket,
-      rectificationHours,
-    };
-  });
+        return {
+          task,
+          index,
+          row: {
+            key: task._id || task.id || `${task.title}-${index}`,
+            aircraft: task.aircraft || "---",
+            dateDiscovered: discoveredAtRaw,
+            dateRectified: rectifiedAtRaw,
+            task: task.title || task.summary?.category || "---",
+            assignedMechanic:
+              task.assignedMechanic ||
+              task.assignedToName ||
+              task.assignedTo ||
+              "---",
+          },
+          aircraft: task.aircraft || "Unassigned",
+          isRecent,
+          isSameDay,
+          rectificationBucket,
+          rectificationHours,
+        };
+      }),
+    [cutoff, tasks],
+  );
 
   const recentTasks = tasksWithMeta.filter((entry) => entry.isRecent);
 
-  const historyRows = useMemo(
-    () =>
-      tasksWithMeta
-        .filter((entry) => {
-          const aircraftMatch =
-            !selectedAircraft ||
-            (entry.isRecent &&
-              entry.isSameDay &&
-              entry.aircraft === selectedAircraft);
-          const bucketMatch =
-            !selectedRectificationBucket ||
-            (entry.isRecent &&
-              entry.rectificationBucket === selectedRectificationBucket);
-          return aircraftMatch && bucketMatch;
-        })
-        .map((entry) => entry.row),
-    [tasksWithMeta, selectedAircraft, selectedRectificationBucket],
-  );
+  const historyRows = tasksWithMeta
+    .filter((entry) => {
+      const aircraftMatch =
+        !selectedAircraft ||
+        (entry.isRecent &&
+          entry.isSameDay &&
+          entry.aircraft === selectedAircraft);
+      const bucketMatch =
+        !selectedRectificationBucket ||
+        (entry.isRecent &&
+          entry.rectificationBucket === selectedRectificationBucket);
+      return aircraftMatch && bucketMatch;
+    })
+    .map((entry) => entry.row);
 
   const sameDayRepairMap = recentTasks.reduce((acc, entry) => {
     if (!entry.isSameDay) return acc;
@@ -223,11 +217,13 @@ export default function MaintenanceHistory({ tasks = [], loading = false }) {
       title: "Date Defect Discovered",
       dataIndex: "dateDiscovered",
       key: "dateDiscovered",
+      render: (value) => <DateTimeCell value={value} fallback="---" />,
     },
     {
       title: "Date Defect Rectified",
       dataIndex: "dateRectified",
       key: "dateRectified",
+      render: (value) => <DateTimeCell value={value} fallback="---" />,
     },
     {
       title: "Task",

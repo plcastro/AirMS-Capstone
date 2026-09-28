@@ -5,6 +5,8 @@ const LinkingConfig = {
     "https://airms.online",
     "https://www.airms.online",
     "http://10.0.2.2:8000",
+    "https://api.airms.online",
+    "https://airms-server.vercel.app",
   ],
   config: {
     screens: {
@@ -22,8 +24,8 @@ const LinkingConfig = {
           "Activity Logs": "activity-logs",
           "Flight Logs": "flight-log",
           "Maintenance Logs": "maintenance-log",
-          "Pre-Inspection": "pre-inspection",
-          "Post-Inspection": "post-inspection",
+          "Pre-Flight Inspection": "pre-flight-inspection",
+          "Post-Flight Inspection": "post-flight-inspection",
           Tasks: "tasks",
           Mechanics: "mechanics",
           "Parts Lifespan Monitoring": "parts-lifespan-monitoring",

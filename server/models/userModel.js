@@ -16,8 +16,10 @@ const userSchema = new mongoose.Schema({
   },
   password: { type: String, required: true, select: false },
   pin: { type: String, default: "", select: false },
-  signature: { type: String, default: "" },
+  // signature: { type: String, default: "" },
   securitySetupCompleted: { type: Boolean, default: false },
+  skipFirstLoginOtp: { type: Boolean, default: false, select: false },
+  loginOtpExempt: { type: Boolean, default: false, select: false },
   status: {
     type: String,
     enum: ["active", "inactive", "deactivated"],
@@ -31,7 +33,7 @@ const userSchema = new mongoose.Schema({
       "Superadmin",
       "Officer-In-Charge",
       "Mechanic",
-      "Warehouse Department",
+      "Warehouse Personnel",
     ],
     default: "Mechanic",
   },
@@ -49,7 +51,7 @@ const userSchema = new mongoose.Schema({
   invitationSentAt: { type: Date, default: Date.now },
   invitationExpiresAt: { type: Date, default: null },
   invitationClaimedAt: { type: Date, default: null },
-  licenseNo: { type: String, unique: true, trim: true },
+  licenseNo: { type: String, trim: true, default: undefined },
   image: { type: String, default: "" },
   dateCreated: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: null },
@@ -104,6 +106,7 @@ const userSchema = new mongoose.Schema({
   resetPinExpires: Date,
   pinOtp: String,
   pinOtpExpires: Date,
+  pinOtpVerified: { type: Boolean, default: false },
   pinOtpAttempts: { type: Number, default: 0 },
   pinOtpLockUntil: Date,
 
@@ -112,6 +115,17 @@ const userSchema = new mongoose.Schema({
   lockUntil: Date,
   isLocked: { type: Boolean, default: false },
 });
+
+userSchema.index(
+  { licenseNo: 1 },
+  {
+    unique: true,
+    name: "licenseNo_1",
+    partialFilterExpression: {
+      licenseNo: { $type: "string", $gt: "" },
+    },
+  },
+);
 
 userSchema.pre("validate", function sanitizeMobilePushDevices() {
   if (!Array.isArray(this.mobilePushDevices)) {
@@ -123,7 +137,6 @@ userSchema.pre("validate", function sanitizeMobilePushDevices() {
     const hasFcmToken = Boolean(String(device?.fcmToken || "").trim());
     return hasDeviceId && hasFcmToken;
   });
-
 });
 
 module.exports = mongoose.model("User", userSchema);

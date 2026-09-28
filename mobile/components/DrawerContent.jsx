@@ -9,7 +9,7 @@ import AirMSWeb from "../assets/AirMS_web.png";
 import AlertComp from "./AlertComp";
 import { AuthContext } from "../Context/AuthContext";
 import { useFontScale } from "../Context/FontScaleContext";
-import { hasNavAccess, normalizeRole } from "../../shared/navigationAccess";
+import { hasNavAccess, resolveUserRole } from "../../shared/navigationAccess";
 
 const DrawerList = [
   {
@@ -63,14 +63,14 @@ const DrawerList = [
       },
       {
         icon: "clipboard-check-outline",
-        label: "Pre-Inspection",
-        navigateTo: "Pre-Inspection",
+        label: "Pre-Flight Inspection",
+        navigateTo: "Pre-Flight Inspection",
         accessKey: "preInspection",
       },
       {
         icon: "clipboard-check-outline",
-        label: "Post-Inspection",
-        navigateTo: "Post-Inspection",
+        label: "Post-Flight Inspection",
+        navigateTo: "Post-Flight Inspection",
         accessKey: "postInspection",
       },
     ],
@@ -145,7 +145,7 @@ function DrawerContent({ navigation }) {
   const { scale } = useFontScale();
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
-  const userJob = normalizeRole(user?.jobTitle);
+  const userJob = resolveUserRole(user);
 
   const activeRoute =
     navigation.getState().routes[navigation.getState().index].name;

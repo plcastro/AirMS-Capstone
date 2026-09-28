@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { issueSignedToken, presignUrl } = require("@vercel/blob");
 const Conversation = require("../models/conversationModel");
 const Message = require("../models/messageModel");
 const NotificationModel = require("../models/notificationModel");
@@ -7,6 +8,7 @@ const { auditLog } = require("./logsController");
 const { sendToUsers } = require("../utils/realtimeEvents");
 const { publishTypedForUsers } = require("../utils/realtimeEvents");
 const { sendPushNotificationToUsers } = require("../utils/mobilePushService");
+const { getMessageBlobToken } = require("../middleware/messageUpload");
 
 const getUserId = (req) => req.user?.id;
 
@@ -44,14 +46,18 @@ const mapGroup = (conversation = {}) => ({
   id: conversation._id,
   type: "group",
   name: conversation.name,
-  members: Array.isArray(conversation.members) ? conversation.members.map(mapUser) : [],
+  members: Array.isArray(conversation.members)
+    ? conversation.members.map(mapUser)
+    : [],
   createdBy: getEntityId(conversation.createdBy),
   createdAt: conversation.createdAt,
   updatedAt: conversation.updatedAt,
 });
 
 const getGroupReadAt = (message, userId) =>
-  (message.readBy || []).find((receipt) => isSameId(getEntityId(receipt.user), userId))?.readAt || null;
+  (message.readBy || []).find((receipt) =>
+    isSameId(getEntityId(receipt.user), userId),
+  )?.readAt || null;
 
 const getUnreadMessageSenderCount = async (userId) => {
   const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -65,7 +71,9 @@ const getUnreadMessageSenderCount = async (userId) => {
   const groupConversations = await Conversation.find({ members: userObjectId })
     .select("_id")
     .lean();
-  const groupConversationIds = groupConversations.map((conversation) => conversation._id);
+  const groupConversationIds = groupConversations.map(
+    (conversation) => conversation._id,
+  );
 
   const groupSenders =
     groupConversationIds.length > 0
@@ -99,7 +107,9 @@ const markMessageNotificationsRead = async ({ userId, messageIds = [] }) => {
 };
 
 const notifyUnreadMessageSummary = async (recipientIds = []) => {
-  const uniqueRecipientIds = [...new Set(recipientIds.map(String).filter(Boolean))];
+  const uniqueRecipientIds = [
+    ...new Set(recipientIds.map(String).filter(Boolean)),
+  ];
 
   await Promise.all(
     uniqueRecipientIds.map(async (recipientId) => {
@@ -143,10 +153,14 @@ const createChatNotifications = async ({
   conversationName = "",
   isGroup = false,
 }) => {
-  const recipients = [...new Set(recipientUserIds.map(String).filter(Boolean))]
-    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const recipients = [
+    ...new Set(recipientUserIds.map(String).filter(Boolean)),
+  ].filter((id) => mongoose.Types.ObjectId.isValid(id));
 
-  if (!recipients.length || !mongoose.Types.ObjectId.isValid(String(messageId))) {
+  if (
+    !recipients.length ||
+    !mongoose.Types.ObjectId.isValid(String(messageId))
+  ) {
     return;
   }
 
@@ -154,9 +168,10 @@ const createChatNotifications = async ({
   const firstName = extractFirstName(senderName);
   const title = isGroup && conversationName ? conversationName : firstName;
   const description = isGroup ? `${firstName}: ${preview}` : preview;
-  const threadId = isGroup && conversationId
-    ? `group:${conversationId}`
-    : `direct:${[senderUserId, ...recipients].map(String).sort().join(":")}`;
+  const threadId =
+    isGroup && conversationId
+      ? `group:${conversationId}`
+      : `direct:${[senderUserId, ...recipients].map(String).sort().join(":")}`;
 
   const notification = await NotificationModel.create({
     title,
@@ -167,6 +182,7 @@ const createChatNotifications = async ({
     recipientUsers: recipients,
     metadata: {
       notificationType: isGroup ? "group-message" : "direct-message",
+      senderUserId: senderUserId ? String(senderUserId) : null,
       senderName,
       senderFirstName: firstName,
       conversationId: conversationId ? String(conversationId) : null,
@@ -185,6 +201,7 @@ const createChatNotifications = async ({
       entityType: "message",
       entityId: String(messageId),
       targetMessageId: String(messageId),
+      senderUserId: senderUserId ? String(senderUserId) : "",
       conversationId: conversationId ? String(conversationId) : "",
       isGroup: String(Boolean(isGroup)),
       threadId,
@@ -224,7 +241,10 @@ const getConversations = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(500)
-      .populate("sender recipient", "firstName lastName username jobTitle image isOnline platform")
+      .populate(
+        "sender recipient",
+        "firstName lastName username jobTitle image isOnline platform",
+      )
       .lean();
 
     const conversations = new Map();
@@ -236,7 +256,8 @@ const getConversations = async (req, res) => {
 
       const key = `direct:${otherUser._id}`;
       const existing = conversations.get(key);
-      const hasUnread = Boolean(existing?.unreadCount) || (!isSentByMe && !message.readAt);
+      const hasUnread =
+        Boolean(existing?.unreadCount) || (!isSentByMe && !message.readAt);
 
       conversations.set(key, {
         type: "direct",
@@ -247,7 +268,10 @@ const getConversations = async (req, res) => {
     });
 
     const groupConversations = await Conversation.find({ members: userId })
-      .populate("members", "firstName lastName username jobTitle image isOnline platform")
+      .populate(
+        "members",
+        "firstName lastName username jobTitle image isOnline platform",
+      )
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -257,16 +281,24 @@ const getConversations = async (req, res) => {
         ? await Message.find({ conversation: { $in: groupIds } })
             .sort({ createdAt: -1 })
             .limit(800)
-            .populate("sender", "firstName lastName username jobTitle image isOnline platform")
+            .populate(
+              "sender",
+              "firstName lastName username jobTitle image isOnline platform",
+            )
             .lean()
         : [];
 
     const groupMessageState = new Map();
     groupMessages.forEach((message) => {
       const key = String(message.conversation);
-      const existing = groupMessageState.get(key) || { lastMessage: null, unreadCount: 0 };
+      const existing = groupMessageState.get(key) || {
+        lastMessage: null,
+        unreadCount: 0,
+      };
       const readAt = getGroupReadAt(message, userId);
-      const hasUnread = Boolean(existing.unreadCount) || (!isSameId(message.sender?._id, userId) && !readAt);
+      const hasUnread =
+        Boolean(existing.unreadCount) ||
+        (!isSameId(message.sender?._id, userId) && !readAt);
 
       groupMessageState.set(key, {
         lastMessage: existing.lastMessage || mapMessage(message),
@@ -284,11 +316,17 @@ const getConversations = async (req, res) => {
       });
     });
 
-    const sortedConversations = [...conversations.values()].sort((first, second) => {
-      const firstTime = new Date(first.lastMessage?.createdAt || first.group?.updatedAt || 0).getTime();
-      const secondTime = new Date(second.lastMessage?.createdAt || second.group?.updatedAt || 0).getTime();
-      return secondTime - firstTime;
-    });
+    const sortedConversations = [...conversations.values()].sort(
+      (first, second) => {
+        const firstTime = new Date(
+          first.lastMessage?.createdAt || first.group?.updatedAt || 0,
+        ).getTime();
+        const secondTime = new Date(
+          second.lastMessage?.createdAt || second.group?.updatedAt || 0,
+        ).getTime();
+        return secondTime - firstTime;
+      },
+    );
 
     res.status(200).json({ data: sortedConversations });
   } catch (error) {
@@ -377,7 +415,9 @@ const getThread = async (req, res) => {
         );
       }
 
-      const messages = await Message.find({ conversation: groupConversation._id })
+      const messages = await Message.find({
+        conversation: groupConversation._id,
+      })
         .sort({ createdAt: 1 })
         .limit(300)
         .lean();
@@ -448,6 +488,88 @@ const validateBody = (body) => {
   return { value: trimmedBody };
 };
 
+const getMessageAttachmentUrl = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { messageId, attachmentIndex } = req.params;
+    const index = Number(attachmentIndex);
+
+    if (
+      !mongoose.Types.ObjectId.isValid(messageId) ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return res.status(400).json({ message: "Invalid attachment" });
+    }
+
+    const message = await Message.findById(messageId)
+      .select("sender recipient conversation attachments")
+      .lean();
+    if (!message) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    let canAccess =
+      isSameId(message.sender, userId) || isSameId(message.recipient, userId);
+
+    if (!canAccess && message.conversation) {
+      canAccess = Boolean(
+        await Conversation.exists({
+          _id: message.conversation,
+          members: userId,
+        }),
+      );
+    }
+
+    if (!canAccess) {
+      return res.status(403).json({ message: "Attachment access denied" });
+    }
+
+    const attachment = message.attachments?.[index];
+    const pathname = String(attachment?.url || "").trim();
+    if (!pathname) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    if (/^https?:\/\//i.test(pathname) || pathname.startsWith("/uploads/")) {
+      return res.status(200).json({ data: { url: pathname, expiresAt: null } });
+    }
+
+    const token = getMessageBlobToken();
+    if (!token) {
+      return res.status(503).json({
+        message: "Message attachment storage is not configured",
+      });
+    }
+
+    const validUntil = Date.now() + 5 * 60 * 1000;
+    const signedToken = await issueSignedToken({
+      pathname,
+      operations: ["get"],
+      validUntil,
+      token,
+    });
+    const { presignedUrl } = await presignUrl(signedToken, {
+      pathname,
+      operation: "get",
+      validUntil,
+      access: "public",
+    });
+
+    return res.status(200).json({
+      data: {
+        url: presignedUrl,
+        expiresAt: new Date(validUntil).toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to prepare message attachment download:", error);
+    return res.status(500).json({
+      message: "Failed to open attachment",
+    });
+  }
+};
+
 const sendMessage = async (req, res) => {
   try {
     const senderId = getUserId(req);
@@ -476,7 +598,9 @@ const sendMessage = async (req, res) => {
         .lean();
 
       if (!conversation) {
-        return res.status(404).json({ message: "Group conversation not found" });
+        return res
+          .status(404)
+          .json({ message: "Group conversation not found" });
       }
 
       const message = await Message.create({
@@ -506,21 +630,25 @@ const sendMessage = async (req, res) => {
         senderId: String(senderId),
         createdAt: message.createdAt,
       });
-      createChatNotifications({
-        senderName,
-        messageBody: bodyState.value,
-        messageId: message._id,
-        senderUserId: senderId,
-        recipientUserIds: recipientMemberIds,
-        conversationId,
-        conversationName: conversation.name,
-        isGroup: true,
-      }).catch((error) => {
+      try {
+        await createChatNotifications({
+          senderName,
+          messageBody: bodyState.value,
+          messageId: message._id,
+          senderUserId: senderId,
+          recipientUserIds: recipientMemberIds,
+          conversationId,
+          conversationName: conversation.name,
+          isGroup: true,
+        });
+      } catch (error) {
         console.error("Group chat notification creation failed:", error);
-      });
-      auditLog(`Message sent to group: ${conversation.name}`, senderId).catch((error) => {
-        console.error("Message audit failed:", error);
-      });
+      }
+      auditLog(`Message sent to group: ${conversation.name}`, senderId).catch(
+        (error) => {
+          console.error("Message audit failed:", error);
+        },
+      );
 
       return res.status(201).json({ data: payload });
     }
@@ -565,19 +693,23 @@ const sendMessage = async (req, res) => {
       recipientId: String(recipientId),
       createdAt: message.createdAt,
     });
-    createChatNotifications({
-      senderName,
-      messageBody: bodyState.value,
-      messageId: message._id,
-      senderUserId: senderId,
-      recipientUserIds: [recipientId],
-      isGroup: false,
-    }).catch((error) => {
+    try {
+      await createChatNotifications({
+        senderName,
+        messageBody: bodyState.value,
+        messageId: message._id,
+        senderUserId: senderId,
+        recipientUserIds: [recipientId],
+        isGroup: false,
+      });
+    } catch (error) {
       console.error("Direct chat notification creation failed:", error);
-    });
-    auditLog(`Message sent to user: ${recipientId}`, senderId).catch((error) => {
-      console.error("Message audit failed:", error);
-    });
+    }
+    auditLog(`Message sent to user: ${recipientId}`, senderId).catch(
+      (error) => {
+        console.error("Message audit failed:", error);
+      },
+    );
 
     return res.status(201).json({ data: payload });
   } catch (error) {
@@ -601,11 +733,17 @@ const createGroupConversation = async (req, res) => {
     }
 
     const uniqueMemberIds = [
-      ...new Set([userId, ...memberIds].filter((id) => mongoose.Types.ObjectId.isValid(id)).map(String)),
+      ...new Set(
+        [userId, ...memberIds]
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .map(String),
+      ),
     ];
 
     if (uniqueMemberIds.length < 2) {
-      return res.status(400).json({ message: "Select at least one group member" });
+      return res
+        .status(400)
+        .json({ message: "Select at least one group member" });
     }
 
     const activeUsers = await User.find({
@@ -616,7 +754,10 @@ const createGroupConversation = async (req, res) => {
       .lean();
     const activeMemberIds = activeUsers.map((item) => item._id);
 
-    if (activeMemberIds.length < 2 || !activeMemberIds.some((id) => isSameId(id, userId))) {
+    if (
+      activeMemberIds.length < 2 ||
+      !activeMemberIds.some((id) => isSameId(id, userId))
+    ) {
       return res.status(400).json({ message: "Select valid group members" });
     }
 
@@ -627,7 +768,10 @@ const createGroupConversation = async (req, res) => {
     });
 
     const populatedConversation = await Conversation.findById(conversation._id)
-      .populate("members", "firstName lastName username jobTitle image isOnline platform")
+      .populate(
+        "members",
+        "firstName lastName username jobTitle image isOnline platform",
+      )
       .lean();
 
     const payload = {
@@ -650,11 +794,154 @@ const createGroupConversation = async (req, res) => {
   }
 };
 
+const populateGroupConversation = (conversationId) =>
+  Conversation.findById(conversationId)
+    .populate(
+      "members",
+      "firstName lastName username jobTitle image isOnline platform",
+    )
+    .lean();
+
+const sendGroupConversationUpdate = async (conversationId, userIds = []) => {
+  const populatedConversation = await populateGroupConversation(conversationId);
+  const recipients = [
+    ...new Set([
+      ...userIds.map(String).filter(Boolean),
+      ...(populatedConversation?.members || []).map((member) =>
+        String(getEntityId(member)),
+      ),
+    ]),
+  ];
+
+  sendToUsers(recipients, "chat:conversation", {
+    type: "group",
+    group: populatedConversation ? mapGroup(populatedConversation) : null,
+    removedConversationId: String(conversationId),
+  });
+  publishTypedForUsers(recipients, "notification:new", {
+    module: "messages",
+    conversationId: String(conversationId),
+  });
+
+  return populatedConversation;
+};
+
+const removeGroupMember = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { conversationId, memberId } = req.params;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
+      !mongoose.Types.ObjectId.isValid(memberId)
+    ) {
+      return res.status(400).json({ message: "Invalid group member" });
+    }
+
+    if (isSameId(userId, memberId)) {
+      return res.status(400).json({ message: "Use leave group instead" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      members: userId,
+    }).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Group conversation not found" });
+    }
+
+    if (!isSameId(conversation.createdBy, userId)) {
+      return res
+        .status(403)
+        .json({ message: "Only the group creator can remove members" });
+    }
+
+    if (!conversation.members.some((member) => isSameId(member, memberId))) {
+      return res.status(404).json({ message: "Member not found in group" });
+    }
+
+    await Conversation.updateOne(
+      { _id: conversationId },
+      { $pull: { members: memberId } },
+    );
+
+    const updatedConversation = await sendGroupConversationUpdate(
+      conversationId,
+      [memberId],
+    );
+
+    auditLog(`Group chat member removed: ${conversation.name}`, userId).catch(
+      (error) => {
+        console.error("Group member removal audit failed:", error);
+      },
+    );
+
+    return res.status(200).json({
+      data: updatedConversation
+        ? { type: "group", group: mapGroup(updatedConversation) }
+        : null,
+    });
+  } catch (error) {
+    console.error("Failed to remove group member:", error);
+    return res.status(500).json({ message: "Failed to remove group member" });
+  }
+};
+
+const leaveGroupConversation = async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: "Invalid group conversation" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      members: userId,
+    }).lean();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Group conversation not found" });
+    }
+
+    const remainingMembers = conversation.members.filter(
+      (member) => !isSameId(member, userId),
+    );
+
+    if (remainingMembers.length === 0) {
+      await Conversation.deleteOne({ _id: conversationId });
+      await sendGroupConversationUpdate(conversationId, [userId]);
+    } else {
+      const update = { $pull: { members: userId } };
+      if (isSameId(conversation.createdBy, userId)) {
+        update.$set = { createdBy: remainingMembers[0] };
+      }
+
+      await Conversation.updateOne({ _id: conversationId }, update);
+      await sendGroupConversationUpdate(conversationId, [userId]);
+    }
+
+    auditLog(`Group chat left: ${conversation.name}`, userId).catch((error) => {
+      console.error("Group leave audit failed:", error);
+    });
+
+    return res.status(200).json({ message: "Left group chat" });
+  } catch (error) {
+    console.error("Failed to leave group conversation:", error);
+    return res.status(500).json({ message: "Failed to leave group chat" });
+  }
+};
+
 module.exports = {
   getMessageUsers,
   getConversations,
   getMessageSummary,
   createGroupConversation,
+  removeGroupMember,
+  leaveGroupConversation,
   getThread,
+  getMessageAttachmentUrl,
   sendMessage,
 };

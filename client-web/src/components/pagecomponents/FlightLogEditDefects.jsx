@@ -39,6 +39,7 @@ export default function FlightLogEditDefects({
           content: "Are you sure you want to submit this log?",
           okText: "Yes",
           cancelText: "Cancel",
+          centered: true,
           onOk: () => setShowApproveModal(true),
         });
       })
@@ -67,6 +68,8 @@ export default function FlightLogEditDefects({
       <Modal
         open={visible}
         title="Edit Defect Entry"
+        centered
+        zIndex={3000}
         onCancel={onClose}
         footer={[
           <Button key="discard" onClick={onClose}>

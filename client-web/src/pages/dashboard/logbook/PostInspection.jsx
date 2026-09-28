@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -16,25 +17,51 @@ import {
   Row,
   Select,
   Space,
-  Table,
-  Tag,
   Tabs,
+  Tooltip,
   Typography,
   Grid,
   DatePicker,
-  message,
 } from "antd";
-import { EditOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  ExportOutlined,
+  EyeOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
+import { renderStatusTag } from "../../../utils/statusTags";
+import ResultPopup from "../../../components/common/ResultPopup";
 import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSignatureModal";
+import ResponsiveTable from "../../../components/common/ResponsiveTable";
+import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
+import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
+import { isAssignedFlightCrew } from "../../../../../shared/flightCrewAccess";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+import { matchesSearch } from "../../../utils/search";
+import { useDebouncedValue } from "../../../utils/debounce";
+import { canExportModule } from "../../../../../shared/exportAccess";
+import { getLogAircraftRegistration } from "../../../../../shared/aircraftLogGroups";
+import PostInspectionB412Checklist from "../../../components/pagecomponents/PostInspectionB412Checklist";
+import {
+  B412_POST_INSPECTION_SECTIONS,
+  areAllB412PostInspectionChecksComplete,
+  createEmptyB412PostInspectionData,
+  isAS350Aircraft,
+  isB412Aircraft,
+} from "../../../utils/b412PostInspection";
 
-const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_OPTIONS = ["all", "pending", "completed"];
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const formatDate = (value) => (value ? dayjs(value).format("MM/DD/YYYY") : "");
+const sanitizeFileName = (value) =>
+  String(value || "post-flight inspection")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 
 const POST_TABS = [
   { key: "basic", label: "Basic Information" },
@@ -46,30 +73,50 @@ const POST_TABS = [
   { key: "notes", label: "Notes" },
 ];
 
-const signaturePayload = (user, signature) => ({
-  name:
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    user?.username ||
-    "User",
-  id: user?.id || user?._id || "",
-  signature,
-  timestamp: new Date().toISOString(),
-});
+const NON_CHECKLIST_BOOLEAN_FIELDS = new Set(["linkedFromPreFlight"]);
+
+const signaturePayload = (user, signature) => {
+  const licenseNo =
+    user?.licenseNo || user?.licenseNumber || user?.license || "";
+  return {
+    name:
+      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+      user?.username ||
+      "User",
+    id: licenseNo,
+    licenseNo,
+    userId: user?.id || user?._id || "",
+    signature,
+    timestamp: new Date().toISOString(),
+  };
+};
 
 export default function PostInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const canExportPostInspections = canExportModule(
+    user?.jobTitle,
+    "postInspection",
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [aircraft, setAircraft] = useState("all");
+  const debouncedQuery = useDebouncedValue(query, 300);
+  const [aircraftQuery, setAircraftQuery] = useState("");
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
   const [signatureMode, setSignatureMode] = useState(null);
   const [editTab, setEditTab] = useState("basic");
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
@@ -82,20 +129,34 @@ export default function PostInspection() {
       : value === "released"
         ? "released"
         : "pending";
+  const isCompletedRecord = (record) =>
+    getDisplayStatus(String(record?.status || "").toLowerCase()) ===
+    "completed";
+  const isRecordReadOnly = (record) =>
+    readOnly ||
+    isCompletedRecord(record) ||
+    !isAssignedFlightCrew(user, record);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/getAllPostInspection`,
+        `${API_BASE}/api/post-flight/getAllPostInspection`,
         { headers: await getAuthHeader() },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to load post-inspections");
+        throw new Error(
+          data.message || "Failed to load post-flight inspections",
+        );
       setRecords(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
-      message.error(error.message || "Failed to load post-inspections");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to load post-flight inspections",
+      });
     } finally {
       setLoading(false);
     }
@@ -110,7 +171,9 @@ export default function PostInspection() {
     const notificationStatus = params.get("notificationStatus");
     if (notificationStatus) {
       setStatus(String(notificationStatus).toLowerCase());
-      setAircraft("all");
+      setSelectedAircraft(null);
+      setQuery("");
+      setAircraftQuery("");
     }
   }, [location.search]);
 
@@ -124,42 +187,148 @@ export default function PostInspection() {
     );
     if (!match) return;
 
+    setSelectedAircraft(getLogAircraftRegistration(match));
+    setQuery("");
+    setStatus("all");
+    setEditTab("basic");
     setEditing(match);
-    navigate("/dashboard/post-inspection", { replace: true });
+    navigate("/dashboard/post-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
 
-  const aircraftOptions = useMemo(
-    () => ["all", ...new Set(records.map((item) => item.rpc).filter(Boolean))],
-    [records],
-  );
+  const openAircraft = (rpc) => {
+    setSelectedAircraft(rpc);
+    setQuery("");
+    setStatus("all");
+  };
+
+  const backToAircraft = () => {
+    setSelectedAircraft(null);
+    setQuery("");
+    setStatus("all");
+  };
 
   const filtered = useMemo(
     () =>
       records.filter((item) => {
-        const needle = query.trim().toLowerCase();
-        const matchesQuery =
-          !needle ||
-          [item.rpc, item.aircraftType, item.date].some((value) =>
-            String(value || "")
-              .toLowerCase()
-              .includes(needle),
-          );
-        const matchesAircraft = aircraft === "all" || item.rpc === aircraft;
+        const matchesQuery = matchesSearch(debouncedQuery, item);
+        const matchesAircraft =
+          getLogAircraftRegistration(item) === selectedAircraft;
         const matchesStatus =
           status === "all" ||
           getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, query, aircraft, status],
+    [records, debouncedQuery, selectedAircraft, status],
   );
 
   const booleanFields = useMemo(
     () =>
       Object.keys(editing || {}).filter(
-        (key) => typeof editing?.[key] === "boolean",
+        (key) =>
+          typeof editing?.[key] === "boolean" &&
+          !NON_CHECKLIST_BOOLEAN_FIELDS.has(key),
       ),
     [editing],
   );
+  const editingHasAircraft = Boolean(
+    String(editing?.rpc || "").trim() &&
+    String(editing?.aircraftType || "").trim(),
+  );
+  const editingIsB412 = isB412Aircraft(editing?.aircraftType);
+  const editingIsAS350 = isAS350Aircraft(editing?.aircraftType);
+  const visiblePostTabs = useMemo(() => {
+    if (!editingHasAircraft) return [POST_TABS[0]];
+
+    if (editingIsB412) {
+      return [
+        POST_TABS[0],
+        ...B412_POST_INSPECTION_SECTIONS.map((section) => ({
+          key: `b412-${section.key}`,
+          label: section.title,
+          b412SectionKey: section.key,
+        })),
+        POST_TABS[POST_TABS.length - 1],
+      ];
+    }
+
+    if (editingIsAS350) return POST_TABS;
+
+    return [POST_TABS[0]];
+  }, [editingHasAircraft, editingIsAS350, editingIsB412]);
+
+  useEffect(() => {
+    if (!visiblePostTabs.some((tab) => tab.key === editTab)) {
+      setEditTab("basic");
+    }
+  }, [editTab, visiblePostTabs]);
+
+  const areAllPostInspectionChecksComplete = (record = editing) => {
+    if (isB412Aircraft(record?.aircraftType)) {
+      return areAllB412PostInspectionChecksComplete(record?.b412Data);
+    }
+    if (!isAS350Aircraft(record?.aircraftType)) return false;
+
+    const legacyChecks = Object.entries(record || {}).filter(
+      ([key, value]) =>
+        typeof value === "boolean" && !NON_CHECKLIST_BOOLEAN_FIELDS.has(key),
+    );
+    return (
+      legacyChecks.length > 0 &&
+      legacyChecks.every(([, value]) => value === true)
+    );
+  };
+  const canReleaseEditing =
+    Boolean(editing) &&
+    canRelease &&
+    !isRecordReadOnly(editing) &&
+    editing.status === "pending" &&
+    !editing.releasedBy?.name;
+  const isReleaseChecklistComplete =
+    areAllPostInspectionChecksComplete(editing);
+  const postInspectionGuide = useMemo(() => {
+    if (!editing) return null;
+    const displayStatus = getDisplayStatus(editing.status);
+
+    if (displayStatus === "completed") {
+      return {
+        type: "info",
+        title: "This post-flight inspection is completed and is view-only.",
+      };
+    }
+
+    if (canReleaseEditing) {
+      return {
+        type: isReleaseChecklistComplete ? "success" : "warning",
+        title: isReleaseChecklistComplete
+          ? "All checklist items are complete. You can release this post-flight inspection."
+          : "Complete all checklist items in Station 1, Station 2, Engine, Main Rotor, and Cabin Interior before release.",
+      };
+    }
+
+    if (readOnly) {
+      return {
+        type: "info",
+        title:
+          "Your role can review this post-flight inspection but cannot update it.",
+      };
+    }
+
+    if (!canRelease) {
+      return {
+        type: "info",
+        title:
+          "Post-flight release is available to mechanic and maintenance roles only.",
+      };
+    }
+
+    return null;
+  }, [
+    canRelease,
+    canReleaseEditing,
+    editing,
+    isReleaseChecklistComplete,
+    readOnly,
+  ]);
 
   const groupedBooleanFields = useMemo(() => {
     const byPrefix = (prefix) =>
@@ -167,19 +336,10 @@ export default function PostInspection() {
 
     const station1 = byPrefix("station1_");
     const station2 = byPrefix("station2_");
-    const engine = booleanFields.filter(
-      (field) =>
-        field.startsWith("station3_") ||
-        field.startsWith("engine_") ||
-        field.includes("gimbal") ||
-        field.includes("hydraulic"),
-    );
+    const engine = byPrefix("engine_");
     const mainRotor = booleanFields.filter(
       (field) =>
-        field.startsWith("mainRotor_") ||
-        field.includes("rotor") ||
-        field.includes("swash") ||
-        field.includes("pitchChange"),
+        field.startsWith("station3_") || field.startsWith("mainRotor_"),
     );
     const cabin = booleanFields.filter(
       (field) =>
@@ -207,43 +367,137 @@ export default function PostInspection() {
     };
   }, [booleanFields]);
 
-  const formatFieldLabel = (field = "") =>
-    String(field)
-      .replace(/^station\d+_/, "")
-      .replace(/^mainRotor_/, "")
-      .replace(/^cabin_/, "")
-      .replace(/^interior_/, "")
-      .replace(/^engine_/, "")
+  const formatChecklistText = (value = "") =>
+    String(value)
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .replace(/_/g, " ")
+      .replace(/\b(mgb|oat|elt|gpu|rh|lh|vemd|scu)\b/gi, (word) =>
+        word.toUpperCase(),
+      )
       .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const getChecklistFieldMeta = (field = "") => {
+    const normalizedField = String(field).replace(
+      /^(?:station\d+|mainRotor|cabin|interior|engine)_/,
+      "",
+    );
+    const fieldParts = normalizedField.split("_");
+    const description = fieldParts.length > 1 ? fieldParts.pop() : "checked";
+
+    return {
+      title: formatChecklistText(fieldParts.join("_")),
+      description: formatChecklistText(description),
+    };
+  };
 
   const saveEdit = async (nextPayload = editing) => {
     if (!nextPayload?._id) return;
+    if (editing?._id === nextPayload._id && isRecordReadOnly(editing)) return;
+
+    const payload = isB412Aircraft(nextPayload.aircraftType)
+      ? {
+          ...nextPayload,
+          b412Data: createEmptyB412PostInspectionData(nextPayload.b412Data),
+        }
+      : { ...nextPayload, b412Data: null };
+
     try {
       const response = await fetch(
-        `${API_BASE}/api/post-inspections/updatePostInspectionById/${nextPayload._id}`,
+        `${API_BASE}/api/post-flight/updatePostInspectionById/${nextPayload._id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             ...(await getAuthHeader()),
           },
-          body: JSON.stringify({ ...nextPayload, confirmAction: true }),
+          body: JSON.stringify({ ...payload, confirmAction: true }),
         },
       );
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || "Failed to update post-inspection");
+        throw new Error(
+          data.message || "Failed to update post-flight inspection",
+        );
       setEditing(data.data);
       await load();
-      message.success("Post-inspection updated");
+      const savedAircraft = getLogAircraftRegistration(
+        data.data || nextPayload,
+      );
+      if (savedAircraft !== selectedAircraft) {
+        openAircraft(savedAircraft);
+      }
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Flight Inspection Updated!",
+        subTitle: "The post-flight inspection has been updated successfully.",
+      });
     } catch (error) {
-      message.error(error.message || "Failed to update post-inspection");
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to update post-flight inspection",
+      });
+    }
+  };
+
+  const exportInspectionPdf = async (record) => {
+    if (!record?._id) return;
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/inspections/post/${record._id}/export-pdf`,
+        { headers: await getAuthHeader() },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.message ||
+            data.error ||
+            "Failed to export post-flight inspection",
+        );
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${sanitizeFileName(
+        `Post-Flight Inspection-${record.rpc || "N-A"}-${record.date || ""}`,
+      )}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setPopup({
+        open: true,
+        status: "success",
+        title: "Post-Flight Inspection Exported!",
+        subTitle:
+          "The post-flight inspection PDF has been exported successfully.",
+      });
+    } catch (error) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Operation failed!",
+        subTitle: error.message || "Failed to export post-flight inspection",
+      });
     }
   };
 
   const handleSignedAction = async (signature) => {
     if (!editing) return;
+    if (!areAllPostInspectionChecksComplete(editing)) {
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Release blocked",
+        subTitle: "Complete all post-flight checklist items before release.",
+      });
+      setSignatureMode(null);
+      return;
+    }
+
     await saveEdit({
       ...editing,
       status: "completed",
@@ -253,127 +507,208 @@ export default function PostInspection() {
   };
 
   return (
-    <div style={{ padding: isMobile ? 12 : 20 }}>
-      <Card>
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={9}>
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              prefix={<SearchOutlined />}
-              size="large"
-            />
-          </Col>
-          <Col xs={24} md={7}>
-            <Select
-              style={{ width: "100%" }}
-              value={aircraft}
-              onChange={setAircraft}
-              options={aircraftOptions.map((value) => ({
-                value,
-                label: value === "all" ? "All Aircraft" : `RP/C: ${value}`,
-              }))}
-              size="large"
-            />
-          </Col>
-          <Col xs={24} md={6}>
-            <Select
-              style={{ width: "100%" }}
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS.map((value) => ({
-                value,
-                label: value === "all" ? "All Status" : value,
-              }))}
-              size="large"
-            />
-          </Col>
-        </Row>
-      </Card>
+    <div className="fl-page">
+      {!selectedAircraft ? (
+        <AircraftLogGroups
+          records={records}
+          sortBy="latestActivity"
+          loading={loading}
+          query={aircraftQuery}
+          onQueryChange={setAircraftQuery}
+          onSelect={openAircraft}
+          emptyText="No post-flight inspections found."
+        />
+      ) : (
+        <>
+          <Button
+            onClick={backToAircraft}
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            style={{
+              marginBottom: 12,
+              paddingInline: 0,
+              color: "#1f5f49",
+            }}
+          >
+            Back to Aircraft
+          </Button>
+          <Typography.Title level={4} style={{ margin: "8px 0 16px" }}>
+            {selectedAircraft} — Post-Flight Inspections
+          </Typography.Title>
+          <Card>
+            <Row gutter={[12, 12]} align="middle">
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search"
+                    prefix={<SearchOutlined />}
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    allowClear
+                  />
+                  <Select
+                    style={{ width: 180 }}
+                    value={status}
+                    onChange={setStatus}
+                    options={STATUS_OPTIONS.map((value) => ({
+                      value,
+                      label:
+                        value === "all" ? "ALL STATUS" : value.toUpperCase(),
+                    }))}
+                    size="large"
+                  />
+                </Space>
+              </Col>
+            </Row>
+          </Card>
 
-      <Table
-        style={{ marginTop: 12 }}
-        rowKey="_id"
-        loading={loading}
-        dataSource={filtered}
-        pagination={{ pageSize: 10 }}
-        columns={[
-          { title: "RP/C", dataIndex: "rpc" },
-          { title: "Aircraft Type", dataIndex: "aircraftType" },
-          { title: "Date", dataIndex: "date" },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => (
-              <Tag>{String(value || "pending").toUpperCase()}</Tag>
-            ),
-          },
-          {
-            title: "Action",
-            render: (_, record) => (
-              <Button
-                icon={<EditOutlined />}
-                onClick={() => setEditing(record)}
-              >
-                {readOnly ? "View" : "Edit"}
-              </Button>
-            ),
-          },
-        ]}
-      />
-      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> post-inspection log(s)
-          </Text>
-        </Col>
-      </Row>
+          <ResponsiveTable
+            key={selectedAircraft}
+            style={{ marginTop: 12 }}
+            rowKey="_id"
+            loading={loading}
+            dataSource={filtered}
+            pagination={{ pageSize: 10 }}
+            size={"small"}
+            columns={[
+              { title: "RP/C", dataIndex: "rpc" },
+              { title: "Aircraft Type", dataIndex: "aircraftType" },
+              { title: "Date", dataIndex: "date" },
+              {
+                title: "Status",
+                dataIndex: "status",
+                render: (value) => renderStatusTag(value, "pending"),
+              },
+              {
+                title: "Action",
+                render: (_, record) => {
+                  const recordReadOnly = isRecordReadOnly(record);
+
+                  return (
+                    <Space size={12}>
+                      <Tooltip title={recordReadOnly ? "View" : "Edit"}>
+                        <Button
+                          aria-label={recordReadOnly ? "View" : "Edit"}
+                          icon={
+                            recordReadOnly ? <EyeOutlined /> : <EditOutlined />
+                          }
+                          onClick={() => {
+                            setEditTab("basic");
+                            setEditing(record);
+                          }}
+                        />
+                      </Tooltip>
+                      {canExportPostInspections && (
+                        <Tooltip title="Export">
+                          <Button
+                            aria-label="Export"
+                            icon={<ExportOutlined />}
+                            onClick={() => exportInspectionPdf(record)}
+                          />
+                        </Tooltip>
+                      )}
+                    </Space>
+                  );
+                },
+              },
+            ]}
+          />
+          <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+            <Col span={24} style={{ textAlign: "right" }}>
+              <Text type="secondary">
+                Showing <Text strong>{filtered.length}</Text> Log(s)
+              </Text>
+            </Col>
+          </Row>
+        </>
+      )}
 
       <Modal
-        open={Boolean(editing)}
-        onCancel={() => setEditing(null)}
+        open={Boolean(editing) && !editing?.flightLogId}
+        onCancel={() => {
+          setEditTab("basic");
+          setEditing(null);
+        }}
         onOk={() => saveEdit()}
-        okButtonProps={{ disabled: readOnly }}
-        title={readOnly ? "View Post-Inspection" : "Edit Post-Inspection"}
+        okButtonProps={{ disabled: !editing || isRecordReadOnly(editing) }}
+        title={
+          editing && isRecordReadOnly(editing)
+            ? "View Entry - Post-Flight Inspection"
+            : "Edit Entry - Post-Flight Inspection"
+        }
         okText="Save"
         width={isMobile ? "100%" : 1100}
         destroyOnHidden
-        styles={{ body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 } }}
+        centered
+        zIndex={3000}
+        styles={{
+          body: { maxHeight: "70vh", overflowY: "auto", paddingTop: 12 },
+        }}
       >
         {editing && (
           <Space orientation="vertical" style={{ width: "100%" }} size={14}>
+            {postInspectionGuide && (
+              <Alert
+                type={postInspectionGuide.type}
+                showIcon
+                title={
+                  isReleaseChecklistComplete
+                    ? "All checklist items are complete. You can release this post-flight inspection."
+                    : editingIsB412
+                      ? "Complete all 71 Bell 412 post-flight checklist items before release."
+                      : editingIsAS350
+                        ? "Complete all checklist items in Station 1, Station 2, Engine, Main Rotor, and Cabin Interior before release."
+                        : "No post-flight checklist is configured for this aircraft type."
+                }
+              />
+            )}
             <Tabs
               activeKey={editTab}
               onChange={setEditTab}
-              items={POST_TABS.map((tab) => {
+              items={visiblePostTabs.map((tab) => {
                 if (tab.key === "basic") {
                   return {
                     key: tab.key,
                     label: tab.label,
                     children: (
                       <Row gutter={[10, 10]}>
+                        <Col span={24}>
+                          <Text type="secondary">
+                            Linked Flight Log:{" "}
+                            {editing.flightLogControlNo ||
+                              editing.flightLogId ||
+                              "Not linked"}{" "}
+                            · Pilot:{" "}
+                            {editing.assignedPilot?.name || "Not assigned"} ·
+                            Mechanic:{" "}
+                            {editing.assignedMechanic?.name || "Not assigned"}
+                          </Text>
+                        </Col>
                         <Col xs={24} md={8}>
                           <Text strong>RP/C</Text>
                           <Input
                             value={editing.rpc}
                             onChange={(e) =>
-                              setEditing((prev) => ({ ...prev, rpc: e.target.value }))
+                              setEditing((prev) => ({
+                                ...prev,
+                                rpc: e.target.value,
+                              }))
                             }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
+                            readOnly={Boolean(
+                              editing.linkedFromPreFlight ||
+                              editing.flightLogId,
+                            )}
                           />
                         </Col>
                         <Col xs={24} md={8}>
                           <Text strong>Aircraft Type</Text>
                           <Input
                             value={editing.aircraftType}
-                            onChange={(e) =>
-                              setEditing((prev) => ({
-                                ...prev,
-                                aircraftType: e.target.value,
-                              }))
-                            }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
+                            readOnly
                           />
                         </Col>
                         <Col xs={24} md={8}>
@@ -382,8 +717,11 @@ export default function PostInspection() {
                             size="middle"
                             style={{ width: "100%" }}
                             format="MM/DD/YYYY"
+                            inputReadOnly
                             value={
-                              editing.date ? dayjs(editing.date, "MM/DD/YYYY") : null
+                              editing.date
+                                ? dayjs(editing.date, "MM/DD/YYYY")
+                                : null
                             }
                             onChange={(date) =>
                               setEditing((prev) => ({
@@ -391,7 +729,7 @@ export default function PostInspection() {
                                 date: date ? formatDate(date) : "",
                               }))
                             }
-                            disabled={readOnly}
+                            disabled={isRecordReadOnly(editing)}
                           />
                         </Col>
                       </Row>
@@ -406,12 +744,32 @@ export default function PostInspection() {
                     children: (
                       <Input.TextArea
                         rows={4}
-                        placeholder="Enter post-inspection notes, discrepancy signals, or remarks"
+                        placeholder="Enter post-flight inspection notes, discrepancy signals, or remarks"
                         value={editing.notes || ""}
                         onChange={(e) =>
-                          setEditing((prev) => ({ ...prev, notes: e.target.value }))
+                          setEditing((prev) => ({
+                            ...prev,
+                            notes: e.target.value,
+                          }))
                         }
-                        disabled={readOnly}
+                        disabled={isRecordReadOnly(editing)}
+                      />
+                    ),
+                  };
+                }
+
+                if (tab.b412SectionKey) {
+                  return {
+                    key: tab.key,
+                    label: tab.label,
+                    children: (
+                      <PostInspectionB412Checklist
+                        sectionKey={tab.b412SectionKey}
+                        value={editing.b412Data}
+                        disabled={isRecordReadOnly(editing)}
+                        onChange={(b412Data) =>
+                          setEditing((prev) => ({ ...prev, b412Data }))
+                        }
                       />
                     ),
                   };
@@ -425,34 +783,91 @@ export default function PostInspection() {
                   cabin: groupedBooleanFields.cabin,
                 };
                 const fields = keyMap[tab.key] || [];
+                const allFieldsChecked =
+                  fields.length > 0 &&
+                  fields.every((field) => Boolean(editing[field]));
+                const partiallyChecked =
+                  fields.some((field) => Boolean(editing[field])) &&
+                  !allFieldsChecked;
+                const recordReadOnly = isRecordReadOnly(editing);
+
                 return {
                   key: tab.key,
                   label: tab.label,
                   children: (
-                    <Row gutter={[8, 8]}>
+                    <Card
+                      size="small"
+                      title={tab.label}
+                      extra={
+                        fields.length ? (
+                          <Checkbox
+                            checked={allFieldsChecked}
+                            indeterminate={partiallyChecked}
+                            disabled={recordReadOnly}
+                            onChange={(event) =>
+                              setEditing((prev) => {
+                                const checked = event.target.checked;
+                                const next = { ...prev };
+
+                                fields.forEach((field) => {
+                                  next[field] = checked;
+                                });
+
+                                return next;
+                              })
+                            }
+                          >
+                            Select All
+                          </Checkbox>
+                        ) : null
+                      }
+                      styles={{
+                        header: { backgroundColor: "#0A7D37", color: "#fff" },
+                      }}
+                    >
                       {fields.length ? (
-                        fields.map((field) => (
-                          <Col xs={24} md={12} lg={8} key={field}>
-                            <Checkbox
-                              checked={Boolean(editing[field])}
-                              disabled={readOnly}
-                              onChange={(e) =>
-                                setEditing((prev) => ({
-                                  ...prev,
-                                  [field]: e.target.checked,
-                                }))
-                              }
-                            >
-                              {formatFieldLabel(field)}
-                            </Checkbox>
-                          </Col>
-                        ))
+                        <Row gutter={[12, 12]}>
+                          {fields.map((field) => {
+                            const fieldMeta = getChecklistFieldMeta(field);
+
+                            return (
+                              <Col xs={24} md={12} key={field}>
+                                <Card
+                                  size="small"
+                                  style={{ height: "100%" }}
+                                  styles={{ body: { padding: 10 } }}
+                                >
+                                  <Space
+                                    orientation="vertical"
+                                    size={6}
+                                    style={{ width: "100%" }}
+                                  >
+                                    <Text strong>{fieldMeta.title}</Text>
+                                    <Text>{fieldMeta.description}</Text>
+                                    <Checkbox
+                                      checked={Boolean(editing[field])}
+                                      disabled={recordReadOnly}
+                                      onChange={(event) =>
+                                        setEditing((prev) => ({
+                                          ...prev,
+                                          [field]: event.target.checked,
+                                        }))
+                                      }
+                                    >
+                                      Checked
+                                    </Checkbox>
+                                  </Space>
+                                </Card>
+                              </Col>
+                            );
+                          })}
+                        </Row>
                       ) : (
-                        <Col span={24}>
-                          <Text type="secondary">No checklist items in this section.</Text>
-                        </Col>
+                        <Text type="secondary">
+                          No checklist items in this section.
+                        </Text>
                       )}
-                    </Row>
+                    </Card>
                   ),
                 };
               })}
@@ -460,7 +875,7 @@ export default function PostInspection() {
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Status">
-                {editing.status}
+                {renderStatusTag(editing.status, "pending")}
               </Descriptions.Item>
               <Descriptions.Item label="Released By">
                 {editing.releasedBy?.name || "-"}
@@ -471,28 +886,53 @@ export default function PostInspection() {
             </Descriptions>
 
             <Space style={{ justifyContent: "flex-end", width: "100%" }}>
-              {canRelease &&
-                editing.status === "pending" &&
-                !editing.releasedBy?.name && (
+              {canReleaseEditing && (
+                <Tooltip
+                  title={
+                    isReleaseChecklistComplete
+                      ? "Release"
+                      : "Complete all checklist items before release"
+                  }
+                >
                   <Button
                     type="primary"
+                    disabled={!isReleaseChecklistComplete}
                     onClick={() => setSignatureMode("complete")}
                   >
                     Release
                   </Button>
-                )}
+                </Tooltip>
+              )}
             </Space>
           </Space>
         )}
       </Modal>
 
+      {!!editing?.flightLogId && (
+        <FlightWorkspace
+          id={String(editing.flightLogId?._id || editing.flightLogId)}
+          open
+          initialSection="post"
+          inspectionMode
+          onClose={() => setEditing(null)}
+          onChanged={load}
+        />
+      )}
       <PinVerifiedSignatureModal
         open={Boolean(signatureMode)}
-        title="Complete Post-Inspection"
+        title="Complete Post-Flight Inspection"
         description="Draw your completion signature."
         confirmDescription="Enter your 6-digit PIN to confirm completion."
         onCancel={() => setSignatureMode(null)}
         onSave={handleSignedAction}
+      />
+      <ResultPopup
+        open={popup.open}
+        zIndex={3100}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

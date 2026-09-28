@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Input, Button, Form, DatePicker, Typography, message } from "antd";
+import {
+  Modal,
+  Input,
+  Button,
+  Form,
+  DatePicker,
+  Typography,
+  message,
+} from "antd";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
@@ -12,6 +20,7 @@ export default function MaintenanceEntryModal({
 }) {
   const [form] = Form.useForm();
   const [dateError, setDateError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const isEditMode = !!entry;
 
@@ -40,7 +49,7 @@ export default function MaintenanceEntryModal({
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   };
 
-  const handleFinish = (values) => {
+  const handleFinish = async (values) => {
     // Validate rectified date
     if (
       values.dateDefectRectified &&
@@ -65,11 +74,17 @@ export default function MaintenanceEntryModal({
         : "N/A",
     };
 
-    onSave?.(formattedEntry);
-    form.resetFields();
+    setSaving(true);
+    try {
+      await onSave?.(formattedEntry);
+      form.resetFields();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
+    if (saving) return;
     form.resetFields();
     onClose();
   };
@@ -78,12 +93,20 @@ export default function MaintenanceEntryModal({
     <Modal
       open={visible}
       title={isEditMode ? "Edit Maintenance Entry" : "New Maintenance Entry"}
+      centered
+      zIndex={3000}
       onCancel={handleCancel}
       footer={[
-        <Button key="cancel" onClick={handleCancel}>
+        <Button key="cancel" onClick={handleCancel} disabled={saving}>
           Cancel
         </Button>,
-        <Button key="save" type="primary" onClick={() => form.submit()}>
+        <Button
+          key="save"
+          type="primary"
+          loading={saving}
+          disabled={saving}
+          onClick={() => form.submit()}
+        >
           {isEditMode ? "Update" : "Save"}
         </Button>,
       ]}
@@ -107,7 +130,11 @@ export default function MaintenanceEntryModal({
         </Form.Item>
 
         <Form.Item label="Date Defect Discovered" name="dateDefectDiscovered">
-          <DatePicker style={{ width: "100%" }} format="MM/DD/YYYY" />
+          <DatePicker
+            style={{ width: "100%" }}
+            format="MM/DD/YYYY"
+            inputReadOnly
+          />
         </Form.Item>
 
         <Form.Item
@@ -122,6 +149,7 @@ export default function MaintenanceEntryModal({
           <DatePicker
             style={{ width: "100%" }}
             format="MM/DD/YYYY"
+            inputReadOnly
             disabledDate={(current) => {
               const discoveredDate = form.getFieldValue("dateDefectDiscovered");
               return discoveredDate && current.isBefore(discoveredDate, "day");
@@ -134,7 +162,8 @@ export default function MaintenanceEntryModal({
         )}
 
         <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-          AI tip: specific symptoms, affected components, and inspection findings improve maintenance-tracking results.
+          AI tip: specific symptoms, affected components, and inspection
+          findings improve maintenance-tracking results.
         </Text>
       </Form>
     </Modal>

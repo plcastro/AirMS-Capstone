@@ -53,6 +53,22 @@ const maintenanceLogSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please enter the name of the person reporting."],
   },
+  mechanicInCharge: {
+    type: String,
+    default: "",
+  },
+  mechanicLicenseNo: {
+    type: String,
+    default: "",
+  },
+  inspector: {
+    type: String,
+    default: "",
+  },
+  inspectorLicenseNo: {
+    type: String,
+    default: "",
+  },
   status: {
     type: String,
     enum: ["verified", "unverified"],

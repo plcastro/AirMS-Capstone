@@ -1,273 +1,171 @@
-import React from "react";
-import AppText from "../common/AppText";
-import {
-  TouchableOpacity,
-  View
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { COLORS } from "../../stylesheets/colors";
+import { COLORS } from '../../stylesheets/colors';
+import React from 'react';
+import { FlatList, TouchableOpacity, View } from 'react-native';
+import AppText from '../common/AppText';
+import { displayStatus, followUpTarget, statusColors, statusLabel } from '../../../shared/partsRequisitionWorkflow';
 
-const getStatusStyle = (status) => {
-  switch (status?.toLowerCase()) {
-    case "parts requested":
-      return {
-        label: "Parts Requested",
-        backgroundColor: "#F1F1F1",
-        textColor: "#666666",
-      };
-    case "to be ordered":
-      return {
-        label: "To Be Restocked",
-        backgroundColor: "#FFF4E5",
-        textColor: "#C26A00",
-      };
-    case "availability checked":
-      return {
-        label: "Availability Checked",
-        backgroundColor: "#FFF8E1",
-        textColor: "#A37300",
-      };
-    case "ordered":
-      return {
-        label: "Restocked",
-        backgroundColor: "#E3F2FD",
-        textColor: "#1565C0",
-      };
-    case "approved":
-      return {
-        label: "Approved",
-        backgroundColor: "#E8F5E9",
-        textColor: "#2E7D32",
-      };
-    case "delivered":
-      return {
-        label: "Delivered",
-        backgroundColor: "#F3E5F5",
-        textColor: "#7B1FA2",
-      };
-    case "cancelled":
-      return {
-        label: "Cancelled",
-        backgroundColor: "#FDECEC",
-        textColor: "#C62828",
-      };
-    default:
-      return {
-        label: status || "Pending",
-        backgroundColor: "#F1F1F1",
-        textColor: "#666666",
-      };
-  }
-};
-export default function PartsRequisitionCards({
-  requisitions,
-  onViewDetails,
-  onEdit,
-  onDelete,
-  showActions = true,
-  actionsDisabled = false,
-  loading = false,
+export function StatusDot({
+  status
 }) {
-  const formatLogbookDate = (value) => {
-    if (!value) return "N/A";
+  return <View style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  }}><View style={{
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: statusColors[status] || '#8c8c8c'
+    }} /><AppText style={{
+      color: statusColors[status] || '#666',
+      fontSize: 12
+    }}>{statusLabel(status)}</AppText></View>;
+}
 
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return "N/A";
+const formatDate = value => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '-';
+  return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+};
 
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+const formatItems = items => (items || []).map(item => {
+  const name = item.particular || item.name || item.partName || 'Part';
+  const quantity = item.quantity ? ` x ${item.quantity} ${item.unitOfMeasure || item.unit || ''}`.trimEnd() : '';
+  return `${name}${quantity}`;
+}).join(', ') || '-';
+
+const dateValue = record => new Date(record.dateRequested || record.createdAt || record.updatedAt || 0).getTime() || 0;
+
+const badgeForStatus = status => {
+  if (status === 'Requested') return {
+    label: 'Parts Requested',
+    backgroundColor: '#F4F4F4',
+    color: '#555'
   };
+  if (status === 'Awaiting Stock' || status === 'Ready for Delivery') return {
+    label: 'Availability Checked',
+    backgroundColor: '#FFF8D9',
+    color: '#9A7600'
+  };
+  return {
+    label: statusLabel(status),
+    backgroundColor: `${statusColors[status] || '#8c8c8c'}18`,
+    color: statusColors[status] || '#666'
+  };
+};
 
-  if (loading) {
-    return (
-      <View
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 20,
-          padding: 40,
-          alignItems: "center",
-          marginTop: 20,
-          elevation: 8,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="progress-clock"
-          size={56}
-          color={COLORS.grayMedium}
-        />
-        <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          Loading parts requisitions...
-        </AppText>
-      </View>
-    );
-  }
+export default function PartsRequisitionCards({
+  requisitions = [],
+  onViewDetails,
+  onFollowUp,
+  oversight,
+  busy,
+  sortOrder = 'oldest',
+  ...props
+}) {
+  const sorted = [...requisitions].sort((a, b) => sortOrder === 'oldest' ? dateValue(a) - dateValue(b) : dateValue(b) - dateValue(a));
 
-  if (!requisitions || requisitions.length === 0) {
-    return (
-      <View
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 20,
-          padding: 40,
-          alignItems: "center",
-          marginTop: 20,
-          elevation: 8,
-        }}
-      >
-        <MaterialCommunityIcons
-          name="file-document-outline"
-          size={60}
-          color={COLORS.grayMedium}
-        />
-        <AppText style={{ fontSize: 12, marginTop: 12 }}>
-          No parts requisitions found
-        </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <>
-      {requisitions.map((item) => {
-        const statusStyle = getStatusStyle(item.status);
-        const isAvailabilityChecked =
-          String(item.status || "").toLowerCase() === "availability checked";
-        const editDisabled = actionsDisabled || isAvailabilityChecked;
-        const deleteDisabled = actionsDisabled;
-
-        return (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.8}
-            onPress={() => onViewDetails?.(item)}
-            style={{
-              flexDirection: "row",
-              backgroundColor: COLORS.white,
-              borderRadius: 10,
-              marginBottom: 14,
-              elevation: 3,
-              overflow: "hidden",
-            }}
-          >
-            {/* ✅ LEFT ACCENT BAR */}
-            <View
-              style={{
-                width: 5,
-                backgroundColor: COLORS.primaryLight,
-              }}
-            />
-
-            <View style={{ flex: 1 }}>
-              {/* ✅ HEADER (compact like flight log) */}
-              <View
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <View>
-                  <AppText
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Warehouse Slip
-                  </AppText>
-                  <AppText style={{ fontSize: 10, color: "#777" }}>
-                    {item.dateRequested}
-                  </AppText>
-                </View>
-
-                <View
-                  style={{
-                    backgroundColor: statusStyle.backgroundColor,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 12,
-                  }}
-                >
-                  <AppText
-                    style={{
-                      color: statusStyle.textColor,
-                      fontSize: 10,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {statusStyle.label}
-                  </AppText>
-                </View>
-              </View>
-
-              {/* ✅ BODY (compact info, no gray box) */}
-              <View
-                style={{
-                  paddingHorizontal: 12,
-                  paddingBottom: 12,
-                }}
-              >
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Slip No:</AppText>{" "}
-                  {item.slipNo || "N/A"}
-                </AppText>
-
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Items:</AppText>{" "}
-                  {item.itemSummary || "N/A"}
-                </AppText>
-
-                <AppText style={{ fontSize: 11, color: "#444" }}>
-                  <AppText style={{ color: "#777" }}>Purpose:</AppText>{" "}
-                  {item.purpose || "N/A"}
-                </AppText>
-              </View>
-
-              {/* ✅ ACTIONS (aligned right like you asked earlier) */}
-              {showActions && (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "flex-end",
-                    paddingHorizontal: 10,
-                    paddingBottom: 10,
-                    gap: 8,
-                  }}
-                >
-                  <TouchableOpacity
-                    activeOpacity={editDisabled ? 1 : 0.7}
-                    onPress={() => onEdit?.(item)}
-                    disabled={editDisabled}
-                  >
-                    <MaterialCommunityIcons
-                      name="pencil"
-                      size={18}
-                      color={editDisabled ? "#C8C8C8" : "#777"}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={deleteDisabled ? 1 : 0.7}
-                    onPress={() => onDelete?.(item)}
-                    disabled={deleteDisabled}
-                  >
-                    <MaterialCommunityIcons
-                      name="delete"
-                      size={18}
-                      color={deleteDisabled ? "#F1B6B6" : "#F45B5B"}
-                    />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-    </>
-  );
+  return <FlatList {...props} data={sorted} keyExtractor={item => item._id} contentContainerStyle={{
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 96
+  }} ListEmptyComponent={<AppText style={{
+    textAlign: 'center',
+    padding: 24
+  }}>No requisitions found</AppText>} renderItem={({
+    item
+  }) => {
+    const status = displayStatus(item);
+    const badge = badgeForStatus(status);
+    return <View style={{
+      marginBottom: 14
+    }}>
+      <TouchableOpacity accessibilityRole="button" activeOpacity={0.82} onPress={() => onViewDetails(item)} style={{
+        minHeight: 112,
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        paddingVertical: 18,
+        paddingLeft: 28,
+        paddingRight: 18,
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1
+        },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        elevation: 1,
+        overflow: 'hidden'
+      }}>
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 5,
+          backgroundColor: COLORS.primaryLight
+        }} />
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 10
+        }}>
+          <View style={{
+            flex: 1
+          }}>
+            <AppText style={{
+              fontWeight: '700',
+              fontSize: 18,
+              color: '#111'
+            }}>Warehouse Slip</AppText>
+            <AppText style={{
+              fontSize: 14,
+              color: '#777',
+              marginTop: 1
+            }}>{formatDate(item.dateRequested || item.createdAt || item.updatedAt)}</AppText>
+          </View>
+          <View style={{
+            backgroundColor: badge.backgroundColor,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+            marginTop: 6,
+            maxWidth: 172
+          }}>
+            <AppText numberOfLines={1} style={{
+              color: badge.color,
+              fontSize: 12,
+              fontWeight: '700'
+            }}>{badge.label}</AppText>
+          </View>
+        </View>
+        <View style={{
+          marginTop: 16
+        }}>
+          <AppText style={{
+            color: '#666',
+            fontSize: 15
+          }}>Slip No: {item.wrsNo || '-'}</AppText>
+          <AppText numberOfLines={2} style={{
+            color: '#666',
+            fontSize: 15,
+            marginTop: 2
+          }}>Items: {formatItems(item.items)}</AppText>
+          <AppText numberOfLines={1} style={{
+            color: '#666',
+            fontSize: 15,
+            marginTop: 2
+          }}>Purpose: {item.purpose || item.items?.find(part => part.purpose)?.purpose || '-'}</AppText>
+        </View>
+      </TouchableOpacity>
+      {oversight && followUpTarget(item) && <TouchableOpacity disabled={busy} accessibilityRole="button" onPress={() => onFollowUp(item)} style={{
+        alignSelf: 'flex-end',
+        paddingVertical: 8,
+        paddingHorizontal: 4
+      }}><AppText style={{
+          color: COLORS.primaryLight
+        }}>Follow Up</AppText></TouchableOpacity>}
+    </View>;
+  }} />;
 }

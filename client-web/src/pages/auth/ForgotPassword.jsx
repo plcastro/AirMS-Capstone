@@ -1,20 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import {
-  Input,
-  Button,
-  App,
-  message as Antmessage,
-  Form,
-  Typography,
-  Row,
-  Col,
-} from "antd";
+import { Input, Button, Form, Typography, Row } from "antd";
 import "./login.css";
 import { API_BASE } from "../../utils/API_BASE";
-const { Title, Text } = Typography;
+const { Text } = Typography;
 import LoginLayout from "../../components/layout/LoginLayout";
+import ResultPopup from "../../components/common/ResultPopup";
 
 export default function ForgotPassword() {
   const nav = useNavigate();
@@ -22,15 +14,19 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState(location.state?.email || "");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const [popup, setPopup] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    subTitle: "",
+  });
+
   const isEmailValid = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(value.trim());
   };
 
   const handleEmailBlur = () => {
-    setTouched(true);
-
     if (!email.trim()) {
       setMessage("Email is required.");
       return;
@@ -44,7 +40,7 @@ export default function ForgotPassword() {
     setMessage("");
   };
 
-  const sendResetLink = async (e) => {
+  const sendResetLink = async () => {
     if (!email.trim()) {
       setMessage("Email is required.");
       return;
@@ -68,17 +64,20 @@ export default function ForgotPassword() {
       setLoading(false);
 
       if (response.ok) {
-        Antmessage.success(
-          "Password reset email sent. Redirecting to OTP verification...",
-        );
+        setPopup({
+          open: true,
+          status: "success",
+          title: "Reset Link Sent",
+          subTitle:
+            data.message ||
+            "Password reset email sent. Redirecting to OTP verification...",
+        });
         setTimeout(
           () => nav("/verification", { state: { token: data.token, email } }),
-          2500,
+          1000,
         );
       } else {
-        setMessage(
-          data.message || "Failed to send reset link. Try again later.",
-        );
+        setMessage("The email you entered does not correspond to any account.");
       }
     } catch (err) {
       console.error(err);
@@ -88,49 +87,57 @@ export default function ForgotPassword() {
   };
 
   return (
-    <LoginLayout
-      title="Forgot Password"
-      subtitle="Please provide your email to proceed"
-    >
-      <Form
-        layout="vertical"
-        className="forgot-password-form"
-        onFinish={sendResetLink}
+    <>
+      <LoginLayout
+        title="Forgot Password"
+        subtitle="Please provide your email to proceed"
       >
-        <Form.Item label="Email" required>
-          <Input
-            type="email"
-            id="email"
-            placeholder="abcd@example.com"
-            inputMode="email"
-            onBlur={handleEmailBlur}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            maxLength={254}
-            size="large"
-            allowClear
-          />
-          <Row style={{ marginBottom: 10 }}>
-            {message && <Text type="danger">{message}</Text>}
-          </Row>
-          <Button
-            htmlType="submit"
-            type="primary"
-            size="large"
-            className="login-btn"
-            disabled={loading}
-          >
-            {loading ? "SENDING..." : "EMAIL ME A RECOVERY LINK"}
-          </Button>
-
+        <Form
+          layout="vertical"
+          className="forgot-password-form"
+          onFinish={sendResetLink}
+        >
+          <Form.Item label="Email" required style={{ fontWeight: "bold" }}>
+            <Input
+              type="email"
+              id="email"
+              placeholder="Enter your email"
+              inputMode="email"
+              onBlur={handleEmailBlur}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={254}
+              size="large"
+              allowClear
+            />
+            <Row style={{ marginBottom: 10, fontWeight: "normal" }}>
+              {message && <Text type="danger">{message}</Text>}
+            </Row>
+            <Button
+              htmlType="submit"
+              type="primary"
+              size="large"
+              className="login-btn"
+              disabled={loading}
+            >
+              {loading ? "SENDING..." : "CONTINUE"}
+            </Button>
+          </Form.Item>
           <div style={{ marginTop: "20px" }}>
             Remembered your password?{" "}
             <Link to="/login" className="link">
               Log in
             </Link>
           </div>
-        </Form.Item>
-      </Form>
-    </LoginLayout>
+        </Form>
+      </LoginLayout>
+      <ResultPopup
+        open={popup.open}
+        status={popup.status}
+        title={popup.title}
+        subTitle={popup.subTitle}
+        onClose={() => setPopup((prev) => ({ ...prev, open: false }))}
+      />
+    </>
   );
 }

@@ -1,728 +1,1075 @@
 import React, {
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
-  useEffect,
 } from "react";
 import {
-  App as AntdApp,
   Alert,
   Button,
   Col,
   Form,
+  Grid,
   Input,
   InputNumber,
   Modal,
   Row,
   Select,
   Space,
+  Table,
   Typography,
+  message,
+  Card,
 } from "antd";
 import {
-  CheckCircleOutlined,
-  DeleteOutlined,
-  InboxOutlined,
   PlusOutlined,
+  DeleteOutlined,
+  QuestionCircleOutlined,
   SearchOutlined,
+  InboxOutlined,
+  CheckCircleOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import PRMTable from "../../../components/tables/PRMTable";
+import { useLocation } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
-
-const { Text } = Typography;
-
-const normalizeStatus = (value) => {
-  const raw = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (raw === "pending") return "parts requested";
-  if (raw === "completed") return "delivered";
-  return raw;
-};
-
-const getEffectiveStatus = (record) => {
-  const normalized = normalizeStatus(record?.status);
-  if (normalized === "parts requested" && record?.dateWarehouseReviewed) {
-    return "availability checked";
-  }
-  return normalized;
-};
-
-const getStatusBucket = (record) => {
-  const normalized = getEffectiveStatus(record);
-  if (normalized === "approved") return "approved";
-  if (["delivered", "cancelled"].includes(normalized)) return "closed";
-  return "pending";
-};
-
-const getManagerStatusBucket = (record) => {
-  const normalized = getEffectiveStatus(record);
-  if (["availability checked", "ordered"].includes(normalized)) {
-    return "for_review";
-  }
-  if (["approved", "delivered", "cancelled"].includes(normalized)) {
-    return "closed";
-  }
-  return "pending";
-};
-
-const getWarehouseStatusBucket = (record) =>
-  ["delivered", "cancelled"].includes(getEffectiveStatus(record))
-    ? "completed"
-    : "pending";
-
-const parseRequestedDate = (dateValue) => {
-  const [month, day, year] = String(dateValue || "")
-    .split("/")
-    .map(Number);
-  return new Date(year, month - 1, day).getTime();
-};
-
-const toSummaryRecord = (record) => ({
-  ...record,
-  noOfItems: record.items?.length || 0,
-  totalQty:
-    record.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
+import PRMTable from "../../../components/tables/PRMTable";
+import PRMCardView from "../../../components/tables/PRMCardView";
+import WRSModal from "../../../components/pagecomponents/WRSModal";
+import PartNameInput from "../../../components/pagecomponents/PartNameInput";
+import {
+  canCreate,
+  displayStatus,
+  followUpTarget,
+  isOversight,
+  isRequisitionOwner,
+  roleOf,
+} from "../../../../../shared/partsRequisitionWorkflow";
+const emptyItem = () => ({
+  particular: "",
+  quantity: 1,
+  unitOfMeasure: "PC",
+  purpose: "",
 });
-
-const formatRequestedDate = (dateValue) => {
-  if (!dateValue) return "";
-
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) {
-    return String(dateValue);
-  }
-
-  return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
-};
-
-const normalizeRequisitionRecord = (record) =>
-  toSummaryRecord({
-    ...record,
-    status:
-      record.status === "Pending"
-        ? "Parts Requested"
-        : record.status === "Completed"
-          ? "Delivered"
-          : record.status,
-    dateRequested: formatRequestedDate(record.dateRequested),
-    staff: {
-      ...record.staff,
-      employeeName:
-        record.staff?.employeeName || record.staff?.requisitioner || "",
-    },
-  });
-
 export default function PartsReqMonitoring() {
-  const { message } = AntdApp.useApp();
-  const location = useLocation();
-  const navigate = useNavigate();
   const { user, getAuthHeader } = useContext(AuthContext);
-  const [searchText, setSearchText] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [dateSortOrder, setDateSortOrder] = useState("newest");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const [requisitions, setRequisitions] = useState([]);
-  const [targetRecord, setTargetRecord] = useState(null);
-  const [aircraftOptions, setAircraftOptions] = useState([]);
-  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
-  const [isSubmittingEntry, setIsSubmittingEntry] = useState(false);
-  const [entryForm] = Form.useForm();
-  const userRole = user?.jobTitle?.toLowerCase() || "";
-  const allowedRoles = [
-    "superadmin",
-    "warehouse department",
-    "maintenance manager",
-    "officer-in-charge",
-    "mechanic",
-  ];
-  const canAccessPartsRequisition = allowedRoles.includes(userRole);
-  const isManager = [
-    "superadmin",
-    "maintenance manager",
-    "officer-in-charge",
-  ].includes(userRole);
-  const isWarehouseDepartment = userRole === "warehouse department";
-  const canRequestParts = ![
-    "superadmin",
-    "maintenance manager",
-    "officer-in-charge",
-    "warehouse department",
-  ].includes(userRole);
+  const location = useLocation();
+  const screens = Grid.useBreakpoint();
+  const RequisitionList = screens.md ? PRMTable : PRMCardView;
+  const oversight = isOversight(user);
+  const [records, setRecords] = useState([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState(null),
+    [tab, setTab] = useState("active"),
+    [search, setSearch] = useState("");
+  const [dateSort, setDateSort] = useState("updated");
+  const [entry, setEntry] = useState(false),
+    [busy, setBusy] = useState(false),
+    [items, setItems] = useState([]),
+    [aircraft, setAircraft] = useState([]);
+  const [itemEntry, setItemEntry] = useState(emptyItem);
+  const [editingItemKey, setEditingItemKey] = useState(null);
+  const [showItemHelp, setShowItemHelp] = useState(false);
+  const [itemPage, setItemPage] = useState(1);
+  const [itemError, setItemError] = useState("");
 
-  const warehouseRequisitions = useMemo(() => requisitions, [requisitions]);
+  const resetItemEntry = () => {
+    setItemEntry(emptyItem());
+    setEditingItemKey(null);
+  };
+  const closeEntry = async () => {
+    if (busy) return;
 
-  const stats = useMemo(
-    () => ({
-      total: warehouseRequisitions.length,
-      pending: warehouseRequisitions.filter(
-        (record) =>
-          !["approved", "delivered", "cancelled"].includes(
-            normalizeStatus(record.status),
-          ),
-      ).length,
-      approved: warehouseRequisitions.filter((record) =>
-        ["approved"].includes(normalizeStatus(record.status)),
-      ).length,
-      forReview: warehouseRequisitions.filter((record) =>
-        ["availability checked", "ordered"].includes(
-          normalizeStatus(record.status),
-        ),
-      ).length,
-      closed: warehouseRequisitions.filter((record) =>
-        ["delivered", "cancelled"].includes(normalizeStatus(record.status)),
-      ).length,
-    }),
-    [warehouseRequisitions],
-  );
-
-  const statusFilters = useMemo(() => {
-    if (isManager) {
-      return [
-        {
-          key: "all",
-          title: "All",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.length,
-        },
-        {
-          key: "for_review",
-          title: "For Review",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.filter(
-            (record) => getManagerStatusBucket(record) === "for_review",
-          ).length,
-        },
-        {
-          key: "closed",
-          title: "Closed",
-          icon: <CheckCircleOutlined />,
-          count: warehouseRequisitions.filter(
-            (record) => getManagerStatusBucket(record) === "closed",
-          ).length,
-        },
-      ];
-    }
-
-    if (isWarehouseDepartment) {
-      return [
-        {
-          key: "all",
-          title: "All",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.length,
-        },
-        {
-          key: "pending",
-          title: "Pending",
-          icon: <InboxOutlined />,
-          count: warehouseRequisitions.filter(
-            (record) => getWarehouseStatusBucket(record) === "pending",
-          ).length,
-        },
-        {
-          key: "completed",
-          title: "Completed",
-          icon: <CheckCircleOutlined />,
-          count: warehouseRequisitions.filter(
-            (record) => getWarehouseStatusBucket(record) === "completed",
-          ).length,
-        },
-      ];
-    }
-
-    return [
-      {
-        key: "all",
-        title: "All",
-        icon: <InboxOutlined />,
-        count: warehouseRequisitions.length,
-      },
-      {
-        key: "pending",
-        title: "Pending",
-        icon: <InboxOutlined />,
-        count: warehouseRequisitions.filter(
-          (record) => getStatusBucket(record) === "pending",
-        ).length,
-      },
-      {
-        key: "approved",
-        title: "Approved",
-        icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter(
-          (record) => getStatusBucket(record) === "approved",
-        ).length,
-      },
-      {
-        key: "closed",
-        title: "Closed",
-        icon: <CheckCircleOutlined />,
-        count: warehouseRequisitions.filter(
-          (record) => getStatusBucket(record) === "closed",
-        ).length,
-      },
-    ];
-  }, [isManager, isWarehouseDepartment, warehouseRequisitions]);
-
-  const filteredRequisitions = useMemo(() => {
-    let data = warehouseRequisitions;
-
-    if (searchText.trim()) {
-      const query = searchText.trim().toLowerCase();
-      data = data.filter(
-        (record) =>
-          record.wrsNo?.toLowerCase().includes(query) ||
-          record.aircraft?.toLowerCase().includes(query) ||
-          record.status?.toLowerCase().includes(query) ||
-          record.staff?.employeeName?.toLowerCase().includes(query),
-      );
-    }
-
-    if (selectedStatus !== "all") {
-      const normalizedSelectedStatus = normalizeStatus(selectedStatus);
-      data = data.filter((record) => {
-        if (normalizedSelectedStatus === "for_review") {
-          return getManagerStatusBucket(record) === "for_review";
-        }
-        if (normalizedSelectedStatus === "completed") {
-          return getWarehouseStatusBucket(record) === "completed";
-        }
-        if (isWarehouseDepartment && normalizedSelectedStatus === "pending") {
-          return getWarehouseStatusBucket(record) === "pending";
-        }
-        if (["pending", "approved", "closed"].includes(normalizedSelectedStatus)) {
-          return getStatusBucket(record) === normalizedSelectedStatus;
-        }
-        return getEffectiveStatus(record) === normalizedSelectedStatus;
-      });
-    }
-
-    return [...data].sort((first, second) => {
-      const firstDate = parseRequestedDate(first.dateRequested);
-      const secondDate = parseRequestedDate(second.dateRequested);
-
-      return dateSortOrder === "oldest"
-        ? firstDate - secondDate
-        : secondDate - firstDate;
+    const confirmed = await confirmAction({
+      title: "Cancel requisition?",
+      content:
+        "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
     });
-  }, [
-    dateSortOrder,
-    isWarehouseDepartment,
-    searchText,
-    selectedStatus,
-    warehouseRequisitions,
-  ]);
 
-  useEffect(() => {
-    if (!statusFilters.some((filter) => filter.key === selectedStatus)) {
-      setSelectedStatus(statusFilters[0]?.key || "all");
+    if (!confirmed) return;
+
+    setEntry(false);
+    form.resetFields();
+    setItems([]);
+    resetItemEntry();
+    setShowItemHelp(false);
+    setItemPage(1);
+    setItemError("");
+  };
+  const saveItem = () => {
+    const particular = itemEntry.particular.trim();
+
+    setItemError("");
+
+    if (!particular) {
+      setItemError("Please enter a part name.");
+      return;
     }
-  }, [selectedStatus, statusFilters]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const targetRequestId = params.get("targetRequestId");
-    if (!targetRequestId || !warehouseRequisitions.length) return;
+    if (!itemEntry.quantity || itemEntry.quantity <= 0) {
+      return message.error("Enter a positive quantity for every item.");
+    }
 
-    const matched = warehouseRequisitions.find(
-      (record) => String(record._id) === String(targetRequestId),
+    const duplicate = items.some(
+      (item) =>
+        item.key !== editingItemKey &&
+        item.particular.trim().toLowerCase() === particular.toLowerCase(),
     );
-    if (!matched) return;
 
-    setTargetRecord(matched);
-    navigate("/dashboard/parts-requisition", { replace: true });
-  }, [location.search, navigate, warehouseRequisitions]);
+    if (duplicate) {
+      setItemError(
+        "This part has already been added. Click the existing item below to edit its quantity or details.",
+      );
+      return;
+    }
 
-  const handleAllRequisitions = useCallback(async () => {
-    if (!canAccessPartsRequisition) return;
+    if (editingItemKey !== null) {
+      setItems((current) =>
+        current.map((item) =>
+          item.key === editingItemKey
+            ? {
+                ...itemEntry,
+                particular,
+                key: item.key,
+              }
+            : item,
+        ),
+      );
 
+      message.success("Item updated.");
+    } else {
+      setItems((current) => [
+        ...current,
+        {
+          ...itemEntry,
+          particular,
+          key: crypto.randomUUID(),
+        },
+      ]);
+
+      setItemPage(Math.ceil((items.length + 1) / 5));
+      message.success("Item added.");
+    }
+
+    resetItemEntry();
+  };
+  const removeItem = (key) => {
+    setItems((current) => current.filter((item) => item.key !== key));
+    setItemPage((page) =>
+      Math.min(page, Math.max(1, Math.ceil((items.length - 1) / 5))),
+    );
+    if (editingItemKey === key) resetItemEntry();
+  };
+  const [form] = Form.useForm();
+  const load = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/get-all-requisition`,
         {
-          method: "GET",
           headers: await getAuthHeader(),
         },
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch requisitions");
-      }
-
-      const data = await response.json();
-
-      // console.log("Requisitions:", data);
-      setRequisitions(
-        Array.isArray(data) ? data.map(normalizeRequisitionRecord) : [],
-      );
-    } catch (err) {
-      console.error("Fetch error:", err);
-      setError("Failed to load requisitions.");
+      if (!response.ok) throw new Error("Could not load requisitions");
+      setRecords(await response.json());
+      setError("");
+    } catch (error) {
+      setError(error.message);
     } finally {
       setLoading(false);
     }
-  }, [canAccessPartsRequisition, getAuthHeader]);
-
-  const handleFetchAircraftOptions = useCallback(async () => {
+  }, [getAuthHeader]);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 15000);
+    return () => clearInterval(timer);
+  }, [load]);
+  useEffect(() => {
+    getAuthHeader()
+      .then((headers) =>
+        fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`, {
+          headers,
+        }),
+      )
+      .then((response) => response.json())
+      .then((data) =>
+        setAircraft(
+          (data.data || []).map((value) => ({
+            value,
+            label: value,
+          })),
+        ),
+      )
+      .catch(() => {});
+  }, [getAuthHeader]);
+  useEffect(() => {
+    const id =
+      location.state?.requisitionId ||
+      location.state?.targetRequestId ||
+      new URLSearchParams(location.search).get("targetRequestId") ||
+      new URLSearchParams(location.search).get("requisitionId");
+    // A notification can navigate to a different record while this page stays mounted.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) setSelectedId(id);
+  }, [location]);
+  const action = async (record, action, extra = {}) => {
+    if (
+      action !== "stock" &&
+      !(await confirmAction({
+        title: {
+          deliver: "Confirm delivery",
+          confirm: "Confirm receipt",
+          cancel: "Cancel requisition",
+          "follow-up": "Send follow-up reminder",
+        }[action],
+        content:
+          action === "deliver"
+            ? "Confirm that all requested parts have been delivered."
+            : action === "confirm"
+              ? "Confirm that you received all requested parts. This closes the requisition."
+              : `Continue for ${record.wrsNo}?`,
+      }))
+    )
+      return;
+    setBusy(true);
     try {
       const response = await fetch(
-        `${API_BASE}/api/parts-monitoring/aircraft-list`,
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch aircraft options");
-      }
-
-      const data = await response.json();
-      setAircraftOptions(
-        (data.data || []).map((aircraft) => ({
-          label: aircraft,
-          value: aircraft,
-        })),
-      );
-    } catch (err) {
-      console.error("Aircraft options error:", err);
-      setAircraftOptions([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    handleAllRequisitions();
-  }, [handleAllRequisitions]);
-
-  useEffect(() => {
-    handleFetchAircraftOptions();
-  }, [handleFetchAircraftOptions]);
-
-  useEffect(() => {
-    if (!canAccessPartsRequisition) {
-      return undefined;
-    }
-
-    const refreshInterval = window.setInterval(() => {
-      handleAllRequisitions();
-    }, 15000);
-
-    return () => window.clearInterval(refreshInterval);
-  }, [canAccessPartsRequisition, handleAllRequisitions]);
-
-  if (!canAccessPartsRequisition) {
-    return <Navigate to="/dashboard/profile" replace />;
-  }
-
-  const openAddRequisitionModal = () => {
-    entryForm.setFieldsValue({
-      aircraft: undefined,
-      items: [{ particular: "", quantity: null, unit: "pcs", purpose: "" }],
-    });
-    setIsEntryModalOpen(true);
-  };
-
-  const closeAddRequisitionModal = () => {
-    setIsEntryModalOpen(false);
-    entryForm.resetFields();
-  };
-
-  const buildRequestItemsPayload = (items = []) =>
-    items.map((item, index) => ({
-      itemNo: index + 1,
-      particular: String(item.particular || "").trim(),
-      quantity: Number(item.quantity) || 0,
-      unitOfMeasure: item.unit || "pcs",
-      purpose: String(item.purpose || "").trim(),
-      availableQty: 0,
-      stockStatus: "Parts Requested",
-    }));
-
-  const handleAddRequisition = async () => {
-    try {
-      const values = await entryForm.validateFields();
-      const fullName =
-        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-        "Unknown User";
-      const highestSlipNumber = warehouseRequisitions.reduce(
-        (highest, item) => {
-          const numericPart =
-            Number(String(item.wrsNo || "").replace("WRS-", "")) || 0;
-          return numericPart > highest ? numericPart : highest;
+        `${API_BASE}/api/parts-requisition/update-requisition/${record._id}`,
+        {
+          method: "POST",
+          headers: {
+            ...(await getAuthHeader()),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action,
+            ...extra,
+            confirmAction: true,
+          }),
         },
-        0,
       );
-      const nextSlipNo = `WRS-${String(highestSlipNumber + 1).padStart(3, "0")}`;
-      const confirmedCreate = await confirmAction({
-        title: "Submit Requisition",
-        content: `Submit new requisition ${nextSlipNo}?`,
-        okText: "Submit",
-      });
-
-      if (!confirmedCreate) return;
-
-      setIsSubmittingEntry(true);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Update failed");
+      setRecords((records) =>
+        records.map((record) => (record._id === data._id ? data : record)),
+      );
+      message.success(
+        action === "follow-up" ? "Follow-up sent" : "Requisition updated",
+      );
+      return true;
+    } catch (error) {
+      message.error(error.message);
+      await load();
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const create = async (values) => {
+    if (
+      editingItemKey !== null ||
+      itemEntry.particular.trim() ||
+      itemEntry.purpose.trim()
+    )
+      return message.error(
+        "Add or update the draft item, or cancel editing, before submitting.",
+      );
+    if (
+      !items.length ||
+      items.some(
+        (item) =>
+          !item.particular.trim() || !item.quantity || item.quantity <= 0,
+      )
+    )
+      return message.error(
+        "Enter a part name and positive quantity for every item.",
+      );
+    if (
+      !(await confirmAction({
+        title: "Submit requisition",
+        content: "Send these parts to warehouse for a stock check?",
+      }))
+    )
+      return;
+    setBusy(true);
+    try {
       const response = await fetch(
         `${API_BASE}/api/parts-requisition/create-requisition`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             ...(await getAuthHeader()),
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            confirmAction: true,
-            wrsNo: nextSlipNo,
             aircraft: values.aircraft,
-            staff: {
-              requisitioner: fullName,
-              approvedBy: "",
-              receiver: "",
-              notedBy: "",
-              warehouseBy: "",
-              deliveredBy: "",
-            },
-            items: buildRequestItemsPayload(values.items),
-            dateRequested: new Date().toISOString(),
-            status: "Parts Requested",
+            items: items.map(
+              ({ particular, quantity, unitOfMeasure, purpose }) => ({
+                particular,
+                quantity,
+                unitOfMeasure,
+                purpose,
+              }),
+            ),
+            confirmAction: true,
           }),
         },
       );
-
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.message || "Failed to create requisition");
-      }
-
-      message.success(`${nextSlipNo} added successfully.`);
-      closeAddRequisitionModal();
-      await handleAllRequisitions();
-    } catch (err) {
-      if (err?.errorFields) return;
-      console.error("Create requisition error:", err);
-      message.error(err.message || "Failed to create requisition.");
+      if (!response.ok) throw new Error(data.message || "Create failed");
+      setRecords((records) => [data, ...records]);
+      setEntry(false);
+      form.resetFields();
+      setItems([]);
+      resetItemEntry();
+      setShowItemHelp(false);
+      setItemPage(1);
+      message.success("Requisition submitted");
+    } catch (error) {
+      message.error(error.message);
     } finally {
-      setIsSubmittingEntry(false);
+      setBusy(false);
     }
   };
-
+  const filtered = useMemo(
+    () =>
+      records.filter((record) => {
+        const closed = ["Closed", "Cancelled"].includes(displayStatus(record));
+        const own = isRequisitionOwner(user, record);
+        return (
+          (tab === "history" ? closed : !closed) &&
+          (oversight || roleOf(user) === "warehouse personnel" || own) &&
+          `${record.wrsNo} ${record.aircraft} ${record.staff?.requisitioner} ${displayStatus(record)} ${(record.items || []).map((item) => item.particular).join(" ")}`
+            .toLowerCase()
+            .includes(search.toLowerCase())
+        );
+      }),
+    [records, tab, user, oversight, search],
+  );
+  if (
+    ![
+      "superadmin",
+      "officer-in-charge",
+      "warehouse personnel",
+      "maintenance manager",
+      "mechanic",
+    ].includes(roleOf(user))
+  )
+    return <Alert type="error" title="Parts requisition access denied" />;
   return (
-    <div
-      style={{
-        padding: 20,
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
-        paddingBottom: 120,
-      }}
-    >
-      <Row gutter={[16, 16]} align="middle">
-        <Col xs={24} md={8}>
-          <Input
-            size="large"
-            placeholder="Search by WRS no., aircraft, status, or requester"
-            prefix={<SearchOutlined />}
-            allowClear
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
-        </Col>
-        <Col xs={24} md={6} lg={4}>
-          <Select
-            size="large"
-            value={dateSortOrder}
-            onChange={setDateSortOrder}
-            style={{ width: "100%" }}
-            options={[
-              { value: "newest", label: "Date: Newest First" },
-              { value: "oldest", label: "Date: Oldest First" },
-            ]}
-          />
-        </Col>
-        {!isManager && (
-          <Col xs={24} md={10} lg={12} style={{ textAlign: "right" }}>
-            <Button
-              size="large"
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={openAddRequisitionModal}
-            >
-              Add Requisition
-            </Button>
-          </Col>
-        )}
-      </Row>
+    <div className="fl-page">
+      <div style={{ marginBottom: 8 }}>
+        <Card
+          style={{
+            width: "100%",
+            marginBottom: 14,
+            borderRadius: 12,
+          }}
+          styles={{
+            body: {
+              padding: screens.md ? 16 : 12,
+            },
+          }}
+        >
+          <Row gutter={[12, 12]} align="middle">
+            {/* Search + Sort */}
+            <Col xs={24} md={18}>
+              <Row gutter={[8, 8]}>
+                <Col xs={24} sm={16} md={14}>
+                  <Input
+                    size="large"
+                    prefix={<SearchOutlined />}
+                    placeholder="Search by WRS no., aircraft, status, or requester"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    allowClear
+                    style={{
+                      width: "100%",
+                    }}
+                  />
+                </Col>
 
-      <Row style={{ marginBottom: 10, marginTop: 20 }}>
-        <Col span={24}>
-          <Space size={[8, 8]} wrap>
-            {statusFilters.map((filter) => {
-              const isSelected = selectedStatus === filter.key;
+                {screens.md && (
+                  <Col md={10}>
+                    <Select
+                      size="large"
+                      aria-label="Requisition date sorting"
+                      value={dateSort}
+                      onChange={setDateSort}
+                      style={{
+                        width: "100%",
+                      }}
+                      options={[
+                        {
+                          value: "updated",
+                          label: "Last updated: Newest First",
+                        },
+                        {
+                          value: "newest",
+                          label: "Date: Newest First",
+                        },
+                        {
+                          value: "oldest",
+                          label: "Date: Oldest First",
+                        },
+                      ]}
+                    />
+                  </Col>
+                )}
+              </Row>
+            </Col>
 
-              return (
+            {/* Add Requisition */}
+            {canCreate(user) && (
+              <Col
+                xs={24}
+                md={6}
+                style={{
+                  display: "flex",
+                  justifyContent: screens.md ? "flex-end" : "stretch",
+                }}
+              >
                 <Button
-                  key={filter.key}
-                  type={isSelected ? "primary" : "default"}
-                  icon={filter.icon}
-                  onClick={() => setSelectedStatus(filter.key)}
-                  style={{ fontWeight: 600 }}
                   size="large"
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setEntry(true)}
+                  block={!screens.md}
+                  style={{
+                    width: screens.md ? 150 : "100%",
+                  }}
                 >
-                  {filter.title} ({filter.count})
+                  Request item/s
                 </Button>
-              );
-            })}
-          </Space>
-        </Col>
-      </Row>
-
-      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filteredRequisitions.length}</Text>{" "}
-            requisition(s)
-          </Text>
-        </Col>
-      </Row>
+              </Col>
+            )}
+          </Row>
+        </Card>
+      </div>
       {error && (
         <Alert
           type="error"
-          title={error}
           showIcon
-          style={{ marginBottom: 16 }}
+          title={error}
+          action={<Button onClick={load}>Retry</Button>}
         />
       )}
-      <PRMTable
-        key={targetRecord?._id || "prm-table"}
-        data={filteredRequisitions}
-        loading={loading}
-        onUpdated={handleAllRequisitions}
-        initialSelectedRecord={targetRecord}
-      />
+      <Space wrap style={{ marginBottom: 16 }}>
+        {[
+          [
+            "active",
+            oversight ? "Oversight · Active" : "Active",
 
+            <InboxOutlined key="active" />,
+          ],
+          ["history", "Closed", <CheckCircleOutlined key="history" />],
+        ].map(([key, label, icon]) => (
+          <Button
+            size="large"
+            key={key}
+            icon={icon}
+            type={tab === key ? "primary" : "default"}
+            onClick={() => setTab(key)}
+          >
+            {label} (
+            {
+              records.filter(
+                (record) =>
+                  (oversight ||
+                    roleOf(user) === "warehouse personnel" ||
+                    isRequisitionOwner(user, record)) &&
+                  (key === "history"
+                    ? ["Closed", "Cancelled"].includes(displayStatus(record))
+                    : !["Closed", "Cancelled"].includes(displayStatus(record))),
+              ).length
+            }
+            )
+          </Button>
+        ))}
+      </Space>
+
+      <RequisitionList
+        dateSort={dateSort}
+        records={filtered}
+        loading={loading}
+        onOpen={(record) => setSelectedId(record._id)}
+        oversight={oversight}
+        canFollowUp={followUpTarget}
+        onFollowUp={(record) => action(record, "follow-up")}
+        busy={busy}
+      />
+      <WRSModal
+        record={records.find((record) => record._id === selectedId)}
+        user={user}
+        open={!!selectedId}
+        onClose={() => setSelectedId(null)}
+        onAction={action}
+        busy={busy}
+      />
       <Modal
-        title="Add Requisition"
-        open={isEntryModalOpen}
-        onCancel={closeAddRequisitionModal}
-        onOk={handleAddRequisition}
-        confirmLoading={isSubmittingEntry}
-        okText="Submit"
-        width={900}
-        destroyOnHidden
+        title="New parts requisition"
+        open={entry}
+        onCancel={closeEntry}
+        footer={null}
+        centered
+        width={screens.md ? "70vw" : "calc(100vw - 16px)"}
+        styles={{
+          content: {
+            padding: 0,
+            overflow: "hidden",
+          },
+          header: {
+            padding: screens.md ? "14px 20px" : 0,
+            marginBottom: 0,
+          },
+          body: {
+            height: screens.md ? "75vh" : "calc(100dvh - 90px)",
+            overflowY: "auto",
+            padding: screens.md ? "16px 20px" : 0,
+          },
+        }}
       >
-        <Form form={entryForm} layout="vertical">
+        <Form form={form} layout="vertical" onFinish={create}>
+          {/* Aircraft */}
           <Form.Item
             label="Aircraft"
             name="aircraft"
-            rules={[{ required: true, message: "Please choose an aircraft." }]}
+            rules={[
+              {
+                required: true,
+                message: "Please select an aircraft.",
+              },
+            ]}
+            style={{ marginBottom: 20 }}
           >
             <Select
-              placeholder="Choose Aircraft"
-              options={aircraftOptions}
-              showSearch={{ optionFilterProp: "label" }}
+              size="large"
+              showSearch
+              optionFilterProp="label"
+              options={aircraft}
+              placeholder="Select aircraft"
+              style={{ width: "100%" }}
             />
           </Form.Item>
 
-          <Form.List name="items">
-            {(fields, { add, remove }) => (
-              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-                {fields.map(({ key, name, ...restField }) => (
-                  <div
-                    key={key}
+          {/* Item Entry Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: screens.md ? "center" : "flex-start",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <Typography.Text strong style={{ fontSize: 16 }}>
+              {editingItemKey !== null ? "Edit Item" : "Add Item"}
+            </Typography.Text>
+
+            {!screens.md && items.length > 0 && (
+              <Typography.Text type="secondary">
+                {items.length} item{items.length !== 1 ? "s" : ""}
+              </Typography.Text>
+            )}
+          </div>
+
+          {/* Item Entry */}
+          <Row gutter={[12, 12]} align="bottom">
+            {/* Particular */}
+            <Col xs={24} md={8}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Particular</Typography.Text>
+              </div>
+
+              <PartNameInput
+                value={itemEntry.particular}
+                onChange={(particular) => {
+                  setItemError("");
+                  setItemEntry((current) => ({
+                    ...current,
+                    particular,
+                  }));
+                }}
+                onSelectUnit={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Quantity */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Quantity</Typography.Text>
+              </div>
+
+              <InputNumber
+                size="large"
+                aria-label="Quantity"
+                min={1}
+                value={itemEntry.quantity}
+                onChange={(quantity) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    quantity,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Unit */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Unit</Typography.Text>
+              </div>
+
+              <Select
+                size="large"
+                aria-label="Unit"
+                value={itemEntry.unitOfMeasure}
+                options={["PC", "SET", "ST", "UNT"].map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Purpose */}
+            <Col xs={24} md={6}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Purpose</Typography.Text>
+              </div>
+
+              <Input
+                size="large"
+                aria-label="Purpose"
+                placeholder="Optional"
+                value={itemEntry.purpose}
+                onChange={(event) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    purpose: event.target.value,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Add / Update */}
+            <Col xs={24} md={4}>
+              <Space
+                size={8}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                }}
+              >
+                <Button
+                  type="primary"
+                  onClick={saveItem}
+                  disabled={busy}
+                  size="large"
+                  icon={
+                    editingItemKey !== null ? (
+                      <EditOutlined />
+                    ) : (
+                      <PlusOutlined />
+                    )
+                  }
+                  style={{ flex: 1 }}
+                >
+                  {editingItemKey !== null ? "Update" : "Add"}
+                </Button>
+
+                {editingItemKey !== null && (
+                  <Button
+                    type="link"
+                    onClick={resetItemEntry}
+                    disabled={busy}
+                    size="large"
                     style={{
-                      border: "1px solid #f0f0f0",
-                      borderRadius: 8,
-                      padding: 12,
+                      padding: "0 4px",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <Row gutter={12} align="middle">
-                      <Col xs={24} md={9}>
-                        <Form.Item
-                          {...restField}
-                          label="Particular"
-                          name={[name, "particular"]}
-                          rules={[{ required: true, message: "Required" }]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Input placeholder="Particular" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={4}>
-                        <Form.Item
-                          {...restField}
-                          label="Quantity"
-                          name={[name, "quantity"]}
-                          rules={[
-                            { required: true, message: "Required" },
-                            { type: "number", min: 1, message: "Min 1" },
-                          ]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <InputNumber style={{ width: "100%" }} min={1} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={4}>
-                        <Form.Item
-                          {...restField}
-                          label="Unit"
-                          name={[name, "unit"]}
-                          initialValue="pcs"
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Select
-                            options={[
-                              { label: "pcs", value: "pcs" },
-                              { label: "kg", value: "kg" },
-                              { label: "ft", value: "ft" },
-                              { label: "L", value: "L" },
-                            ]}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={6}>
-                        <Form.Item
-                          {...restField}
-                          label="Purpose"
-                          name={[name, "purpose"]}
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Input placeholder="Optional" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={1} style={{ textAlign: "right" }}>
-                        {fields.length > 1 && (
-                          <Button
-                            danger
-                            type="text"
-                            icon={<DeleteOutlined />}
-                            onClick={() => remove(name)}
-                          />
-                        )}
-                      </Col>
-                    </Row>
-                  </div>
-                ))}
-                <Button
-                  type="dashed"
-                  icon={<PlusOutlined />}
-                  onClick={() =>
-                    add({
-                      particular: "",
-                      quantity: null,
-                      unit: "pcs",
-                      purpose: "",
-                    })
-                  }
-                >
-                  Add Another Item
-                </Button>
+                    Cancel
+                  </Button>
+                )}
               </Space>
-            )}
-          </Form.List>
+            </Col>
+          </Row>
+          {itemError && (
+            <Typography.Text
+              type="danger"
+              style={{
+                display: "block",
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              {itemError}
+            </Typography.Text>
+          )}
+
+          {/* Items Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginTop: 24,
+              marginBottom: 12,
+            }}
+          >
+            <Space size={4}>
+              <Typography.Text strong style={{ fontSize: 16 }}>
+                Requisition Items
+              </Typography.Text>
+
+              <Button
+                type="text"
+                size="large"
+                icon={<QuestionCircleOutlined />}
+                aria-label="Show requisition item help"
+                aria-expanded={showItemHelp}
+                onClick={() => setShowItemHelp((value) => !value)}
+              />
+            </Space>
+
+            <Typography.Text type="secondary">
+              {items.length} item{items.length !== 1 ? "s" : ""}
+            </Typography.Text>
+          </div>
+
+          {/* Help */}
+          {showItemHelp && (
+            <Alert
+              showIcon
+              type={editingItemKey !== null ? "warning" : "info"}
+              title={
+                editingItemKey !== null
+                  ? "Editing selected item"
+                  : "Need to update an added item?"
+              }
+              description={
+                editingItemKey !== null
+                  ? "The selected item is loaded above. Click Update to save your changes, or Cancel Editing to keep it unchanged."
+                  : "Click an item to load it into the form above, then update it."
+              }
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {/* MOBILE ITEM CARDS */}
+          {!screens.md && (
+            <div>
+              {items.length === 0 ? (
+                <Card
+                  size="small"
+                  style={{
+                    textAlign: "center",
+                    borderStyle: "dashed",
+                    marginBottom: 16,
+                  }}
+                >
+                  <Typography.Text type="secondary">
+                    No items added yet.
+                  </Typography.Text>
+                </Card>
+              ) : (
+                items.map((item, index) => {
+                  const editing = editingItemKey === item.key;
+
+                  return (
+                    <Card
+                      key={item.key}
+                      size="small"
+                      onClick={() => {
+                        if (!busy) {
+                          setItemEntry({
+                            particular: item.particular,
+                            quantity: item.quantity,
+                            unitOfMeasure: item.unitOfMeasure,
+                            purpose: item.purpose,
+                          });
+                          setEditingItemKey(item.key);
+                        }
+                      }}
+                      style={{
+                        marginBottom: 10,
+                        cursor: busy ? "default" : "pointer",
+                        borderColor: editing ? "#1677ff" : undefined,
+                        background: editing ? "#e6f4ff" : undefined,
+                      }}
+                      styles={{
+                        body: {
+                          padding: 12,
+                        },
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            minWidth: 0,
+                            flex: 1,
+                          }}
+                        >
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 12 }}
+                          >
+                            Item #{index + 1}
+                          </Typography.Text>
+
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontWeight: 600,
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {item.particular}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              marginTop: 8,
+                            }}
+                          >
+                            <Typography.Text>
+                              Qty: <strong>{item.quantity}</strong>
+                            </Typography.Text>
+
+                            <Typography.Text>
+                              Unit: <strong>{item.unitOfMeasure}</strong>
+                            </Typography.Text>
+                          </div>
+
+                          {item.purpose && (
+                            <div
+                              style={{
+                                marginTop: 6,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              <Typography.Text type="secondary">
+                                Purpose:{" "}
+                              </Typography.Text>
+                              <Typography.Text>{item.purpose}</Typography.Text>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          danger
+                          type="text"
+                          disabled={busy}
+                          icon={<DeleteOutlined />}
+                          aria-label={`Delete ${item.particular}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeItem(item.key);
+                          }}
+                        />
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+
+              {items.length > 5 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: 8,
+                    marginBottom: 16,
+                  }}
+                >
+                  <Pagination
+                    current={itemPage}
+                    onChange={setItemPage}
+                    pageSize={5}
+                    total={items.length}
+                    showSizeChanger={false}
+                    size="small"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DESKTOP ITEM TABLE */}
+          {screens.md && (
+            <Table
+              bordered
+              size="small"
+              rowKey="key"
+              dataSource={items}
+              scroll={{
+                y: 500,
+              }}
+              pagination={
+                items.length > 5
+                  ? {
+                      current: itemPage,
+                      onChange: setItemPage,
+                      pageSize: 5,
+                      showSizeChanger: false,
+                      size: "small",
+                    }
+                  : false
+              }
+              onRow={(item) => ({
+                onClick: () => {
+                  if (!busy) {
+                    setItemEntry({
+                      particular: item.particular,
+                      quantity: item.quantity,
+                      unitOfMeasure: item.unitOfMeasure,
+                      purpose: item.purpose,
+                    });
+                    setEditingItemKey(item.key);
+                  }
+                },
+                style: {
+                  cursor: "pointer",
+                  background:
+                    editingItemKey === item.key ? "#e6f4ff" : undefined,
+                },
+              })}
+              columns={[
+                {
+                  title: "#",
+                  width: 50,
+                  render: (_, record) =>
+                    items.findIndex((item) => item.key === record.key) + 1,
+                },
+                {
+                  title: "Particular",
+                  dataIndex: "particular",
+                  width: 220,
+                },
+                {
+                  title: "Quantity",
+                  dataIndex: "quantity",
+                  width: 90,
+                },
+                {
+                  title: "Unit",
+                  dataIndex: "unitOfMeasure",
+                  width: 80,
+                },
+                {
+                  title: "Purpose",
+                  dataIndex: "purpose",
+                  width: 180,
+                  render: (value) => value || "—",
+                },
+                {
+                  title: "Action",
+                  width: 70,
+                  fixed: "right",
+                  render: (_, item) => (
+                    <Button
+                      danger
+                      type="text"
+                      disabled={busy}
+                      icon={<DeleteOutlined />}
+                      aria-label={`Delete ${item.particular}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeItem(item.key);
+                      }}
+                    />
+                  ),
+                },
+              ].map((column) => ({
+                ...column,
+                onCell: (item) => ({
+                  style: {
+                    background:
+                      editingItemKey === item.key ? "#e6f4ff" : undefined,
+                  },
+                }),
+              }))}
+              locale={{
+                emptyText: "No items added yet.",
+              }}
+            />
+          )}
+
+          {/* ACTIONS */}
+          <div
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 8,
+              paddingTop: 10,
+              marginTop: 8,
+              background: "#fff",
+              borderTop: "1px solid #f0f0f0",
+            }}
+          >
+            <Button
+              disabled={busy}
+              size="large"
+              onClick={async () => {
+                if (busy) return;
+
+                const confirmed = await confirmAction({
+                  title: "Cancel requisition?",
+                  content:
+                    "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
+                });
+
+                if (confirmed) {
+                  setEntry(false);
+                  form.resetFields();
+                  setItems([]);
+                  resetItemEntry();
+                  setShowItemHelp(false);
+                  setItemPage(1);
+                  setItemError("");
+                }
+              }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={busy}
+              size="large"
+            >
+              Submit
+            </Button>
+          </div>
         </Form>
       </Modal>
     </div>

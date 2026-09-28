@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "AirMS",
-    "slug": "airMS",
+    "slug": "AirMS",
     "owner": "pcastro17",
     "scheme": "airms",
     "platforms": ["ios", "android", "web"],
@@ -9,7 +9,6 @@
     "orientation": "portrait",
     "icon": "./assets/AirMS_mobile.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/AirMS_web.png",
       "resizeMode": "contain",
@@ -17,14 +16,31 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arckexe.airms"
+      "bundleIdentifier": "com.arckexe.airms",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "icon": "./assets/AirMS_ios_icon.png",
+      "entitlements": {
+        "aps-environment": "development"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Allow AirMS to detect and record your login location.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
     },
     "android": {
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.arckexe.airms",
       "softwareKeyboardLayoutMode": "resize",
@@ -32,21 +48,45 @@
         "foregroundImage": "./assets/AirMS_mobile.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "versionCode": 1
     },
     "web": {
       "favicon": "./assets/AirMS_mobile.png"
     },
     "plugins": [
+      "./plugins/withAndroidNdkVersion",
+      "./plugins/withAndroidBuildMemory",
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-community/datetimepicker",
       "expo-font",
-
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow AirMS to access your photos to update your profile picture."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow AirMS to detect and record your login location."
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "supportsOpeningDocumentsInPlace": true,
+          "enableFileSharing": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": ["RNFBApp", "RNFBMessaging"]
+          }
         }
       ]
     ],
@@ -54,6 +94,12 @@
       "eas": {
         "projectId": "f3f4990e-6447-461d-a182-38fdf0bd06ca"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f3f4990e-6447-461d-a182-38fdf0bd06ca"
     }
   }
 }

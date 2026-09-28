@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import AppText from "../common/AppText";`r`nimport { View, ScrollView, Dimensions } from "react-native";
+import AppText from "../common/AppText";
+import { View, ScrollView, Dimensions } from "react-native";
 import { DataTable } from "react-native-paper";
 import Button from "../Button";
 import AlertComp from "../AlertComp";
@@ -16,7 +17,7 @@ export default function FlightTable({
   onShowLog,
 }) {
   const [page, setPage] = useState(0);
-  const itemsPerPageList = [5, 10, 15];
+  const itemsPerPageList = [10, 15, 30];
   const [itemsPerPage, setItemsPerPage] = useState(itemsPerPageList[0]);
 
   const [logToModify, setLogToModify] = useState(null);

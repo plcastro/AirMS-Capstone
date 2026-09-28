@@ -1,18 +1,35 @@
 import React, { useState } from "react";
 import { Input, Button, DatePicker } from "antd";
-import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import { PlusOutlined, DeleteOutlined, ClearOutlined } from "@ant-design/icons";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
 
-const WORK_TYPES = ["Discrepancy Correction", "SB/AD Compliance", "Inspection", "Others"];
+const WORK_TYPES = [
+  "Discrepancy Correction",
+  "SB/AD Compliance",
+  "Inspection",
+  "Others",
+];
 
-const emptyWorkItem = () => ({
+const emptyWorkItem = (phase) => ({
+  phase,
   id: Date.now().toString() + Math.random(),
   selectedWorkTypes: [],
-  date: "", aircraft: "", workDone: "", name: "", certificateNumber: "", signature: "",
+  date: "",
+  aircraft: "",
+  workDone: "",
+  name: "",
+  certificateNumber: "",
+  signature: "",
 });
+
+const fieldCellStyle = {
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
 
 function WorkItemSignaturePad({ value, onChange, disabled }) {
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
@@ -25,11 +42,19 @@ function WorkItemSignaturePad({ value, onChange, disabled }) {
     <div>
       <div className="fl-sig-box">
         {value && disabled ? (
-          <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
+          <img
+            src={value}
+            alt="signature"
+            style={{ width: "100%", height: 60, objectFit: "contain" }}
+          />
         ) : disabled && !value ? (
           <span className="fl-sig-placeholder">No signature</span>
         ) : value ? (
-          <img src={value} alt="signature" style={{ width: "100%", height: 60, objectFit: "contain" }} />
+          <img
+            src={value}
+            alt="signature"
+            style={{ width: "100%", height: 60, objectFit: "contain" }}
+          />
         ) : (
           <Button type="link" onClick={() => setIsSignatureOpen(true)}>
             Tap to sign
@@ -37,13 +62,25 @@ function WorkItemSignaturePad({ value, onChange, disabled }) {
         )}
       </div>
       {!disabled && (
-        <div style={{ marginTop: 4, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div
+          style={{
+            marginTop: 4,
+            display: "flex",
+            gap: 8,
+            justifyContent: "flex-end",
+          }}
+        >
           {value && (
             <Button size="small" onClick={() => setIsSignatureOpen(true)}>
               Replace
             </Button>
           )}
-          <Button size="small" danger onClick={handleClear}>
+          <Button
+            size="small"
+            danger
+            icon={<ClearOutlined />}
+            onClick={handleClear}
+          >
             Clear
           </Button>
         </div>
@@ -60,32 +97,46 @@ function WorkItemSignaturePad({ value, onChange, disabled }) {
   );
 }
 
-export default function FlightLogModalWorkDone({ formData, updateForm, isEditable = true }) {
+export default function FlightLogModalWorkDone({
+  formData,
+  updateForm,
+  isEditable = true,
+  phase = "preparation",
+}) {
   const workItems = formData.workItems || [];
 
   const addWorkItem = () => {
-    updateForm("workItems", [...workItems, emptyWorkItem()]);
+    updateForm("workItems", [...workItems, emptyWorkItem(phase)]);
   };
 
   const removeWorkItem = (id) => {
-    updateForm("workItems", workItems.filter((w) => w.id !== id));
+    updateForm(
+      "workItems",
+      workItems.filter((w) => w.id !== id),
+    );
   };
 
   const updateWorkItem = (id, field, value) => {
-    updateForm("workItems", workItems.map((w) => w.id === id ? { ...w, [field]: value } : w));
+    updateForm(
+      "workItems",
+      workItems.map((w) => (w.id === id ? { ...w, [field]: value } : w)),
+    );
   };
 
   const toggleWorkType = (id, type) => {
-    updateForm("workItems", workItems.map((w) => {
-      if (w.id !== id) return w;
-      const types = w.selectedWorkTypes || [];
-      return {
-        ...w,
-        selectedWorkTypes: types.includes(type)
-          ? types.filter((t) => t !== type)
-          : [...types, type],
-      };
-    }));
+    updateForm(
+      "workItems",
+      workItems.map((w) => {
+        if (w.id !== id) return w;
+        const types = w.selectedWorkTypes || [];
+        return {
+          ...w,
+          selectedWorkTypes: types.includes(type)
+            ? types.filter((t) => t !== type)
+            : [...types, type],
+        };
+      }),
+    );
   };
 
   return (
@@ -94,116 +145,172 @@ export default function FlightLogModalWorkDone({ formData, updateForm, isEditabl
 
       {workItems.length === 0 && (
         <div className="fl-card">
-          <div className="fl-card-body" style={{ textAlign: "center", color: "#999", padding: 24 }}>
+          <div
+            className="fl-card-body"
+            style={{ textAlign: "center", color: "#999" }}
+          >
             No work items yet. Click "Add Work Done" to begin.
           </div>
         </div>
       )}
 
-      {workItems.map((item, idx) => (
-        <div key={item.id} className="fl-card" style={{ marginBottom: 16 }}>
-          <div className="fl-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>WORK DONE {workItems.length > 1 ? `#${idx + 1}` : ""}</span>
-            {isEditable && workItems.length > 1 && (
-              <Button
-                type="text"
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={() => removeWorkItem(item.id)}
-                style={{ color: "#ff4d4f" }}
-              />
-            )}
-          </div>
-          <div className="fl-card-body">
-            {/* Checkboxes row */}
-            <div className="fl-work-types-row">
-              {WORK_TYPES.map((type) => (
-                <label key={type} className="fl-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={(item.selectedWorkTypes || []).includes(type)}
-                    onChange={() => isEditable && toggleWorkType(item.id, type)}
-                    disabled={!isEditable}
-                    style={{ accentColor: "#26866F" }}
-                  />
-                  {type}
-                </label>
-              ))}
-            </div>
-
-            <div className="fl-field-row">
-              <span className="fl-label">Date:</span>
-              <DatePicker
-                className="fl-input"
-                style={{ width: "100%" }}
-                format="MM/DD/YYYY"
-                value={item.date ? dayjs(item.date) : null}
-                onChange={(date) =>
-                  updateWorkItem(
-                    item.id,
-                    "date",
-                    date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
-                  )
-                }
-                disabled={!isEditable}
-              />
-            </div>
-            <div className="fl-field-row">
-              <span className="fl-label">Aircraft/T/:</span>
-              <Input
-                className="fl-input"
-                value={item.aircraft || ""}
-                onChange={(e) => updateWorkItem(item.id, "aircraft", e.target.value)}
-                disabled={!isEditable}
-              />
-            </div>
-            <div className="fl-field-row">
-              <span className="fl-label">Work Done:</span>
-              <TextArea
-                rows={3}
-                value={item.workDone || ""}
-                onChange={(e) => updateWorkItem(item.id, "workDone", e.target.value)}
-                placeholder="Describe work done"
-                disabled={!isEditable}
-                style={{ resize: "none", flex: 1, backgroundColor: isEditable ? "#fff" : "#f5f5f5" }}
-              />
-            </div>
-            <div className="fl-field-row">
-              <span className="fl-label">Name:</span>
-              <Input
-                className="fl-input"
-                value={item.name || ""}
-                onChange={(e) => updateWorkItem(item.id, "name", e.target.value)}
-                disabled={!isEditable}
-              />
-            </div>
-            <div className="fl-field-row">
-              <span className="fl-label">Certificate Number:</span>
-              <Input
-                className="fl-input"
-                value={item.certificateNumber || ""}
-                onChange={(e) => updateWorkItem(item.id, "certificateNumber", e.target.value)}
-                disabled={!isEditable}
-              />
-            </div>
-            <div className="fl-field-row fl-sig-row">
-              <span className="fl-label">Signature:</span>
-              <div style={{ flex: 1 }}>
-                <WorkItemSignaturePad
-                  value={item.signature || ""}
-                  onChange={(val) => updateWorkItem(item.id, "signature", val)}
-                  disabled={!isEditable}
+      {workItems.map((item, idx) => {
+        const itemEditable =
+          isEditable && (item.phase || "preparation") === phase;
+        return (
+          <div key={item.id} className="fl-card">
+            <div
+              className="fl-card-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>
+                WORK DONE {workItems.length > 1 ? `#${idx + 1}` : ""} -{" "}
+                {item.phase === "post_flight" ? "Post-flight" : "Preparation"}
+                {!itemEditable &&
+                phase === "post_flight" &&
+                item.phase !== "post_flight"
+                  ? " (signed at release)"
+                  : ""}
+              </span>
+              {itemEditable && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeWorkItem(item.id)}
+                  style={{ color: "#ff4d4f" }}
                 />
+              )}
+            </div>
+            <div className="fl-card-body">
+              {/* Checkboxes row */}
+              <div className="fl-work-types-row">
+                {WORK_TYPES.map((type) => (
+                  <label key={type} className="fl-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={(item.selectedWorkTypes || []).includes(type)}
+                      onChange={() =>
+                        itemEditable && toggleWorkType(item.id, type)
+                      }
+                      disabled={!itemEditable}
+                      style={{ accentColor: "#26866F" }}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+
+              <div className="fl-entry-grid fl-entry-grid--work">
+                <div className="fl-field-stack" style={fieldCellStyle}>
+                  <span className="fl-label">Date:</span>
+                  <DatePicker
+                    size="large"
+                    style={{ width: "100%" }}
+                    format="MM/DD/YYYY"
+                    inputReadOnly
+                    value={item.date ? dayjs(item.date) : null}
+                    onChange={(date) =>
+                      updateWorkItem(
+                        item.id,
+                        "date",
+                        date && dayjs.isDayjs(date)
+                          ? date.format("MM/DD/YYYY")
+                          : "",
+                      )
+                    }
+                    disabled={!itemEditable}
+                  />
+                </div>
+                <div className="fl-field-stack" style={fieldCellStyle}>
+                  <span className="fl-label">Aircraft/T/:</span>
+                  <Input
+                    size="large"
+                    value={item.aircraft || ""}
+                    onChange={(e) =>
+                      updateWorkItem(item.id, "aircraft", e.target.value)
+                    }
+                    disabled={!itemEditable}
+                  />
+                </div>
+                <div
+                  className="fl-field-stack fl-entry-grid-span-2"
+                  style={fieldCellStyle}
+                >
+                  <span className="fl-label">Work Done:</span>
+                  <TextArea
+                    size="large"
+                    rows={3}
+                    value={item.workDone || ""}
+                    onChange={(e) =>
+                      updateWorkItem(item.id, "workDone", e.target.value)
+                    }
+                    placeholder="Describe work done"
+                    disabled={!itemEditable}
+                    style={{
+                      resize: "none",
+                      flex: 1,
+                      backgroundColor: itemEditable ? "#fff" : "#f5f5f5",
+                    }}
+                  />
+                </div>
+                <div className="fl-field-stack" style={fieldCellStyle}>
+                  <span className="fl-label">Name:</span>
+                  <Input
+                    size="large"
+                    value={item.name || ""}
+                    onChange={(e) =>
+                      updateWorkItem(item.id, "name", e.target.value)
+                    }
+                    disabled={!itemEditable}
+                  />
+                </div>
+                <div className="fl-field-stack" style={fieldCellStyle}>
+                  <span className="fl-label">Certificate Number:</span>
+                  <Input
+                    size="large"
+                    value={item.certificateNumber || ""}
+                    onChange={(e) =>
+                      updateWorkItem(
+                        item.id,
+                        "certificateNumber",
+                        e.target.value,
+                      )
+                    }
+                    disabled={!itemEditable}
+                  />
+                </div>
+                <div
+                  className="fl-field-stack fl-entry-grid-span-2"
+                  style={fieldCellStyle}
+                >
+                  <span className="fl-label">Signature:</span>
+                  <WorkItemSignaturePad
+                    value={item.signature || ""}
+                    onChange={(val) =>
+                      updateWorkItem(item.id, "signature", val)
+                    }
+                    disabled={!itemEditable}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {isEditable && (
         <div style={{ textAlign: "right", marginTop: 8 }}>
-          <Button className="fl-action-btn" icon={<PlusOutlined />} onClick={addWorkItem}>
-            Add Work Done
+          <Button
+            className="fl-action-btn"
+            icon={<PlusOutlined />}
+            onClick={addWorkItem}
+          >
+            Add {phase === "post_flight" ? "Post-Flight" : "Preparation"} Work
           </Button>
         </div>
       )}

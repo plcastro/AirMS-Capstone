@@ -3,17 +3,47 @@ import {
   TouchableOpacity
 } from "react-native";
 import AppText from "../common/AppText";
-import React, { useContext } from "react";
+import React from "react";
 import * as Progress from "react-native-progress";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { AuthContext } from "../../Context/AuthContext";
+import ActionIconButton from "../common/ActionIconButton";
+import { CardActionRow } from "../common/MobileModule";
 import { COLORS } from "../../stylesheets/colors";
+
+const getDisplayText = (value, fallback = "N/A") => {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return (
+      value.name ||
+      value.title ||
+      value.tailNum ||
+      value.aircraft ||
+      value.rpc ||
+      value.label ||
+      value._id ||
+      value.id ||
+      fallback
+    );
+  }
+  return String(value);
+};
+
+const normalizeStatus = (value) =>
+  String(getDisplayText(value, ""))
+    .trim()
+    .toLowerCase();
 
 export default function TaskCard({
   data,
   onPress,
   onEditTask,
   onDeleteTask,
+  onApprove,
+  onReturn,
+  isHeadView = false,
+  showReviewActions = false,
   showEditDelete = false,
 }) {
   const {
@@ -29,15 +59,29 @@ export default function TaskCard({
     returnComments,
     checklistItems,
     checklistState,
-    completedAt,
   } = data;
 
   const deadline = endDateTime || dueDate;
+  const displayStatus = data?.isApproved
+    ? "Approved"
+    : getDisplayText(status, "Pending");
+  const normalizedDisplayStatus = normalizeStatus(displayStatus);
+  const canReview =
+    isHeadView &&
+    showReviewActions &&
+    !data?.isApproved &&
+    ["turned in", "completed"].includes(normalizedDisplayStatus);
 
   // Progress
+  const safeChecklistItems = Array.isArray(checklistItems)
+    ? checklistItems
+    : [];
+  const safeChecklistState = Array.isArray(checklistState)
+    ? checklistState
+    : [];
   const progress =
-    checklistItems?.length > 0
-      ? (checklistState?.filter(Boolean).length || 0) / checklistItems.length
+    safeChecklistItems.length > 0
+      ? safeChecklistState.filter(Boolean).length / safeChecklistItems.length
       : 0;
 
   const progressPercentage = Math.round(progress * 100);
@@ -98,16 +142,17 @@ export default function TaskCard({
             marginRight: 10,
           }}
         >
-          {title || maintenanceType || "Maintenance Task"}
+          {getDisplayText(title || maintenanceType, "Maintenance Task")}
         </AppText>
 
         {/* STATUS */}
         <View
           style={{
             backgroundColor:
-              status === "Completed"
+              normalizedDisplayStatus === "approved" ||
+              normalizedDisplayStatus === "completed"
                 ? "#E8F5E9"
-                : status === "Returned"
+                : normalizedDisplayStatus === "returned"
                   ? "#FFEBEE"
                   : "#FFF3E0",
             paddingHorizontal: 8,
@@ -120,30 +165,26 @@ export default function TaskCard({
               fontSize: 10,
               fontWeight: "600",
               color:
-                status === "Completed"
+                normalizedDisplayStatus === "approved" ||
+                normalizedDisplayStatus === "completed"
                   ? "#2E7D32"
-                  : status === "Returned"
+                  : normalizedDisplayStatus === "returned"
                     ? "#C62828"
                     : "#ED6C02",
             }}
           >
-            {status}
+          {getDisplayText(displayStatus, "Pending")}
           </AppText>
         </View>
-        {showEditDelete && (
-          <TouchableOpacity onPress={() => onDeleteTask?.(data)}>
-            <MaterialCommunityIcons name="delete" size={21} color="#F45B5B" />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={{ flexDirection: "row", marginBottom: 6 }}>
         <View
           style={{
             backgroundColor:
-              priority === "High"
+              getDisplayText(priority, "Normal") === "High"
                 ? COLORS.dangerBg
-                : priority === "Low"
+                : getDisplayText(priority, "Normal") === "Low"
                   ? COLORS.successBg
                   : COLORS.infoBg,
             paddingHorizontal: 8,
@@ -156,21 +197,21 @@ export default function TaskCard({
               fontSize: 10,
               fontWeight: "700",
               color:
-                priority === "High"
+                getDisplayText(priority, "Normal") === "High"
                   ? COLORS.dangerBorder
-                  : priority === "Low"
+                  : getDisplayText(priority, "Normal") === "Low"
                     ? COLORS.successBorder
                     : COLORS.infoBorder,
             }}
           >
-            Priority: {priority || "Normal"}
+            Priority: {getDisplayText(priority, "Normal")}
           </AppText>
         </View>
       </View>
 
       {/* BODY INFO */}
       <AppText style={{ fontSize: 12, color: "#555", marginBottom: 2 }}>
-        Aircraft: {aircraft}
+        Aircraft: {getDisplayText(aircraft)}
       </AppText>
 
       <AppText style={{ fontSize: 12, color: "#777", marginBottom: 2 }}>
@@ -182,7 +223,8 @@ export default function TaskCard({
       </AppText>
 
       {/* PROGRESS */}
-      {(status === "Ongoing" || status === "Returned") && (
+      {(normalizedDisplayStatus === "ongoing" ||
+        normalizedDisplayStatus === "returned") && (
         <View style={{ marginTop: 6 }}>
           <View
             style={{
@@ -212,7 +254,7 @@ export default function TaskCard({
       {/* ASSIGNED INFO */}
       {assignedToName && (
         <AppText style={{ fontSize: 12, color: "#777", marginTop: 6 }}>
-          Assigned to: {assignedToName}
+          Assigned to: {getDisplayText(assignedToName)}
         </AppText>
       )}
 
@@ -227,24 +269,76 @@ export default function TaskCard({
           }}
         >
           <AppText style={{ fontSize: 12, color: "#C62828" }}>
-            {returnComments}
+            {getDisplayText(returnComments, "")}
           </AppText>
         </View>
       )}
 
       {/* ACTIONS */}
-      {showEditDelete && (
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            marginTop: 10,
-          }}
-        >
-          <TouchableOpacity onPress={() => onEditTask?.(data)}>
-            <MaterialCommunityIcons name="pencil" size={21} color="#777" />
+      {canReview && (
+        <CardActionRow>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onReturn?.(data);
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.dangerBorder,
+              borderRadius: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <AppText style={{ color: COLORS.dangerBorder, fontWeight: "600" }}>
+              Return
+            </AppText>
           </TouchableOpacity>
-        </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onApprove?.(data);
+            }}
+            style={{
+              backgroundColor: COLORS.primaryLight,
+              borderRadius: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+              Approve
+            </AppText>
+          </TouchableOpacity>
+        </CardActionRow>
+      )}
+      {showEditDelete && (
+        <CardActionRow>
+          <ActionIconButton
+            icon="pencil"
+            tooltip="Edit"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onEditTask?.(data);
+            }}
+            color="#777"
+            size={32}
+            iconSize={21}
+          />
+          <ActionIconButton
+            icon="delete"
+            tooltip="Delete"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onDeleteTask?.(data);
+            }}
+            color="#F45B5B"
+            size={32}
+            iconSize={21}
+          />
+        </CardActionRow>
       )}
     </Card>
   );

@@ -96,6 +96,29 @@ const getReferenceCellValue = (cell, refs = {}) => {
   const key = cell.replace(/\$/g, "").toUpperCase();
   const referenceCells = refs.referenceCells || {};
 
+  const normalizedAircraftType = String(refs.aircraftType || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const isB412 =
+    normalizedAircraftType.includes("B412EP") ||
+    normalizedAircraftType.includes("BELL412EP") ||
+    referenceCells.H2 !== undefined ||
+    referenceCells.N2 !== undefined;
+
+  if (isB412) {
+    if (key === "J1") return refs.landings ?? referenceCells[key];
+    if (key === "L1") return refs.today ?? referenceCells[key];
+    if (key === "H2") return refs.n1Cycles ?? referenceCells[key];
+    if (key === "J2") return refs.eng1TSO ?? referenceCells[key];
+    if (key === "L2") return refs.engTT ?? referenceCells[key];
+    if (key === "H3") return refs.n2Cycles ?? referenceCells[key];
+    if (key === "J3") return refs.eng2TSO ?? referenceCells[key];
+    if (key === "L3") return refs.acftTT ?? referenceCells[key];
+    if (key === "N2") return refs.eng2TT ?? referenceCells[key];
+    if (key === "N3") return refs.usage ?? referenceCells[key];
+    if (referenceCells[key] !== undefined) return referenceCells[key];
+  }
+
   if (key === "J1") return refs.landings;
   if (key === "L1") return refs.today;
   if (key === "L2") return refs.engTT ?? refs.acftTT;

@@ -13,9 +13,9 @@ export default function MaintenanceSummary({ tasks = [], loading = false }) {
     }).length;
 
     return [
-      { label: "Repaired/Completed", value: repaired },
-      { label: "Pending", value: pending },
-      { label: "Overdue", value: overdue },
+      { label: "Repaired/Completed", value: repaired, fill: "#26866f" },
+      { label: "Pending", value: pending, fill: "#faad14" },
+      { label: "Overdue", value: overdue, fill: "#f5222d" },
     ];
   }, [tasks]);
 

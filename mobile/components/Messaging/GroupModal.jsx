@@ -1,9 +1,9 @@
+import Modal from "../common/AppModal";
 import React from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import {
+import { FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   TouchableOpacity,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { COLORS } from "../../stylesheets/colors";
+import { SearchBar } from "../common/MobileModule";
 
 export default function GroupModal({
   visible,
@@ -49,15 +50,25 @@ export default function GroupModal({
               style={{ height: 42, marginTop: 14, borderWidth: 1, borderColor: "#D8DEDC", borderRadius: 6, paddingHorizontal: 10, color: COLORS.black }}
             />
             <AppText style={{ marginTop: 14, marginBottom: 8, fontSize: 12, color: COLORS.grayDark }}>Members</AppText>
-            <AppInput
+            <SearchBar
               value={memberSearch}
               onChangeText={setMemberSearch}
               placeholder="Search members"
-              placeholderTextColor={COLORS.grayDark}
-              style={{ height: 40, marginBottom: 10, borderWidth: 1, borderColor: "#D8DEDC", borderRadius: 6, paddingHorizontal: 10, color: COLORS.black }}
+              containerStyle={{
+                height: 40,
+                borderRadius: 6,
+                borderColor: "#D8DEDC",
+              }}
             />
-            <ScrollView style={{ maxHeight: 260 }} keyboardShouldPersistTaps="handled">
-              {filteredUsers.map((item) => {
+            <FlatList
+              style={{ maxHeight: 260 }}
+              keyboardShouldPersistTaps="handled"
+              data={filteredUsers}
+              keyExtractor={(item, index) => String(item._id || item.id || index)}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              renderItem={({ item: item }) => {
                 const memberId = String(item._id);
                 const selected = groupMemberIds.includes(memberId);
                 return (
@@ -82,8 +93,8 @@ export default function GroupModal({
                     />
                   </TouchableOpacity>
                 );
-              })}
-            </ScrollView>
+              }}
+            />
             <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
               <TouchableOpacity onPress={onClose} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 6 }}>
                 <AppText style={{ color: COLORS.grayDark, fontWeight: "700" }}>Cancel</AppText>
