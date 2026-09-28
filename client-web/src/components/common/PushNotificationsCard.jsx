@@ -21,39 +21,19 @@ import { BellOutlined } from "@ant-design/icons";
 import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import {
+  AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+  loadAircraftFhNotifications,
+  saveAircraftFhNotifications,
+} from "../../utils/boundedLocalStorage";
+import {
   hasNavAccess,
   resolveUserRole,
 } from "../../../../shared/navigationAccess";
 
 const { Text } = Typography;
-const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
-const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
-const getUserScopedStorageKey = (baseKey, userId) =>
-  userId ? `${baseKey}:${userId}` : baseKey;
 
 const isAircraftFhNotification = (notificationId = "") =>
   String(notificationId).startsWith("aircraft-fh|");
-
-const loadAircraftFhNotifications = (userId) => {
-  try {
-    const stored = JSON.parse(
-      localStorage.getItem(
-        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
-      ) || "[]",
-    );
-    return Array.isArray(stored) ? stored : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveAircraftFhNotifications = (notifications, userId) => {
-  localStorage.setItem(
-    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
-    JSON.stringify(notifications.slice(0, 50)),
-  );
-  window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
-};
 
 const mergeAircraftFhNotifications = (
   notifications = [],
@@ -401,6 +381,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       cancelText: "Cancel",
       zIndex: 2000,
       onOk: clearReadNotifications,
+      centered: true,
     });
   };
 
@@ -417,7 +398,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
         targetFlightLogId: String(notification.entityId || ""),
-        targetSection: notification?.metadata?.targetSection || 'flight',
+        targetSection: notification?.metadata?.targetSection || "flight",
         ...(status ? { notificationStatus: status } : {}),
       });
 

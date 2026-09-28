@@ -195,7 +195,10 @@ export default function FlightWorkspace({
     setBusy(true);
     setError("");
     setTab(
-      inspectionSection || (["flight", "defects", "history"].includes(initialSection) ? initialSection : "flight"),
+      inspectionSection ||
+        (["flight", "preparation", "defects", "history"].includes(initialSection)
+          ? initialSection
+          : "flight"),
     );
     Promise.all([api(`${id}/workspace`), AsyncStorage.getItem(storageKey)])
       .then(([data, cached]) => {
@@ -462,7 +465,7 @@ export default function FlightWorkspace({
           </TouchableOpacity>
         </View>
         {log && !inspectionSection && <View style={{ paddingHorizontal: 12, backgroundColor: "#fff" }}>
-          <Choice values={[["flight", "Flight Record"], ["defects", "Aircraft Defects"], ["history", "History"]]} value={tab} onChange={setTab} />
+          <Choice values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
         </View>}
         <FlatList
           key={tab}
@@ -522,12 +525,15 @@ export default function FlightWorkspace({
                         ? ` — ${log[step.crew]?.name || "Unassigned"}`
                         : ""}
                     </AppText>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginVertical: 12 }}>
-                      <View style={{ flex: 1, minWidth: 120 }}><AppText style={{ color: "#64766e", fontSize: 12 }}>Pilot</AppText><AppText>{log.assignedPilot?.name || "Unassigned"}</AppText></View>
-                      <View style={{ flex: 1, minWidth: 120 }}><AppText style={{ color: "#64766e", fontSize: 12 }}>Mechanic</AppText><AppText>{log.assignedMechanic?.name || "Unassigned"}</AppText></View>
-                    </View>
-                    <AppText style={{ color: "#64766e", fontSize: 12 }}>Aircraft: {workspace.readiness.aircraftStatus}</AppText>
-                    {saveState !== "Saved on server" && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 8 }}>{saveState}</AppText>}
+                    <AppText>
+                      Pilot: {log.assignedPilot?.name || "Unassigned"}
+                      {"\n"}Mechanic:{" "}
+                      {log.assignedMechanic?.name || "Unassigned"}
+                    </AppText>
+                    <AppText>{workspace.readiness.aircraftStatus}</AppText>
+                    {saveState !== "Saved on server" && (
+                      <AppText>{saveState}</AppText>
+                    )}
                     {workspace.history
                       .filter((e) => e.action === "return")
                       .slice(-1)
@@ -625,6 +631,53 @@ export default function FlightWorkspace({
                       </View>
                     </>
                   )}
+                  {tab === "preparation" && (
+                    <View style={panel}>
+                      {permissions.preparation &&
+                      [
+                        ...workspace.readiness.missing,
+                        ...workspace.readiness.warnings,
+                      ].length ? (
+                        [
+                          ...workspace.readiness.missing,
+                          ...workspace.readiness.warnings,
+                        ].map((message, i) => (
+                          <AppText key={i} style={{ marginVertical: 4 }}>
+                            - {message}
+                          </AppText>
+                        ))
+                      ) : (
+                        <AppText>
+                          No preparation checks require attention.
+                        </AppText>
+                      )}
+                      {!!workspace.readiness.maintenanceDue?.length && (
+                        <>
+                          <AppText style={{ marginTop: 12 }}>
+                            {workspace.readiness.maintenanceDue.length}{" "}
+                            maintenance warnings - release is allowed
+                          </AppText>
+                          <Action
+                            onPress={() =>
+                              setShowMaintenanceDue((value) => !value)
+                            }
+                          >
+                            {showMaintenanceDue
+                              ? "Hide overdue items"
+                              : "View overdue items from Parts Lifespan Monitoring"}
+                          </Action>
+                          {showMaintenanceDue &&
+                            workspace.readiness.maintenanceDue.map(
+                              (item, i) => (
+                                <AppText key={i} style={{ marginVertical: 4 }}>
+                                  {item}
+                                </AppText>
+                              ),
+                            )}
+                        </>
+                      )}
+                    </View>
+                  )}
                   {["pre", "post"].includes(tab) && (
                     <>
                       {assigned && mechanic && permissions.preparation && (
@@ -713,42 +766,34 @@ export default function FlightWorkspace({
             <>
               {log && (
                 <>
-                  {permissions.preparation &&
-                    [
-                      ...workspace.readiness.missing,
-                      ...workspace.readiness.warnings,
-                    ].map((message, i) => (
-                      <AppText
-                        key={i}
-                        style={{
-                          marginVertical: 4,
-                        }}
-                      >
-                        • {message}
-                      </AppText>
-                    ))}
-                  {!!workspace.readiness.maintenanceDue?.length && (
-                    <View style={panel}>
-                      <AppText>
-                        {workspace.readiness.maintenanceDue.length} maintenance
-                        warnings — release is allowed
-                      </AppText>
-                      <Action
-                        onPress={() => setShowMaintenanceDue((value) => !value)}
-                      >
-                        {showMaintenanceDue
-                          ? "Hide overdue items"
-                          : "View overdue items from Parts Lifespan Monitoring"}
-                      </Action>
-                      {showMaintenanceDue &&
-                        workspace.readiness.maintenanceDue.map((item, i) => (
-                          <AppText key={i} style={{ marginVertical: 4 }}>
-                            {item}
-                          </AppText>
-                        ))}
-                    </View>
+                  {!readOnly && mechanic && needsMyFlightAction(user, log) && (
+                    <Action disabled={busy} onPress={advance}>
+                      {step.button}
+                    </Action>
                   )}
-
+                  {permissions.canSave && (
+                    <Action
+                      disabled={busy}
+                      onPress={() =>
+                        execute(id, {
+                          changes: draft,
+                          expectedVersion: log.__v || 0,
+                        })
+                      }
+                    >
+                      Save Draft
+                    </Action>
+                  )}
+                  {permissions.canReturn && (
+                    <Action
+                      onPress={() => {
+                        setComment("");
+                        setReturning(true);
+                      }}
+                    >
+                      Return for Correction
+                    </Action>
+                  )}
                 </>
               )}
             </>
@@ -845,39 +890,49 @@ export default function FlightWorkspace({
             return null;
           }}
         />
-        {log && <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: "#dce6e1", backgroundColor: "white" }}>
-                  {!readOnly && mechanic && needsMyFlightAction(user, log) && (
-                    <Action disabled={busy} onPress={advance}>
-                      {step.button}
-                    </Action>
-                  )}
-                  {permissions.canSave && (
-                    <Action
-                      secondary
-                      disabled={busy}
-                      onPress={() =>
-                        execute(id, {
-                          changes: draft,
-                          expectedVersion: log.__v || 0,
-                        })
-                      }
-                    >
-                      Save Draft
-                    </Action>
-                  )}
-                  {permissions.canReturn && (
-                    <Action
-                      secondary
-                      disabled={busy}
-                      onPress={() => {
-                        setComment("");
-                        setReturning(true);
-                      }}
-                    >
-                      Return for Correction
-                    </Action>
-                  )}
-        </View>}
+        {log && (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: 12,
+              borderTopWidth: 1,
+              borderTopColor: "#dce6e1",
+              backgroundColor: "white",
+            }}
+          >
+            {!readOnly && mechanic && needsMyFlightAction(user, log) && (
+              <Action disabled={busy} onPress={advance}>
+                {step.button}
+              </Action>
+            )}
+            {permissions.canSave && (
+              <Action
+                disabled={busy}
+                onPress={() =>
+                  execute(id, {
+                    changes: draft,
+                    expectedVersion: log.__v || 0,
+                  })
+                }
+              >
+                Save Draft
+              </Action>
+            )}
+            {permissions.canReturn && (
+              <Action
+                onPress={() => {
+                  setComment("");
+                  setReturning(true);
+                }}
+              >
+                Return for Correction
+              </Action>
+            )}
+          </View>
+        )}
         {!sign && (returning || !!review || !!defect || !!amendment) && (
           <View
             style={{

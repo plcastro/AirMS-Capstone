@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Card, Col, Input, Row, Spin, Typography } from "antd";
+import { Card, Col, Input, Row, Space, Spin, Typography } from "antd";
 import { RightOutlined, SearchOutlined } from "@ant-design/icons";
 import { groupAircraftLogs } from "../../../../shared/aircraftLogGroups";
 import { matchesSearch } from "../../utils/search";
@@ -44,59 +44,57 @@ export default function AircraftLogGroups({
         }}
         styles={{ body: { padding: "10px 12px" } }}
       >
-        <Row gutter={[8, 8]} align="middle">
-          <Col xs={24} md={14}>
-            <Input
-              size="large"
-              placeholder="Search aircraft registration, type, or base"
-              aria-label="Search aircraft"
-              prefix={<SearchOutlined />}
-              allowClear
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
+        <Row gutter={[12, 12]} align="middle" justify="space-between">
+          <Col>
+            <Space wrap size={[12, 12]}>
+              <Input
+                size="large"
+                style={{ width: "min(320px, calc(100vw - 64px))" }}
+                placeholder="Search aircraft registration, type, or base"
+                aria-label="Search aircraft"
+                prefix={<SearchOutlined />}
+                allowClear
+                value={query}
+                onChange={(event) => onQueryChange(event.target.value)}
+              />
+            </Space>
           </Col>
 
-          {/* <Col xs={24} md={4}>
-            <div
-              style={{
-                border: "1px solid #e6f2ed",
-                background: "#f7fcfa",
-                borderRadius: 8,
-                padding: "5px 8px",
-                textAlign: "center",
-                lineHeight: 1.2,
-              }}
-            >
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Aircraft
-              </Text>
-
+          <Col
+            style={{
+              marginLeft: "auto",
+            }}
+          >
+            <Space size={8} wrap>
               <div
                 style={{
-                  fontWeight: 700,
-                  color: "#1f5f49",
-                  fontSize: 16,
-                  marginTop: 2,
+                  border: "1px solid #e6f2ed",
+                  background: "#f7fcfa",
+                  borderRadius: 8,
+                  padding: "5px 8px",
+                  textAlign: "center",
+                  lineHeight: 1.2,
+                  minWidth: 72,
                 }}
               >
-                {visibleGroups.length}
-              </div>
-            </div>
-          </Col> */}
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  Aircraft
+                </Text>
 
-          {headerAction && (
-            <Col
-              xs={24}
-              md={6}
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#1f5f49",
+                    fontSize: 16,
+                    marginTop: 2,
+                  }}
+                >
+                  {visibleGroups.length}
+                </div>
+              </div>
               {headerAction}
-            </Col>
-          )}
+            </Space>
+          </Col>
         </Row>
       </Card>
 
@@ -179,11 +177,6 @@ export default function AircraftLogGroups({
           ))}
         </Row>
       </Spin>
-      <div style={{ marginTop: 8, marginBottom: 16, textAlign: "right" }}>
-        <Text type="secondary">
-          Showing <Text strong>{visibleGroups.length}</Text> Aircraft
-        </Text>
-      </div>
     </>
   );
 }

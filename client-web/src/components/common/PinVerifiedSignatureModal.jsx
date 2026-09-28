@@ -137,6 +137,9 @@ export default function PinVerifiedSignatureModal({
       footer={
         step === "signature"
           ? [
+              <Button key="cancel" onClick={handleCancel} disabled={saving}>
+                Cancel
+              </Button>,
               <Button
                 key="clear"
                 danger
@@ -151,6 +154,9 @@ export default function PinVerifiedSignatureModal({
               </Button>,
             ]
           : [
+              <Button key="cancel" onClick={handleCancel} disabled={saving}>
+                Cancel
+              </Button>,
               !pinOnly && <Button
                 key="redraw"
                 onClick={() => {

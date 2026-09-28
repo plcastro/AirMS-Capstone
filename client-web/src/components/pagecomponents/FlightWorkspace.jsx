@@ -132,7 +132,12 @@ export default function FlightWorkspace({
     setBusy(true);
     setError("");
     setWorkspace(null);
-    setTab(inspectionSection || (["flight", "defects", "history"].includes(initialSection) ? initialSection : "flight"));
+    setTab(
+      inspectionSection ||
+        (["flight", "preparation", "defects", "history"].includes(initialSection)
+          ? initialSection
+          : "flight"),
+    );
     setSignedAction(null);
     setReview(null);
     setDefectForm(null);
@@ -198,6 +203,10 @@ export default function FlightWorkspace({
   );
   const assigned = !readOnly && isAssignedFlightCrew(user, log);
   const mechanic = getAssignedCrewField(user) === "assignedMechanic";
+  const showWorkspaceActions =
+    !readOnly && ((mechanic && needsMyFlightAction(user, log)) ||
+    permissions.canSave ||
+    permissions.canReturn);
   const finish = async (preserve = false) => {
     if (!preserve) {
       sessionStorage.removeItem(storageKey);
@@ -362,47 +371,94 @@ export default function FlightWorkspace({
     anchor.click();
     URL.revokeObjectURL(url);
   };
+  const readiness = workspace?.readiness || {
+    missing: [],
+    warnings: [],
+    maintenanceDue: [],
+  };
+  const preparationChecks = (
+    <Space orientation="vertical" style={{ width: "100%" }} size={12}>
+      {permissions.preparation && [...readiness.missing, ...readiness.warnings].map((message, i) => (
+        <Alert key={i} type="warning" showIcon title={message} />
+      ))}
+      {!!readiness.maintenanceDue?.length && (
+        <Alert
+          type="warning"
+          showIcon
+          title={`${readiness.maintenanceDue.length} maintenance warnings - release is allowed`}
+          description={
+            <details>
+              <summary>
+                View overdue items from Parts Lifespan Monitoring
+              </summary>
+              <ul>
+                {readiness.maintenanceDue.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </details>
+          }
+        />
+      )}
+      {!readiness.missing.length &&
+        !readiness.warnings.length &&
+        !readiness.maintenanceDue?.length && (
+          <Typography.Text type="secondary">
+            No preparation checks require attention.
+          </Typography.Text>
+        )}
+    </Space>
+  );
   return (
     <Modal
-      className="fl-workspace-modal"
-      style={{ top: 24, paddingBottom: 24 }}
+      centered
       open={open}
       onCancel={onClose}
-      footer={log ? (<Space wrap style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-                {!readOnly && mechanic && needsMyFlightAction(user, log) && (
-                  <Button
-                    type="primary"
-                    loading={busy}
-                    onClick={() => prepareAction(step.action)}
-                  >
-                    {step.button}
-                  </Button>
-                )}
-                {permissions.canSave && (
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      execute(id, {
-                        changes: draft,
-                        expectedVersion: log.__v || 0,
-                      })
-                    }
-                  >
-                    Save Draft
-                  </Button>
-                )}
-                {permissions.canReturn && (
-                  <Button
-                    onClick={() => {
-                      setComment("");
-                      setReturnOpen(true);
-                    }}
-                  >
-                    Return for Correction
-                  </Button>
-                )}
-                <Button onClick={onClose}>Close</Button>
-              </Space>) : null}
+      footer={
+        log ? (
+          <Space
+            wrap
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              width: "100%",
+            }}
+          >
+            {!readOnly && mechanic && needsMyFlightAction(user, log) && (
+              <Button
+                type="primary"
+                loading={busy}
+                onClick={() => prepareAction(step.action)}
+              >
+                {step.button}
+              </Button>
+            )}
+            {permissions.canSave && (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  execute(id, {
+                    changes: draft,
+                    expectedVersion: log.__v || 0,
+                  })
+                }
+              >
+                Save Draft
+              </Button>
+            )}
+            {permissions.canReturn && (
+              <Button
+                onClick={() => {
+                  setComment("");
+                  setReturnOpen(true);
+                }}
+              >
+                Return for Correction
+              </Button>
+            )}
+          </Space>
+        ) : null
+      }
       width={1220}
       title={<div className="fl-workspace-heading">
         <span>{inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}</span>
@@ -470,14 +526,18 @@ export default function FlightWorkspace({
                 </Typography.Text>
                 <Tag>{workspace.readiness.aircraftStatus}</Tag>
               </Space>
-              <div className="fl-workspace-details">
-                <div><span>Pilot</span><strong>{log.assignedPilot?.name || "Unassigned"}</strong></div>
-                <div><span>Mechanic</span><strong>{log.assignedMechanic?.name || "Unassigned"}</strong></div>
-                <div><span>Last updated</span><strong>{labelTime(log.updatedAt) || "—"}</strong></div>
-              </div>
-              {assigned && log.status !== "completed" && saveState !== "Saved on server" && (
-                <Typography.Text type="secondary">{saveState}</Typography.Text>
-              )}
+              <p>
+                Pilot: {log.assignedPilot?.name || "Unassigned"} · Mechanic:{" "}
+                {log.assignedMechanic?.name || "Unassigned"} · Last update:{" "}
+                {labelTime(log.updatedAt)}
+              </p>
+              {assigned &&
+                log.status !== "completed" &&
+                saveState !== "Saved on server" && (
+                  <Typography.Text type="secondary">
+                    {saveState}
+                  </Typography.Text>
+                )}
               {log.releasedBy?.name && (
                 <p>
                   Released by {log.releasedBy.name} at{" "}
@@ -570,10 +630,9 @@ export default function FlightWorkspace({
               items={[
                 {
                   key: "flight",
-                  label: "Flight Record",
+                  label: "Flight Log",
                   children: (
                     <>
-
                       <FlightLogEntry
                         embedded
                         visible={open}
@@ -591,6 +650,11 @@ export default function FlightWorkspace({
                       />
                     </>
                   ),
+                },
+                {
+                  key: "preparation",
+                  label: "Preparation Checks",
+                  children: preparationChecks,
                 },
                 ...(inspectionSection ? [inspectionSection] : []).map((kind) => ({
                   key: kind,
@@ -797,45 +861,47 @@ export default function FlightWorkspace({
                     </>
                   ),
                 },
-              ].filter((item) => !inspectionSection || item.key === inspectionSection)}
-            />
-            <>
-              {(workspace.readiness.missing.length > 0 ||
-                workspace.readiness.warnings.length > 0) &&
-                permissions.preparation && (
-                  <details>
-                    <summary>Preparation checks</summary>
-                    <ul>
-                      {[
-                        ...workspace.readiness.missing,
-                        ...workspace.readiness.warnings,
-                      ].map((message, i) => (
-                        <li key={i}>{message}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              {!!workspace.readiness.maintenanceDue?.length && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title={`${workspace.readiness.maintenanceDue.length} maintenance warnings — release is allowed`}
-                  description={
-                    <details>
-                      <summary>
-                        View overdue items from Parts Lifespan Monitoring
-                      </summary>
-                      <ul>
-                        {workspace.readiness.maintenanceDue.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  }
-                />
+              ].filter(
+                (item) => !inspectionSection || item.key === inspectionSection,
               )}
-
-            </>
+            />
+            {showWorkspaceActions && (
+              <Card
+                size="small"
+                style={{
+                  position: "sticky",
+                  bottom: 0,
+                  zIndex: 2,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <Space wrap>
+                  {mechanic && needsMyFlightAction(user, log) && (
+                    <Button
+                      type="primary"
+                      loading={busy}
+                      onClick={() => prepareAction(step.action)}
+                    >
+                      {step.button}
+                    </Button>
+                  )}
+                  {permissions.canSave && (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        execute(id, {
+                          changes: draft,
+                          expectedVersion: log.__v || 0,
+                        })
+                      }
+                    >
+                      Save Draft
+                    </Button>
+                  )}
+                </Space>
+              </Card>
+            )}
           </>
         )}
       </Spin>

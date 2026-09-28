@@ -5,13 +5,15 @@ import {
   Button,
   Card,
   Checkbox,
+  Col,
   Input,
+  Row,
   Select,
   Space,
   Tag,
   Typography,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -221,33 +223,42 @@ export default function FlightLog() {
   ];
   return (
     <div className="fl-page">
-      <Space
-        wrap
-        style={{
-          marginBottom: 16,
-          width: "100%",
-          justifyContent: "space-between",
-        }}
-      >
-        <Typography.Title
-          level={4}
+      {aircraft && (
+        <div
           style={{
-            margin: 0,
+            marginBottom: 16,
           }}
         >
-          {aircraft ? aircraft + " - Flight Logs" : "Flight Logs"}
-        </Typography.Title>
-        {!aircraft && role === "mechanic" && (
-          <Button type="primary" icon={<PlusOutlined />} disabled={loading} onClick={() => startEntry()}>
-            New Entry
+          <Button
+            onClick={() => setAircraft("")}
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            style={{
+              marginBottom: 12,
+              paddingInline: 0,
+              color: "#1f5f49",
+            }}
+          >
+            Back to Aircraft
           </Button>
-        )}
-      </Space>
+
+          <Typography.Title
+            level={4}
+            style={{
+              margin: 0,
+            }}
+          >
+            {aircraft + " - Flight Logs"}
+          </Typography.Title>
+        </div>
+      )}
       {error && (
         <Alert
           type="error"
           title={error}
-          closable={{ onClose: () => setError("") }}
+          closable={{
+            onClose: () => setError(""),
+          }}
           style={{
             marginBottom: 12,
           }}
@@ -256,6 +267,11 @@ export default function FlightLog() {
       {!aircraft ? (
         <AircraftLogGroups
           isNew={isNew}
+          headerAction={role === "mechanic" ? (
+            <Button size="large" type="primary" icon={<PlusOutlined />} disabled={loading} onClick={() => startEntry()}>
+              New Entry
+            </Button>
+          ) : null}
           records={logs}
           loading={loading}
           query={aircraftQuery}
@@ -269,64 +285,69 @@ export default function FlightLog() {
         />
       ) : (
         <>
-          <Button
-            onClick={() => setAircraft("")}
-            style={{
-              marginBottom: 12,
-            }}
-          >
-            Back to Aircraft
-          </Button>
           <Card
             size="small"
             style={{
               marginBottom: 12,
             }}
           >
-            <Space wrap>
-              <Input
-                size="large"
-                placeholder="Search this aircraft?s logs"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                allowClear
-              />
+            <Row gutter={[12, 12]} align="middle" justify="space-between">
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    placeholder="Search this aircraft?s logs"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    allowClear
+                  />
 
-              <Select
-                size="large"
-                style={{
-                  minWidth: 210,
-                }}
-                value={status}
-                onChange={setStatus}
-                options={[
-                  {
-                    value: "all",
-                    label: "All stages",
-                  },
-                  ...Object.entries(FLIGHT_STAGES).map(([value, step]) => ({
-                    value,
-                    label: step.label,
-                  })),
-                ]}
-              />
-              <Checkbox
-                checked={mine}
-                onChange={(e) => setMine(e.target.checked)}
-              >
-                Needs My Action
-              </Checkbox>
+                  <Select
+                    size="large"
+                    style={{
+                      width: 210,
+                    }}
+                    value={status}
+                    onChange={setStatus}
+                    options={[
+                      {
+                        value: "all",
+                        label: "All stages",
+                      },
+                      ...Object.entries(FLIGHT_STAGES).map(([value, step]) => ({
+                        value,
+                        label: step.label,
+                      })),
+                    ]}
+                  />
+                  <Checkbox
+                    checked={mine}
+                    onChange={(e) => setMine(e.target.checked)}
+                  >
+                    Needs My Action
+                  </Checkbox>
+                </Space>
+              </Col>
               {role === "mechanic" && (
-                <Button
-                  type="primary"
-                  disabled={loading || ongoingFlight}
-                  onClick={() => startEntry(aircraft)}
-                  icon={<PlusOutlined />}
+                <Col
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  New Entry
-                </Button>
+                  <Button
+                    size="large"
+                    type="primary"
+                    disabled={loading || ongoingFlight}
+                    onClick={() => startEntry(aircraft)}
+                    icon={<PlusOutlined />}
+                  >
+                    New Entry
+                  </Button>
+                </Col>
               )}
-            </Space>
+            </Row>
             {role === "mechanic" && ongoingFlight && (
               <Typography.Text type="secondary" style={{ display: "block", marginTop: 10 }}>
                 Complete this aircraft's ongoing flight log before creating a new entry.

@@ -219,13 +219,11 @@ export default function Login() {
 
       await loginUser({
         user,
-        session:
-          session ||
-          {
-            location: loginLocation,
-            sessionId: data.sessionId,
-            platform: loginPlatform,
-          },
+        session: session || {
+          location: loginLocation,
+          sessionId: data.sessionId,
+          platform: loginPlatform,
+        },
         accessToken: token,
         refreshToken,
         rememberMe,
@@ -339,49 +337,47 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
-          <AppText style={styles.label}>Logging in from</AppText>
+          <AppText style={styles.label}>Login Location</AppText>
+
           <View style={loginLocationStyles.wrap}>
             <View style={loginLocationStyles.panel}>
               <MaterialCommunityIcons
                 name={loginLocation?.text ? "map-marker-check" : "map-marker"}
                 size={22}
-                color={loginLocation?.text ? "#059670" : "gray"}
+                color={loginLocation?.text ? COLORS.primary : "gray"}
               />
+
               <View style={loginLocationStyles.textWrap}>
                 <AppText
                   style={[
                     loginLocationStyles.locationText,
-                    { color: loginLocation?.text ? "#111827" : "gray" },
+                    {
+                      color: loginLocation?.text ? "#111827" : "gray",
+                    },
                   ]}
                 >
-                  {loginLocation?.text || "Location not detected"}
+                  {loginLocation?.text || "Detecting your location..."}
                 </AppText>
-                {!!loginLocation?.coordinateText && (
-                  <AppText style={loginLocationStyles.coordinateText}>
-                    Latitude and longitude coordinates:{" "}
-                    {loginLocation.coordinateText}
+
+                {loginLocation?.text && (
+                  <AppText style={loginLocationStyles.statusText}>
+                    Location detected for login security
                   </AppText>
+                )}
+
+                {!loginLocation && getMessage && (
+                  <TouchableOpacity
+                    onPress={handleDetectLocation}
+                    disabled={detectingLocation}
+                    activeOpacity={0.7}
+                  >
+                    <AppText style={loginLocationStyles.retryText}>
+                      {detectingLocation ? "Detecting..." : "Try again"}
+                    </AppText>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
-            <TouchableOpacity
-              style={[
-                loginLocationStyles.detectButton,
-                detectingLocation && loginLocationStyles.detectButtonDisabled,
-              ]}
-              activeOpacity={0.82}
-              disabled={detectingLocation}
-              onPress={handleDetectLocation}
-            >
-              <MaterialCommunityIcons
-                name="crosshairs-gps"
-                size={18}
-                color={COLORS.white}
-              />
-              <AppText style={loginLocationStyles.detectButtonText}>
-                {detectingLocation ? "Detecting..." : "Detect location"}
-              </AppText>
-            </TouchableOpacity>
           </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>
@@ -476,7 +472,7 @@ const loginLocationStyles = StyleSheet.create({
   },
   detectButton: {
     marginTop: 8,
-    backgroundColor: "#059670",
+    backgroundColor: COLORS.white,
     borderRadius: 8,
     minHeight: 44,
     alignItems: "center",
@@ -488,7 +484,7 @@ const loginLocationStyles = StyleSheet.create({
     opacity: 0.65,
   },
   detectButtonText: {
-    color: COLORS.white,
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: "700",
   },

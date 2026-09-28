@@ -397,10 +397,10 @@ export default function FlightLogVerifyTechnical({
         {/* Approve / Cancel Buttons on last page */}
         {currentPage === pages.length - 1 && (
           <Row justify="end" style={{ marginTop: 20, gap: 10 }}>
+            <Button onClick={handleDiscard}>Cancel</Button>
             <Button type="primary" onClick={handleApprove}>
               Approve
             </Button>
-            <Button onClick={handleDiscard}>Cancel</Button>
           </Row>
         )}
       </Modal>

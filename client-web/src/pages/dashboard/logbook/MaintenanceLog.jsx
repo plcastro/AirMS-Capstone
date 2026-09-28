@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -10,6 +10,7 @@ import { API_BASE } from "../../../utils/API_BASE";
 import { AuthContext } from "../../../context/AuthContext";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
+import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
 import { canExportModule } from "../../../../../shared/exportAccess";
@@ -98,6 +99,24 @@ const getReportDate = (record = {}) =>
       record.updatedAt ||
       record.createdAt,
   );
+
+const getMaintenanceUpdatedAt = (record = {}) =>
+  record.dateDefectRectified ||
+  record.dateRectified ||
+  record.completedAt ||
+  record.updatedAt ||
+  record.createdAt ||
+  "";
+
+const getLatestMaintenanceUpdatedAt = (entries = []) =>
+  entries.reduce((latest, entry) => {
+    const value = getMaintenanceUpdatedAt(entry);
+    const time = value ? new Date(value).getTime() : Number.NaN;
+    if (!Number.isFinite(time)) return latest;
+
+    const latestTime = latest ? new Date(latest).getTime() : Number.NaN;
+    return !Number.isFinite(latestTime) || time > latestTime ? value : latest;
+  }, "");
 
 const loadImageDataUrl = (src) =>
   new Promise((resolve, reject) => {
@@ -746,156 +765,175 @@ export default function MaintenanceLog() {
 
   if (viewLevel === "dashboard") {
     return (
-      <div style={pageScrollStyle}>
-        <div style={contentWrapStyle}>
-          <Card
-            style={{ marginBottom: 14, borderRadius: 12 }}
-            styles={{ body: { padding: 16 } }}
-          >
-            <Row gutter={[12, 12]} align="middle" justify="space-between">
-              <Col xs={24} md={10}>
+      <div className="fl-page">
+        <Card
+          style={{
+            marginBottom: 10,
+            borderRadius: 10,
+          }}
+          styles={{ body: { padding: "10px 12px" } }}
+        >
+          <Row align="middle" justify="space-between">
+            <Col>
+              <Space wrap size={[12, 12]}>
                 <Input
                   size="large"
+                  style={{ width: "min(320px, calc(100vw - 64px))" }}
                   placeholder="Search aircraft, task title, defects, or reporter..."
                   prefix={<SearchOutlined />}
                   allowClear
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                 />
-              </Col>
-              <Col xs={24} md={4}>
+              </Space>
+            </Col>
+            <Col
+              style={{
+                marginLeft: "auto",
+              }}
+            >
+              <Space size={8} wrap>
                 <div
                   style={{
                     border: "1px solid #e6f2ed",
                     background: "#f7fcfa",
-                    borderRadius: 10,
-                    padding: "8px 10px",
+                    borderRadius: 8,
+                    padding: "5px 8px",
                     textAlign: "center",
+                    lineHeight: 1.2,
+                    minWidth: 72,
                   }}
                 >
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
                     Aircraft
                   </Text>
+
                   <div
-                    style={{ fontWeight: 700, color: "#1f5f49", fontSize: 18 }}
+                    style={{
+                      fontWeight: 700,
+                      color: "#1f5f49",
+                      fontSize: 16,
+                      marginTop: 2,
+                    }}
                   >
                     {uniqueAircraft.length}
                   </div>
                 </div>
-              </Col>
-            </Row>
-          </Card>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
 
-          <Row
-            gutter={[16, 16]}
-            align="stretch"
-            style={{ alignItems: "stretch" }}
-          >
-            {!loading && uniqueAircraft.length === 0 && (
-              <Col span={24}>
-                <Card style={{ borderRadius: 12 }}>
-                  <Text type="secondary">
-                    No maintenance logs found yet. Completed task-assignment
-                    records will appear here automatically.
-                  </Text>
-                </Card>
-              </Col>
-            )}
+        <Row
+          gutter={[16, 16]}
+          align="stretch"
+          style={{ alignItems: "stretch" }}
+        >
+          {!loading && uniqueAircraft.length === 0 && (
+            <Col span={24}>
+              <Card style={{ borderRadius: 12 }}>
+                <Text type="secondary">
+                  No maintenance logs found yet. Completed task-assignment
+                  records will appear here automatically.
+                </Text>
+              </Card>
+            </Col>
+          )}
 
-            {uniqueAircraft.map((reg) => {
-              const entriesForAircraft = filteredEntries.filter(
-                (entry) => entry.aircraft === reg,
-              );
-              const sample = entriesForAircraft[0];
-              const newCount = entriesForAircraft.filter((entry) => {
-                const stableId = getLogStableId(entry);
-                return stableId && !seenLogIds.has(stableId);
-              }).length;
+          {uniqueAircraft.map((reg) => {
+            const entriesForAircraft = filteredEntries.filter(
+              (entry) => entry.aircraft === reg,
+            );
+            const sample = entriesForAircraft[0];
+            const latestUpdatedAt =
+              getLatestMaintenanceUpdatedAt(entriesForAircraft);
+            const newCount = entriesForAircraft.filter((entry) => {
+              const stableId = getLogStableId(entry);
+              return stableId && !seenLogIds.has(stableId);
+            }).length;
 
-              return (
-                <Col
-                  xs={24}
-                  sm={12}
-                  md={8}
-                  lg={6}
-                  key={reg}
-                  style={{ display: "flex" }}
+            return (
+              <Col
+                xs={24}
+                sm={12}
+                md={8}
+                lg={6}
+                key={reg}
+                style={{ display: "flex" }}
+              >
+                <Card
+                  hoverable
+                  onClick={() => navigateToAircraft(reg)}
+                  styles={{ body: { padding: 0, height: "100%" } }}
+                  style={{
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
                 >
-                  <Card
-                    hoverable
-                    onClick={() => navigateToAircraft(reg)}
-                    styles={{ body: { padding: 0, height: "100%" } }}
+                  <div
                     style={{
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      width: "100%",
-                      height: "100%",
                       display: "flex",
-                      flexDirection: "column",
+                      flex: 1,
+                      minHeight: 120,
                     }}
                   >
                     <div
+                      style={{ width: 7, background: BRAND, flexShrink: 0 }}
+                    />
+
+                    <div
                       style={{
-                        display: "flex",
+                        padding: 16,
                         flex: 1,
-                        minHeight: 120,
+                        display: "flex",
+                        flexDirection: "column",
                       }}
                     >
-                      <div
-                        style={{ width: 7, background: BRAND, flexShrink: 0 }}
-                      />
-
-                      <div
+                      <Title
+                        level={5}
                         style={{
-                          padding: 16,
-                          flex: 1,
+                          margin: "0 0 8px",
                           display: "flex",
-                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 8,
                         }}
                       >
-                        <Title
-                          level={5}
-                          style={{
-                            margin: "0 0 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <span>{reg}</span>
-                          {newCount > 0 ? buildNewBadge() : null}
-                        </Title>
+                        <span>{reg}</span>
+                        {newCount > 0 ? buildNewBadge() : null}
+                      </Title>
 
-                        <Text type="secondary">
-                          SOURCE: {sample?.type || "Task Assignment"}
-                        </Text>
+                      <Text type="secondary">
+                        SOURCE: {sample?.type || "Task Assignment"}
+                      </Text>
 
-                        <Text type="secondary">
-                          ENTRIES: {entriesForAircraft.length}
-                        </Text>
+                      <Text type="secondary">
+                        ENTRIES: {entriesForAircraft.length}
+                      </Text>
 
-                        <div style={{ height: 22, marginTop: "auto" }}>
-                          {newCount > 0 ? (
-                            <Text style={{ color: "#d46b08", fontWeight: 600 }}>
-                              {newCount} new work done
-                            </Text>
-                          ) : null}
-                        </div>
+                      <div style={{ marginTop: 4 }}>
+                        <Text type="secondary">LAST UPDATED:</Text>
+                        <DateTimeCell value={latestUpdatedAt} />
+                      </div>
+
+                      <div style={{ height: 22, marginTop: "auto" }}>
+                        {newCount > 0 ? (
+                          <Text style={{ color: "#d46b08", fontWeight: 600 }}>
+                            {newCount} new work done
+                          </Text>
+                        ) : null}
                       </div>
                     </div>
-                  </Card>
-                </Col>
-              );
-            })}
-          </Row>
-          <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-            <Col span={24} style={{ textAlign: "right" }}>
-              <Text type="secondary">
-                Showing <Text strong>{uniqueAircraft.length}</Text> Aircraft/s
-              </Text>
-            </Col>
-          </Row>
-        </div>
+                  </div>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+
         {resultPopup}
       </div>
     );

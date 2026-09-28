@@ -1,19 +1,32 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Col,
   Input,
-  InputNumber,
   Row,
   Space,
   Select,
   Statistic,
   Tag,
+  Modal,
+  Popover,
+  Tooltip,
   Typography,
 } from "antd";
-import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  ReloadOutlined,
+  SearchOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import { AuthContext } from "../../../context/AuthContext";
@@ -40,6 +53,15 @@ const DEFAULT_RULES = {
   mediumDueDays: 14,
   longTurnaroundHours: 5,
 };
+
+const PRIORITY_OPTIONS = ["Critical", "High", "Medium", "Low"].map(
+  (priority) => ({
+    value: priority,
+    label: priority,
+  }),
+);
+
+const RULE_FIELDS = Object.keys(DEFAULT_RULES);
 
 const formatDueSummary = (record) => {
   const segments = [];
@@ -95,32 +117,22 @@ const formatDueBasis = (basis) => {
   }
 };
 
-function PriorityOverrideEditor({ record, onSave }) {
-  const [level, setLevel] = useState(record.manualPriorityOverride?.level || "Auto");
-  const [reason, setReason] = useState(record.manualPriorityOverride?.reason || "");
-  const [saving, setSaving] = useState(false);
-  return (
-    <Space direction="vertical" size={4} style={{ width: "100%", marginTop: 8 }}>
-      <Select aria-label={"Priority override for " + record.aircraft} value={level} disabled={saving}
-        style={{ width: "100%" }} onChange={setLevel}
-        options={["Auto", "Critical", "High", "Medium", "Low"].map((value) => ({ value, label: value }))} />
-      {level !== "Auto" && <Input aria-label={"Optional priority reason for " + record.aircraft}
-        placeholder="Reason (optional)" value={reason} disabled={saving}
-        onChange={(event) => setReason(event.target.value)} />}
-      <Button size="small" loading={saving} onClick={async () => {
-        setSaving(true);
-        try { await onSave(record.aircraft, level, reason); }
-        finally { setSaving(false); }
-      }}>Save priority</Button>
-    </Space>
-  );
-}
+const areRulesChanged = (left, right) =>
+  RULE_FIELDS.some((key) => Number(left[key]) !== Number(right[key]));
+
+const formatPriorityCount = (count, priority) =>
+  `${count} aircraft -> ${priority}`;
 
 export default function MaintenancePriority() {
   const { user, getAuthHeader } = useContext(AuthContext);
-  const role = String(user?.jobTitle || user?.access || "").trim().toLowerCase();
-  const canOverride = ["maintenance manager", "superadmin"].includes(role) ||
-    String(user?.access || "").trim().toLowerCase() === "superadmin";
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canOverride =
+    ["maintenance manager", "superadmin"].includes(role) ||
+    String(user?.access || "")
+      .trim()
+      .toLowerCase() === "superadmin";
   const [searchText, setSearchText] = useState("");
   const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);
@@ -130,14 +142,27 @@ export default function MaintenancePriority() {
   const [rules, setRules] = useState(DEFAULT_RULES);
   const [draftRules, setDraftRules] = useState(DEFAULT_RULES);
   const [showControls, setShowControls] = useState(false);
+  const [aircraftSelectionMode, setAircraftSelectionMode] = useState(false);
+  const [selectedAircraft, setSelectedAircraft] = useState([]);
+  const [selectedPriority, setSelectedPriority] = useState("Critical");
+  const [savingPriority, setSavingPriority] = useState(false);
+  const [showTieBreakLogic, setShowTieBreakLogic] = useState(false);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
     title: "",
     subTitle: "",
   });
+  const selectedAircraftSet = useMemo(
+    () => new Set(selectedAircraft),
+    [selectedAircraft],
+  );
+  const rulesChanged = useMemo(
+    () => areRulesChanged(draftRules, rules),
+    [draftRules, rules],
+  );
 
-  const fetchPriorityData = async (activeRules = rules) => {
+  const fetchPriorityData = useCallback(async (activeRules = DEFAULT_RULES) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -173,7 +198,7 @@ export default function MaintenancePriority() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const loadRulesAndPriority = async () => {
@@ -212,21 +237,46 @@ export default function MaintenancePriority() {
     };
 
     loadRulesAndPriority();
-  }, []);
+  }, [fetchPriorityData]);
 
-  const saveOverride = async (aircraft, level, reason) => {
-    try {
-      const response = await fetch(API_BASE + "/api/parts-monitoring/maintenance-priority/" + encodeURIComponent(aircraft) + "/override", {
+  useEffect(() => {
+    setSelectedAircraft((current) =>
+      current.filter((aircraft) => {
+        const record = priorityData.find((item) => item.aircraft === aircraft);
+        return record && record.priorityLevel !== selectedPriority;
+      }),
+    );
+  }, [priorityData, selectedPriority]);
+
+  const saveOverride = async (aircraft, level, reason = "") => {
+    const response = await fetch(
+      API_BASE +
+        "/api/parts-monitoring/maintenance-priority/" +
+        encodeURIComponent(aircraft) +
+        "/override",
+      {
         method: "PUT",
-        headers: { ...getAuthHeader(), "Content-Type": "application/json", "x-action-confirmed": "true" },
-        body: JSON.stringify({ level, ...(level !== "Auto" ? { reason } : {}) }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Could not save priority.");
-      await fetchPriorityData(rules);
-    } catch (error) {
-      setPopup({ open: true, status: "error", title: "Priority not saved", subTitle: error.message });
+        headers: {
+          ...(await getAuthHeader()),
+          "Content-Type": "application/json",
+          "x-action-confirmed": "true",
+        },
+        body: JSON.stringify({
+          level,
+          ...(level !== "Auto" ? { reason } : {}),
+        }),
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || result.error || `Failed to update ${aircraft}.`,
+      );
     }
+
+    return result;
   };
 
   const updateDraftRule = (key, value) => {
@@ -236,81 +286,119 @@ export default function MaintenancePriority() {
     }));
   };
 
-  const applyRules = async () => {
-    const confirmed = await confirmAction({
-      title: "Apply Priority Rules",
-      content: "Apply these thresholds now for current ranking?",
-      okText: "Apply",
-    });
-    if (!confirmed) return;
+  const toggleAircraftSelection = useCallback(
+    (record) => {
+      if (!record?.aircraft || record.priorityLevel === selectedPriority)
+        return;
 
-    setRules(draftRules);
-    setPopup({
-      open: true,
-      status: "success",
-      title: "Priority Rules Applied!",
-      subTitle: "Maintenance priority rules have been applied successfully.",
-    });
-    await fetchPriorityData(draftRules);
-  };
+      setSelectedAircraft((current) =>
+        current.includes(record.aircraft)
+          ? current.filter((aircraft) => aircraft !== record.aircraft)
+          : [...current, record.aircraft],
+      );
+    },
+    [selectedPriority],
+  );
 
-  const saveRules = async () => {
+  const applyMaintenanceControls = async () => {
+    const hasManualChanges = selectedAircraft.length > 0;
+    const hasRuleChanges = canOverride && rulesChanged;
+
+    if (!hasManualChanges && !hasRuleChanges) {
+      setPopup({
+        open: true,
+        status: "success",
+        title: "No changes to save",
+        subTitle: "Maintenance controls are already up to date.",
+      });
+      return;
+    }
+
+    const confirmationLines = [
+      hasManualChanges
+        ? formatPriorityCount(selectedAircraft.length, selectedPriority)
+        : null,
+      hasRuleChanges ? "Automatic priority rules updated" : null,
+    ].filter(Boolean);
+
     const confirmed = await confirmAction({
-      title: "Save Priority Rules",
-      content: "Save these maintenance priority thresholds as default rules?",
+      title: "Save Maintenance Controls?",
+      content: (
+        <Space direction="vertical" size={4}>
+          {confirmationLines.map((line) => (
+            <Text key={line}>{line}</Text>
+          ))}
+        </Space>
+      ),
       okText: "Save",
     });
+
     if (!confirmed) return;
 
     try {
       setSavingRules(true);
-      const response = await fetch(
-        `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
-        {
-          method: "PUT",
-          headers: {
-            ...(await getAuthHeader()),
-            "Content-Type": "application/json",
-            "x-action-confirmed": "true",
-          },
-          body: JSON.stringify({
-            ...draftRules,
-            confirmAction: true,
-          }),
-        },
-      );
-      const result = await response.json();
+      setSavingPriority(true);
 
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message || "Failed to save maintenance priority rules",
+      if (hasRuleChanges) {
+        const rulesResponse = await fetch(
+          `${API_BASE}/api/parts-monitoring/maintenance-priority/rules`,
+          {
+            method: "PUT",
+            headers: {
+              ...(await getAuthHeader()),
+              "Content-Type": "application/json",
+              "x-action-confirmed": "true",
+            },
+            body: JSON.stringify({
+              ...draftRules,
+              confirmAction: true,
+            }),
+          },
         );
+
+        const rulesResult = await rulesResponse.json();
+
+        if (!rulesResponse.ok || !rulesResult.success) {
+          throw new Error(
+            rulesResult.message ||
+              rulesResult.error ||
+              "Failed to save priority rules.",
+          );
+        }
       }
 
-      const savedRules = {
-        ...DEFAULT_RULES,
-        ...(result.data || {}),
-      };
+      if (hasManualChanges) {
+        for (const aircraft of selectedAircraft) {
+          await saveOverride(aircraft, selectedPriority);
+        }
+      }
 
-      setRules(savedRules);
-      setDraftRules(savedRules);
+      await fetchPriorityData(draftRules);
+
+      if (hasRuleChanges) {
+        setRules(draftRules);
+      }
+
       setPopup({
         open: true,
         status: "success",
-        title: "Priority Rules Saved!",
-        subTitle: "Maintenance priority rules have been saved successfully.",
+        title: "Maintenance Controls Saved",
+        subTitle: confirmationLines.join(". "),
       });
-      await fetchPriorityData(savedRules);
+
+      setSelectedAircraft([]);
     } catch (error) {
-      console.error("Failed to save maintenance priority rules:", error);
+      console.error("Failed to save maintenance controls:", error);
+
       setPopup({
         open: true,
         status: "error",
-        title: "Operation failed!",
-        subTitle: error.message || "Failed to save maintenance priority rules",
+        title: "Changes not saved",
+        subTitle: error.message || "Could not save the maintenance controls.",
       });
     } finally {
       setSavingRules(false);
+      setSavingPriority(false);
     }
   };
 
@@ -324,14 +412,12 @@ export default function MaintenancePriority() {
     if (!confirmed) return;
 
     setDraftRules(DEFAULT_RULES);
-    setRules(DEFAULT_RULES);
     setPopup({
       open: true,
       status: "success",
-      title: "Priority Rules Reset!",
-      subTitle: "Maintenance priority rules have been reset to default values.",
+      title: "Priority Rules Reset",
+      subTitle: "Default rule values are ready. Click Save to apply them.",
     });
-    await fetchPriorityData(DEFAULT_RULES);
   };
 
   const filteredData = useMemo(() => {
@@ -371,253 +457,455 @@ export default function MaintenancePriority() {
     };
   }, [priorityData]);
 
-  const columns = [
-    {
-      title: "Rank",
-      dataIndex: "rank",
-      key: "rank",
-      width: 50,
-      sorter: (left, right) => compareNumber(left.rank, right.rank),
-      sortDirections: ["ascend", "descend"],
-    },
-    {
-      title: "Aircraft",
-      dataIndex: "aircraft",
-      key: "aircraft",
-      width: 100,
-      sorter: (left, right) => compareText(left.aircraft, right.aircraft),
-      sortDirections: ["ascend", "descend"],
-    },
-    {
-      title: "Model",
-      dataIndex: "aircraftModel",
-      key: "aircraftModel",
-      width: 100,
-      sorter: (left, right) =>
-        compareText(left.aircraftModel, right.aircraftModel),
-      sortDirections: ["ascend", "descend"],
-    },
-    {
-      title: "Next Inspection",
-      dataIndex: "nextInspection",
-      key: "nextInspection",
-      width: 120,
-      sorter: (left, right) =>
-        compareText(left.nextInspection, right.nextInspection),
-      sortDirections: ["ascend", "descend"],
-    },
-    {
-      title: "Remaining",
-      key: "dueSoonest",
-      width: 120,
-      sorter: (left, right) =>
-        getRemainingSortValue(left) - getRemainingSortValue(right),
-      sortDirections: ["ascend", "descend"],
-      render: (_, record) => formatDueSummary(record),
-    },
-    {
-      title: "Calendar Due",
-      dataIndex: "dueDate",
-      key: "dueDate",
-      width: 120,
-      render: (value, record) => (
-        <span>
-          <DateOnlyCell value={value} />
-          {record.dueBasis === "hours" && (
-            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-              not calendar overdue
-            </Text>
-          )}
-        </span>
-      ),
-    },
-    {
-      title: "Due Basis",
-      dataIndex: "dueBasis",
-      key: "dueBasis",
-      width: 140,
-      render: (value) => formatDueBasis(value),
-    },
-    {
-      title: "Turnaround",
-      dataIndex: "estimatedTurnaroundHours",
-      key: "estimatedTurnaroundHours",
-      width: 130,
-      render: (value, record) =>
-        value !== null && value !== undefined ? (
+  const baseColumns = useMemo(
+    () => [
+      {
+        title: "Rank",
+        dataIndex: "rank",
+        key: "rank",
+        width: 70,
+        sorter: (left, right) => compareNumber(left.rank, right.rank),
+        sortDirections: ["ascend", "descend"],
+        defaultSortOrder: "ascend",
+      },
+      {
+        title: "Aircraft",
+        dataIndex: "aircraft",
+        key: "aircraft",
+        width: 100,
+        sorter: (left, right) => compareText(left.aircraft, right.aircraft),
+        sortDirections: ["ascend", "descend"],
+      },
+      {
+        title: "Model",
+        dataIndex: "aircraftModel",
+        key: "aircraftModel",
+        width: 100,
+        sorter: (left, right) =>
+          compareText(left.aircraftModel, right.aircraftModel),
+        sortDirections: ["ascend", "descend"],
+      },
+      {
+        title: "Next Inspection",
+        dataIndex: "nextInspection",
+        key: "nextInspection",
+        width: 120,
+        sorter: (left, right) =>
+          compareText(left.nextInspection, right.nextInspection),
+        sortDirections: ["ascend", "descend"],
+      },
+      {
+        title: "Remaining",
+        key: "dueSoonest",
+        width: 120,
+        sorter: (left, right) =>
+          getRemainingSortValue(left) - getRemainingSortValue(right),
+        sortDirections: ["ascend", "descend"],
+        render: (_, record) => formatDueSummary(record),
+      },
+      {
+        title: "Calendar Due",
+        dataIndex: "dueDate",
+        key: "dueDate",
+        width: 120,
+        render: (value, record) => (
           <span>
-            {value} hr{value === 1 ? "" : "s"}
-            <Text type="secondary" style={{ marginLeft: 6 }}>
-              {record.usedHistoricalEstimate ? "historical" : "estimated"}
-            </Text>
+            <DateOnlyCell value={value} />
+            {record.dueBasis === "hours" && (
+              <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                not calendar overdue
+              </Text>
+            )}
           </span>
-        ) : (
-          "N/A"
         ),
-    },
-    {
-      title: "Priority",
-      dataIndex: "priorityLevel",
-      key: "priorityLevel",
-      width: canOverride ? 230 : 150,
-      render: (value, record) => (
-        <div>
-          <Tag color={PRIORITY_COLORS[value] || "default"} style={{ fontWeight: 700 }}>{value}</Tag>
-          {record.manualPriorityOverride && <>
-            <Text strong>Manual</Text>
-            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-              Auto: {record.autoPriorityLevel}. {record.priorityReason}
-            </Text>
-            {!!record.manualPriorityOverride.reason && <Text type="secondary">{record.manualPriorityOverride.reason}</Text>}
-          </>}
-          {canOverride && <PriorityOverrideEditor
-            key={record.inspectionId + ":" + (record.manualPriorityOverride?.setAt || "auto")}
-            record={record} onSave={saveOverride} />}
-        </div>
-      ),
-    },
-    {
-      title: "Automatic Decision Basis",
-      dataIndex: "priorityReason",
-      key: "priorityReason",
-    },
-    {
-      title: "Automatic Rule Trigger",
-      dataIndex: "priorityTriggers",
-      key: "priorityTriggers",
-      render: (value) =>
-        Array.isArray(value) && value.length > 0 ? value.join(" | ") : "N/A",
-    },
-  ];
+      },
+      {
+        title: "Due Basis",
+        dataIndex: "dueBasis",
+        key: "dueBasis",
+        width: 140,
+        render: (value) => formatDueBasis(value),
+      },
+      {
+        title: "Turnaround",
+        dataIndex: "estimatedTurnaroundHours",
+        key: "estimatedTurnaroundHours",
+        width: 130,
+        render: (value, record) =>
+          value !== null && value !== undefined ? (
+            <span>
+              {value} hr{value === 1 ? "" : "s"}
+              <Text type="secondary" style={{ marginLeft: 6 }}>
+                {record.usedHistoricalEstimate ? "historical" : "estimated"}
+              </Text>
+            </span>
+          ) : (
+            "N/A"
+          ),
+      },
+      {
+        title: "Priority",
+        dataIndex: "priorityLevel",
+        key: "priorityLevel",
+        width: 190,
+        render: (value, record) => {
+          const isSelected = selectedAircraftSet.has(record.aircraft);
+
+          return (
+            <Space orientation="vertical" size={2}>
+              <Space size={4} wrap>
+                <Tag
+                  color={PRIORITY_COLORS[value] || "default"}
+                  style={{ fontWeight: 700, marginInlineEnd: 0 }}
+                >
+                  {value}
+                </Tag>
+                {isSelected && (
+                  <>
+                    <Text type="secondary">-&gt;</Text>
+                    <Tag
+                      color={PRIORITY_COLORS[selectedPriority] || "default"}
+                      style={{ fontWeight: 700, marginInlineEnd: 0 }}
+                    >
+                      {selectedPriority}
+                    </Tag>
+                  </>
+                )}
+              </Space>
+
+              {record.manualPriorityOverride && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Manual
+                </Text>
+              )}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Automatic Decision Basis",
+        dataIndex: "priorityReason",
+        key: "priorityReason",
+      },
+      {
+        title: "Automatic Rule Trigger",
+        dataIndex: "priorityTriggers",
+        key: "priorityTriggers",
+        render: (value) =>
+          Array.isArray(value) && value.length > 0 ? value.join(" | ") : "N/A",
+      },
+    ],
+    [selectedAircraftSet, selectedPriority],
+  );
+
+  const columns = useMemo(() => {
+    if (!aircraftSelectionMode) return baseColumns;
+
+    const selectionColumn = {
+      title: "",
+      key: "aircraftSelection",
+      width: 46,
+      fixed: "left",
+      render: (_, record) => {
+        const disabled = record.priorityLevel === selectedPriority;
+        const checked = selectedAircraftSet.has(record.aircraft);
+
+        return (
+          <Checkbox
+            checked={checked}
+            disabled={disabled || savingRules || savingPriority}
+            onChange={() => toggleAircraftSelection(record)}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={
+              disabled
+                ? `${record.aircraft} is already ${selectedPriority}`
+                : `Select ${record.aircraft}`
+            }
+          />
+        );
+      },
+    };
+
+    return [selectionColumn, ...baseColumns];
+  }, [
+    aircraftSelectionMode,
+    baseColumns,
+    savingPriority,
+    savingRules,
+    selectedAircraftSet,
+    selectedPriority,
+    toggleAircraftSelection,
+  ]);
 
   return (
     <div
       style={{
-        padding: 20,
-        height: "calc(100vh - 64px)",
-        overflowY: "auto",
-        overflowX: "hidden",
+        padding: 12,
+        minHeight: "calc(100vh - 64px)",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        gap: 16,
-        paddingBottom: 110,
-        boxSizing: "border-box",
+        gap: 12,
+        paddingBottom: 60,
+        overflowX: "hidden",
       }}
     >
-      <Card>
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} md={16}>
-            <Title level={4} style={{ marginBottom: 4 }}>
-              Maintenance Priority Ranking
-            </Title>
-            <Text type="secondary">
-              Aircraft are ranked by effective priority, then by urgency and turnaround.
-              Manual priorities apply until the next-due inspection changes.
+      <Modal
+        open={showControls}
+        title={
+          <Text strong style={{ fontSize: 16 }}>
+            Maintenance Controls
+          </Text>
+        }
+        onCancel={() => setShowControls(false)}
+        footer={null}
+        width={760}
+        centered
+      >
+        {/* Automatic Priority */}
+        {canOverride && (
+          <div
+            style={{
+              borderTop: "1px solid #f0f0f0",
+              paddingTop: 18,
+            }}
+          >
+            <Text
+              strong
+              style={{
+                display: "block",
+                fontSize: 13,
+                marginBottom: 10,
+              }}
+            >
+              Automatic Priority Rules
             </Text>
-          </Col>
-          <Col xs={24} md={8}>
-            <Space style={{ width: "100%", justifyContent: "flex-end" }} wrap>
-              <Input
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder="Search aircraft or inspection"
-                style={{ width: 280, maxWidth: "100%" }}
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-              />
-              <Button onClick={() => setShowControls((current) => !current)}>
-                {showControls ? "Hide Controls" : "Show Controls"}
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={() => fetchPriorityData(rules)}
-                loading={loading}
-              >
-                Refresh
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
 
-      {showControls && (
-        <Card title="Maintenance Manager Rule Controls">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>Critical if due within (days)</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.criticalDueDays}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) => updateDraftRule("criticalDueDays", value)}
-              />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>Critical remaining hours</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.criticalRemainingHours}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) =>
-                  updateDraftRule("criticalRemainingHours", value)
-                }
-              />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>High if due within (days)</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.highDueDays}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) => updateDraftRule("highDueDays", value)}
-              />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>High remaining hours</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.highRemainingHours}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) =>
-                  updateDraftRule("highRemainingHours", value)
-                }
-              />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>Medium if due within (days)</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.mediumDueDays}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) => updateDraftRule("mediumDueDays", value)}
-              />
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Text>Long turnaround threshold (hrs)</Text>
-              <InputNumber
-                min={0}
-                value={draftRules.longTurnaroundHours}
-                style={{ width: "100%", marginTop: 8 }}
-                onChange={(value) =>
-                  updateDraftRule("longTurnaroundHours", value)
-                }
-              />
-            </Col>
-            <Col xs={24} style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Space wrap style={{ justifyContent: "flex-end" }}>
-                <Button type="primary" onClick={applyRules} loading={loading}>
-                  Apply Rules
-                </Button>
-                <Button onClick={saveRules} loading={savingRules}>
-                  Save as Default
-                </Button>
-                <Button onClick={resetRules}>Reset Rules</Button>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
-      )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(150px, 180px))",
+                gap: 10,
+              }}
+            >
+              {/* Critical Due */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Critical Due
+                </Text>
 
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.criticalDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "criticalDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* Critical FH */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Critical FH
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.criticalRemainingHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "criticalRemainingHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="FH"
+                />
+              </div>
+
+              {/* High Due */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  High Due
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.highDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "highDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* High FH */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  High FH
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.highRemainingHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "highRemainingHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="FH"
+                />
+              </div>
+
+              {/* Medium Due */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Medium Due
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.mediumDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "mediumDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* Long Turnaround */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Long Turnaround
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.longTurnaroundHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "longTurnaroundHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="hrs"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            marginTop: 24,
+            paddingTop: 12,
+            borderTop: "1px solid #f0f0f0",
+          }}
+        >
+          <Button
+            size="large"
+            onClick={resetRules}
+            disabled={savingRules || savingPriority}
+          >
+            Reset
+          </Button>
+
+          <Button
+            size="large"
+            type="primary"
+            loading={savingRules || savingPriority}
+            onClick={applyMaintenanceControls}
+          >
+            Save
+          </Button>
+        </div>
+      </Modal>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
@@ -656,15 +944,218 @@ export default function MaintenancePriority() {
           </Card>
         </Col>
       </Row>
+      <Card
+        size="small"
+        styles={{
+          body: {
+            padding: "8px 12px ",
+          },
+        }}
+      >
+        <Row>
+          <Col xs={24}>
+            <Title level={4}>Maintenance Priority Ranking</Title>
 
-      {meta && (
-        <Alert
-          type="info"
-          showIcon
-          title="Priority tie-break logic"
-          description={`If inspections are within ${meta.tieBreakHours} flight hours, ${meta.tieBreakDays} days, or an urgency ratio gap of ${meta.tieBreakUrgencyRatio}, the aircraft with the shorter turnaround is ranked first. Active rules: Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH, High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.`}
-        />
-      )}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Text type="secondary">
+                Aircraft are ranked by effective priority, then by urgency and
+                turnaround. Manual priorities apply until the next-due
+                inspection changes.
+              </Text>
+
+              {meta && (
+                <Popover
+                  title="Priority Tie-Break Logic"
+                  trigger="click"
+                  placement="bottomRight"
+                  content={
+                    <div style={{ maxWidth: 360, lineHeight: 1.6 }}>
+                      <Text>
+                        If inspections are within{" "}
+                        <strong>{meta.tieBreakHours} flight hours</strong>,{" "}
+                        <strong>{meta.tieBreakDays} days</strong>, or an urgency
+                        ratio gap of{" "}
+                        <strong>{meta.tieBreakUrgencyRatio}</strong>, the
+                        aircraft with the shorter turnaround is ranked first.
+                      </Text>
+
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px solid #f0f0f0",
+                        }}
+                      >
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Active rules
+                        </Text>
+
+                        <div style={{ marginTop: 4 }}>
+                          <Text style={{ display: "block", fontSize: 12 }}>
+                            Critical: ≤{" "}
+                            {meta.rules?.criticalDueDays ??
+                              rules.criticalDueDays}{" "}
+                            day(s) or ≤{" "}
+                            {meta.rules?.criticalRemainingHours ??
+                              rules.criticalRemainingHours}{" "}
+                            FH
+                          </Text>
+
+                          <Text style={{ display: "block", fontSize: 12 }}>
+                            High: ≤{" "}
+                            {meta.rules?.highDueDays ?? rules.highDueDays}{" "}
+                            day(s) or ≤{" "}
+                            {meta.rules?.highRemainingHours ??
+                              rules.highRemainingHours}{" "}
+                            FH
+                          </Text>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<InfoCircleOutlined />}
+                    aria-label="View priority tie-break logic"
+                    title="Priority tie-break logic"
+                    style={{
+                      flexShrink: 0,
+                      padding: 0,
+                      width: 20,
+                      height: 20,
+                    }}
+                  />
+                </Popover>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Main Controls */}
+              <Space wrap>
+                <Input
+                  allowClear
+                  size="large"
+                  prefix={<SearchOutlined />}
+                  placeholder="Search aircraft or inspection"
+                  style={{ width: 280, maxWidth: "100%" }}
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                />
+
+                <Button
+                  size="large"
+                  onClick={() => setShowControls(true)}
+                  disabled={savingPriority || savingRules}
+                >
+                  Automatic Priority Controls
+                </Button>
+
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchPriorityData(rules)}
+                  loading={loading}
+                  size="large"
+                  aria-label="Refresh rankings"
+                  title="Refresh rankings"
+                />
+              </Space>
+
+              {/* Manual Priority */}
+              <div
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingLeft: 12,
+                  borderLeft: "1px solid #f0f0f0",
+                }}
+              >
+                <Text
+                  strong
+                  style={{
+                    fontSize: 13,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Manual Priority
+                </Text>
+
+                {!aircraftSelectionMode ? (
+                  <Button
+                    size="large"
+                    type="primary"
+                    onClick={() => {
+                      setAircraftSelectionMode(true);
+                      setSelectedAircraft([]);
+                    }}
+                    disabled={savingPriority || savingRules}
+                  >
+                    Select Aircraft
+                  </Button>
+                ) : (
+                  <>
+                    <Text
+                      type="secondary"
+                      style={{
+                        fontSize: 13,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedAircraft.length} selected
+                    </Text>
+
+                    <Select
+                      size="large"
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      disabled={savingPriority || savingRules}
+                      style={{ width: 130 }}
+                      options={PRIORITY_OPTIONS}
+                    />
+
+                    <Button
+                      size="large"
+                      onClick={() => {
+                        setSelectedAircraft([]);
+                        setAircraftSelectionMode(false);
+                      }}
+                      disabled={savingPriority || savingRules}
+                    >
+                      Cancel
+                    </Button>
+
+                    <Button
+                      size="large"
+                      type="primary"
+                      loading={savingPriority}
+                      disabled={selectedAircraft.length === 0 || savingRules}
+                      onClick={applyMaintenanceControls}
+                    >
+                      Apply Priority
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </Col>
+        </Row>
+      </Card>
 
       <ResponsiveTable
         rowKey={(record) =>
@@ -681,8 +1172,18 @@ export default function MaintenancePriority() {
         loading={loading}
         columns={columns}
         dataSource={filteredData}
+        onRow={(record) => ({
+          onClick:
+            aircraftSelectionMode && record.priorityLevel !== selectedPriority
+              ? () => toggleAircraftSelection(record)
+              : undefined,
+          style:
+            aircraftSelectionMode && selectedAircraftSet.has(record.aircraft)
+              ? { background: "#f6ffed" }
+              : undefined,
+        })}
         pagination={false}
-        scroll={{ x: 1600 }}
+        scroll={{ x: aircraftSelectionMode ? 1646 : 1600 }}
         bordered
         size={"small"}
       />

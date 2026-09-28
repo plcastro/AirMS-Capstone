@@ -1241,22 +1241,22 @@ export default function FlightLogEntry({
           style={embedded ? { display: "none" } : undefined}
         >
           {canSaveCurrentTab ? (
-            <Button
-              type="primary"
-              className="fl-nav-btn"
-              onClick={handleSave}
-              loading={submitting}
-            >
-              {editMode ? "Save Draft" : "Create Draft"}
-            </Button>
+            <>
+              <Button className="fl-nav-btn" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                className="fl-nav-btn"
+                onClick={handleSave}
+                loading={submitting}
+              >
+                {editMode ? "Save Draft" : "Create Draft"}
+              </Button>
+            </>
           ) : (
             <Button className="fl-nav-btn" onClick={onClose}>
               Close
-            </Button>
-          )}
-          {canSaveCurrentTab && (
-            <Button className="fl-nav-btn" onClick={onClose}>
-              Cancel
             </Button>
           )}
         </div>

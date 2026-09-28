@@ -722,7 +722,11 @@ export default function TaskAssignment() {
           ACTIVE_OPEN.has(normalizeStatus(task.status)) && isPastDueTask(task)
         );
       if (activeTab === "completed")
-        return normalizeStatus(task.status) === "completed" || isTurnedIn(task);
+        return (
+          normalizeStatus(task.status) === "completed" ||
+          isTurnedIn(task) ||
+          isReviewed(task)
+        );
       return true;
     });
   }, [activeTab, isManager, myTasks, selectedAircraft]);
@@ -765,7 +769,9 @@ export default function TaskAssignment() {
       ).length,
       completed: myTasks.filter(
         (task) =>
-          normalizeStatus(task.status) === "completed" || isTurnedIn(task),
+          normalizeStatus(task.status) === "completed" ||
+          isTurnedIn(task) ||
+          isReviewed(task),
       ).length,
     }),
     [myTasks],
@@ -2016,61 +2022,38 @@ export default function TaskAssignment() {
                 <Card
                   size="small"
                   styles={{ body: { padding: "8px 10px" } }}
-                  style={{ background: "#fbfcfc", borderRadius: 8 }}
+                  style={{ borderRadius: 8 }}
                 >
-                  <Space
-                    orientation="vertical"
-                    size={4}
-                    style={{ width: "100%" }}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                        gap: 12,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div>
-                        <Text strong>
-                          {selectedTask.aircraft || "Aircraft"}
-                        </Text>
-                        <div>
-                          <Text type="secondary">
-                            Due:{" "}
-                            {formatDisplayDateTime(
-                              selectedTask.endDateTime || selectedTask.dueDate,
-                            )}
-                          </Text>
-                        </div>
-                      </div>
-                      <Text
-                        strong
-                        style={{
-                          background:
-                            done === total && total ? "#e8f5e9" : "#eef6ff",
-                          border:
-                            done === total && total
-                              ? "1px solid #b7eb8f"
-                              : "1px solid #cfe3ff",
-                          borderRadius: 999,
-                          color:
-                            done === total && total ? "#2e7d32" : "#1554ad",
-                          padding: "3px 10px",
-                        }}
-                      >
-                        {done}/{total} done
-                      </Text>
-                    </div>
-                    {total > 0 && (
-                      <Progress
-                        percent={percent}
-                        size="small"
-                        strokeColor="#26866F"
-                      />
+                    <Text strong>{selectedTask.aircraft || "Aircraft"}</Text>
+
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {done}/{total} done
+                    </Text>
+                  </div>
+
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Due:{" "}
+                    {formatDisplayDateTime(
+                      selectedTask.endDateTime || selectedTask.dueDate,
                     )}
-                  </Space>
+                  </Text>
+
+                  {total > 0 && (
+                    <Progress
+                      percent={percent}
+                      size="small"
+                      showInfo={false}
+                      strokeColor="#26866F"
+                      style={{ marginTop: 4 }}
+                    />
+                  )}
                 </Card>
               );
             })()}
@@ -2151,9 +2134,9 @@ export default function TaskAssignment() {
                   }),
                 )}
                 pagination={
-                  selectedTask.checklistItems.length > 5
+                  selectedTask.checklistItems.length > 3
                     ? {
-                        pageSize: 5,
+                        pageSize: 3,
                         showSizeChanger: false,
                         size: "small",
                       }

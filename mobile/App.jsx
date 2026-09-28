@@ -235,8 +235,8 @@ function DrawerNav({ navigation }) {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              paddingRight: 8,
-              height: "100%",
+              justifyContent: "center",
+              paddingBottom: Platform.OS === "ios" ? 10 : 8,
             }}
           >
             <NotificationBell navigation={navigation} />
@@ -246,6 +246,7 @@ function DrawerNav({ navigation }) {
                 flexDirection: "row",
                 alignItems: "center",
                 marginLeft: 4,
+                paddingBottom: Platform.OS === "ios" ? 6 : 4,
               }}
               onPress={() => navigation.navigate("Profile")}
             >
@@ -257,6 +258,7 @@ function DrawerNav({ navigation }) {
                     height: 40,
                     borderRadius: 20,
                     marginRight: 5,
+                    marginBottom: Platform.OS === "ios" ? 4 : 0,
                   }}
                 />
               ) : (
@@ -266,6 +268,7 @@ function DrawerNav({ navigation }) {
                     height: 40,
                     borderRadius: 20,
                     marginRight: 5,
+                    marginBottom: Platform.OS === "ios" ? 4 : 0,
                     backgroundColor: "#E6F4F1",
                     alignItems: "center",
                     justifyContent: "center",

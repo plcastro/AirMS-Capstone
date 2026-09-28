@@ -4,13 +4,19 @@ import { Input, Typography } from "antd";
 const { TextArea } = Input;
 const { Text } = Typography;
 
+const fieldCellStyle = {
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
+
 export default function FlightLogDiscrepancyRemarks({
   formData,
   updateForm,
   isEditable = true,
 }) {
   const renderSignatureBlock = (label, person, subtitle) => (
-    <div style={{ flex: 1, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
+    <div style={{ flex: 1, borderTop: "1px solid #e5e7eb", paddingTop: 12, paddingLeft: 8, paddingRight: 8, boxSizing: "border-box" }}>
       <div className="fl-label" style={{ marginBottom: 8 }}>
         {label}
       </div>
@@ -49,13 +55,14 @@ export default function FlightLogDiscrepancyRemarks({
 
       <div className="fl-card">
         <div className="fl-card-body">
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
+          <div className="fl-discrepancy-grid">
+            <div style={fieldCellStyle}>
               <div className="fl-label" style={{ marginBottom: 6 }}>
                 Discrepancy/Remarks (AI-interpreted):
               </div>
 
               <TextArea
+                size="large"
                 rows={6}
                 value={formData.remarks || ""}
                 onChange={(e) => updateForm("remarks", e.target.value)}
@@ -74,11 +81,12 @@ export default function FlightLogDiscrepancyRemarks({
                 and component signals.
               </Text>
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={fieldCellStyle}>
               <div className="fl-label" style={{ marginBottom: 6 }}>
                 Sling:
               </div>
               <TextArea
+                size="large"
                 rows={6}
                 value={formData.sling || ""}
                 onChange={(e) => updateForm("sling", e.target.value)}
@@ -94,9 +102,9 @@ export default function FlightLogDiscrepancyRemarks({
         </div>
       </div>
 
-      <div className="fl-card" style={{ marginTop: 16 }}>
+      <div className="fl-card">
         <div className="fl-card-body">
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <div className="fl-signature-summary">
             {renderSignatureBlock(
               "Released By",
               formData.releasedBy,

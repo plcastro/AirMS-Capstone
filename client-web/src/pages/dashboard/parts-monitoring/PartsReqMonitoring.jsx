@@ -20,6 +20,7 @@ import {
   Table,
   Typography,
   message,
+  Card,
 } from "antd";
 import {
   PlusOutlined,
@@ -28,6 +29,7 @@ import {
   SearchOutlined,
   InboxOutlined,
   CheckCircleOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useLocation } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
@@ -72,33 +74,86 @@ export default function PartsReqMonitoring() {
   const [editingItemKey, setEditingItemKey] = useState(null);
   const [showItemHelp, setShowItemHelp] = useState(false);
   const [itemPage, setItemPage] = useState(1);
+  const [itemError, setItemError] = useState("");
+
   const resetItemEntry = () => {
     setItemEntry(emptyItem());
     setEditingItemKey(null);
   };
+  const closeEntry = async () => {
+    if (busy) return;
+
+    const confirmed = await confirmAction({
+      title: "Cancel requisition?",
+      content:
+        "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
+    });
+
+    if (!confirmed) return;
+
+    setEntry(false);
+    form.resetFields();
+    setItems([]);
+    resetItemEntry();
+    setShowItemHelp(false);
+    setItemPage(1);
+    setItemError("");
+  };
   const saveItem = () => {
-    if (
-      !itemEntry.particular.trim() ||
-      !itemEntry.quantity ||
-      itemEntry.quantity <= 0
-    ) {
-      return message.error(
-        "Enter a part name and positive quantity for every item.",
-      );
+    const particular = itemEntry.particular.trim();
+
+    setItemError("");
+
+    if (!particular) {
+      setItemError("Please enter a part name.");
+      return;
     }
+
+    if (!itemEntry.quantity || itemEntry.quantity <= 0) {
+      return message.error("Enter a positive quantity for every item.");
+    }
+
+    const duplicate = items.some(
+      (item) =>
+        item.key !== editingItemKey &&
+        item.particular.trim().toLowerCase() === particular.toLowerCase(),
+    );
+
+    if (duplicate) {
+      setItemError(
+        "This part has already been added. Click the existing item below to edit its quantity or details.",
+      );
+      return;
+    }
+
     if (editingItemKey !== null) {
       setItems((current) =>
         current.map((item) =>
-          item.key === editingItemKey ? { ...itemEntry, key: item.key } : item,
+          item.key === editingItemKey
+            ? {
+                ...itemEntry,
+                particular,
+                key: item.key,
+              }
+            : item,
         ),
       );
+
+      message.success("Item updated.");
     } else {
       setItems((current) => [
         ...current,
-        { ...itemEntry, key: crypto.randomUUID() },
+        {
+          ...itemEntry,
+          particular,
+          key: crypto.randomUUID(),
+        },
       ]);
+
       setItemPage(Math.ceil((items.length + 1) / 5));
+      message.success("Item added.");
     }
+
     resetItemEntry();
   };
   const removeItem = (key) => {
@@ -127,8 +182,6 @@ export default function PartsReqMonitoring() {
     }
   }, [getAuthHeader]);
   useEffect(() => {
-    // Fetching on mount and polling synchronize the page with server changes.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const timer = setInterval(load, 15000);
     return () => clearInterval(timer);
@@ -304,49 +357,96 @@ export default function PartsReqMonitoring() {
       "mechanic",
     ].includes(roleOf(user))
   )
-    return <Alert type="error" message="Parts requisition access denied" />;
+    return <Alert type="error" title="Parts requisition access denied" />;
   return (
-    <div
-      style={{
-        padding: 24,
-      }}
-    >
-      <div
-        style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}
-      >
-        <Input
-          size="large"
-          prefix={<SearchOutlined />}
-          placeholder="Search by WRS no., aircraft, status, or requester"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          style={{ flex: "1 1 300px", maxWidth: 520 }}
-        />
-        {screens.md && (
-          <Select
-            size="large"
-            aria-label="Requisition date sorting"
-            value={dateSort}
-            onChange={setDateSort}
-            style={{ flex: "1 1 220px", maxWidth: 380 }}
-            options={[
-              { value: "updated", label: "Last updated: Newest First" },
-              { value: "newest", label: "Date: Newest First" },
-              { value: "oldest", label: "Date: Oldest First" },
-            ]}
-          />
-        )}
-        {canCreate(user) && (
-          <Button
-            size="large"
-            type="primary"
-            icon={<PlusOutlined />}
-            style={{ marginLeft: "auto" }}
-            onClick={() => setEntry(true)}
-          >
-            Add Requisition
-          </Button>
-        )}
+    <div className="fl-page">
+      <div style={{ marginBottom: 8 }}>
+        <Card
+          style={{
+            width: "100%",
+            marginBottom: 14,
+            borderRadius: 12,
+          }}
+          styles={{
+            body: {
+              padding: screens.md ? 16 : 12,
+            },
+          }}
+        >
+          <Row gutter={[12, 12]} align="middle">
+            {/* Search + Sort */}
+            <Col xs={24} md={18}>
+              <Row gutter={[8, 8]}>
+                <Col xs={24} sm={16} md={14}>
+                  <Input
+                    size="large"
+                    prefix={<SearchOutlined />}
+                    placeholder="Search by WRS no., aircraft, status, or requester"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    allowClear
+                    style={{
+                      width: "100%",
+                    }}
+                  />
+                </Col>
+
+                {screens.md && (
+                  <Col md={10}>
+                    <Select
+                      size="large"
+                      aria-label="Requisition date sorting"
+                      value={dateSort}
+                      onChange={setDateSort}
+                      style={{
+                        width: "100%",
+                      }}
+                      options={[
+                        {
+                          value: "updated",
+                          label: "Last updated: Newest First",
+                        },
+                        {
+                          value: "newest",
+                          label: "Date: Newest First",
+                        },
+                        {
+                          value: "oldest",
+                          label: "Date: Oldest First",
+                        },
+                      ]}
+                    />
+                  </Col>
+                )}
+              </Row>
+            </Col>
+
+            {/* Add Requisition */}
+            {canCreate(user) && (
+              <Col
+                xs={24}
+                md={6}
+                style={{
+                  display: "flex",
+                  justifyContent: screens.md ? "flex-end" : "stretch",
+                }}
+              >
+                <Button
+                  size="large"
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setEntry(true)}
+                  block={!screens.md}
+                  style={{
+                    width: screens.md ? 150 : "100%",
+                  }}
+                >
+                  Request item/s
+                </Button>
+              </Col>
+            )}
+          </Row>
+        </Card>
       </div>
       {error && (
         <Alert
@@ -356,19 +456,15 @@ export default function PartsReqMonitoring() {
           action={<Button onClick={load}>Retry</Button>}
         />
       )}
-      <Space wrap style={{ marginBottom: 20 }}>
+      <Space wrap style={{ marginBottom: 16 }}>
         {[
           [
             "active",
-            oversight ? "Oversight · Active" : "Active requisitions",
+            oversight ? "Oversight · Active" : "Active",
 
             <InboxOutlined key="active" />,
           ],
-          [
-            "history",
-            "History · Closed / Cancelled",
-            <CheckCircleOutlined key="history" />,
-          ],
+          ["history", "Closed", <CheckCircleOutlined key="history" />],
         ].map(([key, label, icon]) => (
           <Button
             size="large"
@@ -393,11 +489,7 @@ export default function PartsReqMonitoring() {
           </Button>
         ))}
       </Space>
-      <div style={{ textAlign: "right", marginBottom: 12 }}>
-        <Typography.Text type="secondary">
-          Showing {filtered.length} requisition(s)
-        </Typography.Text>
-      </div>
+
       <RequisitionList
         dateSort={dateSort}
         records={filtered}
@@ -419,137 +511,249 @@ export default function PartsReqMonitoring() {
       <Modal
         title="New parts requisition"
         open={entry}
-        onCancel={() => !busy && setEntry(false)}
+        onCancel={closeEntry}
         footer={null}
-        width={850}
+        centered
+        width={screens.md ? "70vw" : "calc(100vw - 16px)"}
+        styles={{
+          content: {
+            padding: 0,
+            overflow: "hidden",
+          },
+          header: {
+            padding: screens.md ? "14px 20px" : 0,
+            marginBottom: 0,
+          },
+          body: {
+            height: screens.md ? "75vh" : "calc(100dvh - 90px)",
+            overflowY: "auto",
+            padding: screens.md ? "16px 20px" : 0,
+          },
+        }}
       >
         <Form form={form} layout="vertical" onFinish={create}>
+          {/* Aircraft */}
           <Form.Item
             label="Aircraft"
             name="aircraft"
             rules={[
               {
                 required: true,
+                message: "Please select an aircraft.",
               },
             ]}
+            style={{ marginBottom: 20 }}
           >
             <Select
+              size="large"
               showSearch
+              optionFilterProp="label"
               options={aircraft}
               placeholder="Select aircraft"
+              style={{ width: "100%" }}
             />
           </Form.Item>
+
+          {/* Item Entry Header */}
           <div
             style={{
-              padding: 16,
-              marginBottom: 20,
-              border: "1px solid #d9d9d9",
-              borderRadius: 6,
-              background: "#fafafa",
-            }}
-          >
-            <Typography.Text strong>
-              {editingItemKey !== null ? "Edit Item" : "Add Item"}
-            </Typography.Text>
-            <Row gutter={[12, 12]} align="bottom" style={{ marginTop: 12 }}>
-              <Col xs={24} md={8}>
-                <Typography.Text>Particular</Typography.Text>
-                <PartNameInput
-                  value={itemEntry.particular}
-                  onChange={(particular) =>
-                    setItemEntry((current) => ({ ...current, particular }))
-                  }
-                  onSelectUnit={(unitOfMeasure) =>
-                    setItemEntry((current) => ({ ...current, unitOfMeasure }))
-                  }
-                />
-              </Col>
-              <Col xs={8} md={3}>
-                <Typography.Text>Quantity</Typography.Text>
-                <InputNumber
-                  aria-label="Quantity"
-                  min={1}
-                  value={itemEntry.quantity}
-                  onChange={(quantity) =>
-                    setItemEntry((current) => ({ ...current, quantity }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={8} md={3}>
-                <Typography.Text>Unit</Typography.Text>
-                <Select
-                  aria-label="Unit"
-                  value={itemEntry.unitOfMeasure}
-                  options={["PC", "SET", "ST", "UNT"].map((value) => ({
-                    value,
-                  }))}
-                  onChange={(unitOfMeasure) =>
-                    setItemEntry((current) => ({ ...current, unitOfMeasure }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} md={6}>
-                <Typography.Text>Purpose</Typography.Text>
-                <Input
-                  aria-label="Purpose"
-                  placeholder="Optional"
-                  value={itemEntry.purpose}
-                  onChange={(event) =>
-                    setItemEntry((current) => ({
-                      ...current,
-                      purpose: event.target.value,
-                    }))
-                  }
-                />
-              </Col>
-              <Col xs={24} md={4}>
-                <Space wrap>
-                  <Button
-                    type="primary"
-                    onClick={saveItem}
-                    disabled={busy}
-                    size="large"
-                  >
-                    {editingItemKey !== null ? "Update" : "Add"}
-                  </Button>
-                  {editingItemKey !== null && (
-                    <Button
-                      type="link"
-                      onClick={resetItemEntry}
-                      disabled={busy}
-                      size="large"
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </Space>
-              </Col>
-            </Row>
-          </div>
-          <Space
-            style={{
-              width: "100%",
+              display: "flex",
+              alignItems: screens.md ? "center" : "flex-start",
               justifyContent: "space-between",
+              gap: 8,
               marginBottom: 12,
             }}
           >
-            <Space>
-              <Typography.Text strong>Requisition Items</Typography.Text>
+            <Typography.Text strong style={{ fontSize: 16 }}>
+              {editingItemKey !== null ? "Edit Item" : "Add Item"}
+            </Typography.Text>
+
+            {!screens.md && items.length > 0 && (
+              <Typography.Text type="secondary">
+                {items.length} item{items.length !== 1 ? "s" : ""}
+              </Typography.Text>
+            )}
+          </div>
+
+          {/* Item Entry */}
+          <Row gutter={[12, 12]} align="bottom">
+            {/* Particular */}
+            <Col xs={24} md={8}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Particular</Typography.Text>
+              </div>
+
+              <PartNameInput
+                value={itemEntry.particular}
+                onChange={(particular) => {
+                  setItemError("");
+                  setItemEntry((current) => ({
+                    ...current,
+                    particular,
+                  }));
+                }}
+                onSelectUnit={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Quantity */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Quantity</Typography.Text>
+              </div>
+
+              <InputNumber
+                size="large"
+                aria-label="Quantity"
+                min={1}
+                value={itemEntry.quantity}
+                onChange={(quantity) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    quantity,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Unit */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Unit</Typography.Text>
+              </div>
+
+              <Select
+                size="large"
+                aria-label="Unit"
+                value={itemEntry.unitOfMeasure}
+                options={["PC", "SET", "ST", "UNT"].map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Purpose */}
+            <Col xs={24} md={6}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Purpose</Typography.Text>
+              </div>
+
+              <Input
+                size="large"
+                aria-label="Purpose"
+                placeholder="Optional"
+                value={itemEntry.purpose}
+                onChange={(event) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    purpose: event.target.value,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Add / Update */}
+            <Col xs={24} md={4}>
+              <Space
+                size={8}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                }}
+              >
+                <Button
+                  type="primary"
+                  onClick={saveItem}
+                  disabled={busy}
+                  size="large"
+                  icon={
+                    editingItemKey !== null ? (
+                      <EditOutlined />
+                    ) : (
+                      <PlusOutlined />
+                    )
+                  }
+                  style={{ flex: 1 }}
+                >
+                  {editingItemKey !== null ? "Update" : "Add"}
+                </Button>
+
+                {editingItemKey !== null && (
+                  <Button
+                    type="link"
+                    onClick={resetItemEntry}
+                    disabled={busy}
+                    size="large"
+                    style={{
+                      padding: "0 4px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </Space>
+            </Col>
+          </Row>
+          {itemError && (
+            <Typography.Text
+              type="danger"
+              style={{
+                display: "block",
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              {itemError}
+            </Typography.Text>
+          )}
+
+          {/* Items Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginTop: 24,
+              marginBottom: 12,
+            }}
+          >
+            <Space size={4}>
+              <Typography.Text strong style={{ fontSize: 16 }}>
+                Requisition Items
+              </Typography.Text>
+
               <Button
                 type="text"
-                size="small"
+                size="large"
                 icon={<QuestionCircleOutlined />}
                 aria-label="Show requisition item help"
                 aria-expanded={showItemHelp}
                 onClick={() => setShowItemHelp((value) => !value)}
               />
             </Space>
+
             <Typography.Text type="secondary">
               {items.length} item{items.length !== 1 ? "s" : ""}
             </Typography.Text>
-          </Space>
+          </div>
+
+          {/* Help */}
           {showItemHelp && (
             <Alert
               showIcon
@@ -561,105 +765,309 @@ export default function PartsReqMonitoring() {
               }
               description={
                 editingItemKey !== null
-                  ? "The highlighted row is loaded above. Click Update to save your changes, or Cancel to keep it unchanged."
-                  : "Click an item row to load it into the form above, then click Update to save your changes."
+                  ? "The selected item is loaded above. Click Update to save your changes, or Cancel Editing to keep it unchanged."
+                  : "Click an item to load it into the form above, then update it."
               }
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 16 }}
             />
           )}
-          <Table
-            bordered
-            size="small"
-            rowKey="key"
-            dataSource={items}
-            scroll={{ x: 700 }}
-            onRow={(item) => ({
-              onClick: () => {
-                if (!busy) {
-                  setItemEntry({
-                    particular: item.particular,
-                    quantity: item.quantity,
-                    unitOfMeasure: item.unitOfMeasure,
-                    purpose: item.purpose,
-                  });
-                  setEditingItemKey(item.key);
-                }
-              },
-              style: {
-                cursor: "pointer",
-                background: editingItemKey === item.key ? "#e6f4ff" : undefined,
-              },
-            })}
-            pagination={
-              items.length > 5
-                ? {
-                    current: itemPage,
-                    onChange: setItemPage,
-                    pageSize: 5,
-                    showSizeChanger: false,
-                    size: "small",
-                  }
-                : false
-            }
-            columns={[
-              {
-                title: "#",
-                width: 50,
-                render: (_, record) =>
-                  items.findIndex((item) => item.key === record.key) + 1,
-              },
-              { title: "Particular", dataIndex: "particular", width: 240 },
-              { title: "Quantity", dataIndex: "quantity", width: 90 },
-              { title: "Unit", dataIndex: "unitOfMeasure", width: 80 },
-              {
-                title: "Purpose",
-                dataIndex: "purpose",
-                width: 180,
-                render: (value) => value || "—",
-              },
-              {
-                title: "Action",
-                width: 70,
-                fixed: "right",
-                render: (_, item) => (
-                  <Button
-                    danger
-                    type="text"
-                    disabled={busy}
-                    icon={<DeleteOutlined />}
-                    aria-label={`Delete ${item.particular}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeItem(item.key);
-                    }}
+
+          {/* MOBILE ITEM CARDS */}
+          {!screens.md && (
+            <div>
+              {items.length === 0 ? (
+                <Card
+                  size="small"
+                  style={{
+                    textAlign: "center",
+                    borderStyle: "dashed",
+                    marginBottom: 16,
+                  }}
+                >
+                  <Typography.Text type="secondary">
+                    No items added yet.
+                  </Typography.Text>
+                </Card>
+              ) : (
+                items.map((item, index) => {
+                  const editing = editingItemKey === item.key;
+
+                  return (
+                    <Card
+                      key={item.key}
+                      size="small"
+                      onClick={() => {
+                        if (!busy) {
+                          setItemEntry({
+                            particular: item.particular,
+                            quantity: item.quantity,
+                            unitOfMeasure: item.unitOfMeasure,
+                            purpose: item.purpose,
+                          });
+                          setEditingItemKey(item.key);
+                        }
+                      }}
+                      style={{
+                        marginBottom: 10,
+                        cursor: busy ? "default" : "pointer",
+                        borderColor: editing ? "#1677ff" : undefined,
+                        background: editing ? "#e6f4ff" : undefined,
+                      }}
+                      styles={{
+                        body: {
+                          padding: 12,
+                        },
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            minWidth: 0,
+                            flex: 1,
+                          }}
+                        >
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 12 }}
+                          >
+                            Item #{index + 1}
+                          </Typography.Text>
+
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontWeight: 600,
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {item.particular}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              marginTop: 8,
+                            }}
+                          >
+                            <Typography.Text>
+                              Qty: <strong>{item.quantity}</strong>
+                            </Typography.Text>
+
+                            <Typography.Text>
+                              Unit: <strong>{item.unitOfMeasure}</strong>
+                            </Typography.Text>
+                          </div>
+
+                          {item.purpose && (
+                            <div
+                              style={{
+                                marginTop: 6,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              <Typography.Text type="secondary">
+                                Purpose:{" "}
+                              </Typography.Text>
+                              <Typography.Text>{item.purpose}</Typography.Text>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          danger
+                          type="text"
+                          disabled={busy}
+                          icon={<DeleteOutlined />}
+                          aria-label={`Delete ${item.particular}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeItem(item.key);
+                          }}
+                        />
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+
+              {items.length > 5 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: 8,
+                    marginBottom: 16,
+                  }}
+                >
+                  <Pagination
+                    current={itemPage}
+                    onChange={setItemPage}
+                    pageSize={5}
+                    total={items.length}
+                    showSizeChanger={false}
+                    size="small"
                   />
-                ),
-              },
-            ].map((column) => ({
-              ...column,
-              onCell: (item) => ({
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DESKTOP ITEM TABLE */}
+          {screens.md && (
+            <Table
+              bordered
+              size="small"
+              rowKey="key"
+              dataSource={items}
+              scroll={{
+                y: 500,
+              }}
+              pagination={
+                items.length > 5
+                  ? {
+                      current: itemPage,
+                      onChange: setItemPage,
+                      pageSize: 5,
+                      showSizeChanger: false,
+                      size: "small",
+                    }
+                  : false
+              }
+              onRow={(item) => ({
+                onClick: () => {
+                  if (!busy) {
+                    setItemEntry({
+                      particular: item.particular,
+                      quantity: item.quantity,
+                      unitOfMeasure: item.unitOfMeasure,
+                      purpose: item.purpose,
+                    });
+                    setEditingItemKey(item.key);
+                  }
+                },
                 style: {
+                  cursor: "pointer",
                   background:
                     editingItemKey === item.key ? "#e6f4ff" : undefined,
                 },
-              }),
-            }))}
-            locale={{ emptyText: "No items added yet." }}
-          />
+              })}
+              columns={[
+                {
+                  title: "#",
+                  width: 50,
+                  render: (_, record) =>
+                    items.findIndex((item) => item.key === record.key) + 1,
+                },
+                {
+                  title: "Particular",
+                  dataIndex: "particular",
+                  width: 220,
+                },
+                {
+                  title: "Quantity",
+                  dataIndex: "quantity",
+                  width: 90,
+                },
+                {
+                  title: "Unit",
+                  dataIndex: "unitOfMeasure",
+                  width: 80,
+                },
+                {
+                  title: "Purpose",
+                  dataIndex: "purpose",
+                  width: 180,
+                  render: (value) => value || "—",
+                },
+                {
+                  title: "Action",
+                  width: 70,
+                  fixed: "right",
+                  render: (_, item) => (
+                    <Button
+                      danger
+                      type="text"
+                      disabled={busy}
+                      icon={<DeleteOutlined />}
+                      aria-label={`Delete ${item.particular}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeItem(item.key);
+                      }}
+                    />
+                  ),
+                },
+              ].map((column) => ({
+                ...column,
+                onCell: (item) => ({
+                  style: {
+                    background:
+                      editingItemKey === item.key ? "#e6f4ff" : undefined,
+                  },
+                }),
+              }))}
+              locale={{
+                emptyText: "No items added yet.",
+              }}
+            />
+          )}
+
+          {/* ACTIONS */}
           <div
             style={{
+              flexShrink: 0,
               display: "flex",
               justifyContent: "flex-end",
-              marginTop: 16,
+              alignItems: "center",
+              gap: 8,
+              paddingTop: 10,
+              marginTop: 8,
+              background: "#fff",
+              borderTop: "1px solid #f0f0f0",
             }}
           >
+            <Button
+              disabled={busy}
+              size="large"
+              onClick={async () => {
+                if (busy) return;
+
+                const confirmed = await confirmAction({
+                  title: "Cancel requisition?",
+                  content:
+                    "Are you sure you want to cancel this requisition? Any items you have entered will be discarded.",
+                });
+
+                if (confirmed) {
+                  setEntry(false);
+                  form.resetFields();
+                  setItems([]);
+                  resetItemEntry();
+                  setShowItemHelp(false);
+                  setItemPage(1);
+                  setItemError("");
+                }
+              }}
+            >
+              Cancel
+            </Button>
+
             <Button
               type="primary"
               htmlType="submit"
               loading={busy}
               size="large"
             >
-              Submit requisition
+              Submit
             </Button>
           </div>
         </Form>

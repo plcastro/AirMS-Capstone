@@ -39,6 +39,7 @@ export default function FlightLogEditDefects({
           content: "Are you sure you want to submit this log?",
           okText: "Yes",
           cancelText: "Cancel",
+          centered: true,
           onOk: () => setShowApproveModal(true),
         });
       })
