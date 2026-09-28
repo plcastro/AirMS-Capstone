@@ -236,7 +236,7 @@ function DrawerNav({ navigation }) {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
-              paddingRight: Platform.OS === "ios" ? 10 : 8,
+              paddingBottom: Platform.OS === "ios" ? 10 : 8,
             }}
           >
             <NotificationBell navigation={navigation} />
