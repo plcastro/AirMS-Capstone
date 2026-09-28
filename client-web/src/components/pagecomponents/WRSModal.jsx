@@ -36,6 +36,7 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
   const stockUpdates = Object.entries(stockDraft).map(
     ([itemId, stockStatus]) => ({ itemId, stockStatus }),
   );
+
   const draftRecord = {
     ...record,
     items: (record.items || []).map((item) => ({
@@ -68,9 +69,10 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
       onCancel={close}
       footer={null}
       width={950}
+      centered
     >
       <Space
-        direction="vertical"
+        orientation="vertical"
         size="large"
         style={{
           width: "100%",
@@ -107,7 +109,7 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
           <Alert
             type="info"
             showIcon
-            message="Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and confirms delivery."
+            title="Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and confirms delivery."
           />
         )}
         <Table

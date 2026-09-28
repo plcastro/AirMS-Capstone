@@ -75,10 +75,12 @@ export default function PartsReqMonitoring() {
   const [showItemHelp, setShowItemHelp] = useState(false);
   const [itemPage, setItemPage] = useState(1);
   const [itemError, setItemError] = useState("");
+
   const resetItemEntry = () => {
     setItemEntry(emptyItem());
     setEditingItemKey(null);
   };
+
   const saveItem = () => {
     const particular = itemEntry.particular.trim();
 
@@ -162,8 +164,6 @@ export default function PartsReqMonitoring() {
     }
   }, [getAuthHeader]);
   useEffect(() => {
-    // Fetching on mount and polling synchronize the page with server changes.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const timer = setInterval(load, 15000);
     return () => clearInterval(timer);
