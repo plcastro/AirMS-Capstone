@@ -263,6 +263,22 @@ export default function PinVerifiedSignatureModal({
               marginTop: 20,
             }}
           >
+            <TouchableOpacity
+              onPress={handleClose}
+              disabled={submitting}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 18,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: COLORS.grayMedium,
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                Cancel
+              </AppText>
+            </TouchableOpacity>
             {step === "signature" && (
               <TouchableOpacity
                 onPress={() => {

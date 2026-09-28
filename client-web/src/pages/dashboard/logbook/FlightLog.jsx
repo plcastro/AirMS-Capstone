@@ -5,7 +5,9 @@ import {
   Button,
   Card,
   Checkbox,
+  Col,
   Input,
+  Row,
   Select,
   Space,
   Tag,
@@ -209,23 +211,25 @@ export default function FlightLog() {
   ];
   return (
     <div className="fl-page">
-      <Space
-        wrap
-        style={{
-          marginBottom: 16,
-          width: "100%",
-          justifyContent: "space-between",
-        }}
-      >
-        <Typography.Title
-          level={4}
+      {aircraft && (
+        <Space
+          wrap
           style={{
-            margin: 0,
+            marginBottom: 16,
+            width: "100%",
+            justifyContent: "space-between",
           }}
         >
-          {aircraft ? aircraft + " - Flight Logs" : ""}
-        </Typography.Title>
-      </Space>
+          <Typography.Title
+            level={4}
+            style={{
+              margin: 0,
+            }}
+          >
+            {aircraft + " - Flight Logs"}
+          </Typography.Title>
+        </Space>
+      )}
       {error && (
         <Alert
           type="error"
@@ -265,49 +269,61 @@ export default function FlightLog() {
               marginBottom: 12,
             }}
           >
-            <Space wrap>
-              <Input
-                size="large"
-                placeholder="Search this aircraft?s logs"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                allowClear
-              />
+            <Row gutter={[12, 12]} align="middle" justify="space-between">
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    placeholder="Search this aircraft?s logs"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    allowClear
+                  />
 
-              <Select
-                size="large"
-                style={{
-                  minWidth: 210,
-                }}
-                value={status}
-                onChange={setStatus}
-                options={[
-                  {
-                    value: "all",
-                    label: "All stages",
-                  },
-                  ...Object.entries(FLIGHT_STAGES).map(([value, step]) => ({
-                    value,
-                    label: step.label,
-                  })),
-                ]}
-              />
-              <Checkbox
-                checked={mine}
-                onChange={(e) => setMine(e.target.checked)}
-              >
-                Needs My Action
-              </Checkbox>
+                  <Select
+                    size="large"
+                    style={{
+                      width: 210,
+                    }}
+                    value={status}
+                    onChange={setStatus}
+                    options={[
+                      {
+                        value: "all",
+                        label: "All stages",
+                      },
+                      ...Object.entries(FLIGHT_STAGES).map(([value, step]) => ({
+                        value,
+                        label: step.label,
+                      })),
+                    ]}
+                  />
+                  <Checkbox
+                    checked={mine}
+                    onChange={(e) => setMine(e.target.checked)}
+                  >
+                    Needs My Action
+                  </Checkbox>
+                </Space>
+              </Col>
               {role === "mechanic" && (
-                <Button
-                  type="primary"
-                  onClick={() => setEntryPrompt(true)}
-                  icon={<PlusOutlined />}
+                <Col
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  New Entry
-                </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => setEntryPrompt(true)}
+                    icon={<PlusOutlined />}
+                  >
+                    New Entry
+                  </Button>
+                </Col>
               )}
-            </Space>
+            </Row>
           </Card>
           <FLogTable
             key={aircraft}

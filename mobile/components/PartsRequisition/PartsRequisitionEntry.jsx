@@ -98,6 +98,15 @@ export default function PartsRequisitionEntry({
       />
     </View>
   );
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await Promise.resolve(onSubmit?.({ aircraft: selectedAircraft, items }));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Modal
@@ -166,6 +175,7 @@ export default function PartsRequisitionEntry({
 
             <ScrollView
               showsVerticalScrollIndicator={false}
+              style={{ flexShrink: 1 }}
               contentContainerStyle={{
                 paddingHorizontal: 14,
                 paddingTop: 14,
@@ -367,53 +377,74 @@ export default function PartsRequisitionEntry({
                   </View>
                 </View>
               ))}
-
-              <View
-                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+            </ScrollView>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                gap: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderTopWidth: 1,
+                borderTopColor: "#E8E8E8",
+                backgroundColor: COLORS.white,
+              }}
+            >
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={onClose}
+                disabled={submitting}
+                style={{
+                  borderWidth: 1,
+                  borderColor: COLORS.grayMedium,
+                  paddingHorizontal: 18,
+                  paddingVertical: 12,
+                  borderRadius: 4,
+                  opacity: submitting ? 0.6 : 1,
+                }}
               >
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={async () => {
-                    if (submitting) return;
-                    setSubmitting(true);
-                    try {
-                      await Promise.resolve(
-                        onSubmit?.({ aircraft: selectedAircraft, items }),
-                      );
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                  disabled={submitting}
+                <AppText
                   style={{
-                    backgroundColor: COLORS.primaryLight,
-                    paddingHorizontal: 22,
-                    paddingVertical: 14,
-                    borderRadius: 4,
-                    opacity: submitting ? 0.7 : 1,
-                    flexDirection: "row",
-                    alignItems: "center",
+                    color: COLORS.grayDark,
+                    fontSize: 12,
+                    fontWeight: "600",
                   }}
                 >
-                  {submitting ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={COLORS.white}
-                      style={{ marginRight: 6 }}
-                    />
-                  ) : null}
-                  <AppText
-                    style={{
-                      color: COLORS.white,
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {submitting ? "Submitting..." : submitLabel}
-                  </AppText>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+                  Cancel
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleSubmit}
+                disabled={submitting}
+                style={{
+                  backgroundColor: COLORS.primaryLight,
+                  paddingHorizontal: 22,
+                  paddingVertical: 12,
+                  borderRadius: 4,
+                  opacity: submitting ? 0.7 : 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                {submitting ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={COLORS.white}
+                    style={{ marginRight: 6 }}
+                  />
+                ) : null}
+                <AppText
+                  style={{
+                    color: COLORS.white,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {submitting ? "Submitting..." : submitLabel}
+                </AppText>
+              </TouchableOpacity>
+            </View>
           </View>
         </SafeAreaView>
       </IosModalSafeAreaProvider>

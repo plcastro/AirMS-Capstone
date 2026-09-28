@@ -219,13 +219,11 @@ export default function Login() {
 
       await loginUser({
         user,
-        session:
-          session ||
-          {
-            location: loginLocation,
-            sessionId: data.sessionId,
-            platform: loginPlatform,
-          },
+        session: session || {
+          location: loginLocation,
+          sessionId: data.sessionId,
+          platform: loginPlatform,
+        },
         accessToken: token,
         refreshToken,
         rememberMe,
@@ -476,7 +474,7 @@ const loginLocationStyles = StyleSheet.create({
   },
   detectButton: {
     marginTop: 8,
-    backgroundColor: "#059670",
+    backgroundColor: COLORS.white,
     borderRadius: 8,
     minHeight: 44,
     alignItems: "center",
@@ -488,7 +486,7 @@ const loginLocationStyles = StyleSheet.create({
     opacity: 0.65,
   },
   detectButtonText: {
-    color: COLORS.white,
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: "700",
   },

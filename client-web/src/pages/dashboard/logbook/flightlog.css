@@ -125,6 +125,9 @@
 
 /* ── Entry modal shell ──────────────────────────────────── */
 .fl-entry-modal .ant-modal-content {
+  --fl-control-height: 36px;
+  --fl-field-gap: 12px;
+  --fl-row-gap: 10px;
   border-radius: 10px;
   overflow: hidden;
   padding: 0;
@@ -195,7 +198,7 @@
 
 /* ── Modal body (scrollable) ────────────────────────────── */
 .fl-modal-body {
-  padding-top: 10px;
+  padding: 10px 12px;
   height: 70vh;
   overflow-y: auto;
 }
@@ -250,7 +253,7 @@
   border-radius: 8px;
   border: 1px solid #e0e0e0;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -274,8 +277,8 @@
 .fl-field-row {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-  min-height: 36px;
+  margin-bottom: var(--fl-row-gap);
+  min-height: var(--fl-control-height);
 }
 
 .fl-label {
@@ -288,10 +291,31 @@
 .fl-input.ant-input,
 .fl-input {
   flex: 1;
-  height: 36px !important;
+  height: var(--fl-control-height) !important;
   font-size: 13px !important;
   border-radius: 4px !important;
   padding: 0 10px !important;
+}
+
+.fl-entry-modal textarea.ant-input {
+  font-size: 13px !important;
+  border-radius: 4px !important;
+  line-height: 1.35;
+}
+
+.fl-entry-modal .ant-select-single .ant-select-selector {
+  height: var(--fl-control-height) !important;
+  min-height: var(--fl-control-height) !important;
+  align-items: center;
+}
+
+.fl-entry-modal .ant-select-single .ant-select-selection-search-input {
+  height: calc(var(--fl-control-height) - 2px) !important;
+}
+
+.fl-entry-modal .ant-select-single .ant-select-selection-item,
+.fl-entry-modal .ant-select-single .ant-select-selection-placeholder {
+  line-height: calc(var(--fl-control-height) - 2px) !important;
 }
 
 .fl-input.ant-picker {
@@ -302,13 +326,200 @@
   font-size: 13px !important;
 }
 
+.fl-leg-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.45fr);
+  gap: var(--fl-field-gap);
+  align-items: end;
+  margin-top: 10px;
+}
+
+.fl-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+
+.fl-field-stack .fl-label {
+  min-width: 0;
+}
+
+.fl-time-summary {
+  margin-top: 10px;
+  border: 1px solid #e4e9e7;
+  border-radius: 8px;
+  background: #fbfdfc;
+  overflow: hidden;
+}
+
+.fl-time-summary-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fl-field-gap);
+  padding: 8px 12px;
+  border-bottom: 1px solid #e4e9e7;
+  background: #f4faf8;
+  color: #55615d;
+  font-size: 12px;
+}
+
+.fl-time-summary-header span:first-child {
+  color: #244d3b;
+  font-weight: 700;
+}
+
+.fl-time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(190px, 1fr));
+  gap: var(--fl-field-gap);
+  padding: 10px;
+}
+
+.fl-time-group {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #edf0ef;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.fl-time-group-total {
+  border-color: #cfe6df;
+  background: #f8fcfb;
+}
+
+.fl-time-group-title {
+  margin-bottom: 6px;
+  color: #244d3b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.fl-time-field {
+  display: grid;
+  grid-template-columns: 58px minmax(116px, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.fl-time-field + .fl-time-field {
+  margin-top: 8px;
+}
+
+.fl-time-label {
+  padding-top: 8px;
+  color: #555;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fl-time-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fl-time-input-group {
+  display: inline-flex;
+  align-items: center;
+  height: var(--fl-control-height);
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.fl-time-input-group--disabled {
+  background: #f5f5f5;
+}
+
+.fl-time-part-input {
+  width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-time-part-input.ant-input {
+  height: calc(var(--fl-control-height) - 2px) !important;
+  padding: 0 8px !important;
+}
+
+.fl-time-help {
+  margin-top: 4px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.fl-time-help--error {
+  color: #b42318;
+}
+
+.fl-entry-grid {
+  display: grid;
+  gap: var(--fl-field-gap);
+  align-items: start;
+}
+
+.fl-entry-grid--basic,
+.fl-entry-grid--work {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.fl-entry-grid-span-2 {
+  grid-column: span 2;
+}
+
+.fl-dropdown-container--stacked {
+  width: 100%;
+}
+
+.fl-component-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: var(--fl-field-gap);
+  align-items: start;
+}
+
+.fl-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: var(--fl-field-gap);
+  align-items: start;
+}
+
+.fl-service-grid-span-full,
+.fl-service-date-row {
+  grid-column: 1 / -1;
+}
+
+.fl-oil-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: var(--fl-field-gap);
+  margin: 10px 0;
+}
+
+.fl-discrepancy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: var(--fl-field-gap);
+}
+
+.fl-b412-time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: var(--fl-field-gap);
+}
+
 .fl-rpc-select .ant-select-selection-item,
 .fl-rpc-select .ant-select-selection-placeholder {
   font-size: 13px !important;
 }
 
 .fl-rpc-select .ant-select-selector {
-  min-height: 36px !important;
+  min-height: var(--fl-control-height) !important;
 }
 
 /* ── Custom Dropdown (for modal selects) ─────────────────── */
@@ -322,7 +533,7 @@
 }
 
 .fl-rpc-select .ant-select-selector {
-  height: 32px !important;
+  height: var(--fl-control-height) !important;
   border-radius: 6px !important;
   background: #f8f8f8 !important;
   border: 1px solid #e0e0e0 !important;
@@ -346,7 +557,7 @@
   background: #f8f8f8;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
-  height: 32px;
+  height: var(--fl-control-height);
   padding: 0 10px;
   cursor: pointer;
   font-size: 12px;
@@ -399,6 +610,10 @@
   gap: 10px;
 }
 
+.fl-confirmation-summary {
+  margin-top: 12px;
+}
+
 .fl-signature-card {
   background: #fff;
   border: 1px solid #e4e4e4;
@@ -441,7 +656,7 @@
 .fl-add-btn {
   width: 100%;
   font-size: 12px;
-  height: 28px;
+  height: 32px;
   margin-top: 4px;
 }
 
@@ -458,8 +673,8 @@
 .fl-work-types-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px 14px;
+  margin-bottom: 10px;
   padding: 4px 0;
 }
 
@@ -515,5 +730,33 @@
 
   .fl-tab-label {
     display: none;
+  }
+
+  .fl-time-summary-header {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fl-time-grid,
+  .fl-leg-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fl-entry-grid--basic,
+  .fl-entry-grid--work,
+  .fl-component-grid,
+  .fl-service-grid,
+  .fl-oil-grid,
+  .fl-discrepancy-grid,
+  .fl-b412-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fl-entry-grid-span-2 {
+    grid-column: span 1;
+  }
+
+  .fl-time-field {
+    grid-template-columns: 70px minmax(0, 1fr);
   }
 }

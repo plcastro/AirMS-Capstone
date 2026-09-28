@@ -572,11 +572,12 @@ export default function FlightWorkspace({
                   )}
                   <Choice
                     values={[
-                      ["flight", "Flight Record"],
+                      ["flight", "Flight Log"],
+                      ["preparation", "Preparation Checks"],
                       ["pre", "Pre-Flight"],
                       ["post", "Post-Flight"],
                       ["defects", "Aircraft Defects"],
-                      ["history", "History"],
+                      ["history", "History & Amendments"],
                     ]}
                     value={tab}
                     onChange={setTab}
@@ -640,6 +641,53 @@ export default function FlightWorkspace({
                         />
                       </View>
                     </>
+                  )}
+                  {tab === "preparation" && (
+                    <View style={panel}>
+                      {permissions.preparation &&
+                      [
+                        ...workspace.readiness.missing,
+                        ...workspace.readiness.warnings,
+                      ].length ? (
+                        [
+                          ...workspace.readiness.missing,
+                          ...workspace.readiness.warnings,
+                        ].map((message, i) => (
+                          <AppText key={i} style={{ marginVertical: 4 }}>
+                            - {message}
+                          </AppText>
+                        ))
+                      ) : (
+                        <AppText>
+                          No preparation checks require attention.
+                        </AppText>
+                      )}
+                      {!!workspace.readiness.maintenanceDue?.length && (
+                        <>
+                          <AppText style={{ marginTop: 12 }}>
+                            {workspace.readiness.maintenanceDue.length}{" "}
+                            maintenance warnings - release is allowed
+                          </AppText>
+                          <Action
+                            onPress={() =>
+                              setShowMaintenanceDue((value) => !value)
+                            }
+                          >
+                            {showMaintenanceDue
+                              ? "Hide overdue items"
+                              : "View overdue items from Parts Lifespan Monitoring"}
+                          </Action>
+                          {showMaintenanceDue &&
+                            workspace.readiness.maintenanceDue.map(
+                              (item, i) => (
+                                <AppText key={i} style={{ marginVertical: 4 }}>
+                                  {item}
+                                </AppText>
+                              ),
+                            )}
+                        </>
+                      )}
+                    </View>
                   )}
                   {["pre", "post"].includes(tab) && (
                     <>
@@ -729,41 +777,6 @@ export default function FlightWorkspace({
             <>
               {log && (
                 <>
-                  {permissions.preparation &&
-                    [
-                      ...workspace.readiness.missing,
-                      ...workspace.readiness.warnings,
-                    ].map((message, i) => (
-                      <AppText
-                        key={i}
-                        style={{
-                          marginVertical: 4,
-                        }}
-                      >
-                        • {message}
-                      </AppText>
-                    ))}
-                  {!!workspace.readiness.maintenanceDue?.length && (
-                    <View style={panel}>
-                      <AppText>
-                        {workspace.readiness.maintenanceDue.length} maintenance
-                        warnings — release is allowed
-                      </AppText>
-                      <Action
-                        onPress={() => setShowMaintenanceDue((value) => !value)}
-                      >
-                        {showMaintenanceDue
-                          ? "Hide overdue items"
-                          : "View overdue items from Parts Lifespan Monitoring"}
-                      </Action>
-                      {showMaintenanceDue &&
-                        workspace.readiness.maintenanceDue.map((item, i) => (
-                          <AppText key={i} style={{ marginVertical: 4 }}>
-                            {item}
-                          </AppText>
-                        ))}
-                    </View>
-                  )}
                   {mechanic && needsMyFlightAction(user, log) && (
                     <Action disabled={busy} onPress={advance}>
                       {step.button}

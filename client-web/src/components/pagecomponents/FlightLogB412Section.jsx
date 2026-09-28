@@ -79,12 +79,13 @@ function Field({
   placeholder,
 }) {
   return (
-    <div style={{ minWidth: 0 }}>
+    <div style={{ minWidth: 0, paddingLeft: 8, paddingRight: 8, boxSizing: "border-box" }}>
       <div style={{ color: "#555", fontSize: 12, marginBottom: 5 }}>
         {label}
       </div>
-      {['Remaining', 'Total'].includes(label) ? <Select style={{ width: '100%' }} value={value || undefined} placeholder="MIN / MAX" options={['MIN', 'MAX'].map(value => ({ value }))} disabled={disabled} onChange={onChange} /> : multiline ? (
+      {['Remaining', 'Total'].includes(label) ? <Select size="large" style={{ width: '100%' }} value={value || undefined} placeholder="MIN / MAX" options={['MIN', 'MAX'].map(value => ({ value }))} disabled={disabled} onChange={onChange} /> : multiline ? (
         <Input.TextArea
+          size="large"
           value={String(value ?? "")}
           onChange={(event) => onChange(event.target.value)}
           disabled={disabled}
@@ -93,6 +94,7 @@ function Field({
         />
       ) : (
         <Input
+          size="large"
           className="fl-input"
           value={String(value ?? "")}
           onChange={(event) => onChange(event.target.value)}
@@ -118,7 +120,7 @@ function SignatureField({
   const isImageSignature = /^(data:image\/|https?:\/\/)/i.test(signature);
 
   return (
-    <div style={{ minWidth: 0 }}>
+    <div style={{ minWidth: 0, paddingLeft: 8, paddingRight: 8, boxSizing: "border-box" }}>
       <div style={{ color: "#555", fontSize: 12, marginBottom: 5 }}>
         {label}
       </div>
@@ -285,6 +287,7 @@ function Passengers({ data, update, disabled }) {
             </strong>,
             ...row.legs.map((value, legIndex) => (
               <Input
+                size="large"
                 key={`${rowIndex}-${legIndex}`}
                 value={value || ""}
                 onChange={(event) =>
@@ -475,6 +478,7 @@ function DiscrepancyCorrection({
             Category
           </div>
           <Select
+            size="large"
             value={item.category || undefined}
             placeholder="Select category"
             options={CORRECTION_CATEGORIES.map((category) => ({

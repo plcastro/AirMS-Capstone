@@ -528,28 +528,29 @@ export default function PostInspection() {
             {selectedAircraft} — Post-Flight Inspections
           </Typography.Title>
       <Card>
-        <Row gutter={[12, 12]}>
-          <Col xs={24} md={16}>
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              prefix={<SearchOutlined />}
-              size="large"
-              allowClear
-            />
-          </Col>
-          <Col xs={24} md={8}>
-            <Select
-              style={{ width: "100%" }}
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS.map((value) => ({
-                value,
-                label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
-              }))}
-              size="large"
-            />
+        <Row gutter={[12, 12]} align="middle">
+          <Col>
+            <Space wrap size={[12, 12]}>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search"
+                prefix={<SearchOutlined />}
+                size="large"
+                style={{ width: "min(320px, calc(100vw - 64px))" }}
+                allowClear
+              />
+              <Select
+                style={{ width: 180 }}
+                value={status}
+                onChange={setStatus}
+                options={STATUS_OPTIONS.map((value) => ({
+                  value,
+                  label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
+                }))}
+                size="large"
+              />
+            </Space>
           </Col>
         </Row>
       </Card>

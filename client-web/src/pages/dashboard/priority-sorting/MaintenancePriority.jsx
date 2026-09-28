@@ -96,31 +96,67 @@ const formatDueBasis = (basis) => {
 };
 
 function PriorityOverrideEditor({ record, onSave }) {
-  const [level, setLevel] = useState(record.manualPriorityOverride?.level || "Auto");
-  const [reason, setReason] = useState(record.manualPriorityOverride?.reason || "");
+  const [level, setLevel] = useState(
+    record.manualPriorityOverride?.level || "Auto",
+  );
+  const [reason, setReason] = useState(
+    record.manualPriorityOverride?.reason || "",
+  );
   const [saving, setSaving] = useState(false);
   return (
-    <Space direction="vertical" size={4} style={{ width: "100%", marginTop: 8 }}>
-      <Select aria-label={"Priority override for " + record.aircraft} value={level} disabled={saving}
-        style={{ width: "100%" }} onChange={setLevel}
-        options={["Auto", "Critical", "High", "Medium", "Low"].map((value) => ({ value, label: value }))} />
-      {level !== "Auto" && <Input aria-label={"Optional priority reason for " + record.aircraft}
-        placeholder="Reason (optional)" value={reason} disabled={saving}
-        onChange={(event) => setReason(event.target.value)} />}
-      <Button size="small" loading={saving} onClick={async () => {
-        setSaving(true);
-        try { await onSave(record.aircraft, level, reason); }
-        finally { setSaving(false); }
-      }}>Save priority</Button>
+    <Space
+      orientation="vertical"
+      size={4}
+      style={{ width: "100%", marginTop: 8 }}
+    >
+      <Select
+        aria-label={"Priority override for " + record.aircraft}
+        value={level}
+        disabled={saving}
+        style={{ width: "100%" }}
+        onChange={setLevel}
+        options={["Auto", "Critical", "High", "Medium", "Low"].map((value) => ({
+          value,
+          label: value,
+        }))}
+      />
+      {level !== "Auto" && (
+        <Input
+          aria-label={"Optional priority reason for " + record.aircraft}
+          placeholder="Reason (optional)"
+          value={reason}
+          disabled={saving}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      )}
+      <Button
+        size="small"
+        loading={saving}
+        onClick={async () => {
+          setSaving(true);
+          try {
+            await onSave(record.aircraft, level, reason);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        Save priority
+      </Button>
     </Space>
   );
 }
 
 export default function MaintenancePriority() {
   const { user, getAuthHeader } = useContext(AuthContext);
-  const role = String(user?.jobTitle || user?.access || "").trim().toLowerCase();
-  const canOverride = ["maintenance manager", "superadmin"].includes(role) ||
-    String(user?.access || "").trim().toLowerCase() === "superadmin";
+  const role = String(user?.jobTitle || user?.access || "")
+    .trim()
+    .toLowerCase();
+  const canOverride =
+    ["maintenance manager", "superadmin"].includes(role) ||
+    String(user?.access || "")
+      .trim()
+      .toLowerCase() === "superadmin";
   const [searchText, setSearchText] = useState("");
   const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);
@@ -216,16 +252,35 @@ export default function MaintenancePriority() {
 
   const saveOverride = async (aircraft, level, reason) => {
     try {
-      const response = await fetch(API_BASE + "/api/parts-monitoring/maintenance-priority/" + encodeURIComponent(aircraft) + "/override", {
-        method: "PUT",
-        headers: { ...getAuthHeader(), "Content-Type": "application/json", "x-action-confirmed": "true" },
-        body: JSON.stringify({ level, ...(level !== "Auto" ? { reason } : {}) }),
-      });
+      const response = await fetch(
+        API_BASE +
+          "/api/parts-monitoring/maintenance-priority/" +
+          encodeURIComponent(aircraft) +
+          "/override",
+        {
+          method: "PUT",
+          headers: {
+            ...getAuthHeader(),
+            "Content-Type": "application/json",
+            "x-action-confirmed": "true",
+          },
+          body: JSON.stringify({
+            level,
+            ...(level !== "Auto" ? { reason } : {}),
+          }),
+        },
+      );
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Could not save priority.");
+      if (!response.ok || !result.success)
+        throw new Error(result.message || "Could not save priority.");
       await fetchPriorityData(rules);
     } catch (error) {
-      setPopup({ open: true, status: "error", title: "Priority not saved", subTitle: error.message });
+      setPopup({
+        open: true,
+        status: "error",
+        title: "Priority not saved",
+        subTitle: error.message,
+      });
     }
   };
 
@@ -462,17 +517,36 @@ export default function MaintenancePriority() {
       width: canOverride ? 230 : 150,
       render: (value, record) => (
         <div>
-          <Tag color={PRIORITY_COLORS[value] || "default"} style={{ fontWeight: 700 }}>{value}</Tag>
-          {record.manualPriorityOverride && <>
-            <Text strong>Manual</Text>
-            <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-              Auto: {record.autoPriorityLevel}. {record.priorityReason}
-            </Text>
-            {!!record.manualPriorityOverride.reason && <Text type="secondary">{record.manualPriorityOverride.reason}</Text>}
-          </>}
-          {canOverride && <PriorityOverrideEditor
-            key={record.inspectionId + ":" + (record.manualPriorityOverride?.setAt || "auto")}
-            record={record} onSave={saveOverride} />}
+          <Tag
+            color={PRIORITY_COLORS[value] || "default"}
+            style={{ fontWeight: 700 }}
+          >
+            {value}
+          </Tag>
+          {record.manualPriorityOverride && (
+            <>
+              <Text strong>Manual</Text>
+              <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                Auto: {record.autoPriorityLevel}. {record.priorityReason}
+              </Text>
+              {!!record.manualPriorityOverride.reason && (
+                <Text type="secondary">
+                  {record.manualPriorityOverride.reason}
+                </Text>
+              )}
+            </>
+          )}
+          {canOverride && (
+            <PriorityOverrideEditor
+              key={
+                record.inspectionId +
+                ":" +
+                (record.manualPriorityOverride?.setAt || "auto")
+              }
+              record={record}
+              onSave={saveOverride}
+            />
+          )}
         </div>
       ),
     },
@@ -511,8 +585,9 @@ export default function MaintenancePriority() {
               Maintenance Priority Ranking
             </Title>
             <Text type="secondary">
-              Aircraft are ranked by effective priority, then by urgency and turnaround.
-              Manual priorities apply until the next-due inspection changes.
+              Aircraft are ranked by effective priority, then by urgency and
+              turnaround. Manual priorities apply until the next-due inspection
+              changes.
             </Text>
           </Col>
           <Col xs={24} md={8}>
@@ -603,7 +678,10 @@ export default function MaintenancePriority() {
                 }
               />
             </Col>
-            <Col xs={24} style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Col
+              xs={24}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
               <Space wrap style={{ justifyContent: "flex-end" }}>
                 <Button type="primary" onClick={applyRules} loading={loading}>
                   Apply Rules

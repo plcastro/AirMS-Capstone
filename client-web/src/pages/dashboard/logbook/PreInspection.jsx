@@ -1101,43 +1101,42 @@ export default function PreInspection() {
           </Row>
 
           <Card>
-            <Row gutter={[12, 12]} align="middle" style={{ width: "100%" }}>
+            <Row gutter={[12, 12]} align="middle" justify="space-between">
               {/* Search */}
-              <Col xs={24} md={10}>
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search"
-                  prefix={<SearchOutlined />}
-                  size="large"
-                  allowClear
-                />
-              </Col>
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search"
+                    prefix={<SearchOutlined />}
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    allowClear
+                  />
 
-              {/* Status Filter */}
-              <Col xs={12} md={4}>
-                <Select
-                  style={{ width: "100%" }}
-                  value={status}
-                  onChange={setStatus}
-                  options={STATUS_OPTIONS.map((value) => ({
-                    value,
-                    label:
-                      value === "all"
-                        ? "ALL STATUS"
-                        : value === "released"
-                          ? "RELEASED"
-                          : value.toUpperCase(),
-                  }))}
-                  size="large"
-                />
+                  {/* Status Filter */}
+                  <Select
+                    style={{ width: 180 }}
+                    value={status}
+                    onChange={setStatus}
+                    options={STATUS_OPTIONS.map((value) => ({
+                      value,
+                      label:
+                        value === "all"
+                          ? "ALL STATUS"
+                          : value === "released"
+                            ? "RELEASED"
+                            : value.toUpperCase(),
+                    }))}
+                    size="large"
+                  />
+                </Space>
               </Col>
 
               {/* New Entry */}
               {canCreate && (
                 <Col
-                  xs={12}
-                  md={10}
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",

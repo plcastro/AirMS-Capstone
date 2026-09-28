@@ -6,6 +6,12 @@ import { AuthContext } from "../../context/AuthContext";
 import { isB412Aircraft } from "../../utils/b412FlightLog";
 import FlightAssignedPilotSelect from "./FlightAssignedPilotSelect";
 
+const fieldCellStyle = {
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
+
 export default function FlightLogModalInfo({
   formData,
   updateForm,
@@ -268,72 +274,80 @@ export default function FlightLogModalInfo({
       <div className="fl-card">
         <div className="fl-card-header">{aircraftClassLabel}</div>
         <div className="fl-card-body">
-          <div className="fl-field-row">
-            <span className="fl-label">RP-C: *</span>
-            <div className="fl-dropdown-container">
-              <Select
-                className="fl-rpc-select"
-                value={formData.rpc || undefined}
-                placeholder="Select RP/C"
-                onChange={handleRPCSelect}
-                disabled={!isEditable || !isRPCEditable}
+          <div className="fl-entry-grid fl-entry-grid--basic">
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">RP-C: *</span>
+              <div className="fl-dropdown-container fl-dropdown-container--stacked">
+                <Select
+                  size="large"
+                  className="fl-rpc-select"
+                  value={formData.rpc || undefined}
+                  placeholder="Select RP/C"
+                  onChange={handleRPCSelect}
+                  disabled={!isEditable || !isRPCEditable}
+                  aria-required="true"
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth
+                  getPopupContainer={() => document.body}
+                  options={aircraftSelectOptions}
+                />
+              </div>
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Aircraft Type:</span>
+              <Input size="large" value={aircraftTypeLabel} disabled />
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Date: *</span>
+              <DatePicker
+                size="large"
+                style={{ width: "100%" }}
+                format="MM/DD/YYYY"
+                inputReadOnly
+                value={parseDatePickerValue(formData.date)}
+                onChange={(date) =>
+                  updateForm(
+                    "date",
+                    date && dayjs.isDayjs(date)
+                      ? date.format("MM/DD/YYYY")
+                      : "",
+                  )
+                }
+                disabled={!isEditable}
+                required
                 aria-required="true"
-                showSearch
-                optionFilterProp="label"
-                popupMatchSelectWidth
-                getPopupContainer={() => document.body}
-                options={aircraftSelectOptions}
+              />
+            </div>
+
+            <div className="fl-field-stack" style={fieldCellStyle}>
+              <span className="fl-label">Assigned Pilot:</span>
+              <FlightAssignedPilotSelect
+                value={formData.assignedPilot}
+                onChange={(value) => updateForm("assignedPilot", value)}
+                disabled={!isEditable}
+                isActive={isActive}
+              />
+            </div>
+
+            <div
+              className="fl-field-stack fl-entry-grid-span-2"
+              style={fieldCellStyle}
+            >
+              <span className="fl-label">Control No.:</span>
+              <Input
+                size="large"
+                value={formData.controlNo || ""}
+                onChange={(e) => updateForm("controlNo", e.target.value)}
+                placeholder="Enter control number"
+                disabled={!isEditable}
               />
             </div>
           </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Aircraft Type:</span>
-            <Input className="fl-input" value={aircraftTypeLabel} disabled />
-          </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Date: *</span>
-            <DatePicker
-              className="fl-input"
-              style={{ width: "100%" }}
-              format="MM/DD/YYYY"
-              inputReadOnly
-              value={parseDatePickerValue(formData.date)}
-              onChange={(date) =>
-                updateForm(
-                  "date",
-                  date && dayjs.isDayjs(date) ? date.format("MM/DD/YYYY") : "",
-                )
-              }
-              disabled={!isEditable}
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Assigned Pilot:</span>
-            <FlightAssignedPilotSelect
-              value={formData.assignedPilot}
-              onChange={(value) => updateForm("assignedPilot", value)}
-              disabled={!isEditable}
-              isActive={isActive}
-            />
-          </div>
-
-          <div className="fl-field-row">
-            <span className="fl-label">Control No.:</span>
-            <Input
-              className="fl-input"
-              value={formData.controlNo || ""}
-              onChange={(e) => updateForm("controlNo", e.target.value)}
-              placeholder="Enter control number"
-              disabled={!isEditable}
-            />
-          </div>
           {formData.preFlightInspection?.signature && (
-            <div style={{ marginTop: 16 }}>
+            <div className="fl-confirmation-summary">
               <strong>Pre-flight inspection confirmed</strong>
               <div>
                 {formData.preFlightInspection.name} — recorded{" "}

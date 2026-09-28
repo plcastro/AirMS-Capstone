@@ -57,14 +57,11 @@ function RequisitionDetails({
   return <Modal visible={visible} onRequestClose={close} animationType="slide"><SafeAreaView style={{
       flex: 1,
       backgroundColor: '#fff'
-    }}><ScrollView contentContainerStyle={{
+    }}><ScrollView style={{
+        flex: 1
+      }} contentContainerStyle={{
         padding: 20
       }}>
-    <TouchableOpacity onPress={close} style={{
-          paddingVertical: 12
-        }}><AppText style={{
-            color: COLORS.primaryLight
-          }}>Close</AppText></TouchableOpacity>
     <AppText style={{
           fontSize: 20,
           fontWeight: '700',
@@ -92,11 +89,6 @@ function RequisitionDetails({
               itemId: item._id,
               stockStatus: value
             }))}</View>}</View>)}
-    {stock && !allInStock && button('Save', 'stock', !stockUpdates.length, { stockUpdates })}
-    {canAct(user, record, 'deliver') && isOpen(record) && allInStock && button('Deliver', 'deliver', false, stockUpdates.length ? { stockUpdates } : {})}
-    {canAct(user, record, 'confirm') && status === 'Delivered' && button('Confirm receipt', 'confirm')}
-    {canAct(user, record, 'cancel') && isOpen(record) && button('Cancel requisition', 'cancel')}
-    {canAct(user, record, 'follow-up') && followUpTarget(record) && button('Follow Up', 'follow-up')}
     <AppText style={{
           fontSize: 18,
           fontWeight: '700',
@@ -110,5 +102,29 @@ function RequisitionDetails({
         }}><AppText style={{
             fontWeight: '700'
           }}>{entry.label}</AppText><AppText>{new Date(entry.at).toLocaleString()}</AppText><AppText>{entry.actorName}</AppText>{!!entry.details && <AppText>{entry.details}</AppText>}</View>)}
-  </ScrollView></SafeAreaView></Modal>;
+  </ScrollView><View style={{
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        flexWrap: 'wrap',
+        gap: 8,
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#E8E8E8',
+        backgroundColor: '#fff'
+      }}>
+    <TouchableOpacity onPress={close} disabled={busy} style={{
+          padding: 12,
+          borderWidth: 1,
+          borderColor: '#d9d9d9',
+          borderRadius: 8,
+          opacity: busy ? 0.4 : 1
+        }}><AppText style={{
+            color: COLORS.primaryLight
+          }}>Close</AppText></TouchableOpacity>
+    {stock && !allInStock && button('Save', 'stock', !stockUpdates.length, { stockUpdates })}
+    {canAct(user, record, 'deliver') && isOpen(record) && allInStock && button('Deliver', 'deliver', false, stockUpdates.length ? { stockUpdates } : {})}
+    {canAct(user, record, 'confirm') && status === 'Delivered' && button('Confirm receipt', 'confirm')}
+    {canAct(user, record, 'cancel') && isOpen(record) && button('Cancel requisition', 'cancel')}
+    {canAct(user, record, 'follow-up') && followUpTarget(record) && button('Follow Up', 'follow-up')}
+  </View></SafeAreaView></Modal>;
 }

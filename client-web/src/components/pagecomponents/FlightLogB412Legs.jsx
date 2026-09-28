@@ -6,11 +6,12 @@ const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
 
 function Field({ label, value, onChange, disabled }) {
   return (
-    <div style={{ minWidth: 0 }}>
+    <div style={{ minWidth: 0, paddingLeft: 8, paddingRight: 8, boxSizing: "border-box" }}>
       <div style={{ color: "#555", fontSize: 12, marginBottom: 5 }}>
         {label}
       </div>
       <Input
+        size="large"
         className="fl-input"
         value={value || ""}
         onChange={(event) => onChange(event.target.value)}
@@ -59,12 +60,8 @@ export default function FlightLogB412Legs({
           <div className="fl-card-header">{ORDINALS[legIndex]} LEG</div>
           <div className="fl-card-body">
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 12,
-                marginBottom: 12,
-              }}
+              className="fl-entry-grid fl-entry-grid--work"
+              style={{ marginBottom: 12 }}
             >
               <Field
                 label="Station From"
@@ -82,40 +79,24 @@ export default function FlightLogB412Legs({
               />
             </div>
 
-            {[
-              [
+            <div className="fl-b412-time-grid">
+              {[
                 ["Block Time - On", "blockTimeOn"],
                 ["Block Time - Off", "blockTimeOff"],
-              ],
-              [
                 ["Flight Time - On", "flightTimeOn"],
                 ["Flight Time - Off", "flightTimeOff"],
-              ],
-              [
                 ["Total Time - Block", "totalTimeOn"],
                 ["Total Time - Flight", "totalTimeOff"],
-              ],
-            ].map((row) => (
-              <div
-                key={row[0][1]}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
-                {row.map(([label, field]) => (
-                  <Field
-                    key={field}
-                    label={label}
-                    value={leg[field]}
-                    onChange={(value) => updateLeg(legIndex, field, value)}
-                    disabled={!isEditable}
-                  />
-                ))}
-              </div>
-            ))}
+              ].map(([label, field]) => (
+                <Field
+                  key={field}
+                  label={label}
+                  value={leg[field]}
+                  onChange={(value) => updateLeg(legIndex, field, value)}
+                  disabled={!isEditable}
+                />
+              ))}
+            </div>
           </div>
         </div>
       ))}

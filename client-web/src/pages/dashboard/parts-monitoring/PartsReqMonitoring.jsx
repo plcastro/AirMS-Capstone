@@ -648,18 +648,31 @@ export default function PartsReqMonitoring() {
           />
           <div
             style={{
+              position: "sticky",
+              bottom: 0,
+              zIndex: 1,
               display: "flex",
               justifyContent: "flex-end",
+              gap: 8,
               marginTop: 16,
+              paddingTop: 12,
+              background: "#fff",
             }}
           >
+            <Button
+              onClick={() => !busy && setEntry(false)}
+              disabled={busy}
+              size="large"
+            >
+              Cancel
+            </Button>
             <Button
               type="primary"
               htmlType="submit"
               loading={busy}
               size="large"
             >
-              Submit requisition
+              Submit
             </Button>
           </div>
         </Form>

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { Input, Row, Col, Card, Button, Typography } from "antd";
+import { Input, Row, Col, Card, Button, Typography, Space } from "antd";
 import {
   SearchOutlined,
   ArrowLeftOutlined,
@@ -753,35 +753,52 @@ export default function MaintenanceLog() {
             styles={{ body: { padding: 16 } }}
           >
             <Row gutter={[12, 12]} align="middle" justify="space-between">
-              <Col xs={24} md={10}>
-                <Input
-                  size="large"
-                  placeholder="Search aircraft, task title, defects, or reporter..."
-                  prefix={<SearchOutlined />}
-                  allowClear
-                  value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
-                />
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    placeholder="Search aircraft, task title, defects, or reporter..."
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                  />
+                </Space>
               </Col>
-              <Col xs={24} md={4}>
-                <div
-                  style={{
-                    border: "1px solid #e6f2ed",
-                    background: "#f7fcfa",
-                    borderRadius: 10,
-                    padding: "8px 10px",
-                    textAlign: "center",
-                  }}
-                >
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    Aircraft
-                  </Text>
+              <Col
+                style={{
+                  marginLeft: "auto",
+                }}
+              >
+                <Space size={8} wrap>
                   <div
-                    style={{ fontWeight: 700, color: "#1f5f49", fontSize: 18 }}
+                    style={{
+                      border: "1px solid #e6f2ed",
+                      background: "#f7fcfa",
+                      borderRadius: 8,
+                      padding: "5px 8px",
+                      textAlign: "center",
+                      lineHeight: 1.2,
+                      minWidth: 72,
+                    }}
                   >
-                    {uniqueAircraft.length}
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      Aircraft
+                    </Text>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: "#1f5f49",
+                        fontSize: 16,
+                        marginTop: 2,
+                      }}
+                    >
+                      {uniqueAircraft.length}
+                    </div>
                   </div>
-                </div>
+                </Space>
               </Col>
             </Row>
           </Card>

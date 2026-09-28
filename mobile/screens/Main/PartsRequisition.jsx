@@ -2,6 +2,7 @@ import { COLORS } from '../../stylesheets/colors';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, RefreshControl, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppText from '../../components/common/AppText';
 import AppInput from '../../components/common/AppInput';
 import { AuthContext } from '../../Context/AuthContext';
@@ -11,6 +12,7 @@ import PartsRequisitionCards from '../../components/PartsRequisition/PartsRequis
 import PartsRequisitionEntry from '../../components/PartsRequisition/PartsRequisitionEntry';
 import PartsRequisitionDetails from '../../components/PartsRequisition/PartsRequisitionDetails';
 import { canCreate, displayStatus, isOversight, isRequisitionOwner, roleOf } from '../../../shared/partsRequisitionWorkflow';
+
 const confirm = (title, message) => new Promise(resolve => Alert.alert(title, message, [{
   text: 'Cancel',
   style: 'cancel',
@@ -22,6 +24,7 @@ const confirm = (title, message) => new Promise(resolve => Alert.alert(title, me
   cancelable: true,
   onDismiss: () => resolve(false)
 }));
+
 export default function PartsRequisition({
   route
 }) {
@@ -33,11 +36,13 @@ export default function PartsRequisition({
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const [tab, setTab] = useState('active'),
+    [sortOrder, setSortOrder] = useState('oldest'),
     [search, setSearch] = useState(''),
     [selectedId, setSelectedId] = useState(null),
     [entry, setEntry] = useState(false);
   const [aircraft, setAircraft] = useState(''),
     [aircraftOptions, setAircraftOptions] = useState([]);
+
   const request = useCallback(async (path, body) => {
     const response = await fetch(`${API_BASE}/api/${path}`, {
       method: body ? 'POST' : 'GET',
@@ -53,6 +58,7 @@ export default function PartsRequisition({
     if (!response.ok) throw new Error(data.message || 'Request failed');
     return data;
   }, []);
+
   const load = useCallback(async () => {
     try {
       setRecords(await request('parts-requisition/get-all-requisition'));
@@ -63,18 +69,21 @@ export default function PartsRequisition({
       setLoading(false);
     }
   }, [request]);
+
   useFocusEffect(useCallback(() => {
     setLoading(true);
     load();
     const timer = setInterval(load, 15000);
     return () => clearInterval(timer);
   }, [load]));
+
   useEffect(() => {
     request('parts-monitoring/aircraft-list').then(data => setAircraftOptions((data.data || []).map(value => ({
       id: value,
       name: value
     })))).catch(() => {});
   }, [request]);
+
   useEffect(() => {
     const id = route?.params?.targetRequestId || route?.params?.requisitionId;
     if (id) {
@@ -82,6 +91,7 @@ export default function PartsRequisition({
       setEntry(false);
     }
   }, [route?.params]);
+
   useEffect(() => {
     if (typeof EventSource === 'undefined') return undefined;
     const stream = new EventSource(`${API_BASE}/api/events/stream`);
@@ -99,6 +109,7 @@ export default function PartsRequisition({
       stream.close();
     };
   }, [load]);
+
   const action = async (record, action, extra = {}) => {
     if (action !== 'stock' && !(await confirm({
       deliver: 'Confirm delivery',
@@ -122,6 +133,7 @@ export default function PartsRequisition({
       setBusy(false);
     }
   };
+
   const create = async ({
     aircraft,
     items
@@ -150,52 +162,127 @@ export default function PartsRequisition({
       setBusy(false);
     }
   };
+
   const oversight = isOversight(user);
+  const canSee = record => {
+    const own = isRequisitionOwner(user, record);
+    return oversight || roleOf(user) === 'warehouse personnel' || own;
+  };
   const filtered = records.filter(record => {
     const closed = ['Closed', 'Cancelled'].includes(displayStatus(record));
-    const own = isRequisitionOwner(user, record);
-    return (tab === 'history' ? closed : !closed) && (oversight || roleOf(user) === 'warehouse personnel' || own) && `${record.wrsNo} ${record.aircraft} ${record.staff?.requisitioner} ${displayStatus(record)}`.toLowerCase().includes(search.toLowerCase());
+    return (tab === 'history' ? closed : !closed) && canSee(record) && `${record.wrsNo} ${record.aircraft} ${record.staff?.requisitioner} ${displayStatus(record)}`.toLowerCase().includes(search.toLowerCase());
   });
+  const activeCount = records.filter(record => !['Closed', 'Cancelled'].includes(displayStatus(record)) && canSee(record)).length;
+
   if (!['superadmin', 'officer-in-charge', 'warehouse personnel', 'maintenance manager', 'mechanic'].includes(roleOf(user))) return <AppText>Parts requisition access denied</AppText>;
+
   return <View style={{
     flex: 1,
-    backgroundColor: '#f5f6f8'
+    backgroundColor: '#F3F3F3'
   }}>
     <View style={{
-      padding: 16
-    }}><AppText style={{
-        fontSize: 22,
-        fontWeight: '700',
-        marginBottom: 14
-      }}>Parts Requisition</AppText>{canCreate(user) && <TouchableOpacity disabled={busy} onPress={() => { setSelectedId(null); setEntry(true); }} style={{
-        backgroundColor: COLORS.primaryLight,
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 12
-      }}><AppText style={{
-          color: '#fff',
-          textAlign: 'center'
-        }}>New requisition</AppText></TouchableOpacity>}
-    <AppInput placeholder="Search requisitions" value={search} onChangeText={setSearch} style={{
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 8
-      }} />
-    <View style={{
+      paddingHorizontal: 16,
+      paddingTop: 20,
+      paddingBottom: 8
+    }}>
+      <View style={{
         flexDirection: 'row',
-        marginTop: 12,
-        gap: 16
-      }}>{[['active', oversight ? 'Oversight' : 'Active'], ['history', 'History']].map(([key, label]) => <TouchableOpacity key={key} onPress={() => setTab(key)} style={{
-          paddingVertical: 10,
-          borderBottomWidth: tab === key ? 2 : 0,
-          borderBottomColor: COLORS.primaryLight
-        }}><AppText style={{
-            color: tab === key ? COLORS.primaryLight : '#666'
-          }}>{label}</AppText></TouchableOpacity>)}</View>
-    {!!error && <TouchableOpacity onPress={load}><AppText style={{
-          color: '#a85d5d'
-        }}>{error} · Tap to retry</AppText></TouchableOpacity>}</View>
-    <PartsRequisitionCards requisitions={filtered} onViewDetails={record => { setEntry(false); setSelectedId(record._id); }} oversight={oversight} onFollowUp={record => action(record, 'follow-up')} busy={busy} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => {
+        alignItems: 'center',
+        gap: 12
+      }}>
+        <View style={{
+          flex: 1,
+          height: 52,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#DCDCDC',
+          backgroundColor: '#fff',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 14
+        }}>
+          <MaterialCommunityIcons name="magnify" size={26} color="#444" />
+          <AppInput placeholder="Search by WRS#" placeholderTextColor="#555" value={search} onChangeText={setSearch} style={{
+            flex: 1,
+            paddingHorizontal: 12,
+            paddingVertical: 0,
+            fontSize: 16,
+            color: '#222'
+          }} />
+        </View>
+        {canCreate(user) && <TouchableOpacity disabled={busy} activeOpacity={0.85} onPress={() => { setSelectedId(null); setEntry(true); }} style={{
+          width: 116,
+          height: 52,
+          backgroundColor: COLORS.primaryLight,
+          borderRadius: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          opacity: busy ? 0.7 : 1
+        }}>
+          <MaterialCommunityIcons name="plus" size={26} color="#fff" />
+          <AppText style={{
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '700'
+          }}>Request</AppText>
+        </TouchableOpacity>}
+      </View>
+      <View style={{
+        flexDirection: 'row',
+        marginTop: 16,
+        gap: 12
+      }}>
+        <TouchableOpacity activeOpacity={0.85} onPress={() => setSortOrder(order => order === 'oldest' ? 'newest' : 'oldest')} style={{
+          flex: 1,
+          height: 52,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#DCDCDC',
+          backgroundColor: '#fff',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 14
+        }}>
+          <MaterialCommunityIcons name="tune-variant" size={22} color={COLORS.primaryLight} />
+          <AppText numberOfLines={1} style={{
+            flex: 1,
+            marginLeft: 10,
+            color: '#111',
+            fontSize: 15,
+            fontWeight: '700'
+          }}>Date: {sortOrder === 'oldest' ? 'Oldest First' : 'Newest First'}</AppText>
+          <MaterialCommunityIcons name="chevron-down" size={24} color="#555" />
+        </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.85} onPress={() => setTab(value => value === 'active' ? 'history' : 'active')} style={{
+          flex: 1,
+          height: 52,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#DCDCDC',
+          backgroundColor: '#fff',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 14
+        }}>
+          <MaterialCommunityIcons name="tune-variant" size={22} color={COLORS.primaryLight} />
+          <AppText numberOfLines={1} style={{
+            flex: 1,
+            marginLeft: 10,
+            color: '#111',
+            fontSize: 15,
+            fontWeight: '700'
+          }}>{tab === 'history' ? 'History' : `Pending (${activeCount})`}</AppText>
+          <MaterialCommunityIcons name="chevron-down" size={24} color="#555" />
+        </TouchableOpacity>
+      </View>
+      {!!error && <TouchableOpacity onPress={load}><AppText style={{
+        color: '#a85d5d',
+        marginTop: 10
+      }}>{error} - Tap to retry</AppText></TouchableOpacity>}
+    </View>
+    <PartsRequisitionCards requisitions={filtered} sortOrder={sortOrder} onViewDetails={record => { setEntry(false); setSelectedId(record._id); }} oversight={oversight} onFollowUp={record => action(record, 'follow-up')} busy={busy} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => {
       setLoading(true);
       load();
     }} />} />

@@ -16,12 +16,12 @@ export default function FlightStationInput({ value, onChange, placeholder, disab
   }, [focused, value]);
 
   return (
-    <AutoComplete {...props} value={value || ''} onChange={onChange} disabled={disabled}
+    <AutoComplete {...props} size="large" value={value || ''} onChange={onChange} disabled={disabled}
       style={{ flex: 1, minWidth: 0, ...style }} options={options}
       filterOption={false} defaultActiveFirstOption={false} backfill={false}
       onFocus={event => { setFocused(true); onFocus?.(event); }}
       onBlur={event => { setFocused(false); onBlur?.(event); }}>
-      <Input className="fl-input" placeholder={placeholder} aria-label={label} required aria-required="true" />
+      <Input size="large" className="fl-input" placeholder={placeholder} aria-label={label} required aria-required="true" />
     </AutoComplete>
   );
 }

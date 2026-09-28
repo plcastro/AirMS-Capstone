@@ -42,6 +42,19 @@ const OIL_GROUPS = [
   },
 ];
 
+const fieldCellStyle = {
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
+
+const oilGroupColumnStyle = {
+  minWidth: 0,
+  paddingLeft: 8,
+  paddingRight: 8,
+  boxSizing: "border-box",
+};
+
 function LegSignaturePad({ value, onChange, disabled }) {
   const [isReplacing, setIsReplacing] = useState(false);
   const [isSignatureOpen, setIsSignatureOpen] = useState(false);
@@ -127,7 +140,7 @@ export default function FlightLogModalOilServicing({
         <div className="fl-card">
           <div
             className="fl-card-body"
-            style={{ textAlign: "center", color: "#999", padding: 32 }}
+            style={{ textAlign: "center", color: "#999" }}
           >
             No legs available
           </div>
@@ -146,17 +159,20 @@ export default function FlightLogModalOilServicing({
         const oil = formData.oilServicing?.[legIdx] || {};
 
         return (
-          <div key={legIdx} className="fl-card" style={{ marginBottom: 16 }}>
+          <div key={legIdx} className="fl-card">
             <div className="fl-card-header">
               {n}
               {getOrdinalSuffix(n)} LEG
               {legIdx < lockedRows ? " - Signed at release" : ""}
             </div>
             <div className="fl-card-body">
-              <div className="fl-field-row">
+              <div
+                className="fl-field-stack fl-service-date-row"
+                style={fieldCellStyle}
+              >
                 <span className="fl-label">Date:</span>
                 <DatePicker
-                  className="fl-input"
+                  size="large"
                   style={{ width: "100%" }}
                   format="MM/DD/YYYY"
                   inputReadOnly
@@ -175,70 +191,95 @@ export default function FlightLogModalOilServicing({
                 />
               </div>
 
-              {OIL_GROUPS.map(({ fields }) =>
-                fields.map(([label, key]) => (
-                  <div className="fl-field-row" key={key}>
-                    <span className="fl-label">{label}</span>
-                    <div style={{ flex: 1 }}>
-                      <Radio.Group
-                        aria-label={label}
-                        optionType="button"
-                        buttonStyle="solid"
-                        options={["MIN", "MAX"]}
-                        value={oil[key] || undefined}
-                        onChange={(event) =>
-                          updateOil(legIdx, key, event.target.value)
-                        }
-                        disabled={!isEditable}
-                      />
-                      {oil[key] !== undefined &&
-                        String(oil[key]) !== "" &&
-                        !["MIN", "MAX"].includes(oil[key]) && (
-                          <Text
-                            type="secondary"
-                            style={{ display: "block", marginTop: 4 }}
-                          >
-                            Saved value: {oil[key]}
-                          </Text>
-                        )}
+              <div className="fl-oil-grid">
+                {OIL_GROUPS.map(({ title, fields }) => (
+                  <div key={title} style={oilGroupColumnStyle}>
+                    <div
+                      style={{
+                        color: "#244d3b",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        marginBottom: 8,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {title}
                     </div>
+                    {fields.map(([label, key]) => (
+                      <div
+                        className="fl-field-stack"
+                        key={key}
+                        style={{ marginBottom: 10 }}
+                      >
+                        <span className="fl-label">{label}</span>
+                        <Radio.Group
+                          size="large"
+                          aria-label={label}
+                          optionType="button"
+                          buttonStyle="solid"
+                          options={["MIN", "MAX"]}
+                          value={oil[key] || undefined}
+                          onChange={(event) =>
+                            updateOil(legIdx, key, event.target.value)
+                          }
+                          disabled={!isEditable}
+                        />
+                        {oil[key] !== undefined &&
+                          String(oil[key]) !== "" &&
+                          !["MIN", "MAX"].includes(oil[key]) && (
+                            <Text
+                              type="secondary"
+                              style={{ display: "block", marginTop: 4 }}
+                            >
+                              Saved value: {oil[key]}
+                            </Text>
+                          )}
+                      </div>
+                    ))}
                   </div>
-                )),
-              )}
-
-              <div className="fl-field-row">
-                <span className="fl-label">Remarks (AI-interpreted):</span>
-                <div style={{ flex: 1 }}>
-                  <Input
-                    className="fl-input"
-                    value={oil.remarks || ""}
-                    onChange={(e) =>
-                      updateOil(legIdx, "remarks", e.target.value)
-                    }
-                    placeholder="Enter oil, gearbox, or servicing findings"
-                    disabled={!rowEditable}
-                  />
-                  <Text
-                    type="secondary"
-                    style={{ display: "block", marginTop: 4 }}
-                  >
-                    Oil-servicing remarks are included in AI maintenance
-                    tracking.
-                  </Text>
-                </div>
+                ))}
               </div>
-              <div className="fl-field-row fl-sig-row">
+
+              <div
+                className="fl-field-stack fl-service-date-row"
+                style={fieldCellStyle}
+              >
+                <span className="fl-label">Remarks (AI-interpreted):</span>
+                <Input
+                  size="large"
+                  value={oil.remarks || ""}
+                  onChange={(e) => updateOil(legIdx, "remarks", e.target.value)}
+                  placeholder="Enter oil, gearbox, or servicing findings"
+                  disabled={!rowEditable}
+                />
+                <Text
+                  type="secondary"
+                  style={{ display: "block", marginTop: 4 }}
+                >
+                  Oil-servicing remarks are included in AI maintenance tracking.
+                </Text>
+              </div>
+              <div
+                className="fl-field-stack fl-service-date-row"
+                style={fieldCellStyle}
+              >
                 <span className="fl-label">Sign:</span>
-                <div style={{ flex: 1 }}>
-                  <LegSignaturePad
-                    value={formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature || oil.signature || ""}
-                    onChange={(val) => updateOil(legIdx, "signature", val)}
-                    disabled={
-                      !rowEditable ||
-                      !!(formData.initialInspectionSignature?.signature || formData.preFlightInspection?.signature)
-                    }
-                  />
-                </div>
+                <LegSignaturePad
+                  value={
+                    formData.initialInspectionSignature?.signature ||
+                    formData.preFlightInspection?.signature ||
+                    oil.signature ||
+                    ""
+                  }
+                  onChange={(val) => updateOil(legIdx, "signature", val)}
+                  disabled={
+                    !rowEditable ||
+                    !!(
+                      formData.initialInspectionSignature?.signature ||
+                      formData.preFlightInspection?.signature
+                    )
+                  }
+                />
               </div>
             </div>
           </div>
