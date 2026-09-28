@@ -496,7 +496,7 @@ export default function PartsReqMonitoring() {
         onCancel={() => !busy && setEntry(false)}
         footer={null}
         centered
-        width={screens.md ? 760 : "calc(100vw - 16px)"}
+        width={screens.md ? "70vw" : "calc(100vw - 16px)"}
         styles={{
           content: {
             padding: 0,
@@ -507,9 +507,7 @@ export default function PartsReqMonitoring() {
             marginBottom: 0,
           },
           body: {
-            maxHeight: screens.md
-              ? "calc(100vh - 120px)"
-              : "calc(100dvh - 90px)",
+            height: screens.md ? "75vh" : "calc(100dvh - 90px)",
             overflowY: "auto",
             padding: screens.md ? "16px 20px" : 0,
           },
@@ -651,32 +649,47 @@ export default function PartsReqMonitoring() {
             </Col>
 
             {/* Add / Update */}
+            {/* Add / Update */}
             <Col xs={24} md={4}>
-              <Button
-                type="primary"
-                onClick={saveItem}
-                disabled={busy}
-                size="large"
-                icon={
-                  editingItemKey !== null ? <EditOutlined /> : <PlusOutlined />
-                }
-                block
+              <Space
+                size={8}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                }}
               >
-                {editingItemKey !== null ? "Update Item" : "Add Item"}
-              </Button>
-
-              {editingItemKey !== null && (
                 <Button
-                  type="link"
-                  onClick={resetItemEntry}
+                  type="primary"
+                  onClick={saveItem}
                   disabled={busy}
                   size="large"
-                  block
-                  style={{ marginTop: 4 }}
+                  icon={
+                    editingItemKey !== null ? (
+                      <EditOutlined />
+                    ) : (
+                      <PlusOutlined />
+                    )
+                  }
+                  style={{ flex: 1 }}
                 >
-                  Cancel Editing
+                  {editingItemKey !== null ? "Update" : "Add"}
                 </Button>
-              )}
+
+                {editingItemKey !== null && (
+                  <Button
+                    type="link"
+                    onClick={resetItemEntry}
+                    disabled={busy}
+                    size="large"
+                    style={{
+                      padding: "0 4px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </Space>
             </Col>
           </Row>
           {itemError && (
@@ -898,6 +911,9 @@ export default function PartsReqMonitoring() {
               size="small"
               rowKey="key"
               dataSource={items}
+              scroll={{
+                y: 500,
+              }}
               pagination={
                 items.length > 5
                   ? {
@@ -991,19 +1007,13 @@ export default function PartsReqMonitoring() {
           {/* ACTIONS */}
           <div
             style={{
-              position: "sticky",
-              bottom: -12,
-              zIndex: 5,
+              flexShrink: 0,
               display: "flex",
-              flexDirection: "row",
               justifyContent: "flex-end",
               alignItems: "center",
               gap: 8,
-              marginTop: 16,
-              marginLeft: screens.md ? -20 : -12,
-              marginRight: screens.md ? -20 : -12,
-              marginBottom: screens.md ? -16 : -12,
-              padding: screens.md ? "10px 20px 16px" : "10px 12px 12px",
+              paddingTop: 10,
+              marginTop: 8,
               background: "#fff",
               borderTop: "1px solid #f0f0f0",
             }}

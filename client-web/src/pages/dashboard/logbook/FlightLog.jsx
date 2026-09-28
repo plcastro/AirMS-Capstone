@@ -244,7 +244,9 @@ export default function FlightLog() {
         <Alert
           type="error"
           title={error}
-          closable={(onClose = () => setError(""))}
+          closable={{
+            onClose: () => setError(""),
+          }}
           style={{
             marginBottom: 12,
           }}
