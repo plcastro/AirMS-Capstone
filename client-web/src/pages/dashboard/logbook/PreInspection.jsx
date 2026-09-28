@@ -1045,7 +1045,7 @@ export default function PreInspection() {
   };
 
   return (
-    <div style={{ padding: isMobile ? 12 : 20 }}>
+    <div className="fl-page">
       {!selectedAircraft ? (
         <>
           <AircraftLogGroups
@@ -1732,7 +1732,8 @@ export default function PreInspection() {
         <FlightWorkspace
           id={String(editing.flightLogId?._id || editing.flightLogId)}
           open
-          initialSection="pre" inspectionMode
+          initialSection="pre"
+          inspectionMode
           onClose={() => setEditing(null)}
           onChanged={load}
         />

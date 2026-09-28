@@ -132,7 +132,10 @@ export default function PostInspection() {
   const isCompletedRecord = (record) =>
     getDisplayStatus(String(record?.status || "").toLowerCase()) ===
     "completed";
-  const isRecordReadOnly = (record) => readOnly || isCompletedRecord(record) || !isAssignedFlightCrew(user, record);
+  const isRecordReadOnly = (record) =>
+    readOnly ||
+    isCompletedRecord(record) ||
+    !isAssignedFlightCrew(user, record);
 
   const load = useCallback(async () => {
     try {
@@ -379,8 +382,7 @@ export default function PostInspection() {
       "",
     );
     const fieldParts = normalizedField.split("_");
-    const description =
-      fieldParts.length > 1 ? fieldParts.pop() : "checked";
+    const description = fieldParts.length > 1 ? fieldParts.pop() : "checked";
 
     return {
       title: formatChecklistText(fieldParts.join("_")),
@@ -418,7 +420,9 @@ export default function PostInspection() {
         );
       setEditing(data.data);
       await load();
-      const savedAircraft = getLogAircraftRegistration(data.data || nextPayload);
+      const savedAircraft = getLogAircraftRegistration(
+        data.data || nextPayload,
+      );
       if (savedAircraft !== selectedAircraft) {
         openAircraft(savedAircraft);
       }
@@ -503,7 +507,7 @@ export default function PostInspection() {
   };
 
   return (
-    <div style={{ padding: isMobile ? 12 : 20 }}>
+    <div className="fl-page">
       {!selectedAircraft ? (
         <AircraftLogGroups
           records={records}
@@ -527,90 +531,93 @@ export default function PostInspection() {
           <Typography.Title level={4} style={{ margin: "8px 0 16px" }}>
             {selectedAircraft} — Post-Flight Inspections
           </Typography.Title>
-      <Card>
-        <Row gutter={[12, 12]} align="middle">
-          <Col>
-            <Space wrap size={[12, 12]}>
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
-                prefix={<SearchOutlined />}
-                size="large"
-                style={{ width: "min(320px, calc(100vw - 64px))" }}
-                allowClear
-              />
-              <Select
-                style={{ width: 180 }}
-                value={status}
-                onChange={setStatus}
-                options={STATUS_OPTIONS.map((value) => ({
-                  value,
-                  label: value === "all" ? "ALL STATUS" : value.toUpperCase(),
-                }))}
-                size="large"
-              />
-            </Space>
-          </Col>
-        </Row>
-      </Card>
-
-      <ResponsiveTable
-        key={selectedAircraft}
-        style={{ marginTop: 12 }}
-        rowKey="_id"
-        loading={loading}
-        dataSource={filtered}
-        pagination={{ pageSize: 10 }}
-        size={"small"}
-        columns={[
-          { title: "RP/C", dataIndex: "rpc" },
-          { title: "Aircraft Type", dataIndex: "aircraftType" },
-          { title: "Date", dataIndex: "date" },
-          {
-            title: "Status",
-            dataIndex: "status",
-            render: (value) => renderStatusTag(value, "pending"),
-          },
-          {
-            title: "Action",
-            render: (_, record) => {
-              const recordReadOnly = isRecordReadOnly(record);
-
-              return (
-                <Space size={12}>
-                  <Tooltip title={recordReadOnly ? "View" : "Edit"}>
-                    <Button
-                      aria-label={recordReadOnly ? "View" : "Edit"}
-                      icon={recordReadOnly ? <EyeOutlined /> : <EditOutlined />}
-                      onClick={() => {
-                        setEditTab("basic");
-                        setEditing(record);
-                      }}
-                    />
-                  </Tooltip>
-                  {canExportPostInspections && (
-                    <Tooltip title="Export">
-                      <Button
-                        aria-label="Export"
-                        icon={<ExportOutlined />}
-                        onClick={() => exportInspectionPdf(record)}
-                      />
-                    </Tooltip>
-                  )}
+          <Card>
+            <Row gutter={[12, 12]} align="middle">
+              <Col>
+                <Space wrap size={[12, 12]}>
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search"
+                    prefix={<SearchOutlined />}
+                    size="large"
+                    style={{ width: "min(320px, calc(100vw - 64px))" }}
+                    allowClear
+                  />
+                  <Select
+                    style={{ width: 180 }}
+                    value={status}
+                    onChange={setStatus}
+                    options={STATUS_OPTIONS.map((value) => ({
+                      value,
+                      label:
+                        value === "all" ? "ALL STATUS" : value.toUpperCase(),
+                    }))}
+                    size="large"
+                  />
                 </Space>
-              );
-            },
-          },
-        ]}
-      />
-      <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
-        <Col span={24} style={{ textAlign: "right" }}>
-          <Text type="secondary">
-            Showing <Text strong>{filtered.length}</Text> Log(s)
-          </Text>
-        </Col>
-      </Row>
+              </Col>
+            </Row>
+          </Card>
+
+          <ResponsiveTable
+            key={selectedAircraft}
+            style={{ marginTop: 12 }}
+            rowKey="_id"
+            loading={loading}
+            dataSource={filtered}
+            pagination={{ pageSize: 10 }}
+            size={"small"}
+            columns={[
+              { title: "RP/C", dataIndex: "rpc" },
+              { title: "Aircraft Type", dataIndex: "aircraftType" },
+              { title: "Date", dataIndex: "date" },
+              {
+                title: "Status",
+                dataIndex: "status",
+                render: (value) => renderStatusTag(value, "pending"),
+              },
+              {
+                title: "Action",
+                render: (_, record) => {
+                  const recordReadOnly = isRecordReadOnly(record);
+
+                  return (
+                    <Space size={12}>
+                      <Tooltip title={recordReadOnly ? "View" : "Edit"}>
+                        <Button
+                          aria-label={recordReadOnly ? "View" : "Edit"}
+                          icon={
+                            recordReadOnly ? <EyeOutlined /> : <EditOutlined />
+                          }
+                          onClick={() => {
+                            setEditTab("basic");
+                            setEditing(record);
+                          }}
+                        />
+                      </Tooltip>
+                      {canExportPostInspections && (
+                        <Tooltip title="Export">
+                          <Button
+                            aria-label="Export"
+                            icon={<ExportOutlined />}
+                            onClick={() => exportInspectionPdf(record)}
+                          />
+                        </Tooltip>
+                      )}
+                    </Space>
+                  );
+                },
+              },
+            ]}
+          />
+          <Row gutter={[10, 10]} style={{ marginTop: 8, marginBottom: 16 }}>
+            <Col span={24} style={{ textAlign: "right" }}>
+              <Text type="secondary">
+                Showing <Text strong>{filtered.length}</Text> Log(s)
+              </Text>
+            </Col>
+          </Row>
         </>
       )}
 
@@ -663,7 +670,18 @@ export default function PostInspection() {
                     label: tab.label,
                     children: (
                       <Row gutter={[10, 10]}>
-                        <Col span={24}><Text type="secondary">Linked Flight Log: {editing.flightLogControlNo || editing.flightLogId || "Not linked"} · Pilot: {editing.assignedPilot?.name || "Not assigned"} · Mechanic: {editing.assignedMechanic?.name || "Not assigned"}</Text></Col>
+                        <Col span={24}>
+                          <Text type="secondary">
+                            Linked Flight Log:{" "}
+                            {editing.flightLogControlNo ||
+                              editing.flightLogId ||
+                              "Not linked"}{" "}
+                            · Pilot:{" "}
+                            {editing.assignedPilot?.name || "Not assigned"} ·
+                            Mechanic:{" "}
+                            {editing.assignedMechanic?.name || "Not assigned"}
+                          </Text>
+                        </Col>
                         <Col xs={24} md={8}>
                           <Text strong>RP/C</Text>
                           <Input
@@ -675,7 +693,10 @@ export default function PostInspection() {
                               }))
                             }
                             disabled={isRecordReadOnly(editing)}
-                            readOnly={Boolean(editing.linkedFromPreFlight || editing.flightLogId)}
+                            readOnly={Boolean(
+                              editing.linkedFromPreFlight ||
+                              editing.flightLogId,
+                            )}
                           />
                         </Col>
                         <Col xs={24} md={8}>
@@ -887,7 +908,8 @@ export default function PostInspection() {
         <FlightWorkspace
           id={String(editing.flightLogId?._id || editing.flightLogId)}
           open
-          initialSection="post" inspectionMode
+          initialSection="post"
+          inspectionMode
           onClose={() => setEditing(null)}
           onChanged={load}
         />

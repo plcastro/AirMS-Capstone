@@ -20,6 +20,7 @@ import {
   Table,
   Typography,
   message,
+  Card,
 } from "antd";
 import {
   PlusOutlined,
@@ -304,49 +305,68 @@ export default function PartsReqMonitoring() {
       "mechanic",
     ].includes(roleOf(user))
   )
-    return <Alert type="error" message="Parts requisition access denied" />;
+    return <Alert type="error" title="Parts requisition access denied" />;
   return (
-    <div
-      style={{
-        padding: 24,
-      }}
-    >
-      <div
-        style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}
-      >
-        <Input
-          size="large"
-          prefix={<SearchOutlined />}
-          placeholder="Search by WRS no., aircraft, status, or requester"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          style={{ flex: "1 1 300px", maxWidth: 520 }}
-        />
-        {screens.md && (
-          <Select
-            size="large"
-            aria-label="Requisition date sorting"
-            value={dateSort}
-            onChange={setDateSort}
-            style={{ flex: "1 1 220px", maxWidth: 380 }}
-            options={[
-              { value: "updated", label: "Last updated: Newest First" },
-              { value: "newest", label: "Date: Newest First" },
-              { value: "oldest", label: "Date: Oldest First" },
-            ]}
-          />
-        )}
-        {canCreate(user) && (
-          <Button
-            size="large"
-            type="primary"
-            icon={<PlusOutlined />}
-            style={{ marginLeft: "auto" }}
-            onClick={() => setEntry(true)}
-          >
-            Add Requisition
-          </Button>
-        )}
+    <div className="fl-page">
+      <div style={{ display: "flex", marginBottom: 8 }}>
+        <Card style={{ width: "100%", marginBottom: 14, borderRadius: 12 }}>
+          <Row align="middle" justify="space-between">
+            <Col>
+              <Space wrap size={[12, 12]}>
+                <Input
+                  size="large"
+                  prefix={<SearchOutlined />}
+                  placeholder="Search by WRS no., aircraft, status, or requester"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  allowClear
+                  style={{
+                    width: "min(320px, calc(100vw - 64px))",
+                  }}
+                />
+
+                {screens.md && (
+                  <Select
+                    size="large"
+                    aria-label="Requisition date sorting"
+                    value={dateSort}
+                    onChange={setDateSort}
+                    style={{
+                      width: 220,
+                    }}
+                    options={[
+                      {
+                        value: "updated",
+                        label: "Last updated: Newest First",
+                      },
+                      {
+                        value: "newest",
+                        label: "Date: Newest First",
+                      },
+                      {
+                        value: "oldest",
+                        label: "Date: Oldest First",
+                      },
+                    ]}
+                  />
+                )}
+              </Space>
+            </Col>
+
+            {canCreate(user) && (
+              <Col style={{ marginLeft: "auto" }}>
+                <Button
+                  size="large"
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setEntry(true)}
+                >
+                  Add Requisition
+                </Button>
+              </Col>
+            )}
+          </Row>
+        </Card>
       </div>
       {error && (
         <Alert
@@ -356,7 +376,7 @@ export default function PartsReqMonitoring() {
           action={<Button onClick={load}>Retry</Button>}
         />
       )}
-      <Space wrap style={{ marginBottom: 20 }}>
+      <Space wrap style={{ marginBottom: 16 }}>
         {[
           [
             "active",
@@ -393,11 +413,7 @@ export default function PartsReqMonitoring() {
           </Button>
         ))}
       </Space>
-      <div style={{ textAlign: "right", marginBottom: 12 }}>
-        <Typography.Text type="secondary">
-          Showing {filtered.length} requisition(s)
-        </Typography.Text>
-      </div>
+
       <RequisitionList
         dateSort={dateSort}
         records={filtered}
