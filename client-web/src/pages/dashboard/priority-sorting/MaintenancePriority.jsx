@@ -17,9 +17,16 @@ import {
   Select,
   Statistic,
   Tag,
+  Modal,
+  Popover,
+  Tooltip,
   Typography,
 } from "antd";
-import { ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  ReloadOutlined,
+  SearchOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import { API_BASE } from "../../../utils/API_BASE";
 import { confirmAction } from "../../../utils/confirmAction";
 import { AuthContext } from "../../../context/AuthContext";
@@ -139,6 +146,7 @@ export default function MaintenancePriority() {
   const [selectedAircraft, setSelectedAircraft] = useState([]);
   const [selectedPriority, setSelectedPriority] = useState("Critical");
   const [savingPriority, setSavingPriority] = useState(false);
+  const [showTieBreakLogic, setShowTieBreakLogic] = useState(false);
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -455,9 +463,10 @@ export default function MaintenancePriority() {
         title: "Rank",
         dataIndex: "rank",
         key: "rank",
-        width: 50,
+        width: 70,
         sorter: (left, right) => compareNumber(left.rank, right.rank),
         sortDirections: ["ascend", "descend"],
+        defaultSortOrder: "ascend",
       },
       {
         title: "Aircraft",
@@ -641,413 +650,262 @@ export default function MaintenancePriority() {
         overflowX: "hidden",
       }}
     >
-      <Card>
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
-          <Col xs={24} md={16}>
-            <Title level={4} style={{ marginBottom: 4 }}>
-              Maintenance Priority Ranking
-            </Title>
-            <Text type="secondary">
-              Aircraft are ranked by effective priority, then by urgency and
-              turnaround. Manual priorities apply until the next-due inspection
-              changes.
-            </Text>
-          </Col>
-          <Col xs={24} md={8}>
-            <Space style={{ width: "100%", justifyContent: "flex-end" }} wrap>
-              <Input
-                allowClear
-                size="large"
-                prefix={<SearchOutlined />}
-                placeholder="Search aircraft or inspection"
-                style={{ width: 280, maxWidth: "100%" }}
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-              />
-              <Button
-                onClick={() => setShowControls((current) => !current)}
-                size="large"
-              >
-                {showControls ? "Hide Controls" : "Show Controls"}
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={() => fetchPriorityData(rules)}
-                loading={loading}
-                size="large"
-              >
-                Refresh
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
-      {showControls && (
-        <Card
-          size="small"
-          title={
-            <Text strong style={{ fontSize: 14 }}>
-              Maintenance Controls
-            </Text>
-          }
-          styles={{
-            header: {
-              minHeight: 40,
-              padding: "0 12px",
-            },
-            body: {
-              padding: 12,
-            },
-          }}
-        >
+      <Modal
+        open={showControls}
+        title={
+          <Text strong style={{ fontSize: 16 }}>
+            Maintenance Controls
+          </Text>
+        }
+        onCancel={() => setShowControls(false)}
+        footer={null}
+        width={760}
+        centered
+      >
+        {/* Automatic Priority */}
+        {canOverride && (
           <div
             style={{
-              display: "flex",
-              alignItems: "stretch",
-              gap: 16,
-              flexWrap: "wrap",
+              borderTop: "1px solid #f0f0f0",
+              paddingTop: 18,
             }}
           >
-            {/* ==================== MANUAL PRIORITY ==================== */}
-            <div
+            <Text
+              strong
               style={{
-                flex: "0 1 360px",
-                minWidth: 280,
+                display: "block",
+                fontSize: 13,
+                marginBottom: 10,
               }}
             >
-              <Text
-                strong
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  marginBottom: 8,
-                }}
-              >
-                Manual Priority
-              </Text>
+              Automatic Priority Rules
+            </Text>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <Button
-                  size="large"
-                  onClick={() =>
-                    setAircraftSelectionMode((current) => !current)
-                  }
-                  disabled={savingPriority || savingRules}
-                >
-                  {aircraftSelectionMode ? "Done Selecting" : "Select Aircraft"}
-                </Button>
-
-                <Text type="secondary" style={{ whiteSpace: "nowrap" }}>
-                  Priority
-                </Text>
-
-                <Select
-                  size="large"
-                  value={selectedPriority}
-                  onChange={setSelectedPriority}
-                  disabled={savingPriority || savingRules}
-                  style={{ width: 132 }}
-                  options={PRIORITY_OPTIONS}
-                />
-
-                {selectedAircraft.length > 0 && (
-                  <Space size={6}>
-                    <Text
-                      type="secondary"
-                      style={{
-                        fontSize: 12,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {selectedAircraft.length} aircraft selected
-                    </Text>
-                    <Button
-                      type="link"
-                      size="small"
-                      onClick={() => setSelectedAircraft([])}
-                      disabled={savingPriority || savingRules}
-                      style={{ paddingInline: 0 }}
-                    >
-                      Clear
-                    </Button>
-                  </Space>
-                )}
-              </div>
-            </div>
-
-            {/* Divider */}
-            {canOverride && (
-              <div
-                style={{
-                  width: 1,
-                  background: "#e8e8e8",
-                  flex: "0 0 1px",
-                }}
-              />
-            )}
-
-            {/* ==================== AUTOMATIC PRIORITY ==================== */}
-            {canOverride && (
-              <div
-                style={{
-                  flex: "2 1 700px",
-                  minWidth: 0,
-                }}
-              >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(150px, 180px))",
+                gap: 10,
+              }}
+            >
+              {/* Critical Due */}
+              <div>
                 <Text
-                  strong
+                  type="secondary"
                   style={{
                     display: "block",
-                    fontSize: 12,
-                    marginBottom: 8,
+                    fontSize: 11,
+                    marginBottom: 3,
                   }}
                 >
-                  Automatic Priority Rules
+                  Critical Due
                 </Text>
 
-                <div
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.criticalDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "criticalDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* Critical FH */}
+              <div>
+                <Text
+                  type="secondary"
                   style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(150px, 180px))",
-                    gap: 8,
-                    alignItems: "end",
-                    justifyContent: "start",
-                    maxWidth: 580,
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
                   }}
                 >
-                  {/* Critical Due */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Critical Due
-                    </Text>
+                  Critical FH
+                </Text>
 
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.criticalDueDays}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "criticalDueDays",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="days"
-                    />
-                  </div>
-
-                  {/* Critical FH */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Critical FH
-                    </Text>
-
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.criticalRemainingHours}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "criticalRemainingHours",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="FH"
-                    />
-                  </div>
-
-                  {/* High Due */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      High Due
-                    </Text>
-
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.highDueDays}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "highDueDays",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="days"
-                    />
-                  </div>
-
-                  {/* High FH */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      High FH
-                    </Text>
-
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.highRemainingHours}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "highRemainingHours",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="FH"
-                    />
-                  </div>
-
-                  {/* Medium Due */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Medium Due
-                    </Text>
-
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.mediumDueDays}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "mediumDueDays",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="days"
-                    />
-                  </div>
-
-                  {/* Turnaround */}
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        marginBottom: 3,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Long Turnaround
-                    </Text>
-
-                    <Input
-                      size="large"
-                      type="number"
-                      min={0}
-                      value={draftRules.longTurnaroundHours}
-                      onWheel={(event) => event.currentTarget.blur()}
-                      onChange={(event) =>
-                        updateDraftRule(
-                          "longTurnaroundHours",
-                          event.target.value === ""
-                            ? ""
-                            : Number(event.target.value),
-                        )
-                      }
-                      addonAfter="hrs"
-                    />
-                  </div>
-
-                  {/* Actions */}
-                  <Space
-                    size={6}
-                    style={{
-                      gridColumn: "1 / -1",
-                      justifySelf: "end",
-                      alignSelf: "flex-end",
-                      paddingBottom: 0,
-                    }}
-                  >
-                    <Button
-                      size="large"
-                      onClick={resetRules}
-                      disabled={savingRules || savingPriority}
-                    >
-                      Reset
-                    </Button>
-
-                    <Button
-                      size="large"
-                      type="primary"
-                      loading={savingRules || savingPriority}
-                      onClick={applyMaintenanceControls}
-                    >
-                      Save
-                    </Button>
-                  </Space>
-                </div>
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.criticalRemainingHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "criticalRemainingHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="FH"
+                />
               </div>
-            )}
+
+              {/* High Due */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  High Due
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.highDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "highDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* High FH */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  High FH
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.highRemainingHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "highRemainingHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="FH"
+                />
+              </div>
+
+              {/* Medium Due */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Medium Due
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.mediumDueDays}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "mediumDueDays",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="days"
+                />
+              </div>
+
+              {/* Long Turnaround */}
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    marginBottom: 3,
+                  }}
+                >
+                  Long Turnaround
+                </Text>
+
+                <Input
+                  size="large"
+                  type="number"
+                  min={0}
+                  value={draftRules.longTurnaroundHours}
+                  onWheel={(event) => event.currentTarget.blur()}
+                  onChange={(event) =>
+                    updateDraftRule(
+                      "longTurnaroundHours",
+                      event.target.value === ""
+                        ? ""
+                        : Number(event.target.value),
+                    )
+                  }
+                  addonAfter="hrs"
+                />
+              </div>
+            </div>
           </div>
-        </Card>
-      )}
+        )}
+
+        {/* Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            marginTop: 24,
+            paddingTop: 12,
+            borderTop: "1px solid #f0f0f0",
+          }}
+        >
+          <Button
+            size="large"
+            onClick={resetRules}
+            disabled={savingRules || savingPriority}
+          >
+            Reset
+          </Button>
+
+          <Button
+            size="large"
+            type="primary"
+            loading={savingRules || savingPriority}
+            onClick={applyMaintenanceControls}
+          >
+            Save
+          </Button>
+        </div>
+      </Modal>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
@@ -1086,15 +944,218 @@ export default function MaintenancePriority() {
           </Card>
         </Col>
       </Row>
+      <Card
+        size="small"
+        styles={{
+          body: {
+            padding: "8px 12px ",
+          },
+        }}
+      >
+        <Row>
+          <Col xs={24}>
+            <Title level={4}>Maintenance Priority Ranking</Title>
 
-      {meta && (
-        <Alert
-          type="info"
-          showIcon
-          title="Priority tie-break logic"
-          description={`If inspections are within ${meta.tieBreakHours} flight hours, ${meta.tieBreakDays} days, or an urgency ratio gap of ${meta.tieBreakUrgencyRatio}, the aircraft with the shorter turnaround is ranked first. Active rules: Critical <= ${meta.rules?.criticalDueDays ?? rules.criticalDueDays} day(s) or <= ${meta.rules?.criticalRemainingHours ?? rules.criticalRemainingHours} FH, High <= ${meta.rules?.highDueDays ?? rules.highDueDays} day(s) or <= ${meta.rules?.highRemainingHours ?? rules.highRemainingHours} FH.`}
-        />
-      )}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Text type="secondary">
+                Aircraft are ranked by effective priority, then by urgency and
+                turnaround. Manual priorities apply until the next-due
+                inspection changes.
+              </Text>
+
+              {meta && (
+                <Popover
+                  title="Priority Tie-Break Logic"
+                  trigger="click"
+                  placement="bottomRight"
+                  content={
+                    <div style={{ maxWidth: 360, lineHeight: 1.6 }}>
+                      <Text>
+                        If inspections are within{" "}
+                        <strong>{meta.tieBreakHours} flight hours</strong>,{" "}
+                        <strong>{meta.tieBreakDays} days</strong>, or an urgency
+                        ratio gap of{" "}
+                        <strong>{meta.tieBreakUrgencyRatio}</strong>, the
+                        aircraft with the shorter turnaround is ranked first.
+                      </Text>
+
+                      <div
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTop: "1px solid #f0f0f0",
+                        }}
+                      >
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Active rules
+                        </Text>
+
+                        <div style={{ marginTop: 4 }}>
+                          <Text style={{ display: "block", fontSize: 12 }}>
+                            Critical: ≤{" "}
+                            {meta.rules?.criticalDueDays ??
+                              rules.criticalDueDays}{" "}
+                            day(s) or ≤{" "}
+                            {meta.rules?.criticalRemainingHours ??
+                              rules.criticalRemainingHours}{" "}
+                            FH
+                          </Text>
+
+                          <Text style={{ display: "block", fontSize: 12 }}>
+                            High: ≤{" "}
+                            {meta.rules?.highDueDays ?? rules.highDueDays}{" "}
+                            day(s) or ≤{" "}
+                            {meta.rules?.highRemainingHours ??
+                              rules.highRemainingHours}{" "}
+                            FH
+                          </Text>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<InfoCircleOutlined />}
+                    aria-label="View priority tie-break logic"
+                    title="Priority tie-break logic"
+                    style={{
+                      flexShrink: 0,
+                      padding: 0,
+                      width: 20,
+                      height: 20,
+                    }}
+                  />
+                </Popover>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Main Controls */}
+              <Space wrap>
+                <Input
+                  allowClear
+                  size="large"
+                  prefix={<SearchOutlined />}
+                  placeholder="Search aircraft or inspection"
+                  style={{ width: 280, maxWidth: "100%" }}
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                />
+
+                <Button
+                  size="large"
+                  onClick={() => setShowControls(true)}
+                  disabled={savingPriority || savingRules}
+                >
+                  Automatic Priority Controls
+                </Button>
+
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchPriorityData(rules)}
+                  loading={loading}
+                  size="large"
+                  aria-label="Refresh rankings"
+                  title="Refresh rankings"
+                />
+              </Space>
+
+              {/* Manual Priority */}
+              <div
+                style={{
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingLeft: 12,
+                  borderLeft: "1px solid #f0f0f0",
+                }}
+              >
+                <Text
+                  strong
+                  style={{
+                    fontSize: 13,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Manual Priority
+                </Text>
+
+                {!aircraftSelectionMode ? (
+                  <Button
+                    size="large"
+                    type="primary"
+                    onClick={() => {
+                      setAircraftSelectionMode(true);
+                      setSelectedAircraft([]);
+                    }}
+                    disabled={savingPriority || savingRules}
+                  >
+                    Select Aircraft
+                  </Button>
+                ) : (
+                  <>
+                    <Text
+                      type="secondary"
+                      style={{
+                        fontSize: 13,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedAircraft.length} selected
+                    </Text>
+
+                    <Select
+                      size="large"
+                      value={selectedPriority}
+                      onChange={setSelectedPriority}
+                      disabled={savingPriority || savingRules}
+                      style={{ width: 130 }}
+                      options={PRIORITY_OPTIONS}
+                    />
+
+                    <Button
+                      size="large"
+                      onClick={() => {
+                        setSelectedAircraft([]);
+                        setAircraftSelectionMode(false);
+                      }}
+                      disabled={savingPriority || savingRules}
+                    >
+                      Cancel
+                    </Button>
+
+                    <Button
+                      size="large"
+                      type="primary"
+                      loading={savingPriority}
+                      disabled={selectedAircraft.length === 0 || savingRules}
+                      onClick={applyMaintenanceControls}
+                    >
+                      Apply Priority
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </Col>
+        </Row>
+      </Card>
 
       <ResponsiveTable
         rowKey={(record) =>
