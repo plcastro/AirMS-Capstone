@@ -29,7 +29,6 @@ import {
   getAssignedCrewField,
 } from "../../../shared/flightCrewAccess";
 import {
-  FLIGHT_PURPOSES,
   preflightSignatureForRelease,
   pilotAcceptance,
   nextFlightStep,
@@ -68,6 +67,7 @@ function Action({ children, onPress, disabled }) {
         backgroundColor: disabled ? "#aabbb4" : "#26866f",
         borderRadius: 6,
         marginVertical: 5,
+        maxWidth: "100%",
       }}
     >
       <AppText
@@ -110,8 +110,13 @@ export default function FlightWorkspace({
   onClose,
   onChanged,
   initialSection = "flight",
+  inspectionMode = false,
 }) {
   const { user } = useContext(AuthContext);
+  const inspectionSection =
+    inspectionMode && ["pre", "post"].includes(initialSection)
+      ? initialSection
+      : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
     [draft, setDraft] = useState(null),
@@ -182,9 +187,10 @@ export default function FlightWorkspace({
     setBusy(true);
     setError("");
     setTab(
-      ["flight", "pre", "post", "defects", "history"].includes(initialSection)
-        ? initialSection
-        : "flight",
+      inspectionSection ||
+        (["flight", "defects", "history"].includes(initialSection)
+          ? initialSection
+          : "flight"),
     );
     Promise.all([api(`${id}/workspace`), AsyncStorage.getItem(storageKey)])
       .then(([data, cached]) => {
@@ -204,7 +210,7 @@ export default function FlightWorkspace({
     return () => {
       active = false;
     };
-  }, [id, visible, api, storageKey, initialSection]);
+  }, [id, visible, api, storageKey, initialSection, inspectionSection]);
   useEffect(() => {
     if (
       !visible ||
@@ -299,9 +305,8 @@ export default function FlightWorkspace({
         ? preflightSignatureForRelease(log, workspace.preInspections)
         : "";
     if (step.action === "release" && !releaseSignature) {
-      setTab("pre");
       setError(
-        "Complete and sign the linked Pre-Flight inspection before releasing the flight log.",
+        "Open Pre-Flight Inspections to complete and sign the linked inspection before releasing the flight log.",
       );
       return;
     }
@@ -500,7 +505,9 @@ export default function FlightWorkspace({
                       {log.assignedMechanic?.name || "Unassigned"}
                     </AppText>
                     <AppText>{workspace.readiness.aircraftStatus}</AppText>
-                    <AppText>{saveState}</AppText>
+                    {saveState !== "Saved on server" && (
+                      <AppText>{saveState}</AppText>
+                    )}
                     {workspace.history
                       .filter((e) => e.action === "return")
                       .slice(-1)
@@ -584,42 +591,6 @@ export default function FlightWorkspace({
                   />
                   {tab === "flight" && (
                     <>
-                      <AppText>Flight purpose (optional)</AppText>
-                      <Choice
-                        disabled={!permissions.preparation}
-                        values={FLIGHT_PURPOSES}
-                        value={draft?.flightPurpose}
-                        onChange={(value) =>
-                          setSource({
-                            ...draft,
-                            flightPurpose: value,
-                          })
-                        }
-                      />
-                      <TextInput
-                        style={input}
-                        placeholder="Mission / line / job reference"
-                        editable={permissions.preparation}
-                        value={draft?.purposeDetails || ""}
-                        onChangeText={(value) =>
-                          setSource({
-                            ...draft,
-                            purposeDetails: value,
-                          })
-                        }
-                      />
-                      <Action
-                        disabled={!permissions.flight}
-                        onPress={() =>
-                          setSource({
-                            ...draft,
-                            noDefectsReported: !draft?.noDefectsReported,
-                          })
-                        }
-                      >
-                        {draft?.noDefectsReported ? "☑" : "☐"} No defects
-                        reported
-                      </Action>
                       <View
                         style={{
                           height: 640,
@@ -901,6 +872,49 @@ export default function FlightWorkspace({
             return null;
           }}
         />
+        {log && (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              gap: 8,
+              padding: 12,
+              borderTopWidth: 1,
+              borderTopColor: "#dce6e1",
+              backgroundColor: "white",
+            }}
+          >
+            {mechanic && needsMyFlightAction(user, log) && (
+              <Action disabled={busy} onPress={advance}>
+                {step.button}
+              </Action>
+            )}
+            {permissions.canSave && (
+              <Action
+                disabled={busy}
+                onPress={() =>
+                  execute(id, {
+                    changes: draft,
+                    expectedVersion: log.__v || 0,
+                  })
+                }
+              >
+                Save Draft
+              </Action>
+            )}
+            {permissions.canReturn && (
+              <Action
+                onPress={() => {
+                  setComment("");
+                  setReturning(true);
+                }}
+              >
+                Return for Correction
+              </Action>
+            )}
+          </View>
+        )}
         {!sign && (returning || !!review || !!defect || !!amendment) && (
           <View
             style={{

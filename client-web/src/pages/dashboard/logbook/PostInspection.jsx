@@ -887,7 +887,7 @@ export default function PostInspection() {
         <FlightWorkspace
           id={String(editing.flightLogId?._id || editing.flightLogId)}
           open
-          initialSection="post"
+          initialSection="post" inspectionMode
           onClose={() => setEditing(null)}
           onChanged={load}
         />

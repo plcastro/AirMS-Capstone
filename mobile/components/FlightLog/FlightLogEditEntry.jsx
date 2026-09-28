@@ -1106,48 +1106,50 @@ export default function FlightLogEditEntry({
           <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
             <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
-            <View style={{ paddingTop: 16, backgroundColor: "#F9F9F9" }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingHorizontal: 16,
-                  marginBottom: 12,
-                }}
-              >
-                <View>
-                  <AppText
-                    style={{
-                      fontSize: 16,
-                      fontWeight: "700",
-                      color: COLORS.black,
-                    }}
-                  >
-                    {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
-                  </AppText>
-                  <AppText
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "600",
-                      color: COLORS.grayDark,
-                    }}
-                  >
-                    Select Section
-                  </AppText>
-                </View>
-
-                <TouchableOpacity
-                  onPress={onClose}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <View style={{ paddingTop: embedded ? 0 : 16, backgroundColor: "#F9F9F9" }}>
+              {!embedded && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 16,
+                    marginBottom: 12,
+                  }}
                 >
-                  <MaterialCommunityIcons
-                    name="close"
-                    size={24}
-                    color={COLORS.grayDark}
-                  />
-                </TouchableOpacity>
-              </View>
+                  <View>
+                    <AppText
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: COLORS.black,
+                      }}
+                    >
+                      {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
+                    </AppText>
+                    <AppText
+                      style={{
+                        fontSize: 12,
+                        fontWeight: "600",
+                        color: COLORS.grayDark,
+                      }}
+                    >
+                      Select Section
+                    </AppText>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={onClose}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={24}
+                      color={COLORS.grayDark}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <ScrollView
                 ref={tabScrollViewRef}

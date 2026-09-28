@@ -403,7 +403,7 @@ export default function PostInspection({ route }) {
               selectedInspection.flightLogId,
           )}
           visible
-          initialSection="post"
+          initialSection="post" inspectionMode
           onClose={() => {
             setShowEditModal(false);
             setSelectedInspection(null);
