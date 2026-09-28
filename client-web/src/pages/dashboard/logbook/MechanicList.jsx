@@ -25,6 +25,7 @@ import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import DateTimeCell from "../../../components/common/DateTimeCell";
 import { matchesSearch } from "../../../utils/search";
 import { useDebouncedValue } from "../../../utils/debounce";
+import MechanicCertificates from "../../../components/pagecomponents/MechanicCertificates";
 
 const { Text, Title } = Typography;
 const isCompletedTask = (task) =>
@@ -32,6 +33,13 @@ const isCompletedTask = (task) =>
     String(task?.status || "").toLowerCase(),
   );
 export default function MechanicList() {
+  const { user } = useContext(AuthContext);
+  const manager = ["maintenance manager", "superadmin"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "superadmin";
+  if (!manager) return <div style={{ padding: 20 }}><Card><Title level={4}>{`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "My mechanic profile"}</Title><Text type="secondary">My certificates and aircraft qualifications</Text></Card><MechanicCertificates key={user?.id || user?._id} personnelId={user?.id || user?._id} /></div>;
+  return <MechanicDirectory />;
+}
+
+function MechanicDirectory() {
   const { getAuthHeader } = useContext(AuthContext);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
@@ -198,10 +206,11 @@ export default function MechanicList() {
               key: "completed",
               label: `Completed (${selectedTaskCounts.completed})`,
             },
+            { key: "certificates", label: "Certificates & Qualifications" },
           ]}
         />
 
-        <ResponsiveTable
+        {tab === "certificates" ? <MechanicCertificates key={selectedMechanic.id} personnelId={selectedMechanic.id} /> : <ResponsiveTable
           loading={loading}
           rowKey={(record) => record._id || record.id}
           dataSource={selectedTasks}
@@ -225,7 +234,7 @@ export default function MechanicList() {
               render: (value) => <Tag>{value}</Tag>,
             },
           ]}
-        />
+        />}
         {resultPopup}
       </div>
     );
@@ -254,7 +263,7 @@ export default function MechanicList() {
         dataSource={mechanics}
         pagination={{ pageSize: 10 }}
         size={"small"}
-        onRow={(record) => ({ onClick: () => setSelectedMechanic(record) })}
+        onRow={(record) => ({ onClick: () => { setTab("ongoing"); setSelectedMechanic(record); } })}
         columns={[
           {
             title: "Name",

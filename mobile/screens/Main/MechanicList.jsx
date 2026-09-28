@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import AppText from "../../components/common/AppText";
 import {
   View,
@@ -14,6 +14,8 @@ import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
+import { AuthContext } from "../../Context/AuthContext";
+import MechanicCertificates from "../../components/MechanicCertificates";
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const getMechanicStatus = (taskCount) =>
@@ -38,6 +40,13 @@ const isActiveTask = (task) =>
   );
 
 export default function MechanicList() {
+  const { user } = useContext(AuthContext);
+  const manager = ["maintenance manager", "superadmin"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "superadmin";
+  if (!manager) return <View style={{ flex: 1 }}><AppText style={{ padding: 16, fontSize: 18, fontWeight: "700" }}>{`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "My mechanic profile"}</AppText><MechanicCertificates key={user?.id || user?._id} personnelId={user?.id || user?._id} /></View>;
+  return <MechanicDirectory />;
+}
+
+function MechanicDirectory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMechanic, setSelectedMechanic] = useState(null);
   const [mechanics, setMechanics] = useState([]);
@@ -94,10 +103,6 @@ export default function MechanicList() {
       showToast(error.message || "Failed to fetch employees");
     }
   }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
 
   useFocusEffect(
     useCallback(() => {

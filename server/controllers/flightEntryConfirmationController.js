@@ -3,9 +3,9 @@ const Parts = require('../models/partsMonitoringModel');
 const { catchRequest } = require('./flightWorkflowController');
 const { verifyWorkflowSigner } = require('../utils/flightWorkflowSigning');
 const { fail } = require('../utils/flightWorkflowRules');
-const { getTrustedFlightLogRole } = require('../utils/flightLogPayload');
+const { canCreateFlightLog } = require('../../shared/flightLogCreationAccess');
 module.exports = catchRequest(async (req, res) => {
-  if (getTrustedFlightLogRole(req) !== 'mechanic') throw fail('Only mechanics create flight logs. Pilots sign acceptance.', 403);
+  if (!canCreateFlightLog(req.user)) throw fail('Only mechanics and maintenance managers can create flight logs. Pilots sign acceptance.', 403);
   const rpc = String(req.body.rpc || '').trim().toUpperCase();
   const aircraft = await Parts.findOne({ aircraft: rpc });
   if (!aircraft || !/350|412/.test(aircraft.aircraftType || '')) throw fail('Select an aircraft with a supported Parts Monitoring record.');

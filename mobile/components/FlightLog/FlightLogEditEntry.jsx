@@ -1103,7 +1103,7 @@ export default function FlightLogEditEntry({
         onRequestClose={onClose}
       >
         <IosModalSafeAreaProvider>
-          <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
+          <SafeAreaView edges={embedded ? [] : undefined} style={{ flex: 1, backgroundColor: "#F9F9F9" }}>
             <StatusBar barStyle="dark-content" backgroundColor="#F9F9F9" />
 
             <View style={{ paddingTop: embedded ? 0 : 16, backgroundColor: "#F9F9F9" }}>
@@ -1125,16 +1125,7 @@ export default function FlightLogEditEntry({
                         color: COLORS.black,
                       }}
                     >
-                      {readOnly ? "View Entry" : "Edit Entry"} - Flight Log
-                    </AppText>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "600",
-                        color: COLORS.grayDark,
-                      }}
-                    >
-                      Select Section
+                      Flight Log
                     </AppText>
                   </View>
 
@@ -1164,6 +1155,8 @@ export default function FlightLogEditEntry({
                 {tabs.map((tab, index) => (
                   <TouchableOpacity
                     key={index}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: currentPage === index }}
                     onPress={() => setCurrentPage(index)}
                     style={{
                       paddingVertical: 8,
@@ -1196,6 +1189,16 @@ export default function FlightLogEditEntry({
                 ))}
               </ScrollView>
 
+              {embedded && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10, gap: 8 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous flight log section" accessibilityState={{ disabled: currentPage === 0 }} disabled={currentPage === 0} onPress={handlePrevious} style={{ paddingVertical: 8, opacity: currentPage === 0 ? 0.4 : 1 }}>
+                  <AppText style={{ color: COLORS.primaryLight }}>Previous</AppText>
+                </TouchableOpacity>
+                <AppText style={{ color: COLORS.grayDark, fontSize: 12 }}>Section {currentPage + 1} of {totalPages}</AppText>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Next flight log section" accessibilityState={{ disabled: isLastPage }} disabled={isLastPage} onPress={handleNext} style={{ paddingVertical: 8, opacity: isLastPage ? 0.4 : 1 }}>
+                  <AppText style={{ color: COLORS.primaryLight }}>Next</AppText>
+                </TouchableOpacity>
+              </View>}
+
               <View
                 style={{
                   height: 1,
@@ -1207,6 +1210,7 @@ export default function FlightLogEditEntry({
 
             <ScrollView
               ref={scrollViewRef}
+              nestedScrollEnabled
               style={{ flex: 1, paddingHorizontal: 20 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"

@@ -2,6 +2,8 @@ const permissions = require("./permissions");
 
 const jobTitles = {
   mechanic: [
+    permissions.CERTIFICATES_READ_OWN,
+    permissions.CERTIFICATES_UPLOAD_OWN,
     permissions.USERS_READ,
     permissions.TASKS_READ_OWN,
     permissions.TASKS_UPDATE_OWN,
@@ -49,6 +51,9 @@ const jobTitles = {
   ],
 
   "maintenance manager": [
+    permissions.CERTIFICATES_REVIEW_ALL,
+    permissions.CERTIFICATES_READ_ALL,
+    permissions.CERTIFICATES_UPLOAD_ALL,
     permissions.REPORTS_READ,
     permissions.REPORTS_EXPORT,
 
@@ -69,6 +74,9 @@ const jobTitles = {
   ],
 
   superadmin: [
+    permissions.CERTIFICATES_REVIEW_ALL,
+    permissions.CERTIFICATES_READ_ALL,
+    permissions.CERTIFICATES_UPLOAD_ALL,
     permissions.ADMIN_PANEL,
 
     permissions.USERS_READ,

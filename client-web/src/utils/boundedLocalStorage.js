@@ -198,4 +198,3 @@ export const removeUserScopedAircraftFhStorage = (userId) => {
     getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, userId),
   );
 };
-

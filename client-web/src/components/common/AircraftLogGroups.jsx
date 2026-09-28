@@ -5,6 +5,8 @@ import { groupAircraftLogs } from "../../../../shared/aircraftLogGroups";
 import { matchesSearch } from "../../utils/search";
 import DateOnlyCell from "./DateOnlyCell";
 import DateTimeCell from "./DateTimeCell";
+import NewLogBadge from "./NewLogBadge";
+import { unviewedAircraftCounts } from "../../../../shared/viewedLogs";
 
 const { Text, Title } = Typography;
 const BRAND = "#26866f";
@@ -18,7 +20,9 @@ export default function AircraftLogGroups({
   emptyText = "No logs found yet.",
   sortBy = "rpc",
   headerAction = null,
+  isNew,
 }) {
+  const newCounts = useMemo(() => unviewedAircraftCounts(records, isNew), [records, isNew]);
   const groups = useMemo(
     () => groupAircraftLogs(records, sortBy),
     [records, sortBy],
@@ -135,7 +139,7 @@ export default function AircraftLogGroups({
                         gap: 8,
                       }}
                     >
-                      <span>{group.rpc}</span>
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>{group.rpc}{newCounts.get(group.rpc) > 0 && <NewLogBadge count={newCounts.get(group.rpc)} />}</span>
                       <RightOutlined style={{ color: BRAND, fontSize: 14 }} />
                     </Title>
                     {group.aircraftType && (

@@ -38,6 +38,8 @@ import PinVerifiedSignatureModal from "../../../components/common/PinVerifiedSig
 import ResponsiveTable from "../../../components/common/ResponsiveTable";
 import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
 import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
+import NewLogBadge from "../../../components/common/NewLogBadge";
+import useViewedLogs from "../../../utils/useViewedLogs";
 import { isAssignedFlightCrew } from "../../../../../shared/flightCrewAccess";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -95,6 +97,7 @@ export default function PostInspection() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { user, getAuthHeader } = useContext(AuthContext);
+  const { isNew, markViewed } = useViewedLogs(user, "post");
   const canExportPostInspections = canExportModule(
     user?.jobTitle,
     "postInspection",
@@ -109,6 +112,9 @@ export default function PostInspection() {
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState(null);
+  useEffect(() => {
+    if (editing && !editing.flightLogId) markViewed(editing);
+  }, [editing, markViewed]);
   const [signatureMode, setSignatureMode] = useState(null);
   const [editTab, setEditTab] = useState("basic");
   const [popup, setPopup] = useState({
@@ -510,6 +516,7 @@ export default function PostInspection() {
     <div className="fl-page">
       {!selectedAircraft ? (
         <AircraftLogGroups
+          isNew={isNew}
           records={records}
           sortBy="latestActivity"
           loading={loading}
@@ -573,7 +580,7 @@ export default function PostInspection() {
             pagination={{ pageSize: 10 }}
             size={"small"}
             columns={[
-              { title: "RP/C", dataIndex: "rpc" },
+              { title: "RP/C", dataIndex: "rpc", render: (value, record) => <Space wrap>{value}{isNew(record) && <NewLogBadge />}</Space> },
               { title: "Aircraft Type", dataIndex: "aircraftType" },
               { title: "Date", dataIndex: "date" },
               {
@@ -912,8 +919,8 @@ export default function PostInspection() {
         <FlightWorkspace
           id={String(editing.flightLogId?._id || editing.flightLogId)}
           open
-          initialSection="post"
-          inspectionMode
+          initialSection="post" inspectionMode
+          onViewed={({ postInspections }) => markViewed(postInspections?.find(record => String(record._id) === String(editing._id)))}
           onClose={() => setEditing(null)}
           onChanged={load}
         />

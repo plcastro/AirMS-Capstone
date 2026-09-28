@@ -1,6 +1,7 @@
 const FlightLog = require("../models/flightLogModel");
 const PartsMonitoring = require("../models/partsMonitoringModel");
 const { populateMonitoringBroughtForward } = require("../../shared/flightLogBroughtForward");
+const { canCreateFlightLog } = require("../../shared/flightLogCreationAccess");
 const mongoose = require("mongoose");
 const EntryConfirmation = require("../models/flightInspectionConfirmationModel");
 const PreInspection = require("../models/preInspectionModel");
@@ -170,10 +171,10 @@ const getB412PayloadShapeError = (b412Data) => {
 
 // @desc    Create a new flight log
 // @route   POST /api/flight-logs
-// @access  Private (pilot or mechanic)
+// @access  Private (mechanic or maintenance manager)
 const createFlightLog = async (req, res) => {
   try {
-    if (getTrustedFlightLogRole(req) !== "mechanic") {
+    if (!canCreateFlightLog(req.user)) {
       return res.status(403).json({
         success: false,
         message: "Your role has read-only access to flight logs",

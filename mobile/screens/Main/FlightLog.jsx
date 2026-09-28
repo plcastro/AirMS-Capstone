@@ -15,6 +15,8 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AppText from "../../components/common/AppText";
+import NewLogBadge from "../../components/common/NewLogBadge";
+import useViewedLogs from "../../utilities/useViewedLogs";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
 import {
   SearchBar,
@@ -33,6 +35,7 @@ import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import { canCreateFlightLog } from "../../../shared/flightLogCreationAccess";
 import {
   getLogAircraftRegistration,
   sortLogsByLatestActivity,
@@ -42,6 +45,7 @@ import {
   flightStage,
   needsMyFlightAction,
   nextFlightStep,
+  hasOngoingFlightLog,
 } from "../../../shared/flightWorkflow";
 const button = {
   padding: 12,
@@ -49,11 +53,13 @@ const button = {
   backgroundColor: "#26866f",
   borderRadius: 6,
 };
-function Action({ children, onPress }) {
+function Action({ children, onPress, disabled = false }) {
   return (
     <TouchableOpacity
       accessibilityRole="button"
-      style={button}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={[button, disabled && { opacity: 0.45 }]}
       onPress={onPress}
     >
       <AppText
@@ -80,9 +86,17 @@ export default function FlightLog({ route, navigation }) {
   const [creating, setCreating] = useState(false),
     [opened, setOpened] = useState(null);
   const userRole = resolveUserRole(user, "pilot");
-  const canCreate = userRole === "mechanic";
+  const { isNew, markViewed } = useViewedLogs(user, "flight");
+  const canCreate = canCreateFlightLog(user);
+  const ongoingFlight = hasOngoingFlightLog(logs, aircraft);
   const [entryPrompt, setEntryPrompt] = useState(false),
+    [entryAircraft, setEntryAircraft] = useState(""),
     [entryConfirmation, setEntryConfirmation] = useState(null);
+  const startEntry = (rpc = "") => {
+    if (loading || (rpc && hasOngoingFlightLog(logs, rpc))) return;
+    setEntryAircraft(rpc === "Unassigned aircraft" ? "" : rpc);
+    setEntryPrompt(true);
+  };
   const refresh = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
@@ -224,9 +238,14 @@ export default function FlightLog({ route, navigation }) {
           {aircraft || "Flight Logs"}
         </AppText>
         {canCreate && (
-          <Action onPress={() => setEntryPrompt(true)}>New Entry</Action>
+          <Action disabled={loading || ongoingFlight} onPress={() => startEntry(aircraft)}>New Entry</Action>
         )}
       </View>
+      {canCreate && ongoingFlight && (
+        <AppText style={{ color: "#64766e", marginTop: 4, marginBottom: 12 }}>
+          Complete this aircraft's ongoing flight log before creating a new entry.
+        </AppText>
+      )}
       {!!aircraft && (
         <>
           <Action onPress={() => chooseAircraft("")}>Back to Aircraft</Action>
@@ -279,6 +298,7 @@ export default function FlightLog({ route, navigation }) {
       )}
       {!aircraft ? (
         <AircraftLogGroups
+          isNew={isNew}
           refreshing={loading}
           onRefresh={() => refresh(true)}
           records={logs}
@@ -309,6 +329,7 @@ export default function FlightLog({ route, navigation }) {
               <InfoCard
                 key={log._id}
                 title={log.controlNo || "Flight Log"}
+                right={isNew(log) ? <NewLogBadge /> : null}
                 subtitle={step.label}
                 onPress={() => setOpened(log._id)}
               >
@@ -343,8 +364,9 @@ export default function FlightLog({ route, navigation }) {
         />
       )}
       <FlightEntryInspectionPrompt
+        flightLogs={logs}
         visible={entryPrompt}
-        lockedRpc={aircraft === "Unassigned aircraft" ? "" : aircraft}
+        lockedRpc={entryAircraft}
         onClose={() => setEntryPrompt(false)}
         onConfirmed={(data) => {
           setEntryConfirmation(data);
@@ -364,6 +386,7 @@ export default function FlightLog({ route, navigation }) {
       />
       {!!opened && (
         <FlightWorkspace
+          onViewed={({ flightLog }) => markViewed(flightLog)}
           id={opened}
           visible
           initialSection={route?.params?.targetSection || "flight"}

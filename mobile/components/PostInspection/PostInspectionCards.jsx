@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
+import NewLogBadge from "../common/NewLogBadge";
 import { FlatList,
   View,
   TouchableOpacity
@@ -16,6 +17,7 @@ export default function PostInspectionCards({
   onExport,
   userRole,
   currentUser,
+  isNew,
   ...listProps
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
@@ -138,6 +140,7 @@ export default function PostInspectionCards({
                   <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
                   </AppText>
+                  {isNew?.(inspection) && <NewLogBadge />}
 
                   <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}

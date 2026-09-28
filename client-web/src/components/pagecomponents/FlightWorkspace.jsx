@@ -1,5 +1,5 @@
 import InspectionConfirmationPrompt from "./InspectionConfirmationPrompt";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -50,14 +50,15 @@ export default function FlightWorkspace({
   open,
   onClose,
   onChanged,
+  onViewed,
   initialSection = "flight",
   inspectionMode = false,
+  readOnly = false,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
-  const inspectionSection =
-    inspectionMode && ["pre", "post"].includes(initialSection)
-      ? initialSection
-      : null;
+  const viewedCallback = useRef(onViewed);
+  useEffect(() => { viewedCallback.current = onViewed; }, [onViewed]);
+  const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
     [draft, setDraft] = useState(null);
@@ -119,6 +120,7 @@ export default function FlightWorkspace({
       if (!preserve || changed) {
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
       }
       return data;
     },
@@ -132,7 +134,7 @@ export default function FlightWorkspace({
     setWorkspace(null);
     setTab(
       inspectionSection ||
-        (["flight", "defects", "history"].includes(initialSection)
+        (["flight", "preparation", "defects", "history"].includes(initialSection)
           ? initialSection
           : "flight"),
     );
@@ -146,6 +148,7 @@ export default function FlightWorkspace({
         setWorkspace(data);
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
         try {
           setRecovery(JSON.parse(sessionStorage.getItem(storageKey) || "null"));
         } catch {
@@ -162,6 +165,7 @@ export default function FlightWorkspace({
   useEffect(() => {
     if (
       !open ||
+      readOnly ||
       !draft ||
       !workspace ||
       recovery ||
@@ -188,21 +192,21 @@ export default function FlightWorkspace({
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [draft, open, workspace, storageKey, user, recovery]);
+  }, [draft, open, workspace, storageKey, user, recovery, readOnly]);
   const log = workspace?.flightLog;
-  const permissions = flightEditPermissions(user, log || {});
+  const permissions = readOnly ? {} : flightEditPermissions(user, log || {});
   const step = nextFlightStep(log || {});
-  const acceptance = pilotAcceptance(
+  const acceptance = !readOnly && pilotAcceptance(
     user,
     log || {},
     workspace?.preInspections || [],
   );
-  const assigned = isAssignedFlightCrew(user, log);
+  const assigned = !readOnly && isAssignedFlightCrew(user, log);
   const mechanic = getAssignedCrewField(user) === "assignedMechanic";
   const showWorkspaceActions =
-    (mechanic && needsMyFlightAction(user, log)) ||
+    !readOnly && ((mechanic && needsMyFlightAction(user, log)) ||
     permissions.canSave ||
-    permissions.canReturn;
+    permissions.canReturn);
   const finish = async (preserve = false) => {
     if (!preserve) {
       sessionStorage.removeItem(storageKey);
@@ -374,6 +378,9 @@ export default function FlightWorkspace({
   };
   const preparationChecks = (
     <Space orientation="vertical" style={{ width: "100%" }} size={12}>
+      {permissions.preparation && [...readiness.missing, ...readiness.warnings].map((message, i) => (
+        <Alert key={i} type="warning" showIcon title={message} />
+      ))}
       {!!readiness.maintenanceDue?.length && (
         <Alert
           type="warning"
@@ -417,7 +424,7 @@ export default function FlightWorkspace({
               width: "100%",
             }}
           >
-            {mechanic && needsMyFlightAction(user, log) && (
+            {!readOnly && mechanic && needsMyFlightAction(user, log) && (
               <Button
                 type="primary"
                 loading={busy}
@@ -453,15 +460,14 @@ export default function FlightWorkspace({
         ) : null
       }
       width={1220}
-      title={
-        log
-          ? `${log.rpc} · ${log.controlNo} · Flight Workspace`
-          : "Flight Workspace"
-      }
+      title={<div className="fl-workspace-heading">
+        <span>{inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}</span>
+        {log && <Typography.Text type="secondary">{log.rpc} · {log.controlNo}</Typography.Text>}
+      </div>}
       destroyOnHidden
       styles={{
         body: {
-          maxHeight: "84vh",
+          maxHeight: "calc(100dvh - 210px)",
           overflowY: "auto",
         },
       }}
@@ -502,6 +508,7 @@ export default function FlightWorkspace({
         {log && (
           <>
             <Card
+              className="fl-workspace-summary"
               size="small"
               style={{
                 marginBottom: 12,
@@ -583,7 +590,7 @@ export default function FlightWorkspace({
                 </Space>
               </Card>
             )}
-            {recovery && mechanic && (
+            {!readOnly && recovery && mechanic && (
               <Alert
                 type="info"
                 title={`A local draft from ${labelTime(recovery.savedAt)} is available${recovery.version !== log.__v ? "; the server record has since changed. Review restored fields before saving." : "."}`}
@@ -617,6 +624,7 @@ export default function FlightWorkspace({
               />
             )}
             <Tabs
+              className="fl-workspace-tabs"
               activeKey={tab}
               onChange={setTab}
               items={[
@@ -648,7 +656,7 @@ export default function FlightWorkspace({
                   label: "Preparation Checks",
                   children: preparationChecks,
                 },
-                ...["pre", "post"].map((kind) => ({
+                ...(inspectionSection ? [inspectionSection] : []).map((kind) => ({
                   key: kind,
                   label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
                   children: (

@@ -31,6 +31,7 @@ import {
   SectionTitle,
 } from "../../components/common/MobileModule";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
+import useViewedLogs from "../../utilities/useViewedLogs";
 
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
@@ -68,6 +69,7 @@ const getDisplayStatus = (status) => {
 
 export default function PostInspection({ route }) {
   const { user } = useContext(AuthContext);
+  const { isNew, markViewed } = useViewedLogs(user, "post");
   const targetPostInspectionId = route?.params?.targetPostInspectionId;
   const targetNotificationStatus = route?.params?.notificationStatus;
   const notificationRefreshAt = route?.params?.refreshAt;
@@ -79,6 +81,9 @@ export default function PostInspection({ route }) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
+  useEffect(() => {
+    if (showEditModal && selectedInspection && !selectedInspection.flightLogId) markViewed(selectedInspection);
+  }, [showEditModal, selectedInspection, markViewed]);
   const [inspections, setInspections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -255,6 +260,7 @@ export default function PostInspection({ route }) {
 
         {!selectedAircraft ? (
           <AircraftLogGroups
+            isNew={isNew}
             refreshing={refreshing}
             onRefresh={() => fetchPostInspections(true)}
             records={inspections}
@@ -331,6 +337,7 @@ export default function PostInspection({ route }) {
               onRefresh={() => fetchPostInspections(true)}
               currentUser={user}
               inspections={loading ? [] : filteredInspections}
+              isNew={isNew}
               onEdit={handleEdit}
               onExport={canExportPostInspections ? handleExport : undefined}
               userRole={userRole}
@@ -404,6 +411,7 @@ export default function PostInspection({ route }) {
           )}
           visible
           initialSection="post" inspectionMode
+          onViewed={({ postInspections }) => markViewed(postInspections?.find(record => String(record._id) === String(selectedInspection._id)))}
           onClose={() => {
             setShowEditModal(false);
             setSelectedInspection(null);

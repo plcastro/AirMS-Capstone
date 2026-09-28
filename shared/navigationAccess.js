@@ -37,7 +37,7 @@ const NAV_ACCESS = {
     "mechanic",
   ],
   tasks: ["superadmin", "maintenance manager", "mechanic"],
-  mechanics: ["superadmin", "maintenance manager"],
+  mechanics: ["superadmin", "maintenance manager", "mechanic"],
   partsLifespan: ["superadmin", "maintenance manager", "officer-in-charge"],
   maintenanceTracking: [
     "superadmin",

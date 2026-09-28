@@ -27,6 +27,7 @@ const adminActivityRoutes = require("./routes/adminActivityRoute");
 const adminSecurityAlertRoutes = require("./routes/adminSecurityAlertRoute");
 const aiInsightRoutes = require("./routes/aiInsightRoute");
 const reportExportRoutes = require("./routes/reportExportRoute");
+const certificateRoutes = require("./routes/certificateRoute");
 const sendEmail = require("./utils/sendEmail");
 const http = require("http");
 const {
@@ -264,6 +265,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/ai-insights", aiInsightRoutes);
 app.use("/api/reports", reportExportRoutes);
 app.use("/api/flightlogs", flightLogRoutes);
+app.use("/api/certificates", certificateRoutes);
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {

@@ -1,3 +1,5 @@
+import { createUseTaskQualifications } from "../../../shared/taskQualificationsClient";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
@@ -141,6 +143,8 @@ const getInspectionDraftDates = (draft = {}) => {
   return { start: clampToNow(start), end };
 };
 
+const useTaskQualifications = createUseTaskQualifications(React);
+
 export default function AddTask({
   visible,
   onClose,
@@ -151,6 +155,7 @@ export default function AddTask({
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedBase, setSelectedBase] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const qualification = useTaskQualifications(API_BASE, getAuthHeaders, selectedAircraft, visible);
   const [inspectionType, setInspectionType] = useState("");
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
@@ -891,6 +896,7 @@ export default function AddTask({
   };
 
   const getAddTaskWarning = () => {
+    if (selectedEmployee && !qualification.option(selectedEmployee).qualified) return qualification.option(selectedEmployee).reason;
     const selectedAvailableEmployee = availableEmployees.find(
       (emp) => emp.id === selectedEmployee,
     );
@@ -1231,13 +1237,15 @@ export default function AddTask({
                 </View>
               )}
 
+              {!!qualification.message && <AppText style={{ color: "#9b5600", marginBottom: 8 }}>{qualification.message}</AppText>}
+              {!!qualification.error && <TouchableOpacity onPress={qualification.retry}><AppText style={{ color: COLORS.primary, padding: 12 }}>Retry qualification check</AppText></TouchableOpacity>}
               {renderDropdownField({
                 label: "Mechanic",
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
                 options: employees.map((emp) => ({
-                  label: `${emp.name}${
+                  label: `${emp.name} ? ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
                           emp.activeTaskCount === 1 ? "" : "s"
@@ -1248,7 +1256,7 @@ export default function AddTask({
                   statusColor: emp.isOnline
                     ? COLORS.successBg || "#22c55e"
                     : COLORS.grayDark,
-                  disabled: false,
+                  disabled: !qualification.option(emp.id).qualified,
                 })),
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,

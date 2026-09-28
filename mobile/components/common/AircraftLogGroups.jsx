@@ -14,6 +14,8 @@ import { COLORS } from "../../stylesheets/colors";
 import { formatDate, formatDateTime } from "../../utilities/mobileApi";
 import { matchesSearch } from "../../utilities/search";
 import { groupAircraftLogs } from "../../../shared/aircraftLogGroups";
+import { unviewedAircraftCounts } from "../../../shared/viewedLogs";
+import NewLogBadge from "./NewLogBadge";
 
 export default function AircraftLogGroups({
   records = [],
@@ -23,8 +25,10 @@ export default function AircraftLogGroups({
   onSelect,
   emptyText = "No logs found yet.",
   sortBy = "rpc",
+  isNew,
   ...listProps
 }) {
+  const newCounts = useMemo(() => unviewedAircraftCounts(records, isNew), [records, isNew]);
   const groups = useMemo(
     () =>
       groupAircraftLogs(records, sortBy).filter((group) =>
@@ -69,9 +73,12 @@ export default function AircraftLogGroups({
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
-                <StatusChip
-                  label={`${group.count} ${group.count === 1 ? "log" : "logs"}`}
-                />
+                <View style={{ alignItems: "flex-start", gap: 4 }}>
+                  <StatusChip
+                    label={`${group.count} ${group.count === 1 ? "log" : "logs"}`}
+                  />
+                  {newCounts.get(group.rpc) > 0 && <NewLogBadge count={newCounts.get(group.rpc)} />}
+                </View>
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={22}

@@ -1,3 +1,4 @@
+import { createUseTaskQualifications } from "../../../../../shared/taskQualificationsClient";
 import React, {
   useCallback,
   useContext,
@@ -50,6 +51,8 @@ import { formatTaskInspectionLabel } from "../../../utils/taskInspectionLabel";
 
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
+const useTaskQualifications = createUseTaskQualifications(React);
+
 const CUSTOM_INSPECTION_ID = "custom-task";
 const MINIMUM_TASK_MINUTES = 60;
 const BASE_TASK_MINUTES = 10;
@@ -400,6 +403,8 @@ export default function TaskAssignment() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [form] = Form.useForm();
+  const assignmentAircraft = Form.useWatch('aircraft', form);
+  const qualification = useTaskQualifications(API_BASE, getAuthHeader, assignmentAircraft, createOpen);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
   const [itemsToUncheck, setItemsToUncheck] = useState([]);
@@ -641,7 +646,8 @@ export default function TaskAssignment() {
               })`
             : ""
         }`,
-        disabled: false,
+        disabled: !qualification.option(item.id).qualified,
+        title: qualification.option(item.id).reason,
       });
       return list;
     }, []);
@@ -656,13 +662,13 @@ export default function TaskAssignment() {
         options.unshift({
           value: assignedTo,
           label: getTaskAssigneeName(editingTask),
-          disabled: false,
+          disabled: !qualification.option(assignedTo).qualified,
         });
       }
     }
 
     return options;
-  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics]);
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics, qualification]);
 
   const aircraftSelectOptions = useMemo(
     () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
@@ -1711,14 +1717,15 @@ export default function TaskAssignment() {
                 <Form.Item
                   label="Assign Mechanic"
                   name="assignedTo"
-                  rules={[{ required: true, message: "Assignee is required" }]}
+                  extra={<span>{qualification.message || 'A verified certificate for this aircraft is required.'} {qualification.error && <Button type="link" onClick={qualification.retry}>Retry</Button>}</span>}
+                  rules={[{ required: true, message: "Assignee is required" }, { validator: (_, value) => !value || qualification.option(value).qualified ? Promise.resolve() : Promise.reject(new Error(qualification.option(value).reason)) }]}
                 >
                   <Select
                     size="large"
                     placeholder="Pick Mechanic"
                     showSearch
                     optionFilterProp="label"
-                    options={mechanicSelectOptions}
+                    options={mechanicSelectOptions.map(option => ({ ...option, label: `${option.label} — ${qualification.option(option.value).qualified ? 'Qualified' : qualification.option(option.value).reason}` }))}
                   />
                 </Form.Item>
               </Col>

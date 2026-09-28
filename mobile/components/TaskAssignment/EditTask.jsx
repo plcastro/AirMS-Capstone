@@ -1,3 +1,5 @@
+import { createUseTaskQualifications } from "../../../shared/taskQualificationsClient";
+import { getAuthHeaders } from "../../utilities/mobileApi";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
 import AppText from "../common/AppText";
@@ -49,6 +51,8 @@ const getDisplayText = (value, fallback = "") => {
   return String(value);
 };
 
+const useTaskQualifications = createUseTaskQualifications(React);
+
 export default function EditTask({
   visible,
   onClose,
@@ -59,6 +63,7 @@ export default function EditTask({
   const [taskTitle, setTaskTitle] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
+  const qualification = useTaskQualifications(API_BASE, getAuthHeaders, selectedAircraft, visible);
   const [selectedPriority, setSelectedPriority] = useState("Normal");
 
   const [startDate, setStartDate] = useState(new Date());
@@ -178,6 +183,7 @@ export default function EditTask({
   }, [task]);
 
   const buildUpdatedTask = () => {
+    if (!qualification.option(selectedEmployee).qualified) { showToast(qualification.option(selectedEmployee).reason); return null; }
     if (!taskTitle.trim()) {
       showToast("Please enter a task title.");
       return null;
@@ -225,7 +231,6 @@ export default function EditTask({
     const updatedTask = buildUpdatedTask();
     if (!updatedTask) return;
     onSave(updatedTask);
-    setSaveConfirmVisible(false);
   };
 
   const confirmDiscard = () => {
@@ -560,13 +565,15 @@ export default function EditTask({
                 disabled: true,
               })}
 
+              {!!qualification.message && <AppText style={{ color: "#9b5600", marginBottom: 8 }}>{qualification.message}</AppText>}
+              {!!qualification.error && <TouchableOpacity onPress={qualification.retry}><AppText style={{ color: COLORS.primary, padding: 12 }}>Retry qualification check</AppText></TouchableOpacity>}
               {renderDropdownField({
                 label: "Mechanic",
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
                 options: employees.map((emp) => ({
-                  label: `${emp.name}${
+                  label: `${emp.name} ? ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
                           emp.activeTaskCount === 1 ? "" : "s"
@@ -574,7 +581,7 @@ export default function EditTask({
                       : ""
                   }`,
                   value: emp.id,
-                  disabled: false,
+                  disabled: !qualification.option(emp.id).qualified,
                 })),
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,

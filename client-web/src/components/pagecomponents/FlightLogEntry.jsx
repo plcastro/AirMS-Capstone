@@ -1,5 +1,6 @@
 import { monitoringBroughtForward } from "../../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../../shared/flightLogDates";
+import { isFlightLogManager } from "../../../../shared/flightLogCreationAccess";
 import {
   totalFlightHours,
   FLIGHT_HOUR_FIELDS,
@@ -267,6 +268,7 @@ export default function FlightLogEntry({
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
+  const managerCreation = !editMode && isFlightLogManager({ jobTitle: userRole });
   const lockedAircraftRpc = String(lockedRpc || (!editMode ? initialAircraftRpc : '') || '').trim();
   const canEnterDestinations = ["mechanic", "maintenance manager"].includes(
     String(userRole || "").trim().toLowerCase().replace(/[\s-]+/g, " "),
@@ -805,6 +807,11 @@ export default function FlightLogEntry({
       return;
     }
     if (!validateRequiredFlightTime()) return;
+    if (managerCreation && !formData.assignedMechanic?.userId) {
+      message.error("Select an assigned mechanic before creating the flight log.");
+      setActiveTab("info");
+      return;
+    }
     if (isPilot && canEditDestinations) {
       const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
         const hasInvalidRoute = (leg.stations || []).some(
@@ -877,6 +884,7 @@ export default function FlightLogEntry({
       case "info":
         return (
           <FlightLogModalInfo
+            assignMechanic={managerCreation}
             formData={formData}
             updateForm={updateForm}
             isEditable={canSave && canEditBasicInfo}
@@ -1110,21 +1118,18 @@ export default function FlightLogEntry({
         {!embedded && (
           <div className="fl-modal-header-block">
             <div className="fl-modal-title-main">
-              {readOnly
-                ? "View Entry - Flight Log"
-                : editMode
-                  ? "Edit Entry - Flight Log"
-                  : "Add Entry - Flight Log"}
+              {editMode || readOnly ? "Flight Log" : "New Flight Log"}
             </div>
-            <div className="fl-modal-title-sub">Select Section</div>
           </div>
         )}
 
         {/* Tab nav */}
-        <div className="fl-tab-nav">
+        <nav className="fl-tab-nav" aria-label="Flight log sections">
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              type="button"
+              aria-current={effectiveActiveTab === tab.key ? "page" : undefined}
               className={`fl-tab-btn${effectiveActiveTab === tab.key ? " fl-tab-btn--active" : ""}`}
               onClick={() => setActiveTab(tab.key)}
             >
@@ -1132,7 +1137,7 @@ export default function FlightLogEntry({
               <span className="fl-tab-label">{tab.label}</span>
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* Scrollable body */}
         <div className="fl-modal-body">
