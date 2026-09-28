@@ -1,11 +1,12 @@
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "ruleCode": "VERIFIED_AIRCRAFT_CERTIFICATE_ALL_TASKS",
-  "description": "A verified, valid certificate covering an aircraft model grants all AirMS tasks on that model to a mechanic. The approved AirMS policy groups AS350B3 and AS350B3e under AS350B3.",
+  "description": "A verified holder and aircraft match grants all AirMS tasks on that aircraft to a mechanic. Licence validity is currently ignored. The AirMS policy groups AS350B3 and AS350B3e under AS350B3.",
   "personnelRole": "mechanic",
   "taskScope": "ALL_TASKS",
   "aircraft": ["AS350B3", "B412EP"],
   "expiryDateInclusive": true,
+  "ignoreLicenseValidity": true,
   "requirements": [
     "CERTIFICATE_ID",
     "PERSONNEL_MATCH",

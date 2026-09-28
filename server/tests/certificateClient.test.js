@@ -1,6 +1,23 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { certificateDraft, certificateCorrections, createCertificateApi, uploadCertificateFiles } = require('../../shared/certificateClient');
+const { certificateDraft, certificateCorrections, certificateSummaryFields, certificateSummaryCorrections, reassessCertificates, createCertificateApi, uploadCertificateFiles } = require('../../shared/certificateClient');
+
+test('simplified certificate form submits only holder, type and qualifications without wiping stored metadata', () => {
+  assert.deepEqual(certificateSummaryFields.map(([key]) => key), ['holderName', 'certificateType', 'qualifications']);
+  const draft = certificateDraft({ holderName: 'Alex Santos', certificateType: 'Training', qualifications: ['AS350B3e'], limitations: ['Engine not included'], expiryDate: '2010-01-01' });
+  assert.deepEqual(certificateSummaryCorrections(draft), { holderName: 'Alex Santos', certificateType: 'Training', qualifications: ['AS350B3e'] });
+});
+
+test('old pending certificates are rechecked sequentially and navigation stops the queue', async () => {
+  let current = true;
+  const calls = [];
+  const result = await reassessCertificates([{ id: 'new', needsReassessment: false }, { id: 'old1', needsReassessment: true }, { id: 'old2', needsReassessment: true }], async record => {
+    calls.push(record.id); current = false; return { data: { certificate: { id: record.id, status: 'VERIFIED' } } };
+  }, () => current);
+  assert.deepEqual(calls, ['old1']);
+  assert.equal(result[0].status, 'VERIFIED');
+  await assert.rejects(reassessCertificates([{ needsReassessment: true }, { needsReassessment: true }], async () => { throw Object.assign(Error('Retry later'), { status: 429 }); }), /Retry later/);
+});
 
 test('multiple certificates upload sequentially and preserve successes around invalid or failed files', async () => {
   const files = [

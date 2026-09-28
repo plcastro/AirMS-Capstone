@@ -36,7 +36,10 @@ test('automatic acceptance supports task assignment only with valid server decis
   const source = { ...certificate(), reviewedBy: null, reviewedAt: null,
     verificationMethod: 'AUTOMATIC', verifiedAt: new Date('2026-01-01'),
     verificationDecision: { eligible: true, policyVersion: require('../config/certificateAutomationPolicy').version,
+      qualificationPolicy: 'AIRCRAFT_MATCH', matchedAircraft: ['B412EP'],
       certificateId: certificate()._id, personnelId: owner, sourceSha256: 'a'.repeat(64), reasons: [] } };
+  source.normalizedData.expiryDate = '2010-01-01';
+  source.normalizedData.limitations = ['Airframe course; engine not included'];
   const f = serviceFixture({ sources: [source] });
   assert.equal((await f.service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner })).qualified, true);
   assert.equal((await f.service.list('RP-C1234'))[0].qualified, true);
@@ -53,9 +56,9 @@ test('AS350B3 certificates allow assignment to an AS350B3e registration', async 
   assert.equal((await f.service.list('RP-C1234'))[0].qualified, true);
 });
 
-test('unverified, expired, revoked, foreign and restricted sources fail on the server', async () => {
+test('unverified, revoked, foreign and unreviewed restricted sources fail on the server', async () => {
   for (const source of [null, { ...certificate(), status: 'PENDING_REVIEW' }, { ...certificate(), status: 'REVOKED' },
-    { ...certificate(), personnelId: other }, { ...certificate(), normalizedData: { ...certificate().normalizedData, expiryDate: '2025-01-01' } },
+    { ...certificate(), personnelId: other },
     { ...certificate(), normalizedData: { ...certificate().normalizedData, limitations: ['Inspection only'] } }]) {
     const f = serviceFixture({ sources: source ? [source] : [] });
     await assert.rejects(f.service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner, qualified: true, confirmBusyMechanic: true }), error => error.status === 422 && error.code === 'AIRCRAFT_QUALIFICATION_REQUIRED');
@@ -71,11 +74,11 @@ test('missing, unknown or conflicting aircraft records cannot be inferred from c
   await assert.rejects(serviceFixture().service.list({ $ne: '' }), error => error.status === 400);
 });
 
-test('assignment rechecks expiry on the current business date and rejects non-mechanics', async () => {
+test('assignment ignores licence expiry but still rejects non-mechanics', async () => {
   const f = serviceFixture();
   await f.service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner });
   f.clock('2027-01-01T16:00:00Z');
-  await assert.rejects(f.service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner }), error => error.status === 422);
+  assert.equal((await f.service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner })).qualified, true);
   for (const who of [null, { ...person, jobTitle: 'Pilot' }]) await assert.rejects(serviceFixture({ who }).service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner }), error => error.status === 422);
 });
 

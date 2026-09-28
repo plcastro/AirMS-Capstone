@@ -198,6 +198,25 @@ test('certificate HTTP downloads are private attachments and mechanics cannot co
 test('certificate uploads are rate limited per authenticated account', async t => {
   const { service } = fixture();
   const base = await serve(t, { authenticate, controller: createCertificateController(service) });
-  for (let i = 0; i < 10; i++) assert.equal((await fetch(`${base}/personnel/${owner}`, { method: 'POST' })).status, 400);
+  for (let i = 0; i < 100; i++) assert.equal((await fetch(`${base}/personnel/${owner}`, { method: 'POST' })).status, 400);
   assert.equal((await fetch(`${base}/personnel/${owner}`, { method: 'POST' })).status, 429);
+});
+
+test('a 58-file analysis batch and subsequent rechecks do not exhaust an account quota', async t => {
+  let analyzed = 0;
+  const controller = { ...createCertificateController(), analyze: (req, res) => {
+    analyzed++;
+    res.json({ data: { certificate: { id: req.params.id } } });
+  } };
+  const base = await serve(t, { authenticate, controller });
+  // More than two full batches cover both initial reads and cached policy rechecks.
+  for (let i = 0; i < 120; i++) {
+    const response = await fetch(`${base}/${id}/analyze`, { method: 'POST',
+      headers: { 'x-action-confirmed': 'true', 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision: i + 1 }) });
+    assert.equal(response.status, 200);
+  }
+  assert.equal(analyzed, 120);
+  assert.equal((await fetch(`${base}/${id}/analyze`, { method: 'POST' })).status, 400);
+  assert.equal(analyzed, 120);
 });

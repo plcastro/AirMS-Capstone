@@ -1,3 +1,4 @@
 module.exports = Object.freeze({
-  version: '1.0.0', minimumOcrConfidence: 0.95, minimumNameSimilarity: 0.98,
+  version: '2.0.0', minimumNameSimilarity: 0.90,
+  qualificationPolicy: 'AIRCRAFT_MATCH',
 });

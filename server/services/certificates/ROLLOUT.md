@@ -16,21 +16,25 @@ web `/dashboard/certificates` address redirects to `/dashboard/mechanics`.
    Limits are 4 MiB and 20 PDF pages per file. Files upload sequentially with progress
    and per-file results; each successful upload is read automatically before the next.
    Saved files survive another file's failure. Multiple uploads return to the list.
-   The limit of 10 uploads and 10 analyses per
-   account per 15 minutes still applies; hitting it stops the queue and reports the
-   remaining files as skipped. Leaving the profile stops further queued uploads.
+   Uploads allow 100 files per account per 15 minutes. Analyses and cached policy
+   rechecks have no time-window quota. Upload throttling or OCR resource contention
+   stops the queue and reports remaining files as skipped. Leaving the profile
+   stops further queued uploads.
 2. Clear, complete readings are **Accepted automatically** with no verification dialog.
    Other files show **Needs attention** and **Check details**, with specific reasons.
    OCR may take up to two minutes. A reading error preserves the saved file and provides
    retry; a revision conflict requires reopening the record.
-3. For files needing attention, download the original through the authenticated endpoint and inspect it. Review
-   the name suggestions, original text/warnings, aircraft ratings and validity dates.
-   Similarity percentages compare names; they are not identity confidence.
-4. Correct fields, enter a review note, and **Save corrections & preview**. Arrays
-   use one item per line; dates use YYYY-MM-DD. A non-expiring source must explicitly
-   say so. Unsaved corrections disable confirmation.
-5. A reviewer acknowledges checking the source and its owner, then confirms in a
-   second dialog. The UI refreshes the official aircraft qualification profile.
+3. The certificate view shows holder, type and qualifications, followed by detected
+   aircraft and the exact text behind the match. **Aircraft task approval** links to
+   the certificate that qualified the mechanic.
+4. When a reading needs attention, compare it with **View original** and correct the
+   three fields. An authorized reviewer selects **Confirm details** once. Mechanics
+   can **Save details** for an authorized reviewer. There are no expiry fields, rating
+   selectors, review checkboxes or preview dialogs in the main workflow.
+5. Licence validity is ignored for now. A matching holder and supported aircraft
+   approve all tasks for that aircraft. Source notes are retained under history.
+   Older pending files are automatically reassessed when the profile opens; no
+   duplicate upload is needed. See [AUTOMATION.md](./AUTOMATION.md).
 6. Reviewers can reject a pending upload or revoke a verified source with a reason.
    Originals, corrections and history remain available under All certificates.
 

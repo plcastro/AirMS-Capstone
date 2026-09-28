@@ -4,6 +4,11 @@ This backend connects the private upload, OCR/parser, holder matcher and determi
 qualification engine. The later approved integration adds [web/mobile screens and task
 assignment checks](./ROLLOUT.md). No additional dependency installation is needed.
 
+Current UI and automatic decisions use [the aircraft-match policy](./AUTOMATION.md).
+Holder and detected aircraft determine approval; licence validity is ignored for now.
+The three-field correction UI saves and confirms in one authorized user action.
+Legacy correction/preview APIs below remain available for existing integrations.
+
 ## Workflow and API
 
 All paths below start with `/api/certificates`. Authenticate with the existing
@@ -35,8 +40,8 @@ become `VERIFIED` with `verificationMethod: AUTOMATIC` and no preview or user co
 Other readings remain `PENDING_REVIEW` with specific reasons for needing attention.
 Original text, page evidence, extracted
 fields, confidence, warnings and original holder suggestions remain in `analysis`.
-Reanalysis of an already analyzed record is blocked to preserve the original evidence;
-correct the fields or upload a better original instead. Failed reading records
+Current-policy records cannot be reanalyzed. Older pending records without saved corrections
+can be reassessed from stored OCR; their original analysis is preserved. Failed reading records
 `FAILED` plus an audit event and can be retried using the new revision. Busy-reader
 responses do not change the revision. Analyze permits ten attempts per account per
 15 minutes per server instance; existing reader concurrency and time limits still apply.
@@ -88,9 +93,8 @@ Confirmation requires explicit acknowledgment of the original source and its own
 
 The reviewer must check the source, warnings and any corrections, including removed
 limitations. Low OCR confidence alone does not block a human-confirmed source;
-automatic acceptance requires all evidence checks, not confidence or a name match alone. Missing
-holder name, missing certificate type/number, missing/unknown ratings or ambiguous
-validity information must be corrected first. A non-expiring certificate needs
+automatic acceptance requires all evidence checks, not confidence or a name match alone. For current aircraft-match decisions, unresolved holder or aircraft text must be
+corrected first. Legacy manual APIs still validate structured dates. An explicitly non-expiring certificate needs
 `doesNotExpire: true` and `expiryDate: null` explicitly established from the document.
 
 The confirmed mechanic must match the upload's immutable owner. If the suggested or
@@ -98,16 +102,15 @@ selected mechanic differs, upload under the correct mechanic; fuzzy matching can
 silently move a private document between personnel accounts.
 
 Confirmation stores `VERIFIED`, the authenticated reviewer, server timestamp and
-the qualification decision. Verification means the facts were reviewed; it is not
-itself an eligibility grant. Expired, future-dated or restricted evidence can be
-recorded as verified but cannot grant all tasks. Valid, unrestricted, verified
-certificates covering B412EP or AS350B3 grant `ALL_TASKS` on the covered aircraft.
+the qualification decision. Current aircraft-match decisions grant `ALL_TASKS`
+on the detected B412EP or AS350B3 aircraft when the holder matches the mechanic.
+Dates and course scope notes do not block this policy; the original facts remain
+stored. Rejected, revoked, pending or wrong-owner records do not grant tasks.
 There are no task-specific certificate rules in this approved version.
 
 The official qualifications endpoint recomputes using the server's current
-Asia/Manila calendar date. Expiry is inclusive through that date and is reevaluated
-on each request. Multiple verified sources are combined; an expired source does
-not erase another valid source. Existing role and workflow permissions still apply.
+Asia/Manila calendar date. Licence validity is currently ignored by configuration; current qualification is reevaluated
+on each request. Multiple verified sources are combined. Existing role and workflow permissions still apply.
 `qualificationDecision` stored on the certificate is a historical confirmation
 snapshot, not a substitute for the current qualifications endpoint.
 

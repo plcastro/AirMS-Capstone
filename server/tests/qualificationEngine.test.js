@@ -42,9 +42,10 @@ test('valid certificates grant all tasks for either aircraft without task-specif
       assert.equal(result.task, task);
       assert.deepEqual(result.sourceCertificates, ['certificate-1']);
       assert.deepEqual(result.failedRules, []);
-      assert.equal(result.validThrough, '2027-05-20');
+      assert.equal(result.validThrough, null);
+      assert.equal(result.validityIgnored, true);
       assert.equal(result.evaluatedAsOf, asOf);
-      assert.equal(result.ruleVersion, '1.1.0');
+      assert.equal(result.ruleVersion, '2.0.0');
     }
   }
 });
@@ -52,7 +53,7 @@ test('valid certificates grant all tasks for either aircraft without task-specif
 test('approved AS350B3 coverage includes AS350B3e with the same review and validity requirements', () => {
   assert.equal(evaluate(undefined, { aircraftType: 'AS350B3e' }).allTasksAllowed, true);
   assert.equal(evaluate([certificate({ aircraftRatings: ['AS350 B3e'] })]).qualified, true);
-  for (const changes of [{ status: 'PENDING_REVIEW' }, { status: 'REVOKED' }, { expiryDate: '2025-01-01' }, { limitations: ['Inspection only'] }]) {
+  for (const changes of [{ status: 'PENDING_REVIEW' }, { status: 'REVOKED' }, { limitations: ['Inspection only'] }]) {
     assert.equal(evaluate([certificate(changes)], { aircraftType: 'AS350B3e' }).qualified, false);
   }
   assert.equal(evaluate(undefined, { aircraftType: 'AS350B2' }).qualified, false);
@@ -107,14 +108,14 @@ test('verification requires reviewer evidence and a source ID', () => {
   }
 });
 
-test('expiry date is inclusive and eligibility ends on the following business date', () => {
+test('expiry no longer removes aircraft approval under the temporary validity rule', () => {
   const certificates = [certificate({ expiryDate: asOf })];
   assert.equal(evaluate(certificates).qualified, true);
   const result = evaluate(certificates, { asOf: '2026-09-29' });
-  assert.equal(result.decision, 'NOT_QUALIFIED');
-  assert.deepEqual(result.expiredCertificateIds, ['certificate-1']);
-  assert.ok(result.certificateChecks.some(check => check.code === 'EXPIRY_DATE' && !check.passed));
-  assert.ok(result.failedRules.some(reason => reason.includes('expired')));
+  assert.equal(result.decision, 'QUALIFIED');
+  assert.deepEqual(result.expiredCertificateIds, []);
+  assert.ok(result.certificateChecks.some(check => check.code === 'EXPIRY_DATE' && check.passed));
+  assert.equal(result.validityIgnored, true);
 });
 
 test('revoked and expired status override a future expiry date', () => {
@@ -123,19 +124,20 @@ test('revoked and expired status override a future expiry date', () => {
   }
 });
 
-test('missing expiry requires review; non-expiring evidence must be explicit', () => {
-  assert.equal(evaluate([certificate({ expiryDate: null })]).decision, 'NEEDS_REVIEW');
+test('missing expiry does not require a fabricated lifetime declaration', () => {
+  assert.equal(evaluate([certificate({ expiryDate: null })]).decision, 'QUALIFIED');
   const unlimited = evaluate([certificate({ expiryDate: null, doesNotExpire: true })]);
   assert.equal(unlimited.qualified, true);
   assert.equal(unlimited.validThrough, null);
-  assert.equal(evaluate([certificate({ doesNotExpire: true })]).decision, 'NEEDS_REVIEW');
+  assert.equal(evaluate([certificate({ doesNotExpire: true })]).decision, 'QUALIFIED');
 });
 
-test('invalid, ambiguous, reversed and future certificate dates cannot qualify', () => {
+test('licence validity dates are ignored without changing the stored facts', () => {
   for (const changes of [{ expiryDate: '2027-02-30' }, { expiryDate: '05/06/2027' },
     { issueDate: 'invalid' }, { issueDate: '2027-01-01' },
     { issueDate: '2026-08-01', expiryDate: '2026-07-01' }]) {
-    assert.equal(evaluate([certificate(changes)]).qualified, false);
+    assert.equal(evaluate([certificate(changes)]).qualified, true);
+    assert.equal(evaluate([certificate(changes)]).validityIgnored, true);
   }
 });
 
@@ -155,7 +157,7 @@ test('a current verified restriction cannot be bypassed by another certificate',
   assert.equal(result.decision, 'NEEDS_REVIEW');
   assert.deepEqual(result.restrictions, [{ certificateId: 'restricted', limitation: 'No engine work' }]);
   assert.equal(evaluate([certificate(), { ...restricted, aircraftRatings: ['B412EP'] }]).qualified, true);
-  for (const changes of [{ status: 'REJECTED' }, { status: 'REVOKED' }, { expiryDate: '2026-08-01' }]) {
+  for (const changes of [{ status: 'REJECTED' }, { status: 'REVOKED' }]) {
     assert.equal(evaluate([certificate(), { ...restricted, ...changes }]).qualified, true);
   }
 });
@@ -167,22 +169,22 @@ test('profiles aggregate only verified valid sources, with per-certificate prove
     certificate({ id: 'foreign', personnelId: 'other' })];
   const profile = buildQualificationProfile({ personnelData, certificates, asOf });
   assert.deepEqual(profile.aircraftRatings, ['AS350B3', 'B412EP']);
-  assert.deepEqual(profile.sourceCertificates.map(source => source.certificateId), ['bell', 'certificate-1']);
+  assert.deepEqual(profile.sourceCertificates.map(source => source.certificateId), ['bell', 'certificate-1', 'expired']);
   assert.equal(profile.certificateAssessments.length, 5);
   assert.deepEqual(evaluate(certificates, { aircraftType: 'B412EP' }).sourceCertificates, ['bell']);
 });
 
-test('expiry removes only the affected aircraft eligibility; another valid source can retain it', () => {
+test('aircraft approval retains all accepted sources regardless of expiry dates', () => {
   const certificates = [certificate({ expiryDate: '2026-09-28' }),
     certificate({ id: 'bell', aircraftRatings: ['B412EP'] })];
   const nextDay = { asOf: '2026-09-29' };
-  assert.equal(evaluate(certificates, nextDay).qualified, false);
+  assert.equal(evaluate(certificates, nextDay).qualified, true);
   assert.equal(evaluate(certificates, { ...nextDay, aircraftType: 'B412EP' }).qualified, true);
   certificates.push(certificate({ id: 'renewal', expiryDate: '2028-01-01' }));
   const renewed = evaluate(certificates, nextDay);
   assert.equal(renewed.qualified, true);
-  assert.deepEqual(renewed.sourceCertificates, ['renewal']);
-  assert.equal(renewed.validThrough, '2028-01-01');
+  assert.deepEqual(renewed.sourceCertificates, ['certificate-1', 'renewal']);
+  assert.equal(renewed.validThrough, null);
 });
 
 test('corrected aircraft facts qualify only after verification', () => {

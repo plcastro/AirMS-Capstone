@@ -110,7 +110,8 @@ function parseCertificateFields(extraction) {
         }
         if (found?.key !== 'aircraftRatings' && section !== 'aircraftRatings') {
           for (const mention of line.matchAll(aircraftRegex())) {
-            aircraftMentions.push({ original: mention[0], normalized: normalizeAircraft(mention[0]), page: page.page, line: index + 1 });
+            aircraftMentions.push({ original: mention[0], normalized: normalizeAircraft(mention[0]), page: page.page, line: index + 1,
+              text: line, method: source.method, confidence: source.confidence });
             warn('AIRCRAFT_MENTION_OUTSIDE_RATING_FIELD', 'aircraftRatings', page.page);
           }
         }

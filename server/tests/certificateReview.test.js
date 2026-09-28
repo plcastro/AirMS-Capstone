@@ -70,7 +70,7 @@ function fixture(options = {}) {
       if (options.onRead) options.onRead(record, analysis);
       return analysis;
     },
-    matchHolder: async (request, holderName) => ({ status: 'LIKELY_MATCH', holderName, suggestedPersonnelId: owner }),
+    matchHolder: async (request, holderName) => ({ status: 'LIKELY_MATCH', holderName, suggestedPersonnelId: owner, candidates: [{ personnelId: owner, score: 1 }] }),
   });
   return { service, calls, reads: () => reads, events: () => events, record: () => state.get(id),
     add: record => state.set(record._id, record), clock: date => { current = new Date(date); }, failAudit: () => { failAudit = true; } };
@@ -118,18 +118,119 @@ test('automatic acceptance accepts clear embedded PDF text without inventing an 
   assert.equal((await analyze(f)).certificate.status, 'VERIFIED');
 });
 
+function trainingFixture(options = {}) {
+  const text = `Certificate No: EXAMPLE-2021
+AIRBUS
+Certificate of Training
+This certifies that
+JUAN DELA CRUZ
+is recognized in the successful completion of
+Airframe Type Qualification (Engine not included) Training
+on the AS350B3e (Turbomeca Arriel 2D Engine)
+The course was completed in Example Training Centre
+From 15 Nov 2021 to 26 Nov 2021 (10 Days)`;
+  return automaticFixture({ onRead(record, analysis) {
+    analysis.extraction = { rawText: text, pages: [{ page: 1, text, method: 'OCR', confidence: 0.88, alternateText: text, alternateConfidence: 0.91 }] };
+    analysis.certificateData = parseCertificateFields(analysis.extraction);
+    options.onRead?.(record, analysis);
+  } });
+}
+
+test('airframe training qualifies from name and AS350B3e text, retaining engine note without invented expiry', async () => {
+  const f = trainingFixture();
+  const { certificate: saved } = await analyze(f);
+  assert.equal(saved.status, 'VERIFIED');
+  assert.deepEqual(saved.normalizedData.aircraftRatings, ['AS350B3']);
+  assert.equal(saved.normalizedData.expiryDate, null);
+  assert.equal(saved.normalizedData.doesNotExpire, false);
+  assert.ok(saved.normalizedData.limitations.some(note => note.includes('Engine not included')));
+  const result = (await f.service.qualifications(req(), owner)).results[0];
+  assert.equal(result.allTasksAllowed, true);
+  assert.equal(result.validityIgnored, true);
+  assert.equal(result.approvalEvidence[0].holderName, 'JUAN DELA CRUZ');
+  assert.equal(result.approvalEvidence[0].evidence[0].detectedText, 'AS350B3e');
+  assert.equal(result.approvalEvidence[0].evidence[0].page, 1);
+  // Another source's course note must not cancel a positive aircraft-match approval.
+  f.add({ ...pending(), _id: secondId, status: 'VERIFIED', reviewedBy: manager, reviewedAt: new Date('2025-01-01'),
+    normalizedData: { aircraftRatings: ['AS350B3'], limitations: ['Engine not included'] } });
+  assert.equal((await f.service.qualifications(req(), owner)).results[0].allTasksAllowed, true);
+});
+
+test('low page scores and missing unrelated metadata do not override recognized name and aircraft', async () => {
+  const f = trainingFixture({ onRead(record, analysis) {
+    analysis.extraction.pages[0].confidence = 0.4;
+    analysis.extraction.pages[0].alternateConfidence = 0.5;
+    analysis.certificateData = parseCertificateFields(analysis.extraction);
+    analysis.certificateData.certificateType = null;
+    analysis.certificateData.certificateNumber = null;
+    analysis.certificateData.issueDate = '2035-01-01';
+    analysis.certificateData.expiryDate = '2010-01-01';
+  } });
+  assert.equal((await analyze(f)).certificate.status, 'VERIFIED');
+  assert.equal((await f.service.qualifications(req(), owner)).results[0].allTasksAllowed, true);
+});
+
+test('older pending readings are reassessed once without another upload, OCR or changing original evidence', async () => {
+  const f = trainingFixture(); await analyze(f);
+  Object.assign(f.record(), { status: 'PENDING_REVIEW', verificationMethod: null, verifiedAt: null,
+    verificationDecision: { policyVersion: '1.0.0', eligible: false, reasons: [{ code: 'MISSING_EXPIRY' }] } });
+  const original = structuredClone(f.record().analysis);
+  const result = await analyze(f);
+  assert.equal(result.certificate.status, 'VERIFIED');
+  assert.equal(result.certificate.needsReassessment, false);
+  assert.equal(f.reads(), 1);
+  assert.deepEqual(f.record().analysis, original);
+  assert.equal(f.events().at(-1).details.reassessing, true);
+  await assert.rejects(analyze(f), error => error.status === 409);
+});
+
+test('reassessment preserves corrected records and rejects mismatched source hashes', async () => {
+  for (const corrected of [false, true]) {
+    const f = trainingFixture(); await analyze(f);
+    Object.assign(f.record(), { status: 'PENDING_REVIEW', verificationDecision: { policyVersion: '1.0.0' } });
+    if (corrected) f.record().correctedFields = { holderName: 'Corrected name' };
+    else f.record().file.sha256 = 'b'.repeat(64);
+    await assert.rejects(analyze(f), error => error.status === 409);
+    assert.equal(f.record().status, 'PENDING_REVIEW');
+    assert.equal(f.record().processingStatus, 'ANALYZED');
+    assert.equal(f.reads(), 1);
+  }
+});
+
+test('the three-field correction flow requires authorized confirmation and then grants matching tasks', async () => {
+  const f = trainingFixture({ onRead(record, analysis) { analysis.holderMatch.status = 'NO_MATCH'; } });
+  await analyze(f);
+  const result = await f.service.correct(req(), id, { expectedRevision: 2, corrections: {
+    holderName: 'Juan Dela Cruz', certificateType: 'Certificate of Training', qualifications: ['Airframe qualification on AS350B3e'] }, reviewNote: 'Checked source details.' });
+  assert.deepEqual(result.preview.errors, []);
+  assert.equal(f.record().status, 'PENDING_REVIEW');
+  await assert.rejects(f.service.confirm(req(), id, confirmBody(f)), error => error.status === 403);
+  await confirm(f);
+  assert.equal((await f.service.qualifications(req(), owner)).results[0].allTasksAllowed, true);
+  assert.equal(f.record().verificationMethod, 'MANUAL');
+});
+
+test('a detected aircraft without a rating heading can approve, but unknown variants and exclusions need attention', async () => {
+  for (const [line, accepted] of [['Training for AS350B3e', true], ['Training for AS350B3eX', false], ['Not qualified for AS350B3e', false], ['AS350B3 to B2 Differences', false]]) {
+    const f = automaticFixture({ onRead(record, analysis) {
+      const text = `Certificate of Training\nHolder Name: Juan Dela Cruz\n${line}`;
+      analysis.extraction = { rawText: text, pages: [{ page: 1, method: 'OCR', text, confidence: 0.6 }] };
+      analysis.certificateData = parseCertificateFields(analysis.extraction);
+    } });
+    assert.equal((await analyze(f)).certificate.status === 'VERIFIED', accepted, line);
+    assert.equal((await f.service.qualifications(req(), owner)).results[0].allTasksAllowed, accepted, line);
+  }
+});
+
 test('unclear, incomplete, conflicting and mismatched readings return reasons instead of automatic acceptance', async () => {
   const cases = [
-    { onRead: (record, data) => { data.extraction.pages[0].confidence = 0.94; } },
-    { onRead: (record, data) => { data.extraction.pages.push({ page: 2, method: 'OCR', text: '', confidence: 0.99 }); } },
-    { onRead: (record, data) => { data.extraction.pages[0].alternateText = 'conflicting text'; data.extraction.pages[0].alternateConfidence = 0.7; } },
-    { onRead: (record, data) => { data.extraction.pages[0].method = 'UNSUPPORTED'; } },
-    { fields: { expiryDate: null } }, { fields: { holderName: null } },
-    { fields: { aircraftRatings: ['Bell 412'] } }, { fields: { limitations: ['Engine not included'] } },
-    { fields: { evidence: [] } }, { fields: { warnings: [{ code: 'CONFLICTING_VALUES', field: 'certificateNumber' }] } },
+    { onRead: (record, data) => { data.extraction.rawText = ''; data.extraction.pages = []; } },
+    { fields: { holderName: null } },
+    { fields: { aircraftRatings: ['Bell 412'], originalExtractedFields: { aircraftRatings: ['Bell 412'] } } },
+    { fields: { evidence: [] } }, { fields: { warnings: [{ code: 'CONFLICTING_VALUES', field: 'holderName' }] } },
     { onRead: (record, data) => { data.holderMatch.status = 'AMBIGUOUS'; } },
     { onRead: (record, data) => { data.holderMatch.suggestedPersonnelId = other; } },
-    { onRead: (record, data) => { data.holderMatch.candidates[0].score = 0.97; } },
+    { onRead: (record, data) => { data.holderMatch.candidates[0].score = 0.89; } },
   ];
   for (const options of cases) {
     const f = automaticFixture(options), result = await analyze(f);
@@ -139,7 +240,7 @@ test('unclear, incomplete, conflicting and mismatched readings return reasons in
   }
 });
 
-test('automatic acceptance cannot bypass audit failure, stale sources, expiry or provenance checks', async () => {
+test('automatic acceptance cannot bypass audit failure, stale sources or provenance checks', async () => {
   const rollback = automaticFixture(); rollback.failAudit();
   await assert.rejects(analyze(rollback), /Audit unavailable/);
   assert.equal(rollback.record().revision, 1);
@@ -149,7 +250,7 @@ test('automatic acceptance cannot bypass audit failure, stale sources, expiry or
   assert.equal(stale.record().status, 'PENDING_REVIEW');
   const f = automaticFixture(); await analyze(f);
   f.clock('2027-01-01T16:00:00Z');
-  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, false);
+  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, true);
   f.clock('2026-09-28T01:00:00Z');
   f.record().verificationDecision.certificateId = secondId;
   assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, false);
@@ -183,7 +284,7 @@ test('analysis is pending and provisional; low confidence needs explicit authori
 });
 
 test('corrections preserve OCR evidence, normalize aliases and recompute both aircraft previews', async () => {
-  const f = fixture({ fields: { holderName: 'Jvan Dela Cruz', aircraftRatings: [], unknownAircraftRatings: ['B412 EF'] } });
+  const f = fixture({ fields: { holderName: 'Jvan Dela Cruz', aircraftRatings: [], unknownAircraftRatings: ['B412 EF'], originalExtractedFields: { aircraftRatings: ['B412 EF'] } } });
   await analyze(f);
   await assert.rejects(confirm(f), error => error.status === 422);
   const result = await f.service.correct(req(), id, { expectedRevision: 2,
@@ -240,27 +341,27 @@ test('auditing and verification share a transaction and audit failure rolls back
   assert.ok(f.calls.every(call => call.settings.session && call.settings.runValidators));
 });
 
-test('expiry is re-evaluated using Manila date and multiple verified sources can cover an aircraft', async () => {
+test('validity dates are ignored and multiple accepted sources cover an aircraft', async () => {
   const f = fixture({ fields: { expiryDate: '2026-09-28' } });
   await analyze(f); await confirm(f);
   assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, true);
   f.clock('2026-09-28T16:00:00Z');
   assert.equal(businessDate(new Date('2026-09-28T16:00:00Z')), '2026-09-29');
-  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, false);
+  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, true);
   f.add({ ...structuredClone(f.record()), _id: secondId, normalizedData: { ...f.record().normalizedData, expiryDate: '2028-01-01' } });
   const combined = await f.service.qualifications(req(), owner);
   assert.equal(combined.results[1].qualified, true);
-  assert.deepEqual(combined.results[1].sourceCertificates, [secondId]);
+  assert.deepEqual(combined.results[1].sourceCertificates, [id, secondId]);
   f.add({ ...structuredClone(f.record()), _id: secondId, status: 'REVOKED', normalizedData: { ...f.record().normalizedData, expiryDate: '2028-01-01' } });
-  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, false);
+  assert.equal((await f.service.qualifications(req(), owner)).results[1].qualified, true);
 });
 
-test('verified restrictions and expired certificates never grant all-task eligibility', async () => {
+test('aircraft-match approval retains course notes and ignores licence dates', async () => {
   for (const data of [{ limitations: ['Inspection only'] }, { expiryDate: '2025-06-01' }, { issueDate: '2026-12-01' }]) {
     const f = fixture({ fields: data });
     await analyze(f); await confirm(f);
     assert.equal(f.record().status, 'VERIFIED');
-    assert.equal((await f.service.qualifications(req(), owner)).results.some(item => item.allTasksAllowed), false);
+    assert.equal((await f.service.qualifications(req(), owner)).results.some(item => item.allTasksAllowed), true);
   }
 });
 

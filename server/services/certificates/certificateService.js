@@ -6,6 +6,7 @@ const { createCertificateStorage } = require('./certificateStorage');
 const { validateCertificateFile } = require('./certificateFileValidator');
 const { actorId, assertAccess, assertId } = require('./certificateAccess');
 const { CertificateError } = require('./certificateErrors');
+const automation = require('../../config/certificateAutomationPolicy');
 
 function serializeCertificate(record, { includeAnalysis = false } = {}) {
   return {
@@ -16,6 +17,8 @@ function serializeCertificate(record, { includeAnalysis = false } = {}) {
     analyzedAt: record.analyzedAt || null,
     verificationMethod: record.verificationMethod || null, verificationDecision: record.verificationDecision || null,
     verifiedAt: record.verifiedAt || record.reviewedAt || null,
+    needsReassessment: record.status === 'PENDING_REVIEW' && record.processingStatus === 'ANALYZED'
+      && record.verificationDecision?.policyVersion !== automation.version && !Object.keys(record.correctedFields || {}).length,
     normalizedData: record.normalizedData || null, holderMatch: record.holderMatch || null,
     reviewNote: record.reviewNote || '', correctedFields: record.correctedFields || {},
     qualificationDecision: record.qualificationDecision || null,

@@ -1,3 +1,10 @@
+> Current policy (2.0.0): matched holder and supported aircraft evidence approve all
+> tasks. Licence validity is ignored for now, so printed/missing/expired dates do
+> not block an accepted source. New aircraft-match decisions preserve course notes
+> without treating them as task restrictions. See [automatic approval](../certificates/AUTOMATION.md).
+> The strict validity examples below describe the legacy policy when validity
+> enforcement is enabled; they are not the current default.
+
 # Aircraft qualification engine — Step 2
 
 This standalone, deterministic CommonJS module implements the approved rule:

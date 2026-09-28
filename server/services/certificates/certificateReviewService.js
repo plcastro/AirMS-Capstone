@@ -11,8 +11,19 @@ const { CertificateError } = require('./certificateErrors');
 const { serializeCertificate } = require('./certificateService');
 const { createCertificateReadingService } = require('./certificateReadingService');
 const { createCertificateHolderMatchService } = require('./certificateHolderMatchService');
-const { validateReviewBody, validateCorrections, normalizeReviewData, reviewErrors, reviewNote } = require('./certificateReviewData');
+const { validateReviewBody, validateCorrections, reviewErrors, reviewNote } = require('./certificateReviewData');
 const { assessAutomaticVerification } = require('./certificateAutomation');
+const automation = require('../../config/certificateAutomationPolicy');
+const { matchedCertificateData, aircraftMatchErrors } = require('./certificateAircraftMatch');
+const { parseCertificateFields } = require('./certificateFieldParser');
+
+function manualMatchDecision(record) {
+  return { ...record.verificationDecision, eligible: true, reasons: [], policyVersion: automation.version,
+    qualificationPolicy: automation.qualificationPolicy, matchedAircraft: record.normalizedData.aircraftRatings,
+    evidence: record.normalizedData.detectedAircraft || [], sourceNotes: record.normalizedData.limitations || [],
+    sourceSha256: record.file.sha256, certificateId: String(record._id), personnelId: String(record.personnelId),
+    explanation: 'An authorized reviewer confirmed the holder and detected aircraft. AirMS approves all tasks for that aircraft. Licence validity and expiry dates are ignored under the current rule.' };
+}
 
 // Eligibility is computed for the server's business date, never a client-supplied date.
 const businessDate = at => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
@@ -55,8 +66,10 @@ function createCertificateReviewService({
     return rules.aircraft.map(aircraftType => evaluateQualification({ personnelData: person, certificates: sources, aircraftType, asOf: businessDate(at) }));
   }
   async function previewFor(req, record, at = now()) {
-    const errors = reviewErrors(record.normalizedData);
-    const candidate = { ...record, status: errors.length ? 'PENDING_REVIEW' : 'VERIFIED', reviewedBy: actorId(req), reviewedAt: at };
+    const matching = record.verificationDecision?.qualificationPolicy === automation.qualificationPolicy;
+    const errors = matching ? aircraftMatchErrors(record.normalizedData) : reviewErrors(record.normalizedData);
+    const candidate = { ...record, status: errors.length ? 'PENDING_REVIEW' : 'VERIFIED', reviewedBy: actorId(req), reviewedAt: at,
+      ...(matching ? { verificationMethod: 'MANUAL', verifiedAt: at, verificationDecision: manualMatchDecision(record) } : {}) };
     return { provisional: true, grantsQualifications: false, errors,
       explanation: 'Potential eligibility after an authorized reviewer confirms this revision; no qualification has been saved.',
       results: await decisions(candidate, at) };
@@ -88,27 +101,35 @@ function createCertificateReviewService({
     const body = validateReviewBody(input, ['expectedRevision', 'confirmAction']);
     const record = await getRecord(req, id, 'upload');
     requirePending(record, body.expectedRevision);
-    if (record.processingStatus === 'ANALYZED') throw new CertificateError(409, 'Analysis is already saved. Review or correct the extracted fields.');
+    const reassessing = record.processingStatus === 'ANALYZED';
+    if (reassessing && (!record.analysis || record.verificationDecision?.policyVersion === automation.version || Object.keys(record.correctedFields || {}).length)) {
+      throw new CertificateError(409, 'Analysis is already saved. Check the extracted details.');
+    }
     await mechanic(record.personnelId);
     let analysis;
     try {
-      analysis = await readCertificate(req, id);
+      if (reassessing) {
+        // Reuse the immutable reading; never require another upload or overwrite corrections.
+        const certificateData = parseCertificateFields(record.analysis.extraction);
+        analysis = { ...record.analysis, sourceRevision: record.revision, certificateData,
+          holderMatch: certificateData.holderName ? await matchHolder(req, certificateData.holderName) : null };
+      } else analysis = await readCertificate(req, id);
     } catch (error) {
       // Resource contention is retryable and does not change the document's revision.
-      if (error.status !== 429) await persist(req, record, { processingStatus: 'FAILED' }, 'ANALYSIS_FAILED', { reason: 'DOCUMENT_READING_FAILED' });
+      if (!reassessing && error.status !== 429) await persist(req, record, { processingStatus: 'FAILED' }, 'ANALYSIS_FAILED', { reason: 'DOCUMENT_READING_FAILED' });
       throw error;
     }
     if (analysis.sourceRevision !== record.revision || analysis.sourceSha256 !== record.file.sha256) throw new CertificateError(409, 'Analysis source changed. Reload the certificate.');
-    const normalizedData = normalizeReviewData(analysis.certificateData);
+    const normalizedData = matchedCertificateData({ ...analysis.certificateData, extractionPages: analysis.extraction.pages });
     const at = now();
     const verificationDecision = { ...assessAutomaticVerification(analysis, normalizedData, record.personnelId),
       sourceSha256: analysis.sourceSha256, certificateId: String(record._id), personnelId: String(record.personnelId) };
     const automatic = verificationDecision.eligible;
-    const preview = automatic ? null : await previewFor(req, { ...record, normalizedData }, at);
-    const saved = await persist(req, record, { analysis, normalizedData, correctedFields: {},
+    const preview = automatic ? null : await previewFor(req, { ...record, normalizedData, verificationDecision }, at);
+    const saved = await persist(req, record, { analysis: record.analysis || analysis, normalizedData, correctedFields: {},
       holderMatch: analysis.holderMatch, processingStatus: 'ANALYZED', analyzedAt: at, verificationDecision,
       ...(automatic ? { status: 'VERIFIED', verificationMethod: 'AUTOMATIC', verifiedAt: at } : {}) }, automatic ? 'AUTO_VERIFIED' : 'ANALYZED',
-    { sourceSha256: analysis.sourceSha256, originalExtractedFields: analysis.certificateData.originalExtractedFields,
+    { reassessing, sourceSha256: analysis.sourceSha256, originalExtractedFields: analysis.certificateData.originalExtractedFields,
       normalization: normalizedData.normalization, warnings: analysis.certificateData.warnings, verificationDecision, preview });
     return { certificate: serializeCertificate(saved, { includeAnalysis: true }), preview };
   }
@@ -118,10 +139,13 @@ function createCertificateReviewService({
     const record = await getRecord(req, id, 'upload');
     requirePending(record, body.expectedRevision, true);
     const correctedFields = { ...record.correctedFields, ...corrections };
-    const normalizedData = normalizeReviewData(record.analysis.certificateData, correctedFields);
+    const normalizedData = matchedCertificateData({ ...record.analysis.certificateData, extractionPages: record.analysis.extraction.pages }, correctedFields);
+    const verificationDecision = { ...record.verificationDecision, policyVersion: automation.version,
+      qualificationPolicy: automation.qualificationPolicy, eligible: false, matchedAircraft: normalizedData.aircraftRatings,
+      evidence: normalizedData.detectedAircraft, reasons: [{ code: 'CORRECTED_DETAILS_REQUIRE_CONFIRMATION', message: 'An authorized reviewer can confirm the corrected holder and aircraft details.' }] };
     const holderMatch = normalizedData.holderName ? await matchHolder(req, normalizedData.holderName) : null;
-    const preview = await previewFor(req, { ...record, normalizedData });
-    const saved = await persist(req, record, { correctedFields, normalizedData, holderMatch, reviewNote: note }, 'REVIEW_UPDATED',
+    const preview = await previewFor(req, { ...record, normalizedData, verificationDecision });
+    const saved = await persist(req, record, { correctedFields, normalizedData, holderMatch, verificationDecision, reviewNote: note }, 'REVIEW_UPDATED',
       { before: record.normalizedData, after: normalizedData, corrections, reviewNote: note, holderMatch, preview });
     return { certificate: serializeCertificate(saved, { includeAnalysis: true }), preview };
   }
@@ -140,10 +164,12 @@ function createCertificateReviewService({
     const record = await getRecord(req, id);
     requirePending(record, body.expectedRevision, true);
     if (String(record.personnelId) !== body.confirmedPersonnelId) throw new CertificateError(409, 'The selected mechanic differs from the upload owner. Upload the certificate under the correct mechanic.');
-    const errors = reviewErrors(record.normalizedData);
+    const matching = record.verificationDecision?.qualificationPolicy === automation.qualificationPolicy;
+    const errors = matching ? aircraftMatchErrors(record.normalizedData) : reviewErrors(record.normalizedData);
     if (errors.length) throw new CertificateError(422, errors.join(' '));
     const at = now();
-    const saved = await persist(req, record, { status: 'VERIFIED', verificationMethod: 'MANUAL', verifiedAt: at, reviewedBy: actorId(req), reviewedAt: at, reviewNote: note }, 'VERIFIED',
+    const saved = await persist(req, record, { status: 'VERIFIED', verificationMethod: 'MANUAL', verifiedAt: at, reviewedBy: actorId(req), reviewedAt: at, reviewNote: note,
+      ...(matching ? { verificationDecision: manualMatchDecision(record) } : {}) }, 'VERIFIED',
       { sourceSha256: record.file.sha256, sourceReviewed: true, confirmedPersonnelId: body.confirmedPersonnelId,
         sourceRevision: record.revision, correctedFields: record.correctedFields, normalizedData: record.normalizedData, reviewNote: note });
     return serializeCertificate(saved, { includeAnalysis: true });

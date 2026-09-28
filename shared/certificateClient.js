@@ -14,6 +14,10 @@ export const certificateCorrections = draft => Object.fromEntries([
   ['doesNotExpire', draft.doesNotExpire === true],
 ]);
 export const certificateLabel = value => String(value || '').replace(/_/g, ' ').toLowerCase().replace(/^./, letter => letter.toUpperCase());
+export const certificateSummaryFields = certificateFields.filter(([key]) => ['holderName', 'certificateType', 'qualifications'].includes(key));
+export const aircraftLabel = value => value === 'AS350B3' ? 'AS350B3 / AS350B3e' : value === 'B412EP' ? 'Bell 412 EP' : value;
+export const certificateSummaryCorrections = draft => Object.fromEntries(certificateSummaryFields.map(([key, , type]) =>
+  [key, type === 'list' ? String(draft[key] || '').split('\n').map(value => value.trim()).filter(Boolean) : String(draft[key] || '').trim() || null]));
 export const certificateStatusLabel = record => record?.status === 'VERIFIED'
   ? record.verificationMethod === 'AUTOMATIC' ? 'Accepted automatically' : 'Accepted'
   : record?.status === 'PENDING_REVIEW' ? 'Needs attention' : certificateLabel(record?.status);
@@ -21,6 +25,15 @@ export const certificateReviewReasons = record => [...new Set(record?.verificati
 export const certificateUploadLabel = item => item.status === 'uploaded'
   ? item.record?.status === 'VERIFIED' ? 'Accepted automatically' : 'Needs attention'
   : certificateLabel(item.status);
+
+export async function reassessCertificates(records, analyze, isCurrent = () => true) {
+  const results = [];
+  for (const record of records.filter(item => item.needsReassessment)) {
+    if (!isCurrent()) break;
+    results.push((await analyze(record)).data.certificate);
+  }
+  return results;
+}
 
 // Keep each original as its own reviewed certificate. Send one at a time so a
 // large selection does not overwhelm uploads or lose successful partial results.
@@ -92,6 +105,7 @@ export function createUseCertificates(React) {
     const [notice, setNotice] = React.useState('');
     const [busy, setBusy] = React.useState(''), [loading, setLoading] = React.useState(false), [error, setError] = React.useState(''), [refresh, setRefresh] = React.useState(0);
     const epoch = React.useRef(0);
+    const reassessed = React.useRef(new Set());
     const clearDetail = () => { setSelected(null); setPreview(null); setHistory([]); setNote(''); setAcknowledged(false); };
     React.useEffect(() => {
       let active = true;
@@ -105,7 +119,20 @@ export function createUseCertificates(React) {
       if (!person) { setLoading(false); return; }
       setLoading(true); setError('');
       Promise.all([api(`?personnelId=${encodeURIComponent(person)}&page=${page}&status=${status}`), api(`/personnel/${person}/qualifications`)])
-        .then(([list, profile]) => { if (active) { setListing(list); setQualifications(profile.data); } })
+        .then(async ([list, profile]) => {
+          const pending = list.data.filter(item => item.needsReassessment && !reassessed.current.has(`${item.id}:${item.revision}`));
+          if (active && pending.length) {
+            try {
+              await reassessCertificates(pending, record => {
+                reassessed.current.add(`${record.id}:${record.revision}`);
+                return api(`/${record.id}/analyze`, { method: 'POST', body: { expectedRevision: record.revision } });
+              }, () => active);
+            } catch (e) { if (active) setError(`Some saved certificates could not be rechecked: ${e.message}`); }
+            if (!active) return;
+            [list, profile] = await Promise.all([api(`?personnelId=${encodeURIComponent(person)}&page=${page}&status=${status}`), api(`/personnel/${person}/qualifications`)]);
+          }
+          if (active) { setListing(list); setQualifications(profile.data); }
+        })
         .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
     }, [api, person, page, status, refresh]);
@@ -156,10 +183,22 @@ export function createUseCertificates(React) {
       }
     });
     const dirty = JSON.stringify(draft) !== JSON.stringify(certificateDraft(selected?.normalizedData));
+    const saveSummary = () => run(reviewer ? 'Confirming details' : 'Saving details', async current => {
+      const saved = await api(`/${selected.id}/review`, { method: 'PATCH', body: { expectedRevision: selected.revision,
+        corrections: certificateSummaryCorrections(draft), reviewNote: 'Checked the certificate holder, type and qualifications against the original.' } });
+      if (!current()) return;
+      acceptDetail(saved.data.certificate); setPreview(saved.data.preview);
+      if (reviewer && !saved.data.preview.errors.length) {
+        const result = await api(`/${selected.id}/confirm`, { method: 'POST', body: { expectedRevision: saved.data.certificate.revision,
+          confirmedPersonnelId: person, sourceReviewed: true, reviewNote: 'Confirmed the certificate holder, type and qualifications against the original.' } });
+        if (current()) { acceptDetail(result.data); setPreview(null); }
+      } else if (!reviewer) setNotice('Details saved. An authorized reviewer can confirm the corrected reading.');
+      if (current()) setRefresh(value => value + 1);
+    });
     return { people, person, page, status, listing, qualifications, selected, draft, setDraft, preview, history, note, setNote, acknowledged, setAcknowledged, reviewer, uploadResults, notice, busy: busy || (loading ? 'Loading certificates' : ''), error, dirty,
       setPerson: value => { epoch.current++; clearDetail(); setPerson(value); setPage(1); },
-      setPage, setStatus: value => { setStatus(value); setPage(1); }, close: () => { epoch.current++; clearDetail(); setBusy(''); },
-      refresh: () => run('Refreshing certificates', async current => { const result = await api('/directory'); if (current()) { setPeople(result.data); setRefresh(value => value + 1); } }), open, upload, run,
+      saveSummary, setPage, setStatus: value => { setStatus(value); setPage(1); }, close: () => { epoch.current++; clearDetail(); setBusy(''); },
+      refresh: () => run('Refreshing certificates', async current => { const result = await api('/directory'); if (current()) { reassessed.current.clear(); setPeople(result.data); setRefresh(value => value + 1); } }), open, upload, run,
       analyze: () => mutate('analyze', {}), previewNow: () => mutate('preview', {}),
       save: () => mutate('review', { corrections: certificateCorrections(draft), reviewNote: note }, 'PATCH'),
       confirm: () => mutate('confirm', { confirmedPersonnelId: person, sourceReviewed: acknowledged, reviewNote: note }),

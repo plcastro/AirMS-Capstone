@@ -18,9 +18,9 @@ function createCertificateRouter({ authenticate = verifyToken, controller = crea
   router.use(authenticate);
   router.get('/directory', controller.directory);
   const uploadLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false,
+    windowMs: 15 * 60 * 1000, limit: 100, standardHeaders: true, legacyHeaders: false,
     keyGenerator: req => String(req.user.id),
-    message: { message: 'Too many certificate uploads. Please try again later.' },
+    message: { message: 'The upload limit is 100 files per 15 minutes. Your saved files are safe; retry the remaining files after this window resets.' },
   });
   const matchingLimiter = rateLimit({
     windowMs: 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false,
@@ -30,11 +30,6 @@ function createCertificateRouter({ authenticate = verifyToken, controller = crea
   // Read-only suggestion. Confirmation and certificate ownership are separate operations.
   router.post('/match-holder', matchingLimiter, express.json({ limit: '2kb' }), controller.matchHolder);
   router.post('/personnel/:personnelId', uploadLimiter, requireActionConfirmation, controller.authorizeUpload, certificateUpload, touchSessionActivity, controller.upload);
-  const analysisLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false,
-    keyGenerator: req => String(req.user.id),
-    message: { message: 'Too many certificate analyses. Please try again later.' },
-  });
   const reviewJson = express.json({ limit: '64kb' });
   // The app may already have parsed JSON with a larger global limit. Enforce our
   // smaller limit on parsed bodies too, including corrections and review notes.
@@ -43,7 +38,9 @@ function createCertificateRouter({ authenticate = verifyToken, controller = crea
     next();
   };
   router.get('/personnel/:personnelId/qualifications', controller.qualifications);
-  router.post('/:id/analyze', analysisLimiter, reviewJson, reviewSize, requireActionConfirmation, touchSessionActivity, controller.analyze);
+  // Sequential batches and cached policy rechecks have no time-window quota.
+  // The document reader bounds actual OCR concurrency and processing time.
+  router.post('/:id/analyze', reviewJson, reviewSize, requireActionConfirmation, touchSessionActivity, controller.analyze);
   router.patch('/:id/review', reviewJson, reviewSize, requireActionConfirmation, touchSessionActivity, controller.correct);
   router.post('/:id/preview', reviewJson, reviewSize, controller.preview);
   router.post('/:id/confirm', requirePermission(permissions.CERTIFICATES_REVIEW_ALL), reviewJson, reviewSize, requireActionConfirmation, touchSessionActivity, controller.confirm);
