@@ -337,49 +337,47 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
-          <AppText style={styles.label}>Logging in from</AppText>
+          <AppText style={styles.label}>Login Location</AppText>
+
           <View style={loginLocationStyles.wrap}>
             <View style={loginLocationStyles.panel}>
               <MaterialCommunityIcons
                 name={loginLocation?.text ? "map-marker-check" : "map-marker"}
                 size={22}
-                color={loginLocation?.text ? "#059670" : "gray"}
+                color={loginLocation?.text ? COLORS.primary : "gray"}
               />
+
               <View style={loginLocationStyles.textWrap}>
                 <AppText
                   style={[
                     loginLocationStyles.locationText,
-                    { color: loginLocation?.text ? "#111827" : "gray" },
+                    {
+                      color: loginLocation?.text ? "#111827" : "gray",
+                    },
                   ]}
                 >
-                  {loginLocation?.text || "Location not detected"}
+                  {loginLocation?.text || "Detecting your location..."}
                 </AppText>
-                {!!loginLocation?.coordinateText && (
-                  <AppText style={loginLocationStyles.coordinateText}>
-                    Latitude and longitude coordinates:{" "}
-                    {loginLocation.coordinateText}
+
+                {loginLocation?.text && (
+                  <AppText style={loginLocationStyles.statusText}>
+                    Location detected for login security
                   </AppText>
+                )}
+
+                {!loginLocation && getMessage && (
+                  <TouchableOpacity
+                    onPress={handleDetectLocation}
+                    disabled={detectingLocation}
+                    activeOpacity={0.7}
+                  >
+                    <AppText style={loginLocationStyles.retryText}>
+                      {detectingLocation ? "Detecting..." : "Try again"}
+                    </AppText>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
-            <TouchableOpacity
-              style={[
-                loginLocationStyles.detectButton,
-                detectingLocation && loginLocationStyles.detectButtonDisabled,
-              ]}
-              activeOpacity={0.82}
-              disabled={detectingLocation}
-              onPress={handleDetectLocation}
-            >
-              <MaterialCommunityIcons
-                name="crosshairs-gps"
-                size={18}
-                color={COLORS.white}
-              />
-              <AppText style={loginLocationStyles.detectButtonText}>
-                {detectingLocation ? "Detecting..." : "Detect location"}
-              </AppText>
-            </TouchableOpacity>
           </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>

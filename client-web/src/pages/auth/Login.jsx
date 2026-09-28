@@ -318,37 +318,46 @@ const Login = () => {
             />
           </Form.Item>
 
-          <Form.Item label="Logging in from" required>
+          <Form.Item label="Login Location" required>
             <div
               className="login-location-panel"
               role="status"
               aria-live="polite"
             >
               <EnvironmentOutlined className="login-location-icon" />
+
               <div className="login-location-copy">
-                <Text strong>{location?.text || "Location not detected"}</Text>
-                {location?.coordinateText && (
-                  <Text type="secondary" className="login-location-coordinates">
-                    Latitude and longitude coordinates:{" "}
-                    {location.coordinateText}
-                  </Text>
-                )}
-                {locationStatus && !location?.text && (
-                  <Text type="secondary" className="login-location-coordinates">
-                    {locationStatus}
-                  </Text>
+                {location?.text ? (
+                  <>
+                    <Text strong>{location.text}</Text>
+                    <Text
+                      type="secondary"
+                      className="login-location-coordinates"
+                    >
+                      Location detected for login security
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text type="secondary">
+                      {locationStatus || "Detecting your location..."}
+                    </Text>
+
+                    {locationStatus && (
+                      <Button
+                        type="link"
+                        icon={<AimOutlined />}
+                        onClick={handleDetectLocation}
+                        style={{ padding: 0, marginTop: 4 }}
+                      >
+                        Try again
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
-            <Button
-              type="default"
-              icon={<AimOutlined />}
-              onClick={handleDetectLocation}
-              block
-              style={{ marginTop: 8 }}
-            >
-              Detect location
-            </Button>
+
             {error && <Text type="danger">{error}</Text>}
           </Form.Item>
 
