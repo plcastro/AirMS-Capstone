@@ -902,16 +902,7 @@ export default function FlightLogEntry({
                     color: COLORS.black,
                   }}
                 >
-                  New Entry - Flight Log
-                </AppText>
-                <AppText
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: COLORS.grayDark,
-                  }}
-                >
-                  Select Section
+                  New Flight Log
                 </AppText>
               </View>
 

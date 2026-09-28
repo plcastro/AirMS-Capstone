@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -14,6 +15,7 @@ import {
   TextInput,
   ActivityIndicator,
   Share,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -56,23 +58,24 @@ const input = {
   color: "#172b23",
 };
 const when = (value) => (value ? new Date(value).toLocaleString() : "");
-function Action({ children, onPress, disabled }) {
+function Action({ children, onPress, disabled, secondary = false }) {
   return (
     <TouchableOpacity
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={{
         padding: 12,
-        backgroundColor: disabled ? "#aabbb4" : "#26866f",
-        borderRadius: 6,
+        backgroundColor: disabled ? "#e0e7e3" : secondary ? "#f0f5f2" : "#26866f",
+        borderRadius: 8,
         marginVertical: 5,
         maxWidth: "100%",
       }}
     >
       <AppText
         style={{
-          color: "#fff",
+          color: disabled ? "#72837a" : secondary ? "#245e49" : "#fff",
           fontWeight: "600",
         }}
       >
@@ -83,11 +86,13 @@ function Action({ children, onPress, disabled }) {
 }
 function Choice({ values, value, onChange, disabled }) {
   return (
-    <ScrollView horizontal>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 8 }}>
       {values.map(([key, label]) => (
         <TouchableOpacity
           key={key}
           disabled={disabled}
+          accessibilityRole="button"
+          accessibilityState={{ selected: value === key, disabled: !!disabled }}
           onPress={() => onChange(key)}
           style={{
             padding: 10,
@@ -95,7 +100,7 @@ function Choice({ values, value, onChange, disabled }) {
             borderColor: value === key ? "#26866f" : "#ddd",
             backgroundColor: value === key ? "#e3f2ec" : "#fff",
             margin: 3,
-            borderRadius: 6,
+            borderRadius: 10,
           }}
         >
           <AppText>{label}</AppText>
@@ -109,10 +114,15 @@ export default function FlightWorkspace({
   visible,
   onClose,
   onChanged,
+  onViewed,
   initialSection = "flight",
   inspectionMode = false,
+  readOnly = false,
 }) {
   const { user } = useContext(AuthContext);
+  const viewedCallback = useRef(onViewed);
+  useEffect(() => { viewedCallback.current = onViewed; }, [onViewed]);
+  const { height: screenHeight } = useWindowDimensions();
   const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
@@ -171,6 +181,7 @@ export default function FlightWorkspace({
       if (!preserve || changed) {
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
       }
       return data;
     },
@@ -192,6 +203,7 @@ export default function FlightWorkspace({
         setWorkspace(data);
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
         try {
           setRecovery(cached ? JSON.parse(cached) : null);
         } catch {
@@ -208,6 +220,7 @@ export default function FlightWorkspace({
   useEffect(() => {
     if (
       !visible ||
+      readOnly ||
       !draft ||
       !workspace ||
       recovery ||
@@ -235,11 +248,11 @@ export default function FlightWorkspace({
         );
     }, 800);
     return () => clearTimeout(timer);
-  }, [visible, draft, workspace, storageKey, user, recovery]);
+  }, [visible, draft, workspace, storageKey, user, recovery, readOnly]);
   const log = workspace?.flightLog,
-    permissions = flightEditPermissions(user, log || {}),
+    permissions = readOnly ? {} : flightEditPermissions(user, log || {}),
     step = nextFlightStep(log || {}),
-    assigned = isAssignedFlightCrew(user, log),
+    assigned = !readOnly && isAssignedFlightCrew(user, log),
     mechanic = getAssignedCrewField(user) === "assignedMechanic";
   const execute = async (
     path,
@@ -268,7 +281,7 @@ export default function FlightWorkspace({
       setBusy(false);
     }
   };
-  const acceptance = pilotAcceptance(
+  const acceptance = !readOnly && pilotAcceptance(
     user,
     log || {},
     workspace?.preInspections || [],
@@ -422,20 +435,35 @@ export default function FlightWorkspace({
       >
         <View
           style={{
-            padding: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: "#fff",
+            borderBottomWidth: 1,
+            borderBottomColor: "#e1ebe5",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
           }}
         >
+          <View style={{ flex: 1 }}>
           <AppText
             style={{
               fontSize: 18,
               fontWeight: "700",
             }}
           >
-            {log ? `${log.rpc} · ${log.controlNo}` : "Flight Workspace"}
+            {inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}
           </AppText>
-          <Action onPress={onClose}>Close Workspace</Action>
+          {log && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 3 }}>{log.rpc} · {log.controlNo}</AppText>}
+          </View>
           {busy && <ActivityIndicator />}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close flight workspace" onPress={onClose} style={{ padding: 10, borderRadius: 10, backgroundColor: "#edf4ef" }}>
+            <AppText style={{ color: "#245e49", fontSize: 16 }}>Close</AppText>
+          </TouchableOpacity>
         </View>
+        {log && !inspectionSection && <View style={{ paddingHorizontal: 12, backgroundColor: "#fff" }}>
+          <Choice values={[["flight", "Flight Record"], ["defects", "Aircraft Defects"], ["history", "History"]]} value={tab} onChange={setTab} />
+        </View>}
         <FlatList
           key={tab}
           style={{ flex: 1 }}
@@ -483,6 +511,7 @@ export default function FlightWorkspace({
               {log && (
                 <>
                   <View style={panel}>
+                    <AppText style={{ color: "#26866f", fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{step.label}</AppText>
                     <AppText
                       style={{
                         fontWeight: "700",
@@ -493,13 +522,12 @@ export default function FlightWorkspace({
                         ? ` — ${log[step.crew]?.name || "Unassigned"}`
                         : ""}
                     </AppText>
-                    <AppText>
-                      Pilot: {log.assignedPilot?.name || "Unassigned"}
-                      {"\n"}Mechanic:{" "}
-                      {log.assignedMechanic?.name || "Unassigned"}
-                    </AppText>
-                    <AppText>{workspace.readiness.aircraftStatus}</AppText>
-                    {saveState !== "Saved on server" && <AppText>{saveState}</AppText>}
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginVertical: 12 }}>
+                      <View style={{ flex: 1, minWidth: 120 }}><AppText style={{ color: "#64766e", fontSize: 12 }}>Pilot</AppText><AppText>{log.assignedPilot?.name || "Unassigned"}</AppText></View>
+                      <View style={{ flex: 1, minWidth: 120 }}><AppText style={{ color: "#64766e", fontSize: 12 }}>Mechanic</AppText><AppText>{log.assignedMechanic?.name || "Unassigned"}</AppText></View>
+                    </View>
+                    <AppText style={{ color: "#64766e", fontSize: 12 }}>Aircraft: {workspace.readiness.aircraftStatus}</AppText>
+                    {saveState !== "Saved on server" && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 8 }}>{saveState}</AppText>}
                     {workspace.history
                       .filter((e) => e.action === "return")
                       .slice(-1)
@@ -536,7 +564,7 @@ export default function FlightWorkspace({
                       </Action>
                     </View>
                   )}
-                  {recovery && mechanic && (
+                  {!readOnly && recovery && mechanic && (
                     <View style={panel}>
                       <AppText>
                         Local draft from {when(recovery.savedAt)}.{" "}
@@ -569,21 +597,15 @@ export default function FlightWorkspace({
                       </Action>
                     </View>
                   )}
-                  <Choice
-                    values={[
-                      ["flight", "Flight Record"],
-                      ...(inspectionSection ? [[inspectionSection, inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"]] : []),
-                      ["defects", "Aircraft Defects"],
-                      ["history", "History"],
-                    ].filter(([key]) => !inspectionSection || key === inspectionSection)}
-                    value={tab}
-                    onChange={setTab}
-                  />
                   {tab === "flight" && (
                     <>
                       <View
                         style={{
-                          height: 640,
+                          height: Math.max(360, screenHeight - 260),
+                          borderRadius: 12,
+                          overflow: "hidden",
+                          borderWidth: 1,
+                          borderColor: "#e1ebe5",
                         }}
                       >
                         <FlightLogEditEntry
@@ -824,13 +846,14 @@ export default function FlightWorkspace({
           }}
         />
         {log && <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: "#dce6e1", backgroundColor: "white" }}>
-                  {mechanic && needsMyFlightAction(user, log) && (
+                  {!readOnly && mechanic && needsMyFlightAction(user, log) && (
                     <Action disabled={busy} onPress={advance}>
                       {step.button}
                     </Action>
                   )}
                   {permissions.canSave && (
                     <Action
+                      secondary
                       disabled={busy}
                       onPress={() =>
                         execute(id, {
@@ -844,6 +867,8 @@ export default function FlightWorkspace({
                   )}
                   {permissions.canReturn && (
                     <Action
+                      secondary
+                      disabled={busy}
                       onPress={() => {
                         setComment("");
                         setReturning(true);

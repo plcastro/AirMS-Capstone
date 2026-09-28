@@ -3,6 +3,7 @@ const { hasAuditLogged } = require("./requestContext");
 
 const AUDITED_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SENSITIVE_READ_PATTERNS = [
+  /^\/api\/certificates(?:\/.*)?$/,
   /^\/api\/logs\/getAllUserLogs$/,
   /^\/api\/admin-activity\/(logs|summary|details\/[^/]+|export)$/,
   /^\/api\/admin-security-alerts\/?$/,
@@ -13,6 +14,17 @@ const SENSITIVE_READ_PATTERNS = [
 ];
 
 const routeLabels = [
+  { pattern: /^\/api\/certificates\/match-holder$/, action: "Certificate holder match requested" },
+  { pattern: /^\/api\/certificates\/personnel\/[^/]+\/qualifications$/, action: "Certificate qualifications viewed" },
+  { pattern: /^\/api\/certificates\/[^/]+\/analyze$/, action: "Certificate analyzed" },
+  { pattern: /^\/api\/certificates\/[^/]+\/review$/, action: "Certificate review updated" },
+  { pattern: /^\/api\/certificates\/[^/]+\/preview$/, action: "Certificate qualification previewed" },
+  { pattern: /^\/api\/certificates\/[^/]+\/confirm$/, action: "Certificate confirmed" },
+  { pattern: /^\/api\/certificates\/[^/]+\/reject$/, action: "Certificate rejected" },
+  { pattern: /^\/api\/certificates\/[^/]+\/revoke$/, action: "Certificate revoked" },
+  { pattern: /^\/api\/certificates\/personnel\//, action: "Certificate uploaded" },
+  { pattern: /^\/api\/certificates\/[^/]+\/file$/, action: "Certificate file accessed" },
+  { pattern: /^\/api\/certificates(?:\/.*)?$/, action: "Certificate records accessed" },
   { pattern: /^\/api\/user\/login$/, action: "User login attempted" },
   { pattern: /^\/api\/user\/logout$/, action: "User logout attempted" },
   {

@@ -1,5 +1,5 @@
 import InspectionConfirmationPrompt from "./InspectionConfirmationPrompt";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -50,10 +50,14 @@ export default function FlightWorkspace({
   open,
   onClose,
   onChanged,
+  onViewed,
   initialSection = "flight",
   inspectionMode = false,
+  readOnly = false,
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
+  const viewedCallback = useRef(onViewed);
+  useEffect(() => { viewedCallback.current = onViewed; }, [onViewed]);
   const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
@@ -116,6 +120,7 @@ export default function FlightWorkspace({
       if (!preserve || changed) {
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
       }
       return data;
     },
@@ -138,6 +143,7 @@ export default function FlightWorkspace({
         setWorkspace(data);
         setSource(data.flightLog);
         setDraft(data.flightLog);
+        viewedCallback.current?.(data);
         try {
           setRecovery(JSON.parse(sessionStorage.getItem(storageKey) || "null"));
         } catch {
@@ -154,6 +160,7 @@ export default function FlightWorkspace({
   useEffect(() => {
     if (
       !open ||
+      readOnly ||
       !draft ||
       !workspace ||
       recovery ||
@@ -180,16 +187,16 @@ export default function FlightWorkspace({
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [draft, open, workspace, storageKey, user, recovery]);
+  }, [draft, open, workspace, storageKey, user, recovery, readOnly]);
   const log = workspace?.flightLog;
-  const permissions = flightEditPermissions(user, log || {});
+  const permissions = readOnly ? {} : flightEditPermissions(user, log || {});
   const step = nextFlightStep(log || {});
-  const acceptance = pilotAcceptance(
+  const acceptance = !readOnly && pilotAcceptance(
     user,
     log || {},
     workspace?.preInspections || [],
   );
-  const assigned = isAssignedFlightCrew(user, log);
+  const assigned = !readOnly && isAssignedFlightCrew(user, log);
   const mechanic = getAssignedCrewField(user) === "assignedMechanic";
   const finish = async (preserve = false) => {
     if (!preserve) {
@@ -357,10 +364,12 @@ export default function FlightWorkspace({
   };
   return (
     <Modal
+      className="fl-workspace-modal"
+      style={{ top: 24, paddingBottom: 24 }}
       open={open}
       onCancel={onClose}
       footer={log ? (<Space wrap style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-                {mechanic && needsMyFlightAction(user, log) && (
+                {!readOnly && mechanic && needsMyFlightAction(user, log) && (
                   <Button
                     type="primary"
                     loading={busy}
@@ -392,18 +401,17 @@ export default function FlightWorkspace({
                     Return for Correction
                   </Button>
                 )}
-                {/* <Button onClick={onClose}>Close Workspace</Button> */}
+                <Button onClick={onClose}>Close</Button>
               </Space>) : null}
       width={1220}
-      title={
-        log
-          ? `${log.rpc} · ${log.controlNo} · Flight Workspace`
-          : "Flight Workspace"
-      }
+      title={<div className="fl-workspace-heading">
+        <span>{inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}</span>
+        {log && <Typography.Text type="secondary">{log.rpc} · {log.controlNo}</Typography.Text>}
+      </div>}
       destroyOnHidden
       styles={{
         body: {
-          maxHeight: "84vh",
+          maxHeight: "calc(100dvh - 210px)",
           overflowY: "auto",
         },
       }}
@@ -444,6 +452,7 @@ export default function FlightWorkspace({
         {log && (
           <>
             <Card
+              className="fl-workspace-summary"
               size="small"
               style={{
                 marginBottom: 12,
@@ -461,11 +470,11 @@ export default function FlightWorkspace({
                 </Typography.Text>
                 <Tag>{workspace.readiness.aircraftStatus}</Tag>
               </Space>
-              <p>
-                Pilot: {log.assignedPilot?.name || "Unassigned"} · Mechanic:{" "}
-                {log.assignedMechanic?.name || "Unassigned"} · Last update:{" "}
-                {labelTime(log.updatedAt)}
-              </p>
+              <div className="fl-workspace-details">
+                <div><span>Pilot</span><strong>{log.assignedPilot?.name || "Unassigned"}</strong></div>
+                <div><span>Mechanic</span><strong>{log.assignedMechanic?.name || "Unassigned"}</strong></div>
+                <div><span>Last updated</span><strong>{labelTime(log.updatedAt) || "—"}</strong></div>
+              </div>
               {assigned && log.status !== "completed" && saveState !== "Saved on server" && (
                 <Typography.Text type="secondary">{saveState}</Typography.Text>
               )}
@@ -521,7 +530,7 @@ export default function FlightWorkspace({
                 </Space>
               </Card>
             )}
-            {recovery && mechanic && (
+            {!readOnly && recovery && mechanic && (
               <Alert
                 type="info"
                 title={`A local draft from ${labelTime(recovery.savedAt)} is available${recovery.version !== log.__v ? "; the server record has since changed. Review restored fields before saving." : "."}`}
@@ -555,6 +564,7 @@ export default function FlightWorkspace({
               />
             )}
             <Tabs
+              className="fl-workspace-tabs"
               activeKey={tab}
               onChange={setTab}
               items={[

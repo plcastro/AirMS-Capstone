@@ -12,6 +12,7 @@ const MODULE_ACTIONS = {
   reports: ["read", "export"],
   message: ["read", "send"],
   users: ["read", "create", "update", "delete"],
+  certificates: ["read.own", "read.all", "upload.own", "upload.all", "review.all"],
   activitylogs: ["read"],
   flightlog: ["read", "create", "update", "delete"],
   maintenancelog: ["read", "create", "update", "delete"],

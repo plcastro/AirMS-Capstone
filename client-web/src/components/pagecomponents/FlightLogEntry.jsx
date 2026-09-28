@@ -1110,21 +1110,18 @@ export default function FlightLogEntry({
         {!embedded && (
           <div className="fl-modal-header-block">
             <div className="fl-modal-title-main">
-              {readOnly
-                ? "View Entry - Flight Log"
-                : editMode
-                  ? "Edit Entry - Flight Log"
-                  : "Add Entry - Flight Log"}
+              {editMode || readOnly ? "Flight Log" : "New Flight Log"}
             </div>
-            <div className="fl-modal-title-sub">Select Section</div>
           </div>
         )}
 
         {/* Tab nav */}
-        <div className="fl-tab-nav">
+        <nav className="fl-tab-nav" aria-label="Flight log sections">
           {tabs.map((tab) => (
             <button
               key={tab.key}
+              type="button"
+              aria-current={effectiveActiveTab === tab.key ? "page" : undefined}
               className={`fl-tab-btn${effectiveActiveTab === tab.key ? " fl-tab-btn--active" : ""}`}
               onClick={() => setActiveTab(tab.key)}
             >
@@ -1132,7 +1129,7 @@ export default function FlightLogEntry({
               <span className="fl-tab-label">{tab.label}</span>
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* Scrollable body */}
         <div className="fl-modal-body">

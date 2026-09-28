@@ -3,16 +3,13 @@ import FlightWorkspace from "../../components/FlightLog/FlightWorkspace";
 import AppText from "../../components/common/AppText";
 import {
   View,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
-  RefreshControl,
 } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PreInspectionCards from "../../components/PreInspection/PreInspectionCards";
-import PreInspectionEntry from "../../components/PreInspection/PreInspectionEntry";
 import PreInspectionEditEntry from "../../components/PreInspection/PreInspectionEditEntry";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
@@ -26,16 +23,12 @@ import {
   SectionTitle,
 } from "../../components/common/MobileModule";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
+import useViewedLogs from "../../utilities/useViewedLogs";
 
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
 import { getLogAircraftRegistration } from "../../../shared/aircraftLogGroups";
-import {
-  createEmptyB412PreInspectionData,
-  isB412Aircraft,
-} from "../../components/PreInspection/b412PreInspectionData";
-
 const getDisplayStatus = (status) => {
   const normalizedStatus = String(status || "").trim().toLowerCase();
 
@@ -46,31 +39,9 @@ const getDisplayStatus = (status) => {
       : "pending";
 };
 
-const isCompletedInspection = (inspection) =>
-  String(inspection?.status || "").toLowerCase() === "completed";
-
-const normalizePreInspectionPayload = (inspection = {}) => {
-  if (isB412Aircraft(inspection.aircraftType)) {
-    return {
-      ...inspection,
-      b412Data: createEmptyB412PreInspectionData(inspection.b412Data),
-    };
-  }
-
-  const { b412Data, ...legacyInspection } = inspection;
-  return legacyInspection;
-};
-
-const readJsonResponse = async (response) => {
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-};
-
 export default function PreInspection({ route }) {
   const { user } = useContext(AuthContext);
+  const { isNew, markViewed } = useViewedLogs(user, "pre");
   const targetPreInspectionId = route?.params?.targetPreInspectionId;
   const targetNotificationStatus = route?.params?.notificationStatus;
   const notificationRefreshAt = route?.params?.refreshAt;
@@ -80,16 +51,16 @@ export default function PreInspection({ route }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showNewEntryModal, setShowNewEntryModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
+  useEffect(() => {
+    if (showEditModal && selectedInspection && !selectedInspection.flightLogId) markViewed(selectedInspection);
+  }, [showEditModal, selectedInspection, markViewed]);
   const [inspections, setInspections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [aircraftRpcOptions, setAircraftRpcOptions] = useState([]);
 
   const userRole = resolveUserRole(user, "pilot");
-  const isOfficerInCharge = userRole === "officer-in-charge";
   const canExportPreInspections = canExportModule(userRole, "preInspection");
 
   const fetchPreInspections = useCallback(async (isRefresh = false) => {
@@ -150,45 +121,6 @@ export default function PreInspection({ route }) {
     inspections,
   ]);
 
-  useEffect(() => {
-    const fetchAircraftRpcOptions = async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE}/api/parts-monitoring/aircraft-list`,
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch aircraft RP-Cs");
-        }
-
-        const data = await response.json();
-        setAircraftRpcOptions(Array.isArray(data?.data) ? data.data : []);
-      } catch (error) {
-        console.error("Error fetching aircraft RP-Cs:", error);
-        setAircraftRpcOptions([]);
-      }
-    };
-
-    fetchAircraftRpcOptions();
-  }, []);
-
-  const handleSaveNewEntry = (newEntry) => {
-    const createdBy =
-      `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-      newEntry.createdBy;
-
-    return normalizePreInspectionPayload({ ...newEntry, createdBy });
-  };
-
-  const handleSaveEdit = (updatedInspection) =>
-    normalizePreInspectionPayload(updatedInspection);
-
-  const aircraftOptions = [
-    ...new Set([
-      ...aircraftRpcOptions.filter(Boolean),
-      ...inspections.map((inspection) => inspection.rpc).filter(Boolean),
-    ]),
-  ];
-
   const statusOptions = [
     { label: "All Status", value: "all" },
     { label: "Released", value: "released" },
@@ -235,11 +167,11 @@ export default function PreInspection({ route }) {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View key={selectedAircraft || "aircraft-groups"} style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}>
-        {!!(selectedAircraft || userRole === "mechanic") && (
+        {!!selectedAircraft && (
           <View
             style={[
               styles.unifiedControlRow,
-              { justifyContent: selectedAircraft ? "space-between" : "flex-end" },
+              { justifyContent: "flex-start" },
             ]}
           >
             {!!selectedAircraft && (
@@ -253,20 +185,12 @@ export default function PreInspection({ route }) {
                 </AppText>
               </TouchableOpacity>
             )}
-            {userRole === "mechanic" && (
-              <TouchableOpacity
-                style={styles.unifiedActionButton}
-                onPress={() => setShowNewEntryModal(true)}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color={COLORS.white} />
-                <AppText style={styles.unifiedActionButtonText}>New Entry</AppText>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
         {!selectedAircraft ? (
           <AircraftLogGroups
+            isNew={isNew}
                 refreshing={refreshing}
                 onRefresh={() => fetchPreInspections(true)}
             records={inspections}
@@ -331,6 +255,8 @@ export default function PreInspection({ route }) {
                 onRefresh={() => fetchPreInspections(true)}
                 currentUser={user}
                 inspections={loading ? [] : filteredInspections}
+                readOnly
+                isNew={isNew}
                 onEdit={handleEdit}
                 onExport={canExportPreInspections ? handleExport : undefined}
                 userRole={userRole}
@@ -339,100 +265,27 @@ export default function PreInspection({ route }) {
         )}
       </View>
 
-      {/* New Entry Modal - for creating only */}
-      <PreInspectionEntry
-        visible={showNewEntryModal}
-        lockedRpc={selectedAircraft === "Unassigned aircraft" ? "" : selectedAircraft}
-        onClose={() => setShowNewEntryModal(false)}
-        rpcOptions={aircraftOptions}
-        onSave={async (newEntry) => {
-          try {
-            if (!newEntry.flightLogId) throw Error("Choose a linked Flight Log first.");
-            const flightId = newEntry.flightLogId;
-            const headers = await getAuthHeaders({ "Content-Type": "application/json", "x-action-confirmed": "true" });
-            const request = async (path, body, method = "PUT") => {
-              const response = await fetch(`${API_BASE}/api/flightlogs/${path}`, { method: body ? method : "GET", headers, ...(body ? { body: JSON.stringify({ ...body, confirmAction: true }) } : {}) });
-              const result = await response.json();
-              if (!response.ok) throw Error(result.message || "Could not save inspection");
-              return result.data;
-            };
-            const workspace = await request(`${flightId}/workspace`);
-            const pair = await request(`${flightId}/inspections`, { changes: handleSaveNewEntry(newEntry), expectedVersion: workspace.flightLog.__v || 0 }, "POST");
-            setShowNewEntryModal(false);
-            setSelectedInspection({ ...pair.pre, flightLogId: flightId });
-            setShowEditModal(true);
-            selectAircraft(getLogAircraftRegistration(pair.pre));
-            await fetchPreInspections();
-            showToast("Pre-inspection created successfully");
-          } catch (error) {
-            console.error("Error creating pre-flight inspection:", error);
-            throw error;
-          }
-        }}
-        userRole={userRole}
-        readOnly={isOfficerInCharge}
-      />
-
-      {/* Edit Entry Modal - for editing with role buttons */}
+      {/* View legacy inspections that are not linked to a Flight Log. */}
       <PreInspectionEditEntry
         visible={showEditModal && !selectedInspection?.flightLogId}
         inspectionData={selectedInspection}
-        rpcOptions={aircraftOptions}
+        rpcOptions={[selectedInspection?.rpc].filter(Boolean)}
         onClose={() => {
           setShowEditModal(false);
           setSelectedInspection(null);
         }}
-        onSave={async (updatedInspection) => {
-          try {
-            if (isCompletedInspection(selectedInspection)) {
-              showToast("Completed pre-flight inspections are view-only.");
-              setShowEditModal(false);
-              setSelectedInspection(null);
-              return;
-            }
-
-            const response = await fetch(
-              `${API_BASE}/api/pre-flight/updatePreInspectionById/${updatedInspection._id}`,
-              {
-                method: "PUT",
-                headers: await getAuthHeaders({
-                  "x-action-confirmed": "true",
-                }),
-                body: JSON.stringify({
-                  ...handleSaveEdit(updatedInspection),
-                  confirmAction: true,
-                }),
-              },
-            );
-
-            const data = await readJsonResponse(response);
-            if (!response.ok) {
-              throw new Error(
-                data?.message || "Failed to update pre-flight inspection",
-              );
-            }
-
-            setInspections((prev) =>
-              prev.map((inspection) =>
-                inspection._id === data.data._id ? data.data : inspection,
-              ),
-            );
-            const savedAircraft = getLogAircraftRegistration(data.data);
-            if (savedAircraft !== selectedAircraft) {
-              selectAircraft(savedAircraft);
-            }
-            setShowEditModal(false);
-            setSelectedInspection(null);
-            showToast("Pre-inspection updated successfully");
-          } catch (error) {
-            console.error("Error updating pre-flight inspection:", error);
-            throw error;
-          }
-        }}
         userRole={userRole}
         readOnly
       />
-      {!!selectedInspection?.flightLogId && showEditModal && <FlightWorkspace id={String(selectedInspection.flightLogId?._id || selectedInspection.flightLogId)} visible initialSection="pre" inspectionMode onClose={() => { setShowEditModal(false); setSelectedInspection(null); }} onChanged={() => fetchPreInspections(true)} />}
+      {!!selectedInspection?.flightLogId && showEditModal && (
+        <FlightWorkspace
+          id={String(selectedInspection.flightLogId?._id || selectedInspection.flightLogId)}
+          visible initialSection="pre" inspectionMode readOnly
+          onViewed={({ preInspections }) => markViewed(preInspections?.find(record => String(record._id) === String(selectedInspection._id)))}
+          onClose={() => { setShowEditModal(false); setSelectedInspection(null); }}
+          onChanged={() => fetchPreInspections(true)}
+        />
+      )}
     </View>
   );
 }

@@ -20,6 +20,13 @@ export const FLIGHT_STAGES = {
   completed: { label: 'Closed', next: 'Record closed', crew: null, tab: 'info' },
 };
 export const nextFlightStep = (record = {}) => FLIGHT_STAGES[flightStage(record)] || FLIGHT_STAGES.pending_release;
+export const hasOngoingFlightLog = (records = [], rpc = '') => {
+  const aircraft = String(rpc).trim().toUpperCase();
+  if (!aircraft) return false;
+  return records.some(record =>
+    String(record.rpc || record.aircraft || '').trim().toUpperCase() === aircraft &&
+    ['pending_release', 'pending_acceptance', 'accepted', 'submitted', 'returned_to_mechanic', 'returned_to_pilot'].includes(flightStage(record)));
+};
 export const needsMyFlightAction = (user, record) =>
   isAssignedFlightCrew(user, record) && getAssignedCrewField(user) === nextFlightStep(record).crew;
 

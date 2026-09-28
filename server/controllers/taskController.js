@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 const TaskModel = require("../models/taskModel");
 const AircraftModel = require("../models/aircraftModel");
+const { createTaskQualificationService } = require('../services/qualificationEngine/taskQualificationService');
+const { hasPermission } = require('../middleware/permissions');
+const permissions = require('../config/permissions');
+const taskQualifications = createTaskQualificationService();
 const { auditLog } = require("./logsController");
 const { createTaskNotifications } = require("../utils/taskNotificationService");
 const {
@@ -463,12 +467,15 @@ const getBaseMaintenanceAnalytics = async (req, res) => {
 
 const createTask = async (req, res) => {
   try {
+    if (!hasPermission(req, permissions.TASKS_CREATE)) return res.status(403).json({ message: 'Task assignment requires manager access.' });
     const taskData = prepareTaskUpdate(null, req.body);
     const scheduleError = validateTaskSchedule(taskData);
     if (scheduleError) {
       return res.status(400).json({ message: scheduleError });
     }
 
+    const qualification = await taskQualifications.assertQualified(taskData);
+    taskData.assignedToName = qualification.name;
     const workloadError = await validateMechanicWorkload({
       assignedTo: taskData.assignedTo,
       confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
@@ -490,7 +497,7 @@ const createTask = async (req, res) => {
     await auditLog(audit.action, audit.actorId);
     res.status(201).json({ status: "Ok", data: serializeTask(task) });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message, code: err.code });
   }
 };
 
@@ -529,6 +536,18 @@ const updateTask = async (req, res) => {
     const previousTaskSnapshot = existingTask.toObject();
 
     const nextTask = prepareTaskUpdate(existingTask, req.body);
+    const managerAccess = hasPermission(req, permissions.TASKS_UPDATE_ALL);
+    const assignmentChanged = String(nextTask.assignedTo) !== String(existingTask.assignedTo) || nextTask.aircraft !== existingTask.aircraft;
+    if (!managerAccess && (!hasPermission(req, permissions.TASKS_UPDATE_OWN) || String(existingTask.assignedTo) !== String(req.user?.id) || assignmentChanged)) {
+      return res.status(403).json({ message: 'You cannot assign or update this task.' });
+    }
+    // Historical approvals remain reviewable; new work and reassignment use current evidence.
+    if (assignmentChanged || !['Approved', 'Completed', 'Turned in'].includes(nextTask.status)) {
+      const qualification = await taskQualifications.assertQualified(nextTask);
+      nextTask.assignedToName = qualification.name;
+    } else if (!['Approved', 'Completed', 'Turned in'].includes(existingTask.status)) {
+      await taskQualifications.assertQualified(nextTask);
+    }
     const scheduleError = validateTaskSchedule(nextTask);
     if (scheduleError) {
       return res.status(400).json({ message: scheduleError });
@@ -575,7 +594,7 @@ const updateTask = async (req, res) => {
     });
   } catch (err) {
     console.error("Task update failed:", err);
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message, code: err.code });
   }
 };
 

@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { styles } from "../../stylesheets/styles";
 import { COLORS } from "../../stylesheets/colors";
+import MechanicCertificates from "../../components/MechanicCertificates";
 
 export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
   const [activeTab, setActiveTab] = useState("Ongoing");
@@ -261,13 +262,17 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
       </View>
 
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-        {["Ongoing", "Completed"].map((tab) => (
+        {["Ongoing", "Completed", "Certificates"].map((tab) => (
           <TouchableOpacity
             key={tab}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === tab }}
             onPress={() => setActiveTab(tab)}
             style={{
               flex: 1,
               paddingVertical: 10,
+              minHeight: 48,
+              justifyContent: "center",
               borderRadius: 6,
               alignItems: "center",
               backgroundColor:
@@ -281,19 +286,16 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
               style={{
                 color: activeTab === tab ? "#fff" : COLORS.grayDark,
                 fontWeight: "600",
+                textAlign: "center",
               }}
             >
-              {tab} Tasks (
-              {tab === "Completed"
-                ? completedTasks.length
-                : ongoingTasks.length}
-              )
+              {tab === "Certificates" ? "Certificates & Qualifications" : `${tab} Tasks (${tab === "Completed" ? completedTasks.length : ongoingTasks.length})`}
             </AppText>
           </TouchableOpacity>
         ))}
       </View>
 
-      <FlatList
+      {activeTab === "Certificates" ? <MechanicCertificates key={mechanic.id} personnelId={mechanic.id} /> : <FlatList
         data={visibleTasks}
         keyExtractor={(item) => String(item.id || item._id)}
         renderItem={renderTaskItem}
@@ -305,7 +307,7 @@ export default function MechanicAssignment({ mechanic, tasks = [], onBack }) {
             </AppText>
           </View>
         }
-      />
+      />}
     </View>
   );
 }

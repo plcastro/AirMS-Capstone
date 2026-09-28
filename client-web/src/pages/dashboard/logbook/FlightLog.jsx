@@ -21,6 +21,8 @@ import FlightLogEntry from "../../../components/pagecomponents/FlightLogEntry";
 import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace";
 import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import ResultPopup from "../../../components/common/ResultPopup";
+import NewLogBadge from "../../../components/common/NewLogBadge";
+import useViewedLogs from "../../../utils/useViewedLogs";
 import { matchesSearch } from "../../../utils/search";
 import {
   getLogAircraftRegistration,
@@ -31,6 +33,7 @@ import {
   flightStage,
   nextFlightStep,
   needsMyFlightAction,
+  hasOngoingFlightLog,
 } from "../../../../../shared/flightWorkflow";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import "./flightlog.css";
@@ -38,6 +41,7 @@ export default function FlightLog() {
   const { user, getAuthHeader } = useContext(AuthContext),
     location = useLocation(),
     navigate = useNavigate();
+  const { isNew, markViewed } = useViewedLogs(user, "flight");
   const [logs, setLogs] = useState([]),
     [aircraft, setAircraft] = useState(""),
     [aircraftQuery, setAircraftQuery] = useState(""),
@@ -52,8 +56,15 @@ export default function FlightLog() {
       open: false,
     });
   const [entryPrompt, setEntryPrompt] = useState(false),
+    [entryAircraft, setEntryAircraft] = useState(""),
     [entryConfirmation, setEntryConfirmation] = useState(null);
   const role = String(user?.jobTitle || "").toLowerCase();
+  const ongoingFlight = hasOngoingFlightLog(logs, aircraft);
+  const startEntry = (rpc = "") => {
+    if (loading || (rpc && hasOngoingFlightLog(logs, rpc))) return;
+    setEntryAircraft(rpc === "Unassigned aircraft" ? "" : rpc);
+    setEntryPrompt(true);
+  };
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -178,6 +189,7 @@ export default function FlightLog() {
       title: "Control",
       dataIndex: "controlNo",
       key: "controlNo",
+      render: (value, record) => <Space>{value}{isNew(record) && <NewLogBadge />}</Space>,
     },
     {
       title: "Flight Date",
@@ -223,14 +235,19 @@ export default function FlightLog() {
             margin: 0,
           }}
         >
-          {aircraft ? aircraft + " - Flight Logs" : ""}
+          {aircraft ? aircraft + " - Flight Logs" : "Flight Logs"}
         </Typography.Title>
+        {!aircraft && role === "mechanic" && (
+          <Button type="primary" icon={<PlusOutlined />} disabled={loading} onClick={() => startEntry()}>
+            New Entry
+          </Button>
+        )}
       </Space>
       {error && (
         <Alert
           type="error"
           title={error}
-          closable={(onClose = () => setError(""))}
+          closable={{ onClose: () => setError("") }}
           style={{
             marginBottom: 12,
           }}
@@ -238,6 +255,7 @@ export default function FlightLog() {
       )}
       {!aircraft ? (
         <AircraftLogGroups
+          isNew={isNew}
           records={logs}
           loading={loading}
           query={aircraftQuery}
@@ -301,13 +319,19 @@ export default function FlightLog() {
               {role === "mechanic" && (
                 <Button
                   type="primary"
-                  onClick={() => setEntryPrompt(true)}
+                  disabled={loading || ongoingFlight}
+                  onClick={() => startEntry(aircraft)}
                   icon={<PlusOutlined />}
                 >
                   New Entry
                 </Button>
               )}
             </Space>
+            {role === "mechanic" && ongoingFlight && (
+              <Typography.Text type="secondary" style={{ display: "block", marginTop: 10 }}>
+                Complete this aircraft's ongoing flight log before creating a new entry.
+              </Typography.Text>
+            )}
           </Card>
           <FLogTable
             key={aircraft}
@@ -318,7 +342,7 @@ export default function FlightLog() {
             renderCard={(record) => (
               <Card
                 key={record._id}
-                title={record.controlNo}
+                title={<Space>{record.controlNo}{isNew(record) && <NewLogBadge />}</Space>}
                 style={{
                   marginBottom: 12,
                 }}
@@ -340,8 +364,9 @@ export default function FlightLog() {
         </>
       )}
       <FlightEntryInspectionPrompt
+        flightLogs={logs}
         open={entryPrompt}
-        lockedRpc={aircraft === "Unassigned aircraft" ? "" : aircraft}
+        lockedRpc={entryAircraft}
         onCancel={() => setEntryPrompt(false)}
         onConfirmed={(data) => {
           setEntryConfirmation(data);
@@ -359,6 +384,7 @@ export default function FlightLog() {
         lockedRpc={entryConfirmation?.rpc || ""}
       />
       <FlightWorkspace
+        onViewed={({ flightLog }) => markViewed(flightLog)}
         id={selected}
         initialSection={
           new URLSearchParams(location.search).get("targetSection") || "flight"

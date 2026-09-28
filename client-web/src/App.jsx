@@ -167,6 +167,7 @@ const AppRouter = () => {
               </ProtectedRoute>
             }
           >
+            <Route path="certificates" element={<Navigate to="/dashboard/mechanics" replace />} />
             <Route
               path="user-management/view-users"
               element={
@@ -248,7 +249,7 @@ const AppRouter = () => {
               path="mechanics"
               element={
                 <ProtectedRoute
-                  allowedRoles={["superadmin", "maintenance manager"]}
+                  allowedRoles={["superadmin", "maintenance manager", "mechanic"]}
                 >
                   <MechanicList />
                 </ProtectedRoute>

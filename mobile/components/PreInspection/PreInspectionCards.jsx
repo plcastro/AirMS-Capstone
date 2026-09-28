@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AppText from "../common/AppText";
+import NewLogBadge from "../common/NewLogBadge";
 import { FlatList, View, TouchableOpacity } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -13,6 +14,8 @@ export default function PreInspectionCards({
   onExport,
   userRole,
   currentUser,
+  isNew,
+  readOnly = false,
   ...listProps
 }) {
   const [exportingInspectionId, setExportingInspectionId] = useState(null);
@@ -105,6 +108,7 @@ export default function PreInspectionCards({
         const exportLoading = exportingInspectionId === inspectionKey;
         const displayStatus = getDisplayStatus(inspection.status);
         const isViewOnly =
+          readOnly ||
           !isAssignedFlightCrew(currentUser, inspection) ||
           displayStatus === "released" ||
           displayStatus === "completed" ||
@@ -140,6 +144,7 @@ export default function PreInspectionCards({
                   <AppText style={{ fontSize: 13, fontWeight: "bold" }}>
                     {inspection.rpc || "N/A"}
                   </AppText>
+                  {isNew?.(inspection) && <NewLogBadge />}
 
                   <AppText style={{ fontSize: 10, color: "#777" }}>
                     {inspection.date || inspection.createdAt || "N/A"}

@@ -27,7 +27,17 @@
   "builds": [
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "services/certificates/**",
+          "config/certificate*.js",
+          "node_modules/tesseract.js/src/**",
+          "node_modules/tesseract.js-core/**",
+          "node_modules/{bmp-js,idb-keyval,is-url,node-fetch,regenerator-runtime,wasm-feature-detect,zlibjs}/**",
+          "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz"
+        ]
+      }
     }
   ],
   "routes": [
