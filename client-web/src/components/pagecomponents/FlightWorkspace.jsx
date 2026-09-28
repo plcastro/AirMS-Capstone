@@ -449,7 +449,6 @@ export default function FlightWorkspace({
                 Return for Correction
               </Button>
             )}
-            {/* <Button onClick={onClose}>Close Workspace</Button> */}
           </Space>
         ) : null
       }
@@ -890,16 +889,6 @@ export default function FlightWorkspace({
                       }
                     >
                       Save Draft
-                    </Button>
-                  )}
-                  {permissions.canReturn && (
-                    <Button
-                      onClick={() => {
-                        setComment("");
-                        setReturnOpen(true);
-                      }}
-                    >
-                      Return for Correction
                     </Button>
                   )}
                 </Space>
