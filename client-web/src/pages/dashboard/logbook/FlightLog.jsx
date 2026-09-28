@@ -39,6 +39,7 @@ import {
 } from "../../../../../shared/flightWorkflow";
 import { canExportModule } from "../../../../../shared/exportAccess";
 import "./flightlog.css";
+import { canCreateFlightLog } from "../../../../../shared/flightLogCreationAccess";
 export default function FlightLog() {
   const { user, getAuthHeader } = useContext(AuthContext),
     location = useLocation(),
@@ -61,6 +62,7 @@ export default function FlightLog() {
     [entryAircraft, setEntryAircraft] = useState(""),
     [entryConfirmation, setEntryConfirmation] = useState(null);
   const role = String(user?.jobTitle || "").toLowerCase();
+  const canCreate = canCreateFlightLog(user);
   const ongoingFlight = hasOngoingFlightLog(logs, aircraft);
   const startEntry = (rpc = "") => {
     if (loading || (rpc && hasOngoingFlightLog(logs, rpc))) return;
@@ -267,7 +269,7 @@ export default function FlightLog() {
       {!aircraft ? (
         <AircraftLogGroups
           isNew={isNew}
-          headerAction={role === "mechanic" ? (
+          headerAction={canCreate ? (
             <Button size="large" type="primary" icon={<PlusOutlined />} disabled={loading} onClick={() => startEntry()}>
               New Entry
             </Button>
@@ -329,7 +331,7 @@ export default function FlightLog() {
                   </Checkbox>
                 </Space>
               </Col>
-              {role === "mechanic" && (
+              {canCreate && (
                 <Col
                   style={{
                     display: "flex",
@@ -348,7 +350,7 @@ export default function FlightLog() {
                 </Col>
               )}
             </Row>
-            {role === "mechanic" && ongoingFlight && (
+            {canCreate && ongoingFlight && (
               <Typography.Text type="secondary" style={{ display: "block", marginTop: 10 }}>
                 Complete this aircraft's ongoing flight log before creating a new entry.
               </Typography.Text>

@@ -35,6 +35,7 @@ import { showToast } from "../../utilities/toast";
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
 import { resolveUserRole } from "../../../shared/navigationAccess";
+import { canCreateFlightLog } from "../../../shared/flightLogCreationAccess";
 import {
   getLogAircraftRegistration,
   sortLogsByLatestActivity,
@@ -86,7 +87,7 @@ export default function FlightLog({ route, navigation }) {
     [opened, setOpened] = useState(null);
   const userRole = resolveUserRole(user, "pilot");
   const { isNew, markViewed } = useViewedLogs(user, "flight");
-  const canCreate = userRole === "mechanic";
+  const canCreate = canCreateFlightLog(user);
   const ongoingFlight = hasOngoingFlightLog(logs, aircraft);
   const [entryPrompt, setEntryPrompt] = useState(false),
     [entryAircraft, setEntryAircraft] = useState(""),

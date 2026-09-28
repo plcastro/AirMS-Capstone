@@ -15,12 +15,14 @@ const { resolvePreflightConfirmation } = require("../utils/flightLogPreflight");
 const mechanicId = "000000000000000000000001";
 const pilotId = "000000000000000000000002";
 const confirmationId = "000000000000000000000003";
+const managerId = "000000000000000000000004";
 const signature = "data:image/png;base64,c2lnbmF0dXJl";
 
-function creationHarness() {
+function creationHarness(actor = { id: mechanicId, jobTitle: "Mechanic" }) {
   const directory = [
     { _id: mechanicId, firstName: "Actual", lastName: "Mechanic", jobTitle: "Mechanic", status: "active" },
     { _id: pilotId, firstName: "Actual", lastName: "Pilot", jobTitle: "Pilot", status: "active" },
+    { _id: managerId, firstName: "Actual", lastName: "Manager", jobTitle: "Maintenance Manager", status: "active" },
   ];
   const select = (user) => ({ select: () => ({ lean: async () => user }) });
   const users = {
@@ -28,9 +30,9 @@ function creationHarness() {
     findOne: (query) => select(directory.find((user) => Object.entries(query).every(([key, value]) => user[key] === value))),
   };
   const confirmation = {
-    _id: confirmationId, userId: mechanicId, rpc: "RP-CTEST", flightLogId: null,
+    _id: confirmationId, userId: actor.id, rpc: "RP-CTEST", flightLogId: null,
     expiresAt: new Date(Date.now() + 60_000), allGood: true, remarks: "",
-    signer: { userId: mechanicId, name: "Actual Mechanic", signature },
+    signer: { userId: actor.id, name: actor.id === managerId ? "Actual Manager" : "Actual Mechanic", signature },
   };
   const savedFlights = [];
   const state = { attempts: 0, ended: false, committed: null, notificationIds: [], auditCount: 0 };
@@ -122,16 +124,17 @@ function creationHarness() {
   );
   return {
     state, savedFlights, confirmation,
-    async create(legacy) {
+    async create(legacy, overrides = {}) {
       const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
       await loaded.exports.createFlightLog({
-        user: { id: mechanicId, jobTitle: "Mechanic" },
+        user: actor,
         body: {
           rpc: "RP-CTEST", aircraftType: "AS350B3e", date: "09/24/2026", confirmationId,
           assignedPilot: { userId: pilotId, name: "Forged pilot name" },
           initialInspectionSignature: { signature: "forged", userId: pilotId },
           legs: [{ totalTimeOff: "01:00", stations: [{ from: "Manila", to: "Local" }] }],
           ...(legacy ? { preFlightInspection: legacy } : {}),
+          ...overrides,
         },
       }, response);
       return response;
@@ -196,4 +199,45 @@ test("flight creation retries atomically with ticket confirmation and optional l
       assert.equal(harness.state.notificationIds.length, 1);
     });
   }
+});
+
+test("maintenance managers create logs for a chosen mechanic with their own creator and signature identity", async () => {
+  const harness = creationHarness({ id: managerId, jobTitle: "Maintenance Manager" });
+  const response = await harness.create(undefined, { assignedMechanic: { userId: mechanicId, name: "Forged mechanic" } });
+  assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+  const { flight } = harness.state.committed;
+  assert.equal(flight.createdBy, "maintenance manager");
+  assert.equal(String(flight.createdByUserId), managerId);
+  assert.equal(String(flight.assignedMechanic.userId), mechanicId);
+  assert.equal(flight.assignedMechanic.name, "Actual Mechanic");
+  assert.equal(String(flight.assignedPilot.userId), pilotId);
+  assert.equal(String(flight.initialInspectionSignature.userId), managerId);
+  assert.equal(flight.initialInspectionSignature.name, "Actual Manager");
+  assert.equal(flight.status, "pending_release");
+});
+
+test("manager creation rejects absent or invalid mechanic assignments before any writes", async () => {
+  for (const assignedMechanic of [undefined, null, {}, { userId: pilotId }, { userId: managerId }, { userId: "000000000000000000000099" }]) {
+    const harness = creationHarness({ id: managerId, jobTitle: "Maintenance Manager" });
+    const response = await harness.create(undefined, { assignedMechanic });
+    assert.equal(response.statusCode, 400, JSON.stringify(response.body));
+    assert.match(response.body.message, /assigned mechanic/i);
+    assert.equal(harness.state.attempts, 0);
+    assert.equal(harness.savedFlights.length, 0);
+  }
+});
+
+test("manager creation cannot consume another person's preflight confirmation", async () => {
+  const harness = creationHarness({ id: managerId, jobTitle: "Maintenance Manager" });
+  harness.confirmation.userId = mechanicId;
+  const response = await harness.create(undefined, { assignedMechanic: { userId: mechanicId } });
+  assert.equal(response.statusCode, 400, JSON.stringify(response.body));
+  assert.equal(harness.savedFlights.length, 0);
+});
+
+test("pilots cannot create logs by submitting a manager role in the payload", async () => {
+  const harness = creationHarness({ id: pilotId, jobTitle: "Pilot" });
+  const response = await harness.create(undefined, { jobTitle: "Maintenance Manager", assignedMechanic: { userId: mechanicId } });
+  assert.equal(response.statusCode, 403);
+  assert.equal(harness.savedFlights.length, 0);
 });

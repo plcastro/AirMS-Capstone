@@ -1,34 +1,40 @@
 const User = require("../models/userModel");
 const { isPilotFlightLogRequest } = require("./flightLogPayload");
+const { isFlightLogManager } = require("../../shared/flightLogCreationAccess");
 
 const crewName = (user) => `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
 // Resolve IDs against the user directory instead of trusting names or roles
 // supplied by a client. Keep existing assignments usable if a user goes inactive.
 const resolveFlightLogCrew = async (req, payload, existing = null, users = User) => {
-  const field = isPilotFlightLogRequest(req) ? "assignedMechanic" : "assignedPilot";
-  const role = field === "assignedPilot" ? "Pilot" : "Mechanic";
+  const managerCreation = !existing && isFlightLogManager(req.user);
+  const fields = managerCreation ? ["assignedPilot", "assignedMechanic"]
+    : [isPilotFlightLogRequest(req) ? "assignedMechanic" : "assignedPilot"];
   const assignments = {};
+  if (managerCreation && !payload.assignedMechanic) return { error: 'Select an assigned mechanic before creating the flight log.' };
 
-  if (Object.hasOwn(payload, field)) {
-    const selected = payload[field];
-    if (selected === null || selected === "") {
-      assignments[field] = null;
-    } else {
-      const userId = typeof selected === "string" ? selected : selected?.userId;
-      if (typeof userId !== "string" || !/^[a-f\d]{24}$/i.test(userId)) {
-        return { error: `Select a valid assigned ${role.toLowerCase()}.` };
-      }
-      if (String(existing?.[field]?.userId || "") === userId) {
-        assignments[field] = existing[field];
+  for (const field of fields) {
+    const role = field === "assignedPilot" ? "Pilot" : "Mechanic";
+    if (Object.hasOwn(payload, field)) {
+      const selected = payload[field];
+      if (selected === null || selected === "") {
+        assignments[field] = null;
       } else {
-        const user = await users.findOne({
-          _id: userId,
-          status: "active",
-          jobTitle: role,
-        }).select("firstName lastName").lean();
-        if (!user) return { error: `The assigned ${role.toLowerCase()} must be an active ${role.toLowerCase()}.` };
-        assignments[field] = { userId: String(user._id), name: crewName(user) };
+        const userId = typeof selected === "string" ? selected : selected?.userId;
+        if (typeof userId !== "string" || !/^[a-f\d]{24}$/i.test(userId)) {
+          return { error: `Select a valid assigned ${role.toLowerCase()}.` };
+        }
+        if (String(existing?.[field]?.userId || "") === userId) {
+          assignments[field] = existing[field];
+        } else {
+          const user = await users.findOne({
+            _id: userId,
+            status: "active",
+            jobTitle: role,
+          }).select("firstName lastName").lean();
+          if (!user) return { error: `The assigned ${role.toLowerCase()} must be an active ${role.toLowerCase()}.` };
+          assignments[field] = { userId: String(user._id), name: crewName(user) };
+        }
       }
     }
   }
@@ -41,7 +47,7 @@ const resolveFlightLogCrew = async (req, payload, existing = null, users = User)
     const ownField = creator?.jobTitle === "Pilot"
       ? "assignedPilot"
       : creator?.jobTitle === "Mechanic" ? "assignedMechanic" : null;
-    if (ownField && ownField !== field) {
+    if (ownField && !fields.includes(ownField)) {
       assignments[ownField] = { userId: String(creator._id), name: crewName(creator) };
     }
   }

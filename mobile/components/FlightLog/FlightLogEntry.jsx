@@ -1,5 +1,6 @@
 import { monitoringBroughtForward } from "../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../shared/flightLogDates";
+import { isFlightLogManager } from "../../../shared/flightLogCreationAccess";
 import {
   totalFlightHours,
   FLIGHT_HOUR_FIELDS,
@@ -99,6 +100,7 @@ export default function FlightLogEntry({
     .toLowerCase()
     .replace(/[\s-]+/g, " ");
   const isPilot = normalizedRole === "pilot";
+  const managerCreation = isFlightLogManager({ jobTitle: userRole });
   const isMechanic = [
     "mechanic",
     "engineer",
@@ -720,6 +722,11 @@ export default function FlightLogEntry({
   };
 
   const handleSave = () => {
+    if (managerCreation && !formData.assignedMechanic?.userId) {
+      showToast('Select an assigned mechanic before creating the flight log.');
+      setCurrentPage(0);
+      return;
+    }
     if (!isMechanic) return;
     if (!isAircraftSelected) {
       showToast("Select an aircraft and wait for its type to load");
@@ -778,6 +785,7 @@ export default function FlightLogEntry({
       case "Basic Information":
         return (
           <FlightLogModalInfo
+            assignMechanic={managerCreation}
             formData={formData}
             updateForm={updateForm}
             isEditable={isBasicInfoEditable}

@@ -1,5 +1,6 @@
 import { monitoringBroughtForward } from "../../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../../shared/flightLogDates";
+import { isFlightLogManager } from "../../../../shared/flightLogCreationAccess";
 import {
   totalFlightHours,
   FLIGHT_HOUR_FIELDS,
@@ -267,6 +268,7 @@ export default function FlightLogEntry({
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
+  const managerCreation = !editMode && isFlightLogManager({ jobTitle: userRole });
   const lockedAircraftRpc = String(lockedRpc || (!editMode ? initialAircraftRpc : '') || '').trim();
   const canEnterDestinations = ["mechanic", "maintenance manager"].includes(
     String(userRole || "").trim().toLowerCase().replace(/[\s-]+/g, " "),
@@ -805,6 +807,11 @@ export default function FlightLogEntry({
       return;
     }
     if (!validateRequiredFlightTime()) return;
+    if (managerCreation && !formData.assignedMechanic?.userId) {
+      message.error("Select an assigned mechanic before creating the flight log.");
+      setActiveTab("info");
+      return;
+    }
     if (isPilot && canEditDestinations) {
       const invalidLegIndex = (formData.legs || []).findIndex((leg) => {
         const hasInvalidRoute = (leg.stations || []).some(
@@ -877,6 +884,7 @@ export default function FlightLogEntry({
       case "info":
         return (
           <FlightLogModalInfo
+            assignMechanic={managerCreation}
             formData={formData}
             updateForm={updateForm}
             isEditable={canSave && canEditBasicInfo}

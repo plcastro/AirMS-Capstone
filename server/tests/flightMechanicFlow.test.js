@@ -85,9 +85,10 @@ test('the New Entry confirmation endpoint verifies Yes on the server and stores 
     '../models/flightInspectionConfirmationModel': { create: async values => { saved = values; return { ...values, _id: 'ticket' }; } },
     '../models/partsMonitoringModel': { findOne: async ({ aircraft }) => aircraft === 'RP-CTEST' ? { aircraftType: 'AS350B3e' } : null },
     './flightWorkflowController': { catchRequest: require('../controllers/flightWorkflowController').catchRequest },
-    '../utils/flightWorkflowSigning': { verifyWorkflowSigner: async req => { verifications++; assert.equal(req.body.pin, '123456'); return { userId: mechanic.id, signature: 'verified' }; } },
+    '../utils/flightWorkflowSigning': { verifyWorkflowSigner: async req => { verifications++; assert.equal(req.body.pin, '123456'); return { userId: req.user.id, signature: 'verified' }; } },
     '../utils/flightWorkflowRules': require('../utils/flightWorkflowRules'),
     '../utils/flightLogPayload': require('../utils/flightLogPayload'),
+    '../../shared/flightLogCreationAccess': require('../../shared/flightLogCreationAccess'),
   };
   const file = path.join(__dirname, '../controllers/flightEntryConfirmationController.js'), module = { exports: {} };
   vm.compileFunction(fs.readFileSync(file, 'utf8'), ['require', 'module', 'exports'], { filename: file })(name => dependencies[name], module, module.exports);
@@ -102,4 +103,12 @@ test('the New Entry confirmation endpoint verifies Yes on the server and stores 
   assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false })).statusCode, 400);
   assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false, remarks: 'Oil leak' })).statusCode, 201);
   assert.equal(saved.signer, null); assert.equal(verifications, 1); assert.equal(saved.allGood, false);
+  const manager = { id: 'manager', jobTitle: 'Maintenance Manager' };
+  assert.equal((await call(manager, { rpc: 'RP-CTEST', allGood: true, pin: '123456' })).statusCode, 201);
+  assert.equal(saved.userId, manager.id); assert.equal(saved.signer.userId, manager.id);
+  assert.equal(saved.pin, undefined); assert.equal(verifications, 2);
+  for (const jobTitle of ['Pilot', 'Admin', 'Engineer']) {
+    assert.equal((await call({ id: 'other', jobTitle }, { rpc: 'RP-CTEST', allGood: true, pin: '123456', role: 'Maintenance Manager' })).statusCode, 403);
+  }
+  assert.equal(verifications, 2);
 });
