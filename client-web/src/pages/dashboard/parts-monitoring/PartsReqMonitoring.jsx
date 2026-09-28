@@ -29,6 +29,7 @@ import {
   SearchOutlined,
   InboxOutlined,
   CheckCircleOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useLocation } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
@@ -437,135 +438,222 @@ export default function PartsReqMonitoring() {
         open={entry}
         onCancel={() => !busy && setEntry(false)}
         footer={null}
-        width={850}
+        centered
+        width={screens.md ? 760 : "calc(100vw - 16px)"}
+        styles={{
+          content: {
+            padding: 0,
+            overflow: "hidden",
+          },
+          header: {
+            padding: screens.md ? "14px 20px" : 0,
+            marginBottom: 8,
+          },
+          body: {
+            maxHeight: screens.md
+              ? "calc(100vh - 120px)"
+              : "calc(100dvh - 90px)",
+            overflowY: "auto",
+            padding: screens.md ? "16px 20px" : 0,
+          },
+        }}
       >
         <Form form={form} layout="vertical" onFinish={create}>
+          {/* Aircraft */}
           <Form.Item
             label="Aircraft"
             name="aircraft"
             rules={[
               {
                 required: true,
+                message: "Please select an aircraft.",
               },
             ]}
+            style={{ marginBottom: 20 }}
           >
             <Select
+              size="large"
               showSearch
+              optionFilterProp="label"
               options={aircraft}
               placeholder="Select aircraft"
+              style={{ width: "100%" }}
             />
           </Form.Item>
+
+          {/* Item Entry Header */}
           <div
             style={{
-              padding: 16,
-              marginBottom: 20,
-              border: "1px solid #d9d9d9",
-              borderRadius: 6,
-              background: "#fafafa",
-            }}
-          >
-            <Typography.Text strong>
-              {editingItemKey !== null ? "Edit Item" : "Add Item"}
-            </Typography.Text>
-            <Row gutter={[12, 12]} align="bottom" style={{ marginTop: 12 }}>
-              <Col xs={24} md={8}>
-                <Typography.Text>Particular</Typography.Text>
-                <PartNameInput
-                  value={itemEntry.particular}
-                  onChange={(particular) =>
-                    setItemEntry((current) => ({ ...current, particular }))
-                  }
-                  onSelectUnit={(unitOfMeasure) =>
-                    setItemEntry((current) => ({ ...current, unitOfMeasure }))
-                  }
-                />
-              </Col>
-              <Col xs={8} md={3}>
-                <Typography.Text>Quantity</Typography.Text>
-                <InputNumber
-                  aria-label="Quantity"
-                  min={1}
-                  value={itemEntry.quantity}
-                  onChange={(quantity) =>
-                    setItemEntry((current) => ({ ...current, quantity }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={8} md={3}>
-                <Typography.Text>Unit</Typography.Text>
-                <Select
-                  aria-label="Unit"
-                  value={itemEntry.unitOfMeasure}
-                  options={["PC", "SET", "ST", "UNT"].map((value) => ({
-                    value,
-                  }))}
-                  onChange={(unitOfMeasure) =>
-                    setItemEntry((current) => ({ ...current, unitOfMeasure }))
-                  }
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col xs={24} md={6}>
-                <Typography.Text>Purpose</Typography.Text>
-                <Input
-                  aria-label="Purpose"
-                  placeholder="Optional"
-                  value={itemEntry.purpose}
-                  onChange={(event) =>
-                    setItemEntry((current) => ({
-                      ...current,
-                      purpose: event.target.value,
-                    }))
-                  }
-                />
-              </Col>
-              <Col xs={24} md={4}>
-                <Space wrap>
-                  <Button
-                    type="primary"
-                    onClick={saveItem}
-                    disabled={busy}
-                    size="large"
-                  >
-                    {editingItemKey !== null ? "Update" : "Add"}
-                  </Button>
-                  {editingItemKey !== null && (
-                    <Button
-                      type="link"
-                      onClick={resetItemEntry}
-                      disabled={busy}
-                      size="large"
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </Space>
-              </Col>
-            </Row>
-          </div>
-          <Space
-            style={{
-              width: "100%",
+              display: "flex",
+              alignItems: screens.md ? "center" : "flex-start",
               justifyContent: "space-between",
+              gap: 8,
               marginBottom: 12,
             }}
           >
-            <Space>
-              <Typography.Text strong>Requisition Items</Typography.Text>
+            <Typography.Text strong style={{ fontSize: 16 }}>
+              {editingItemKey !== null ? "Edit Item" : "Add Item"}
+            </Typography.Text>
+
+            {!screens.md && items.length > 0 && (
+              <Typography.Text type="secondary">
+                {items.length} item{items.length !== 1 ? "s" : ""}
+              </Typography.Text>
+            )}
+          </div>
+
+          {/* Item Entry */}
+          <Row gutter={[12, 12]} align="bottom">
+            {/* Particular */}
+            <Col xs={24} md={8}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Particular</Typography.Text>
+              </div>
+
+              <PartNameInput
+                value={itemEntry.particular}
+                onChange={(particular) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    particular,
+                  }))
+                }
+                onSelectUnit={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Quantity */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Quantity</Typography.Text>
+              </div>
+
+              <InputNumber
+                size="large"
+                aria-label="Quantity"
+                min={1}
+                value={itemEntry.quantity}
+                onChange={(quantity) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    quantity,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Unit */}
+            <Col xs={12} md={3}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Unit</Typography.Text>
+              </div>
+
+              <Select
+                size="large"
+                aria-label="Unit"
+                value={itemEntry.unitOfMeasure}
+                options={["PC", "SET", "ST", "UNT"].map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(unitOfMeasure) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    unitOfMeasure,
+                  }))
+                }
+                style={{ width: "100%" }}
+              />
+            </Col>
+
+            {/* Purpose */}
+            <Col xs={24} md={6}>
+              <div style={{ marginBottom: 6 }}>
+                <Typography.Text strong>Purpose</Typography.Text>
+              </div>
+
+              <Input
+                size="large"
+                aria-label="Purpose"
+                placeholder="Optional"
+                value={itemEntry.purpose}
+                onChange={(event) =>
+                  setItemEntry((current) => ({
+                    ...current,
+                    purpose: event.target.value,
+                  }))
+                }
+              />
+            </Col>
+
+            {/* Add / Update */}
+            <Col xs={24} md={4}>
+              <Button
+                type="primary"
+                onClick={saveItem}
+                disabled={busy}
+                size="large"
+                icon={
+                  editingItemKey !== null ? <EditOutlined /> : <PlusOutlined />
+                }
+                block
+              >
+                {editingItemKey !== null ? "Update Item" : "Add Item"}
+              </Button>
+
+              {editingItemKey !== null && (
+                <Button
+                  type="link"
+                  onClick={resetItemEntry}
+                  disabled={busy}
+                  size="large"
+                  block
+                  style={{ marginTop: 4 }}
+                >
+                  Cancel Editing
+                </Button>
+              )}
+            </Col>
+          </Row>
+
+          {/* Items Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginTop: 24,
+              marginBottom: 12,
+            }}
+          >
+            <Space size={4}>
+              <Typography.Text strong style={{ fontSize: 16 }}>
+                Requisition Items
+              </Typography.Text>
+
               <Button
                 type="text"
-                size="small"
+                size="large"
                 icon={<QuestionCircleOutlined />}
                 aria-label="Show requisition item help"
                 aria-expanded={showItemHelp}
                 onClick={() => setShowItemHelp((value) => !value)}
               />
             </Space>
+
             <Typography.Text type="secondary">
               {items.length} item{items.length !== 1 ? "s" : ""}
             </Typography.Text>
-          </Space>
+          </div>
+
+          {/* Help */}
           {showItemHelp && (
             <Alert
               showIcon
@@ -577,116 +665,297 @@ export default function PartsReqMonitoring() {
               }
               description={
                 editingItemKey !== null
-                  ? "The highlighted row is loaded above. Click Update to save your changes, or Cancel to keep it unchanged."
-                  : "Click an item row to load it into the form above, then click Update to save your changes."
+                  ? "The selected item is loaded above. Click Update to save your changes, or Cancel Editing to keep it unchanged."
+                  : "Click an item to load it into the form above, then update it."
               }
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 16 }}
             />
           )}
-          <Table
-            bordered
-            size="small"
-            rowKey="key"
-            dataSource={items}
-            scroll={{ x: 700 }}
-            onRow={(item) => ({
-              onClick: () => {
-                if (!busy) {
-                  setItemEntry({
-                    particular: item.particular,
-                    quantity: item.quantity,
-                    unitOfMeasure: item.unitOfMeasure,
-                    purpose: item.purpose,
-                  });
-                  setEditingItemKey(item.key);
-                }
-              },
-              style: {
-                cursor: "pointer",
-                background: editingItemKey === item.key ? "#e6f4ff" : undefined,
-              },
-            })}
-            pagination={
-              items.length > 5
-                ? {
-                    current: itemPage,
-                    onChange: setItemPage,
-                    pageSize: 5,
-                    showSizeChanger: false,
-                    size: "small",
-                  }
-                : false
-            }
-            columns={[
-              {
-                title: "#",
-                width: 50,
-                render: (_, record) =>
-                  items.findIndex((item) => item.key === record.key) + 1,
-              },
-              { title: "Particular", dataIndex: "particular", width: 240 },
-              { title: "Quantity", dataIndex: "quantity", width: 90 },
-              { title: "Unit", dataIndex: "unitOfMeasure", width: 80 },
-              {
-                title: "Purpose",
-                dataIndex: "purpose",
-                width: 180,
-                render: (value) => value || "—",
-              },
-              {
-                title: "Action",
-                width: 70,
-                fixed: "right",
-                render: (_, item) => (
-                  <Button
-                    danger
-                    type="text"
-                    disabled={busy}
-                    icon={<DeleteOutlined />}
-                    aria-label={`Delete ${item.particular}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeItem(item.key);
-                    }}
+
+          {/* MOBILE ITEM CARDS */}
+          {!screens.md && (
+            <div>
+              {items.length === 0 ? (
+                <Card
+                  size="small"
+                  style={{
+                    textAlign: "center",
+                    borderStyle: "dashed",
+                    marginBottom: 16,
+                  }}
+                >
+                  <Typography.Text type="secondary">
+                    No items added yet.
+                  </Typography.Text>
+                </Card>
+              ) : (
+                items.map((item, index) => {
+                  const editing = editingItemKey === item.key;
+
+                  return (
+                    <Card
+                      key={item.key}
+                      size="small"
+                      onClick={() => {
+                        if (!busy) {
+                          setItemEntry({
+                            particular: item.particular,
+                            quantity: item.quantity,
+                            unitOfMeasure: item.unitOfMeasure,
+                            purpose: item.purpose,
+                          });
+                          setEditingItemKey(item.key);
+                        }
+                      }}
+                      style={{
+                        marginBottom: 10,
+                        cursor: busy ? "default" : "pointer",
+                        borderColor: editing ? "#1677ff" : undefined,
+                        background: editing ? "#e6f4ff" : undefined,
+                      }}
+                      styles={{
+                        body: {
+                          padding: 12,
+                        },
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            minWidth: 0,
+                            flex: 1,
+                          }}
+                        >
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 12 }}
+                          >
+                            Item #{index + 1}
+                          </Typography.Text>
+
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontWeight: 600,
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {item.particular}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              marginTop: 8,
+                            }}
+                          >
+                            <Typography.Text>
+                              Qty: <strong>{item.quantity}</strong>
+                            </Typography.Text>
+
+                            <Typography.Text>
+                              Unit: <strong>{item.unitOfMeasure}</strong>
+                            </Typography.Text>
+                          </div>
+
+                          {item.purpose && (
+                            <div
+                              style={{
+                                marginTop: 6,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              <Typography.Text type="secondary">
+                                Purpose:{" "}
+                              </Typography.Text>
+                              <Typography.Text>{item.purpose}</Typography.Text>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          danger
+                          type="text"
+                          disabled={busy}
+                          icon={<DeleteOutlined />}
+                          aria-label={`Delete ${item.particular}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeItem(item.key);
+                          }}
+                        />
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+
+              {items.length > 5 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: 8,
+                    marginBottom: 16,
+                  }}
+                >
+                  <Pagination
+                    current={itemPage}
+                    onChange={setItemPage}
+                    pageSize={5}
+                    total={items.length}
+                    showSizeChanger={false}
+                    size="small"
                   />
-                ),
-              },
-            ].map((column) => ({
-              ...column,
-              onCell: (item) => ({
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DESKTOP ITEM TABLE */}
+          {screens.md && (
+            <Table
+              bordered
+              size="small"
+              rowKey="key"
+              dataSource={items}
+              pagination={
+                items.length > 5
+                  ? {
+                      current: itemPage,
+                      onChange: setItemPage,
+                      pageSize: 5,
+                      showSizeChanger: false,
+                      size: "small",
+                    }
+                  : false
+              }
+              onRow={(item) => ({
+                onClick: () => {
+                  if (!busy) {
+                    setItemEntry({
+                      particular: item.particular,
+                      quantity: item.quantity,
+                      unitOfMeasure: item.unitOfMeasure,
+                      purpose: item.purpose,
+                    });
+                    setEditingItemKey(item.key);
+                  }
+                },
                 style: {
+                  cursor: "pointer",
                   background:
                     editingItemKey === item.key ? "#e6f4ff" : undefined,
                 },
-              }),
-            }))}
-            locale={{ emptyText: "No items added yet." }}
-          />
+              })}
+              columns={[
+                {
+                  title: "#",
+                  width: 50,
+                  render: (_, record) =>
+                    items.findIndex((item) => item.key === record.key) + 1,
+                },
+                {
+                  title: "Particular",
+                  dataIndex: "particular",
+                  width: 220,
+                },
+                {
+                  title: "Quantity",
+                  dataIndex: "quantity",
+                  width: 90,
+                },
+                {
+                  title: "Unit",
+                  dataIndex: "unitOfMeasure",
+                  width: 80,
+                },
+                {
+                  title: "Purpose",
+                  dataIndex: "purpose",
+                  width: 180,
+                  render: (value) => value || "—",
+                },
+                {
+                  title: "Action",
+                  width: 70,
+                  fixed: "right",
+                  render: (_, item) => (
+                    <Button
+                      danger
+                      type="text"
+                      disabled={busy}
+                      icon={<DeleteOutlined />}
+                      aria-label={`Delete ${item.particular}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeItem(item.key);
+                      }}
+                    />
+                  ),
+                },
+              ].map((column) => ({
+                ...column,
+                onCell: (item) => ({
+                  style: {
+                    background:
+                      editingItemKey === item.key ? "#e6f4ff" : undefined,
+                  },
+                }),
+              }))}
+              locale={{
+                emptyText: "No items added yet.",
+              }}
+            />
+          )}
+
+          {/* ACTIONS */}
           <div
             style={{
               position: "sticky",
-              bottom: 0,
-              zIndex: 1,
+              bottom: -12,
+              zIndex: 5,
               display: "flex",
+              flexDirection: "row",
               justifyContent: "flex-end",
               gap: 8,
               marginTop: 16,
-              paddingTop: 12,
+              marginLeft: screens.md ? -20 : -12,
+              marginRight: screens.md ? -20 : -12,
+              marginBottom: screens.md ? -16 : -12,
+              padding: screens.md ? "10px 20px 16px" : "10px 12px 12px",
               background: "#fff",
+              borderTop: "1px solid #f0f0f0",
             }}
           >
             <Button
               onClick={() => !busy && setEntry(false)}
               disabled={busy}
               size="large"
+              style={{
+                flex: 1,
+              }}
             >
               Cancel
             </Button>
+
             <Button
               type="primary"
               htmlType="submit"
               loading={busy}
               size="large"
+              style={{
+                flex: 1,
+              }}
             >
               Submit
             </Button>
