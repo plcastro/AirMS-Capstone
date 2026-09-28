@@ -309,6 +309,7 @@ export default function FlightLogVerifyTechnical({
     setShowVorCheckForm(false);
 
     Modal.confirm({
+      centered: true,
       title: "CONFIRM LOG",
       content: "Are you sure you want to confirm this log?",
       okText: "CONFIRM",

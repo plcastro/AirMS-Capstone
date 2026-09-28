@@ -558,6 +558,7 @@ export default function MaintenanceTracking() {
       content: `This will clear the active maintenance issue for ${draft.aircraft || "this aircraft"} in Maintenance Tracking.`,
       okText: "Mark Rectified",
       cancelText: "Cancel",
+      centered: true,
       onOk: async () => {
         try {
           setRectifyingKey(`${draft.aircraft}-${draft.issueTitle}`);

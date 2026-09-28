@@ -58,6 +58,7 @@ export default function FLogTable({
       content: "Are you sure you want to delete this log?",
       okText: "Yes",
       cancelText: "Cancel",
+      centered: true,
       onOk: () => onDeleteLog?.(row),
     });
   };
@@ -109,20 +110,18 @@ export default function FLogTable({
         col.key === "action" ? (_, record) => renderActions(record) : undefined,
     }));
 
-  const paginationConfig =
-    pagination ||
-    {
-      current: currentPage,
-      pageSize,
-      total: records.length,
-      showSizeChanger: true,
-      pageSizeOptions: ["10", "15", "20"],
-      onChange: handlePageChange,
-      onShowSizeChange: handlePageChange,
-      showQuickJumper: true,
-      showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-      placement: "bottomEnd",
-    };
+  const paginationConfig = pagination || {
+    current: currentPage,
+    pageSize,
+    total: records.length,
+    showSizeChanger: true,
+    pageSizeOptions: ["10", "15", "20"],
+    onChange: handlePageChange,
+    onShowSizeChange: handlePageChange,
+    showQuickJumper: true,
+    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+    placement: "bottomEnd",
+  };
   const resolvedCurrent = paginationConfig?.current || currentPage;
   const resolvedPageSize = paginationConfig?.pageSize || pageSize;
   const resolvedTotal = paginationConfig?.total || records.length;
@@ -157,7 +156,9 @@ export default function FLogTable({
       </Space>
     ) : (
       <Card style={{ borderRadius: 10 }}>
-        <Text type="secondary">{locale?.emptyText || "No flight logs found"}</Text>
+        <Text type="secondary">
+          {locale?.emptyText || "No flight logs found"}
+        </Text>
       </Card>
     );
   }

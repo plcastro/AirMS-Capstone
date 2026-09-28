@@ -87,6 +87,7 @@ export default function CreateTaskModal({
       cancelText: "Keep editing",
       okButtonProps: { danger: true },
       onOk: () => onCancel?.(),
+      centered: true,
     });
   };
 

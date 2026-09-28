@@ -401,6 +401,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       cancelText: "Cancel",
       zIndex: 2000,
       onOk: clearReadNotifications,
+      centered: true,
     });
   };
 
@@ -417,7 +418,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       const params = new URLSearchParams({
         refreshAt: String(Date.now()),
         targetFlightLogId: String(notification.entityId || ""),
-        targetSection: notification?.metadata?.targetSection || 'flight',
+        targetSection: notification?.metadata?.targetSection || "flight",
         ...(status ? { notificationStatus: status } : {}),
       });
 

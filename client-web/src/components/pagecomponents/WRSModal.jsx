@@ -57,6 +57,7 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
       okText: "Discard",
       cancelText: "Keep editing",
       onOk: onClose,
+      centered: true,
     });
   };
   const saveStock = async () => {
