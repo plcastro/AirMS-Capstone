@@ -12,6 +12,10 @@ import {
   clearCurrentSessionProfile,
   setCurrentSessionProfile,
 } from "../utils/sessionProfile";
+import {
+  cleanupUserScopedTemporaryStorage,
+  removeLegacyAircraftFhBaseKeys,
+} from "../utils/boundedLocalStorage";
 
 import {
   createIdleSession,
@@ -21,7 +25,10 @@ import {
 export const AuthContext = createContext();
 
 const INACTIVITY_LIMIT_MS = SESSION_IDLE_LIMIT_MS;
-const ACTIVITY_KEY_PREFIX = "authActivity:";
+const AUTH_ACTIVITY_KEY = "authActivity";
+const LEGACY_ACTIVITY_KEY_PREFIX = "authActivity:";
+const AUTH_ACTIVITY_MAX_RECORDS = 20;
+const AUTH_ACTIVITY_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 const ACTIVITY_EVENTS = [
   "click",
   "mousedown",
@@ -38,6 +45,67 @@ const SESSION_META_KEY = "authSessionMeta";
 const SESSION_TIMING_KEY = "authSessionTiming";
 const REMEMBER_ME_KEY = "rememberMe";
 const AUTH_SYNC_KEY = "authSyncEvent";
+
+const parseJsonArray = (value) => {
+  try {
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const normalizeActivityRecords = (records = []) => {
+  const cutoff = Date.now() - AUTH_ACTIVITY_RETENTION_MS;
+  const byId = new Map();
+
+  records.forEach((record) => {
+    const id = String(record?.id || "").trim();
+    const timestamp = Number(record?.timestamp);
+    if (!id || !Number.isFinite(timestamp) || timestamp < cutoff) return;
+    const existing = byId.get(id);
+    if (!existing || timestamp > existing.timestamp) {
+      byId.set(id, { id, timestamp });
+    }
+  });
+
+  return Array.from(byId.values())
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .slice(0, AUTH_ACTIVITY_MAX_RECORDS);
+};
+
+const loadAuthActivityRecords = () =>
+  normalizeActivityRecords(
+    parseJsonArray(localStorage.getItem(AUTH_ACTIVITY_KEY)),
+  );
+
+const saveAuthActivityRecords = (records) => {
+  const normalized = normalizeActivityRecords(records);
+  const serialized = JSON.stringify(normalized);
+  if (localStorage.getItem(AUTH_ACTIVITY_KEY) !== serialized) {
+    localStorage.setItem(AUTH_ACTIVITY_KEY, serialized);
+  }
+  return normalized;
+};
+
+const cleanupLegacyAuthActivityKeys = () => {
+  const migrated = loadAuthActivityRecords();
+  const legacyKeys = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key?.startsWith(LEGACY_ACTIVITY_KEY_PREFIX)) continue;
+    const id = key.slice(LEGACY_ACTIVITY_KEY_PREFIX.length);
+    const timestamp = Number(localStorage.getItem(key));
+    if (id && Number.isFinite(timestamp)) {
+      migrated.push({ id, timestamp });
+    }
+    legacyKeys.push(key);
+  }
+
+  saveAuthActivityRecords(migrated);
+  legacyKeys.forEach((key) => localStorage.removeItem(key));
+};
 
 export const buildStoredUserProfile = (userData = {}) => {
   const id = userData.id || userData._id || userData.userid || null;
@@ -215,19 +283,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const activityKey = () =>
-    ACTIVITY_KEY_PREFIX + (getSessionMeta().sessionId || "current");
+  const activityId = () => getSessionMeta().sessionId || "current";
   const readLastActivity = () => {
-    const stored = Number(localStorage.getItem(activityKey()));
+    const currentActivityId = activityId();
+    const stored =
+      loadAuthActivityRecords().find(
+        (record) => record.id === currentActivityId,
+      )?.timestamp || 0;
     lastActivityRecordedAtRef.current = Math.max(
       lastActivityRecordedAtRef.current,
-      stored || 0,
+      stored,
     );
     return lastActivityRecordedAtRef.current;
   };
   const saveActivity = (timestamp) => {
     lastActivityRecordedAtRef.current = timestamp;
-    localStorage.setItem(activityKey(), String(timestamp));
+    saveAuthActivityRecords([
+      { id: activityId(), timestamp },
+      ...loadAuthActivityRecords(),
+    ]);
+  };
+  const removeCurrentActivity = () => {
+    const currentActivityId = activityId();
+    saveAuthActivityRecords(
+      loadAuthActivityRecords().filter(
+        (record) => record.id !== currentActivityId,
+      ),
+    );
   };
   const clearInactivityTimers = () => {
     idleSessionRef.current?.stop();
@@ -251,6 +333,9 @@ export const AuthProvider = ({ children }) => {
   const forceLogoutOnce = (broadcast = true) => {
     if (sessionEndedRef.current) return;
     sessionEndedRef.current = true;
+    const currentUserId = user?.id || user?._id;
+    removeCurrentActivity();
+    cleanupUserScopedTemporaryStorage(currentUserId);
     clearInactivityTimers();
     clearTokenExpiryTimer();
     setUser(null);
@@ -366,8 +451,11 @@ export const AuthProvider = ({ children }) => {
     const { broadcast = true } = options;
     const token = getStoredToken();
     const sessionHeaders = buildSessionHeaders();
+    const currentUserId = user?.id || user?._id;
     try {
       sessionEndedRef.current = true;
+      removeCurrentActivity();
+      cleanupUserScopedTemporaryStorage(currentUserId);
       clearInactivityTimers();
       clearTokenExpiryTimer();
       setUser(null);
@@ -591,6 +679,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        cleanupLegacyAuthActivityKeys();
+        removeLegacyAircraftFhBaseKeys();
         const remembered = localStorage.getItem(REMEMBER_ME_KEY) === "true";
         setRememberMePreferenceState(remembered);
 
@@ -745,7 +835,7 @@ export const AuthProvider = ({ children }) => {
       if (!document.hidden) idle.check();
     };
     const syncActivity = (event) => {
-      if (event.key === activityKey()) {
+      if (event.key === AUTH_ACTIVITY_KEY) {
         idle.check();
       }
     };

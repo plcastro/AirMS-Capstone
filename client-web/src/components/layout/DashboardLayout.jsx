@@ -19,6 +19,13 @@ import { AuthContext } from "../../context/AuthContext";
 import { API_BASE } from "../../utils/API_BASE";
 import { subscribeRealtime } from "../../utils/realtimeSocket";
 import { debounce } from "../../utils/debounce";
+import {
+  AIRCRAFT_FH_NOTIFICATIONS_EVENT,
+  loadAircraftFhNotifications,
+  loadAircraftFhWarningSeenKeys,
+  saveAircraftFhWarningSeenKeys,
+  upsertAircraftFhNotification,
+} from "../../utils/boundedLocalStorage";
 import AirmsFavicon from "../../assets/favicon.ico";
 import UserAvatar from "../common/UserAvatar";
 import {
@@ -43,12 +50,6 @@ const MODULE_NAMES = {
   users: "User Management",
   "parts-monitoring": "Parts Lifespan Monitoring",
 };
-const AIRCRAFT_FH_WARNING_SEEN_KEY = "aircraftFhDueWarningSeen";
-const AIRCRAFT_FH_NOTIFICATIONS_KEY = "aircraftFhDueNotifications";
-const AIRCRAFT_FH_NOTIFICATIONS_EVENT = "aircraft-fh-notifications-updated";
-const getUserScopedStorageKey = (baseKey, userId) =>
-  userId ? `${baseKey}:${userId}` : baseKey;
-
 const getAircraftFhDueSettings = () => {
   try {
     const stored = JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || "{}");
@@ -74,27 +75,6 @@ const areBrowserNotificationsEnabled = () => {
 };
 
 const getLocalDateKey = () => new Date().toISOString().slice(0, 10);
-
-const loadAircraftFhNotifications = (userId) => {
-  try {
-    const stored = JSON.parse(
-      localStorage.getItem(
-        getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
-      ) || "[]",
-    );
-    return Array.isArray(stored) ? stored : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveAircraftFhNotifications = (notifications, userId) => {
-  localStorage.setItem(
-    getUserScopedStorageKey(AIRCRAFT_FH_NOTIFICATIONS_KEY, userId),
-    JSON.stringify(notifications.slice(0, 50)),
-  );
-  window.dispatchEvent(new Event(AIRCRAFT_FH_NOTIFICATIONS_EVENT));
-};
 
 const getAircraftFhUnreadCount = (userId) =>
   loadAircraftFhNotifications(userId).filter((item) => !item.read).length;
@@ -224,25 +204,16 @@ const DashboardLayout = () => {
     };
 
     const loadSeenAircraftFhWarnings = () => {
-      try {
-        const stored = JSON.parse(
-          localStorage.getItem(
-            getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
-          ) || "[]",
-        );
-        seenAircraftFhWarningsRef.current = new Set(
-          Array.isArray(stored) ? stored.map(String) : [],
-        );
-      } catch {
-        seenAircraftFhWarningsRef.current = new Set();
-      }
+      seenAircraftFhWarningsRef.current = loadAircraftFhWarningSeenKeys(
+        user?.id,
+      );
     };
 
     const saveSeenAircraftFhWarnings = () => {
       try {
-        localStorage.setItem(
-          getUserScopedStorageKey(AIRCRAFT_FH_WARNING_SEEN_KEY, user?.id),
-          JSON.stringify(Array.from(seenAircraftFhWarningsRef.current)),
+        seenAircraftFhWarningsRef.current = saveAircraftFhWarningSeenKeys(
+          seenAircraftFhWarningsRef.current,
+          user?.id,
         );
       } catch {
         // Best effort only; repeated warnings are still bounded by the ref.
@@ -258,18 +229,7 @@ const DashboardLayout = () => {
     };
 
     const addAircraftFhBellNotification = (notification) => {
-      const currentNotifications = loadAircraftFhNotifications(user?.id);
-      const existingIndex = currentNotifications.findIndex(
-        (item) => item._id === notification._id,
-      );
-      const nextNotifications =
-        existingIndex >= 0
-          ? currentNotifications.map((item, index) =>
-              index === existingIndex ? { ...item, ...notification } : item,
-            )
-          : [notification, ...currentNotifications];
-
-      saveAircraftFhNotifications(nextNotifications, user?.id);
+      upsertAircraftFhNotification(notification, user?.id);
       syncUnreadBadge();
     };
 
