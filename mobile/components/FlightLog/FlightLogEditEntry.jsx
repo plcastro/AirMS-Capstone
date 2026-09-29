@@ -1161,7 +1161,6 @@ export default function FlightLogEditEntry({
                     style={{
                       paddingVertical: 8,
                       paddingHorizontal: 16,
-                      borderRadius: 20,
                       borderWidth: 1,
                       borderColor:
                         currentPage === index
@@ -1211,7 +1210,7 @@ export default function FlightLogEditEntry({
             <ScrollView
               ref={scrollViewRef}
               nestedScrollEnabled
-              style={{ flex: 1, paddingHorizontal: 20 }}
+              style={{ flex: 1, paddingHorizontal: embedded ? 8 : 20 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}

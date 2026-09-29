@@ -19,8 +19,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Modal from "../common/AppModal";
 import AppText from "../common/AppText";
+import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import FlightLogEditEntry from "./FlightLogEditEntry";
 import { AuthContext } from "../../Context/AuthContext";
@@ -42,20 +44,24 @@ import AS from "../../../shared/as350InspectionChecklist.json";
 import BP from "../../../shared/b412PreInspectionChecklist.json";
 import BO from "../../../shared/b412PostInspectionChecklist.json";
 const panel = {
-  padding: 12,
+  padding: 14,
   marginBottom: 10,
-  borderWidth: 1,
-  borderColor: "#dce6e1",
-  borderRadius: 10,
-  backgroundColor: "#fff",
+  borderRadius: 12,
+  backgroundColor: COLORS.white,
+  elevation: 1,
+  shadowColor: COLORS.black,
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.06,
+  shadowRadius: 3,
 };
 const input = {
   borderWidth: 1,
-  borderColor: "#c7d4ce",
+  borderColor: COLORS.border,
   padding: 10,
-  borderRadius: 6,
+  borderRadius: 8,
   marginVertical: 5,
-  color: "#172b23",
+  color: COLORS.black,
+  fontSize: 12,
 };
 const when = (value) => (value ? new Date(value).toLocaleString() : "");
 function Action({ children, onPress, disabled, secondary = false }) {
@@ -67,16 +73,20 @@ function Action({ children, onPress, disabled, secondary = false }) {
       onPress={onPress}
       style={{
         padding: 12,
-        backgroundColor: disabled ? "#e0e7e3" : secondary ? "#f0f5f2" : "#26866f",
+        backgroundColor: disabled ? COLORS.grayLight : secondary ? COLORS.white : COLORS.primaryLight,
+        borderWidth: secondary ? 1 : 0,
+        borderColor: COLORS.grayMedium,
         borderRadius: 8,
         marginVertical: 5,
         maxWidth: "100%",
+        alignItems: "center",
       }}
     >
       <AppText
         style={{
-          color: disabled ? "#72837a" : secondary ? "#245e49" : "#fff",
+          color: disabled ? COLORS.grayDark : secondary ? COLORS.grayDark : COLORS.white,
           fontWeight: "600",
+          fontSize: 12,
         }}
       >
         {children}
@@ -86,26 +96,31 @@ function Action({ children, onPress, disabled, secondary = false }) {
 }
 function Choice({ values, value, onChange, disabled }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 8 }}>
-      {values.map(([key, label]) => (
-        <TouchableOpacity
-          key={key}
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityState={{ selected: value === key, disabled: !!disabled }}
-          onPress={() => onChange(key)}
-          style={{
-            padding: 10,
-            borderWidth: 1,
-            borderColor: value === key ? "#26866f" : "#ddd",
-            backgroundColor: value === key ? "#e3f2ec" : "#fff",
-            margin: 3,
-            borderRadius: 10,
-          }}
-        >
-          <AppText>{label}</AppText>
-        </TouchableOpacity>
-      ))}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+      {values.map(([key, label]) => {
+        const active = value === key;
+        return (
+          <TouchableOpacity
+            key={key}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled: !!disabled }}
+            onPress={() => onChange(key)}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderWidth: 1,
+              borderColor: active ? COLORS.primaryLight : COLORS.grayMedium,
+              backgroundColor: active ? COLORS.primaryLight : COLORS.white,
+              borderRadius: 999,
+            }}
+          >
+            <AppText style={{ fontSize: 12, fontWeight: "600", color: active ? COLORS.white : COLORS.grayDark }}>
+              {label}
+            </AppText>
+          </TouchableOpacity>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -433,16 +448,16 @@ export default function FlightWorkspace({
       <SafeAreaView
         style={{
           flex: 1,
-          backgroundColor: "#f7faf8",
+          backgroundColor: COLORS.grayLight,
         }}
       >
         <View
           style={{
             paddingHorizontal: 16,
-            paddingVertical: 12,
-            backgroundColor: "#fff",
+            paddingVertical: 14,
+            backgroundColor: COLORS.white,
             borderBottomWidth: 1,
-            borderBottomColor: "#e1ebe5",
+            borderBottomColor: "#E8E8E8",
             flexDirection: "row",
             alignItems: "center",
             gap: 12,
@@ -451,20 +466,33 @@ export default function FlightWorkspace({
           <View style={{ flex: 1 }}>
           <AppText
             style={{
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: "700",
+              color: COLORS.black,
             }}
           >
             {inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}
           </AppText>
-          {log && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 3 }}>{log.rpc} · {log.controlNo}</AppText>}
+          {log && <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 2 }}>{log.rpc} · {log.controlNo}</AppText>}
           </View>
-          {busy && <ActivityIndicator />}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close flight workspace" onPress={onClose} style={{ padding: 10, borderRadius: 10, backgroundColor: "#edf4ef" }}>
-            <AppText style={{ color: "#245e49", fontSize: 16 }}>Close</AppText>
+          {busy && <ActivityIndicator color={COLORS.primaryLight} />}
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Close flight workspace"
+            onPress={onClose}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: COLORS.grayLight,
+            }}
+          >
+            <MaterialCommunityIcons name="close" size={20} color={COLORS.grayDark} />
           </TouchableOpacity>
         </View>
-        {log && !inspectionSection && <View style={{ paddingHorizontal: 12, backgroundColor: "#fff" }}>
+        {log && !inspectionSection && <View style={{ paddingHorizontal: 12, backgroundColor: COLORS.white }}>
           <Choice values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
         </View>}
         <FlatList
@@ -484,7 +512,7 @@ export default function FlightWorkspace({
                   <AppText
                     accessibilityRole="alert"
                     style={{
-                      color: "#b12626",
+                      color: COLORS.dangerBorder,
                     }}
                   >
                     {error}
@@ -514,7 +542,7 @@ export default function FlightWorkspace({
               {log && (
                 <>
                   <View style={panel}>
-                    <AppText style={{ color: "#26866f", fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{step.label}</AppText>
+                    <AppText style={{ color: COLORS.primaryLight, fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{step.label}</AppText>
                     <AppText
                       style={{
                         fontWeight: "700",
@@ -947,7 +975,7 @@ export default function FlightWorkspace({
               bottom: 0,
               left: 0,
               zIndex: 900,
-              backgroundColor: "#0007",
+              backgroundColor: "rgba(0, 0, 0, 0.45)",
               justifyContent: "center",
               padding: 16,
             }}
@@ -1001,7 +1029,7 @@ export default function FlightWorkspace({
                     <AppText
                       key={i}
                       style={{
-                        color: "#b12626",
+                        color: COLORS.dangerBorder,
                       }}
                     >
                       • {m}
@@ -1246,7 +1274,7 @@ export default function FlightWorkspace({
               {!!error && (
                 <AppText
                   style={{
-                    color: "#b12626",
+                    color: COLORS.dangerBorder,
                   }}
                 >
                   {error}

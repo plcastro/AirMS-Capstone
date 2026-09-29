@@ -300,8 +300,8 @@ export default function FlightLogEntry({
     initialData
       ? normalizeInitialForm(initialData)
       : {
-          aircraftType: "",
-          rpc: lockedAircraftRpc,
+          aircraftType: entryConfirmation?.aircraftType || "",
+          rpc: entryConfirmation?.rpc || lockedAircraftRpc,
           date: new Date(),
           controlNo: "",
           legs: [emptyLeg()],
@@ -311,7 +311,12 @@ export default function FlightLogEntry({
           oilServicing: [emptyOilItem()],
           workItems: [],
           createdBy: userRole,
-          ...entryConfirmation,
+          // Only the fields the create flow actually needs downstream — the
+          // rest of the confirmation ticket (e.g. `remarks`, which holds the
+          // pre-flight discrepancy note, not this flight's own remarks; and
+          // `allGood`, which isn't a flight log field) must not leak in.
+          confirmationId: entryConfirmation?.confirmationId,
+          initialInspectionSignature: entryConfirmation?.initialInspectionSignature,
         };
 
   const initComponent = () => {

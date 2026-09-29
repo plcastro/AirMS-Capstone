@@ -5,7 +5,8 @@ const {
 } = require('../../shared/flightWorkflow');
 const {
   getAssignedCrewField,
-  isAssignedFlightCrew
+  isAssignedFlightCrew,
+  normalizeCrewRole
 } = require('../../shared/flightCrewAccess');
 const {
   isB412AircraftType
@@ -55,7 +56,8 @@ const transition = (record, user, action) => {
     }
   };
   if (action === 'return') {
-    if (mechanic && ['pending_acceptance', 'submitted'].includes(stage)) return 'returned_to_mechanic';
+    const isSelfPreparedByManager = mechanic && normalizeCrewRole(user) === 'maintenance manager';
+    if (mechanic && !isSelfPreparedByManager && ['pending_acceptance', 'submitted'].includes(stage)) return 'returned_to_mechanic';
     throw fail('This flight record cannot be returned at this stage.', 409);
   }
   if (action === 'amend' && stage === 'completed' && mechanic) return 'completed';
