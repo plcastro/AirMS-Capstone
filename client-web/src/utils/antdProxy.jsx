@@ -3,7 +3,7 @@ import AntdButton from "antd/es/button";
 import AntdForm from "antd/es/form";
 import AntdModal from "antd/es/modal";
 
-const MIN_LOADING_MS = 600;
+const MIN_LOADING_MS = 0;
 const FormSubmitLoadingContext = React.createContext(false);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,7 +19,11 @@ const withMinimumLoadingTime = async (startedAt) => {
 };
 
 const wrapConfirmConfig = (config = {}) => {
-  if (!config || typeof config !== "object" || typeof config.onOk !== "function") {
+  if (
+    !config ||
+    typeof config !== "object" ||
+    typeof config.onOk !== "function"
+  ) {
     return config;
   }
 
@@ -59,7 +63,8 @@ const AutoLoadingButton = React.forwardRef(function AutoLoadingButton(
   const [autoLoading, setAutoLoading] = useState(false);
   const formSubmitting = React.useContext(FormSubmitLoadingContext);
   const isSubmitButton = htmlType === "submit";
-  const isLoading = Boolean(loading) || autoLoading || (isSubmitButton && formSubmitting);
+  const isLoading =
+    Boolean(loading) || autoLoading || (isSubmitButton && formSubmitting);
   const hasClickHandler = typeof onClick === "function";
 
   const handleClick = async (event) => {
@@ -126,7 +131,9 @@ const AutoLoadingForm = React.forwardRef(function AutoLoadingForm(
     <AntdForm
       {...props}
       ref={ref}
-      onFinish={onFinish ? (...args) => runWithSubmitting(onFinish, ...args) : onFinish}
+      onFinish={
+        onFinish ? (...args) => runWithSubmitting(onFinish, ...args) : onFinish
+      }
       onFinishFailed={
         onFinishFailed
           ? (...args) => runWithSubmitting(onFinishFailed, ...args)
@@ -141,13 +148,7 @@ const AutoLoadingForm = React.forwardRef(function AutoLoadingForm(
 });
 
 const AutoLoadingModal = React.forwardRef(function AutoLoadingModal(
-  {
-    cancelButtonProps,
-    confirmLoading = false,
-    okButtonProps,
-    onOk,
-    ...props
-  },
+  { cancelButtonProps, confirmLoading = false, okButtonProps, onOk, ...props },
   ref,
 ) {
   const [autoConfirmLoading, setAutoConfirmLoading] = useState(false);
@@ -191,14 +192,20 @@ const AutoLoadingModal = React.forwardRef(function AutoLoadingModal(
 });
 
 Object.assign(AutoLoadingModal, AntdModal);
-AutoLoadingModal.confirm = (config) => AntdModal.confirm(wrapConfirmConfig(config));
+AutoLoadingModal.confirm = (config) =>
+  AntdModal.confirm(wrapConfirmConfig(config));
 AutoLoadingModal.error = (config) => AntdModal.error(wrapConfirmConfig(config));
 AutoLoadingModal.info = (config) => AntdModal.info(wrapConfirmConfig(config));
-AutoLoadingModal.success = (config) => AntdModal.success(wrapConfirmConfig(config));
-AutoLoadingModal.warning = (config) => AntdModal.warning(wrapConfirmConfig(config));
+AutoLoadingModal.success = (config) =>
+  AntdModal.success(wrapConfirmConfig(config));
+AutoLoadingModal.warning = (config) =>
+  AntdModal.warning(wrapConfirmConfig(config));
 AutoLoadingModal.useModal = (...args) => {
   const [modalApi, contextHolder] = AntdModal.useModal(...args);
-  return [React.useMemo(() => wrapModalApi(modalApi), [modalApi]), contextHolder];
+  return [
+    React.useMemo(() => wrapModalApi(modalApi), [modalApi]),
+    contextHolder,
+  ];
 };
 
 Object.assign(AutoLoadingForm, AntdForm);

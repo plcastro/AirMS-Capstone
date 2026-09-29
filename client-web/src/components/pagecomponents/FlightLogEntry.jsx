@@ -8,7 +8,14 @@ import {
   requiredFlightTimeError,
 } from "../../../../shared/flightLogTimes";
 import React, { useState, useEffect, useMemo } from "react";
-import { Alert, Button, message, Modal, Spin, Typography } from "antd";
+import {
+  Alert,
+  Button,
+  message,
+  Modal,
+  Spin,
+  Typography,
+} from "antd";
 import {
   InfoCircleOutlined,
   EnvironmentOutlined,

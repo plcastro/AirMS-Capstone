@@ -1,5 +1,11 @@
 import InspectionConfirmationPrompt from "./InspectionConfirmationPrompt";
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Button,
@@ -7,6 +13,7 @@ import {
   Checkbox,
   Input,
   Modal,
+  Pagination,
   Select,
   Space,
   Spin,
@@ -57,8 +64,13 @@ export default function FlightWorkspace({
 }) {
   const { user, getAuthHeader } = useContext(AuthContext);
   const viewedCallback = useRef(onViewed);
-  useEffect(() => { viewedCallback.current = onViewed; }, [onViewed]);
-  const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
+  useEffect(() => {
+    viewedCallback.current = onViewed;
+  }, [onViewed]);
+  const inspectionSection =
+    inspectionMode && ["pre", "post"].includes(initialSection)
+      ? initialSection
+      : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
     [draft, setDraft] = useState(null);
@@ -134,7 +146,9 @@ export default function FlightWorkspace({
     setWorkspace(null);
     setTab(
       inspectionSection ||
-        (["flight", "preparation", "defects", "history"].includes(initialSection)
+        (["flight", "preparation", "defects", "history"].includes(
+          initialSection,
+        )
           ? initialSection
           : "flight"),
     );
@@ -196,17 +210,11 @@ export default function FlightWorkspace({
   const log = workspace?.flightLog;
   const permissions = readOnly ? {} : flightEditPermissions(user, log || {});
   const step = nextFlightStep(log || {});
-  const acceptance = !readOnly && pilotAcceptance(
-    user,
-    log || {},
-    workspace?.preInspections || [],
-  );
+  const acceptance =
+    !readOnly &&
+    pilotAcceptance(user, log || {}, workspace?.preInspections || []);
   const assigned = !readOnly && isAssignedFlightCrew(user, log);
   const mechanic = getAssignedCrewField(user) === "assignedMechanic";
-  const showWorkspaceActions =
-    !readOnly && ((mechanic && needsMyFlightAction(user, log)) ||
-    permissions.canSave ||
-    permissions.canReturn);
   const finish = async (preserve = false) => {
     if (!preserve) {
       sessionStorage.removeItem(storageKey);
@@ -378,9 +386,10 @@ export default function FlightWorkspace({
   };
   const preparationChecks = (
     <Space orientation="vertical" style={{ width: "100%" }} size={12}>
-      {permissions.preparation && [...readiness.missing, ...readiness.warnings].map((message, i) => (
-        <Alert key={i} type="warning" showIcon title={message} />
-      ))}
+      {permissions.preparation &&
+        [...readiness.missing, ...readiness.warnings].map((message, i) => (
+          <Alert key={i} type="warning" showIcon title={message} />
+        ))}
       {!!readiness.maintenanceDue?.length && (
         <Alert
           type="warning"
@@ -414,6 +423,7 @@ export default function FlightWorkspace({
       centered
       open={open}
       onCancel={onClose}
+      className="fl-workspace-modal"
       footer={
         log ? (
           <Space
@@ -424,6 +434,9 @@ export default function FlightWorkspace({
               width: "100%",
             }}
           >
+            <Button onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
             {!readOnly && mechanic && needsMyFlightAction(user, log) && (
               <Button
                 type="primary"
@@ -460,15 +473,24 @@ export default function FlightWorkspace({
         ) : null
       }
       width={1220}
-      title={<div className="fl-workspace-heading">
-        <span>{inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}</span>
-        {log && <Typography.Text type="secondary">{log.rpc} · {log.controlNo}</Typography.Text>}
-      </div>}
+      title={
+        <div className="fl-workspace-heading">
+          <span>
+            {inspectionSection
+              ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection`
+              : "Flight Workspace"}
+          </span>
+          {log && (
+            <Typography.Text type="secondary">
+              {log.rpc} · {log.controlNo}
+            </Typography.Text>
+          )}
+        </div>
+      }
       destroyOnHidden
       styles={{
         body: {
-          maxHeight: "calc(100dvh - 210px)",
-          overflowY: "auto",
+          overflowY: "visible",
         },
       }}
     >
@@ -656,73 +678,75 @@ export default function FlightWorkspace({
                   label: "Preparation Checks",
                   children: preparationChecks,
                 },
-                ...(inspectionSection ? [inspectionSection] : []).map((kind) => ({
-                  key: kind,
-                  label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
-                  children: (
-                    <>
-                      {assigned && mechanic && permissions.preparation && (
-                        <Button
-                          onClick={() =>
-                            execute(
-                              `${id}/inspections`,
-                              {
-                                expectedVersion: log.__v || 0,
-                              },
-                              "POST",
-                              true,
-                            )
-                          }
-                        >
-                          Add Linked Inspection Pair
-                        </Button>
-                      )}
-                      {(kind === "pre"
-                        ? workspace.preInspections
-                        : workspace.postInspections
-                      ).map((record) => (
-                        <InspectionEditor
-                          key={`${record._id}:${record.__v}`}
-                          kind={kind}
-                          record={record}
-                          editable={assigned && log.status !== "completed"}
-                          mechanic={mechanic}
-                          onConfirm={(kind, record, values) =>
-                            setInspectionPrompt({ kind, record, values })
-                          }
-                          flightStatus={flightStage(log)}
-                          onSave={saveInspection}
-                          onReturn={async () => {
-                            const reason = window.prompt(
-                              "Explain the inspection correction:",
-                            );
-                            if (reason?.trim())
-                              await execute(
-                                `${id}/inspections/${kind}/${record._id}`,
+                ...(inspectionSection ? [inspectionSection] : []).map(
+                  (kind) => ({
+                    key: kind,
+                    label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
+                    children: (
+                      <>
+                        {assigned && mechanic && permissions.preparation && (
+                          <Button
+                            onClick={() =>
+                              execute(
+                                `${id}/inspections`,
                                 {
-                                  action: "return",
-                                  comment: reason,
-                                  expectedVersion: record.__v || 0,
+                                  expectedVersion: log.__v || 0,
                                 },
-                                "PUT",
+                                "POST",
                                 true,
-                              );
-                          }}
-                        />
-                      ))}
-                      {!(
-                        kind === "pre"
+                              )
+                            }
+                          >
+                            Add Linked Inspection Pair
+                          </Button>
+                        )}
+                        {(kind === "pre"
                           ? workspace.preInspections
                           : workspace.postInspections
-                      ).length && (
-                        <p>
-                          No linked inspection yet. The assigned mechanic can
-                          add a pair during preparation.
-                        </p>
-                      )}
-                    </>
-                  ),
-                })),
+                        ).map((record) => (
+                          <InspectionEditor
+                            key={`${record._id}:${record.__v}`}
+                            kind={kind}
+                            record={record}
+                            editable={assigned && log.status !== "completed"}
+                            mechanic={mechanic}
+                            onConfirm={(kind, record, values) =>
+                              setInspectionPrompt({ kind, record, values })
+                            }
+                            flightStatus={flightStage(log)}
+                            onSave={saveInspection}
+                            onReturn={async () => {
+                              const reason = window.prompt(
+                                "Explain the inspection correction:",
+                              );
+                              if (reason?.trim())
+                                await execute(
+                                  `${id}/inspections/${kind}/${record._id}`,
+                                  {
+                                    action: "return",
+                                    comment: reason,
+                                    expectedVersion: record.__v || 0,
+                                  },
+                                  "PUT",
+                                  true,
+                                );
+                            }}
+                          />
+                        ))}
+                        {!(
+                          kind === "pre"
+                            ? workspace.preInspections
+                            : workspace.postInspections
+                        ).length && (
+                          <p>
+                            No linked inspection yet. The assigned mechanic can
+                            add a pair during preparation.
+                          </p>
+                        )}
+                      </>
+                    ),
+                  }),
+                ),
                 {
                   key: "defects",
                   label: `Aircraft Defects (${workspace.defects.filter((d) => d.status !== "rectified").length})`,
@@ -865,43 +889,6 @@ export default function FlightWorkspace({
                 (item) => !inspectionSection || item.key === inspectionSection,
               )}
             />
-            {showWorkspaceActions && (
-              <Card
-                size="small"
-                style={{
-                  position: "sticky",
-                  bottom: 0,
-                  zIndex: 2,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <Space wrap>
-                  {mechanic && needsMyFlightAction(user, log) && (
-                    <Button
-                      type="primary"
-                      loading={busy}
-                      onClick={() => prepareAction(step.action)}
-                    >
-                      {step.button}
-                    </Button>
-                  )}
-                  {permissions.canSave && (
-                    <Button
-                      disabled={busy}
-                      onClick={() =>
-                        execute(id, {
-                          changes: draft,
-                          expectedVersion: log.__v || 0,
-                        })
-                      }
-                    >
-                      Save Draft
-                    </Button>
-                  )}
-                </Space>
-              </Card>
-            )}
           </>
         )}
       </Spin>
@@ -1273,11 +1260,21 @@ function InspectionEditor({
   onReturn,
   onConfirm,
 }) {
+  const CHECKS_PER_PAGE = 12;
   const [values, setValues] = useState(record);
+  const [checkPage, setCheckPage] = useState(1);
   const b412 = isB412(record),
     checks = b412
       ? (kind === "pre" ? BP : BO).sections.flatMap((s) => s.items)
       : AS[kind];
+  const visibleChecks = checks.slice(
+    (checkPage - 1) * CHECKS_PER_PAGE,
+    checkPage * CHECKS_PER_PAGE,
+  );
+  useEffect(() => {
+    setValues(record);
+    setCheckPage(1);
+  }, [record]);
   const preparing = ["pending_release", "returned_to_mechanic"].includes(
     flightStatus,
   );
@@ -1343,14 +1340,8 @@ function InspectionEditor({
           }
         />
       )}
-      <div
-        style={{
-          maxHeight: 400,
-          overflowY: "auto",
-          margin: "12px 0",
-        }}
-      >
-        {checks.map((item) => (
+      <div className="fl-inspection-checks">
+        {visibleChecks.map((item) => (
           <div
             key={item.key}
             style={{
@@ -1389,6 +1380,23 @@ function InspectionEditor({
           </div>
         ))}
       </div>
+      {checks.length > CHECKS_PER_PAGE && (
+        <div className="fl-inspection-checks-pager">
+          <Pagination
+            simple
+            current={checkPage}
+            pageSize={CHECKS_PER_PAGE}
+            total={checks.length}
+            showSizeChanger={false}
+            onChange={setCheckPage}
+          />
+          <Typography.Text type="secondary">
+            Items {(checkPage - 1) * CHECKS_PER_PAGE + 1}-
+            {Math.min(checkPage * CHECKS_PER_PAGE, checks.length)} of{" "}
+            {checks.length}
+          </Typography.Text>
+        </div>
+      )}
       {record.confirmation?.allGood === false && (
         <Alert
           type="warning"
