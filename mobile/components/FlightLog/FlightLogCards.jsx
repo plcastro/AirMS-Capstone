@@ -143,7 +143,7 @@ export default function FlightLogCards({
           "engineer",
           "mechanic",
           "maintenance manager",
-          "superadmin",
+          "admin staff",
           "head of maintenance",
         ].includes(normalizedRole);
         const canRelease =

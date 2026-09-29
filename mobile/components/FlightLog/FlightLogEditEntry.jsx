@@ -1,10 +1,10 @@
 import { monitoringBroughtForward } from "../../../shared/flightLogBroughtForward";
 import { syncFlightLogDates } from "../../../shared/flightLogDates";
 import {
+  requiredFlightTimeError,
   totalFlightHours,
   FLIGHT_HOUR_FIELDS,
   flightLandingCycles,
-  requiredFlightTimeError,
 } from "../../../shared/flightLogTimes";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect, useRef } from "react";
@@ -196,7 +196,7 @@ export default function FlightLogEditEntry({
     "maintenance manager",
     "head of maintenance",
     "admin",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
 
   const [formData, setFormData] = useState({});
@@ -482,12 +482,6 @@ export default function FlightLogEditEntry({
 
   const persistLog = async (updatedFormData, closeOnSave = false) => {
     if (!isMechanic) return false;
-    const timeError = requiredFlightTimeError(updatedFormData.legs);
-    if (timeError) {
-      showToast(timeError);
-      setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
-      return false;
-    }
 
     if (isPilot && !hasCompleteFlightLogLegs(updatedFormData.legs)) {
       showToast("Each leg must include complete station route and date");
@@ -586,6 +580,12 @@ export default function FlightLogEditEntry({
 
   // Handlers for release/accept/complete
   const handleRelease = async (signature) => {
+    const timeError = requiredFlightTimeError(formData.legs);
+    if (timeError) {
+      showToast(timeError);
+      setCurrentPage(Math.max(tabs.indexOf("Destination/s"), 0));
+      return false;
+    }
     const updated = {
       ...formData,
       releasedBy: buildSignatureUser(currentUser, signature, userRole),
@@ -1336,7 +1336,7 @@ export default function FlightLogEditEntry({
                             textTransform: "uppercase",
                           }}
                         >
-                          {["maintenance manager", "superadmin"].includes(
+                          {["maintenance manager", "admin staff"].includes(
                             normalizedRole,
                           )
                             ? "MAINTENANCE MANAGER"

@@ -201,29 +201,43 @@ test("flight creation retries atomically with ticket confirmation and optional l
   }
 });
 
-test("maintenance managers create logs for a chosen mechanic with their own creator and signature identity", async () => {
+test("maintenance managers are automatically assigned as mechanic with their own creator and signature identity", async () => {
   const harness = creationHarness({ id: managerId, jobTitle: "Maintenance Manager" });
   const response = await harness.create(undefined, { assignedMechanic: { userId: mechanicId, name: "Forged mechanic" } });
   assert.equal(response.statusCode, 201, JSON.stringify(response.body));
   const { flight } = harness.state.committed;
   assert.equal(flight.createdBy, "maintenance manager");
   assert.equal(String(flight.createdByUserId), managerId);
-  assert.equal(String(flight.assignedMechanic.userId), mechanicId);
-  assert.equal(flight.assignedMechanic.name, "Actual Mechanic");
+  assert.equal(String(flight.assignedMechanic.userId), managerId);
+  assert.equal(flight.assignedMechanic.name, "Actual Manager");
   assert.equal(String(flight.assignedPilot.userId), pilotId);
   assert.equal(String(flight.initialInspectionSignature.userId), managerId);
   assert.equal(flight.initialInspectionSignature.name, "Actual Manager");
   assert.equal(flight.status, "pending_release");
 });
 
-test("manager creation rejects absent or invalid mechanic assignments before any writes", async () => {
+test("mechanics and maintenance managers can create drafts without flight durations", async () => {
+  for (const actor of [{ id: mechanicId, jobTitle: "Mechanic" }, { id: managerId, jobTitle: "Maintenance Manager" }]) {
+    for (const legs of [[], [{ totalTimeOff: "", stations: [{ from: "Manila", to: "Local" }] }]]) {
+      const harness = creationHarness(actor);
+      const response = await harness.create(undefined, { legs });
+      assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+      const { flight } = harness.state.committed;
+      assert.equal(flight.status, "pending_release");
+      assert.equal(String(flight.assignedMechanic.userId), actor.id);
+      assert.equal(flight.componentData.thisFlightData.airframe, "");
+      assert.equal(flight.releasedBy?.signature, undefined);
+    }
+  }
+});
+
+test("manager creation ignores client mechanic assignments and always assigns the authenticated creator", async () => {
   for (const assignedMechanic of [undefined, null, {}, { userId: pilotId }, { userId: managerId }, { userId: "000000000000000000000099" }]) {
     const harness = creationHarness({ id: managerId, jobTitle: "Maintenance Manager" });
     const response = await harness.create(undefined, { assignedMechanic });
-    assert.equal(response.statusCode, 400, JSON.stringify(response.body));
-    assert.match(response.body.message, /assigned mechanic/i);
-    assert.equal(harness.state.attempts, 0);
-    assert.equal(harness.savedFlights.length, 0);
+    assert.equal(response.statusCode, 201, JSON.stringify(response.body));
+    assert.equal(String(harness.state.committed.flight.assignedMechanic.userId), managerId);
+    assert.equal(harness.state.committed.flight.assignedMechanic.name, "Actual Manager");
   }
 });
 

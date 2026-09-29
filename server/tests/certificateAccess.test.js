@@ -52,7 +52,7 @@ test('certificate permissions restrict mechanics to their own records and allow 
   for (const action of ['read', 'upload']) {
     assert.equal(canAccessPersonnel(request(), owner, action), true);
     assert.equal(canAccessPersonnel(request(), other, action), false);
-    for (const role of ['maintenance manager', 'superadmin']) assert.equal(canAccessPersonnel(request(role), other, action), true);
+    for (const role of ['maintenance manager', 'admin staff']) assert.equal(canAccessPersonnel(request(role), other, action), true);
     for (const role of ['pilot', 'warehouse personnel', 'officer-in-charge', 'unknown']) assert.equal(canAccessPersonnel(request(role), owner, action), false);
     assert.equal(canAccessPersonnel({}, owner, action), false);
   }

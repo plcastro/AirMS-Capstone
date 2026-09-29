@@ -41,7 +41,7 @@ const isActiveTask = (task) =>
 
 export default function MechanicList() {
   const { user } = useContext(AuthContext);
-  const manager = ["maintenance manager", "superadmin"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "superadmin";
+  const manager = ["maintenance manager", "admin staff"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "admin staff";
   if (!manager) return <View style={{ flex: 1 }}><AppText style={{ padding: 16, fontSize: 18, fontWeight: "700" }}>{`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "My mechanic profile"}</AppText><MechanicCertificates key={user?.id || user?._id} personnelId={user?.id || user?._id} /></View>;
   return <MechanicDirectory />;
 }

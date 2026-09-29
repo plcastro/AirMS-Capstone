@@ -1,4 +1,5 @@
 import { createUseTaskQualifications } from "../../../shared/taskQualificationsClient";
+import { rankTaskMechanics } from "../../../shared/taskMechanicSuggestion";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
@@ -572,7 +573,7 @@ export default function EditTask({
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
-                options: employees.map((emp) => ({
+                options: rankTaskMechanics(employees, qualification).map((emp) => ({
                   label: `${emp.name} ? ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${

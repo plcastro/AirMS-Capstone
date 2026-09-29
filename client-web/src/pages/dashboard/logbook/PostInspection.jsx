@@ -126,7 +126,7 @@ export default function PostInspection() {
 
   const role = user?.jobTitle?.toLowerCase() || "";
   const readOnly = role === "officer-in-charge";
-  const canRelease = ["mechanic", "maintenance manager", "superadmin"].includes(
+  const canRelease = ["mechanic", "maintenance manager", "admin staff"].includes(
     role,
   );
   const getDisplayStatus = (value) =>

@@ -18,7 +18,7 @@ The existing maintenance AI is unaffected.
 | --- | --- |
 | Mechanic | Own certificates only |
 | Maintenance Manager | Any mechanic's certificates |
-| Superadmin | Any mechanic's certificates |
+| Admin Staff | Any mechanic's certificates |
 | Other roles | Denied |
 
 All routes use the existing authenticated session middleware and current role
@@ -61,7 +61,7 @@ ownership or qualification. This endpoint accepts a supplied holder name; the
 Step 4 reading service also invokes the matcher after extraction. Review UI remains
 a later stage.
 
-Managers and Superadmins compare against the mechanic directory. A mechanic can
+Managers and Admin Staff compare against the mechanic directory. A mechanic can
 compare only against their own profile; that result makes no claim of uniqueness
 across the directory. Only IDs and names are queried, never emails or license data.
 The endpoint permits 20 comparisons per minute per account per server instance.

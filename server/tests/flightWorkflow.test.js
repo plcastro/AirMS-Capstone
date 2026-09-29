@@ -53,6 +53,26 @@ test('signed preparation is preserved while mechanics can edit flight details an
   assert.throws(() => rules.checkVersion(record, undefined), { status: 409 });
 });
 
+test('assigned maintenance managers can save, release, and complete their flight logs', async () => {
+  const manager = { ...mechanic, jobTitle: 'Maintenance Manager' };
+  const h = controllerHarness();
+  h.state().status = 'pending_release';
+  assert.equal(stages.flightEditPermissions(manager, h.state()).canSave, true);
+  assert.equal(stages.needsMyFlightAction(manager, h.state()), true);
+  assert.equal((await h.call('save', { changes: { controlNo: 'MANAGER-DRAFT' } }, manager)).statusCode, 200);
+  const released = await h.call('release', { expectedVersion: h.state().__v }, manager);
+  assert.equal(released.statusCode, 200, JSON.stringify(released.body));
+  assert.equal(h.state().status, 'pending_acceptance');
+  const accepted = await h.call('accept', { expectedVersion: h.state().__v }, pilot);
+  assert.equal(accepted.statusCode, 200, JSON.stringify(accepted.body));
+  const completed = await h.call('complete', { expectedVersion: h.state().__v }, manager);
+  assert.equal(completed.statusCode, 200, JSON.stringify(completed.body));
+  assert.equal(h.state().status, 'completed');
+  const otherManager = { id: 'other-manager', jobTitle: 'Maintenance Manager' };
+  assert.equal(stages.flightEditPermissions(otherManager, h.state()).canSave, false);
+  assert.throws(() => rules.transition({ ...h.state(), status: 'pending_release' }, otherManager, 'release'), { status: 403 });
+});
+
 test('server calculates authoritative totals, rejects missing values, and handles overnight legs', () => {
   const record = log(), monitoring = { referenceData: record.monitoringBaseline.referenceData };
   const review = totals.reviewTotals(record, monitoring);
@@ -116,6 +136,7 @@ function controllerHarness() {
     '../../shared/flightLogBroughtForward': require('../../shared/flightLogBroughtForward'),
     '../../shared/flightAutomaticInputs': require('../../shared/flightAutomaticInputs'),
     '../../shared/flightLogDates': require('../../shared/flightLogDates'),
+    '../../shared/flightLogTimes': require('../../shared/flightLogTimes'),
     '../utils/flightInspectionConfirmation': require('../utils/flightInspectionConfirmation'),
     '../../shared/b412WorkflowComponents': require('../../shared/b412WorkflowComponents'),
     mongoose: { startSession: async () => ({ endSession: async () => {}, withTransaction: async fn => { const before = clone({ state, monitoring, post }); try { await fn(); } catch (e) { state = before.state; monitoring = before.monitoring; post = before.post; throw e; } } }) },
@@ -400,6 +421,32 @@ test('release reuses the current mechanic pre-flight signature with only a PIN, 
     assert.equal(h.state().status, 'pending_acceptance');
     assert.equal(h.state().releasedBy.pin, undefined);
     assert.equal(h.state().pin, undefined);
+  }
+});
+
+test('blank flight durations can be saved as drafts but every leg needs a valid duration before release', async () => {
+  for (const status of ['pending_release', 'returned_to_mechanic']) {
+    const h = controllerHarness();
+    h.state().status = status;
+    const legs = [{ ...h.state().legs[0], totalTimeOff: '' }];
+    const saved = await h.call('save', { changes: { legs } });
+    assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
+    assert.equal(h.state().legs[0].totalTimeOff, '');
+    assert.equal(h.state().status, status);
+    const version = h.state().__v;
+    for (const totalTimeOff of ['', '01:', '00:60']) {
+      const blocked = await h.call('release', { expectedVersion: version, changes: { legs: [{ ...legs[0], totalTimeOff: '01:00' }, { ...legs[0], totalTimeOff }] } });
+      assert.equal(blocked.statusCode, 400, JSON.stringify(blocked.body));
+      assert.match(blocked.body.message, /Leg 2: Total Time \(FLIGHT\)/);
+      assert.equal(h.state().status, status);
+      assert.equal(h.state().__v, version);
+    }
+    const workspace = await h.call('workspace');
+    assert.ok(workspace.body.data.readiness.missing.some(message => message.includes('Total Time (FLIGHT)')));
+    const released = await h.call('release', { expectedVersion: version, changes: { legs: [{ ...legs[0], totalTimeOff: '01:30' }] } });
+    assert.equal(released.statusCode, 200, JSON.stringify(released.body));
+    assert.equal(h.state().status, 'pending_acceptance');
+    assert.equal(h.state().legs[0].totalTimeOff, '01:30');
   }
 });
 

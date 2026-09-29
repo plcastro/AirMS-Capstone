@@ -1,4 +1,5 @@
 import { createUseTaskQualifications } from "../../../shared/taskQualificationsClient";
+import { createUseTaskMechanicSuggestion } from "../../../shared/taskMechanicSuggestion";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import Modal from "../common/AppModal";
 import React, { useState, useEffect } from "react";
@@ -144,6 +145,7 @@ const getInspectionDraftDates = (draft = {}) => {
 };
 
 const useTaskQualifications = createUseTaskQualifications(React);
+const useTaskMechanicSuggestion = createUseTaskMechanicSuggestion(React);
 
 export default function AddTask({
   visible,
@@ -157,6 +159,10 @@ export default function AddTask({
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const qualification = useTaskQualifications(API_BASE, getAuthHeaders, selectedAircraft, visible);
   const [inspectionType, setInspectionType] = useState("");
+  const { rankedMechanics, selectManually } = useTaskMechanicSuggestion({
+    mechanics: employees, qualification, aircraft: selectedAircraft, inspection: inspectionType,
+    enabled: visible, selectedId: selectedEmployee, onSelect: setSelectedEmployee,
+  });
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [customTaskTitle, setCustomTaskTitle] = useState("Custom Task");
 
@@ -1244,13 +1250,13 @@ export default function AddTask({
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
-                options: employees.map((emp) => ({
-                  label: `${emp.name} ? ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
+                options: rankedMechanics.map((emp) => ({
+                  label: `${emp.name} — ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
                           emp.activeTaskCount === 1 ? "" : "s"
                         })`
-                      : ""
+                      : " (No active tasks)"
                   }`,
                   value: emp.id,
                   statusColor: emp.isOnline
@@ -1260,8 +1266,14 @@ export default function AddTask({
                 })),
                 visible: showMechanicDropdown,
                 onToggle: setShowMechanicDropdown,
-                onSelect: setSelectedEmployee,
+                onSelect: selectManually,
               })}
+
+              {qualification.ready && inspectionType && <AppText style={{ color: COLORS.grayDark, marginBottom: 12 }}>
+                {rankedMechanics.some(person => qualification.option(person.id).qualified)
+                  ? 'Qualified mechanics are listed first. The suggestion prioritizes fewer active tasks; you can choose another mechanic.'
+                  : 'No qualified mechanics found for this aircraft.'}
+              </AppText>}
 
               {renderDropdownField({
                 label: "Priority",

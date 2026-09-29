@@ -163,7 +163,7 @@ const auditLog = async (
       locationLongitude: parseCoordinate(context.locationLongitude),
     });
     publishTypedForRecipients(
-      { recipientRoles: ["superadmin"], excludedUsers: userId ? [userId] : [] },
+      { recipientRoles: ["admin staff"], excludedUsers: userId ? [userId] : [] },
       "logs:new",
       {
         logId: String(newLog._id),

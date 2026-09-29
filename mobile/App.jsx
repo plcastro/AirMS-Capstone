@@ -55,7 +55,7 @@ const getRoleHomeRoute = (role = "") => {
       .trim()
       .toLowerCase()
   ) {
-    case "superadmin":
+    case "admin staff":
       return "Manage Users";
     case "mechanic":
       return "Tasks";
@@ -120,19 +120,19 @@ function DrawerNav({ navigation }) {
     "pilot",
     "officer-in-charge",
     "mechanic",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessPostInspection = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
-  const canAccessMechanics = ["maintenance manager", "superadmin", "mechanic"].includes(
+  const canAccessMechanics = ["maintenance manager", "admin staff", "mechanic"].includes(
     normalizedRole,
   );
   const canAccessTasks = [
-    "superadmin",
+    "admin staff",
     "maintenance manager",
     "mechanic",
   ].includes(normalizedRole);
@@ -141,30 +141,30 @@ function DrawerNav({ navigation }) {
     "mechanic",
     "officer-in-charge",
     "warehouse personnel",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessPartsMonitoring = [
     "maintenance manager",
     "officer-in-charge",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessMaintenancePriority = [
     "maintenance manager",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessReports = [
     "maintenance manager",
     "officer-in-charge",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessMaintenanceLog = [
     "maintenance manager",
     "officer-in-charge",
     "mechanic",
-    "superadmin",
+    "admin staff",
   ].includes(normalizedRole);
   const canAccessMessages = [
-    "superadmin",
+    "admin staff",
     "maintenance manager",
     "mechanic",
     "pilot",
@@ -172,15 +172,15 @@ function DrawerNav({ navigation }) {
     "warehouse personnel",
   ].includes(normalizedRole);
   const canAccessProfile = [
-    "superadmin",
+    "admin staff",
     "maintenance manager",
     "mechanic",
     "pilot",
     "officer-in-charge",
     "warehouse personnel",
   ].includes(normalizedRole);
-  const canAccessUserManagement = normalizedRole === "superadmin";
-  const canAccessActivityLogs = normalizedRole === "superadmin";
+  const canAccessUserManagement = normalizedRole === "admin staff";
+  const canAccessActivityLogs = normalizedRole === "admin staff";
   const roleHomeRoute = getRoleHomeRoute(normalizedRole);
   const canAccessInitialRoute =
     (roleHomeRoute === "Reports and Analytics" && canAccessReports) ||

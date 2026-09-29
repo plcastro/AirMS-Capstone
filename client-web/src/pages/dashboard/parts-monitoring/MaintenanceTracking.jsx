@@ -245,8 +245,8 @@ export default function MaintenanceTracking() {
   const isOfficerInCharge = userRole === "officer-in-charge";
   const canScheduleInspectionTasks =
     userRole === "maintenance manager" ||
-    userRole === "superadmin" ||
-    userAccess === "superadmin";
+    userRole === "admin staff" ||
+    userAccess === "admin staff";
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [insights, setInsights] = useState([]);

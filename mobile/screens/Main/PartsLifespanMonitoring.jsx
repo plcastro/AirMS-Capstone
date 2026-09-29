@@ -143,7 +143,7 @@ export default function PartsLifespanMonitoring() {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const normalizedRole = resolveUserRole(user);
-  const canEditParts = ["maintenance manager", "superadmin"].includes(normalizedRole);
+  const canEditParts = ["maintenance manager", "admin staff"].includes(normalizedRole);
   const [aircraftOptions, setAircraftOptions] = useState([]);
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [showAircraftDropdown, setShowAircraftDropdown] = useState(false);
@@ -462,7 +462,7 @@ export default function PartsLifespanMonitoring() {
 
   const previewAircraftWorkbook = async () => {
     if (!canEditParts) {
-      showToast("Only maintenance managers and superadmins can add aircraft.");
+      showToast("Only maintenance managers and Admin Staff can add aircraft.");
       return;
     }
 

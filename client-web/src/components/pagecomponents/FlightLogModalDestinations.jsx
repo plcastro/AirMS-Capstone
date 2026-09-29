@@ -45,7 +45,7 @@ export default function FlightLogModalDestinations({
       <div className="fl-section-title">DESTINATION/S</div>
       <p>
         Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm) if
-        entered. Total Time (FLIGHT) is required for component hours. Passengers
+        entered. Total Time (FLIGHT) can be left blank in drafts and is required before release to the pilot. Passengers
         default to 0.
       </p>
 

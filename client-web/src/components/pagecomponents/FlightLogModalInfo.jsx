@@ -18,7 +18,6 @@ export default function FlightLogModalInfo({
   isEditable = true,
   isRPCEditable = true,
   isActive = true,
-  assignMechanic = false,
   onAircraftDataLoaded,
 }) {
   const { getAuthHeader } = useContext(AuthContext);
@@ -333,13 +332,6 @@ export default function FlightLogModalInfo({
               />
             </div>
 
-            {assignMechanic && (
-              <div className="fl-field-stack" style={fieldCellStyle}>
-                <span className="fl-label">Assigned Mechanic: *</span>
-                <FlightAssignedPilotSelect crewRole="Mechanic" value={formData.assignedMechanic}
-                  onChange={value => updateForm("assignedMechanic", value)} disabled={!isEditable} isActive={isActive} />
-              </div>
-            )}
             <div
               className="fl-field-stack fl-entry-grid-span-2"
               style={fieldCellStyle}

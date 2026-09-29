@@ -89,30 +89,30 @@ const getTrustedFlightLogRole = (req = {}) => {
 const isPilotFlightLogRequest = (req = {}) =>
   getTrustedFlightLogRole(req) === "pilot";
 
-const hasSuperadminFlightLogAccess = (req = {}) => {
+const hasAdminStaffFlightLogAccess = (req = {}) => {
   const user = req?.user;
   if (!user || typeof user !== "object") return false;
 
   return (
-    normalizeFlightLogRole(user.jobTitle) === "superadmin" ||
-    normalizeFlightLogRole(user.access) === "superadmin"
+    normalizeFlightLogRole(user.jobTitle) === "admin staff" ||
+    normalizeFlightLogRole(user.access) === "admin staff"
   );
 };
 
 const isRestrictedPilotFlightLogRequest = (req = {}) =>
-  isPilotFlightLogRequest(req) && !hasSuperadminFlightLogAccess(req);
+  isPilotFlightLogRequest(req) && !hasAdminStaffFlightLogAccess(req);
 
 const MECHANIC_FLIGHT_LOG_ROLES = new Set([
   "mechanic",
   "engineer",
   "maintenance manager",
   "head of maintenance",
-  "superadmin",
+  "admin staff",
   "admin",
 ]);
 
 const isMechanicFlightLogRequest = (req = {}) =>
-  hasSuperadminFlightLogAccess(req) ||
+  hasAdminStaffFlightLogAccess(req) ||
   MECHANIC_FLIGHT_LOG_ROLES.has(getTrustedFlightLogRole(req));
 
 const canEditFlightLogRequest = (req = {}) =>
@@ -205,7 +205,7 @@ module.exports = {
   PILOT_UPDATE_FLIGHT_LOG_FIELDS,
   canEditFlightLogRequest,
   getTrustedFlightLogRole,
-  hasSuperadminFlightLogAccess,
+  hasAdminStaffFlightLogAccess,
   hasCompleteFlightLogLegs,
   isB412AircraftType,
   isMechanicFlightLogRequest,
