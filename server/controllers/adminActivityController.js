@@ -243,7 +243,7 @@ const convertToCSV = (logs) => {
 
   const headers = [
     "Timestamp",
-    "Superadmin",
+    "Admin Staff",
     "Email",
     "Action",
     "Target User",

@@ -615,13 +615,13 @@ export function NotificationProvider({ children }) {
       const headers = { Authorization: `Bearer ${authToken}` };
       const normalizedRole = String(user?.jobTitle || "").toLowerCase();
       const canAccessTasks = [
-        "superadmin",
+        "admin staff",
         "maintenance manager",
         "mechanic",
       ].includes(normalizedRole);
-      const canAccessLogs = normalizedRole === "superadmin";
+      const canAccessLogs = normalizedRole === "admin staff";
       const canAccessRequisitions = [
-        "superadmin",
+        "admin staff",
         "maintenance manager",
         "mechanic",
         "officer-in-charge",

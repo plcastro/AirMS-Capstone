@@ -21,7 +21,7 @@ import {
   removeLegacyClientReadableCredentials,
 } from "../utils/airmsStorage";
 import { trustedDeviceManager } from "../utils/trustedDeviceManager";
-
+import { normalizeAccountRoles } from "../../../shared/accountRoles";
 import {
   createIdleSession,
   SESSION_IDLE_LIMIT_MS,
@@ -175,12 +175,17 @@ export const AuthProvider = ({ children }) => {
       localStorage.getItem(SESSION_META_KEY),
     );
 
-  const normalizeUser = (userData) => ({
-    ...userData,
-    id: userData.id || userData._id || null,
-    jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
-    access: userData.access ? userData.access.trim().toLowerCase() : null,
-  });
+  const normalizeUser = (profile) => {
+    const userData = normalizeAccountRoles(profile);
+    return {
+      ...userData,
+      id: userData.id || userData._id || null,
+      jobTitle: userData.jobTitle
+        ? userData.jobTitle.trim().toLowerCase()
+        : null,
+      access: userData.access ? userData.access.trim().toLowerCase() : null,
+    };
+  };
 
   const hasUserIdentity = (userData = {}) =>
     Boolean(
@@ -380,9 +385,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     clearCurrentSessionProfile();
     clearAuthStorage();
-    setRememberMePreferenceState(
-      airmStorage.get("rememberMe", false) === true,
-    );
+    setRememberMePreferenceState(airmStorage.get("rememberMe", false) === true);
     if (broadcast) {
       publishAuthSync({ type: "LOGOUT" });
     }

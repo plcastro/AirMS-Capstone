@@ -73,11 +73,11 @@ const jobTitles = {
     permissions.MESSAGE_SEND,
   ],
 
-  superadmin: [
+  "admin staff": [
     permissions.CERTIFICATES_REVIEW_ALL,
     permissions.CERTIFICATES_READ_ALL,
     permissions.CERTIFICATES_UPLOAD_ALL,
-    permissions.ADMIN_PANEL,
+    permissions.ADMINSTAFF_PANEL,
 
     permissions.USERS_READ,
     permissions.USERS_CREATE,

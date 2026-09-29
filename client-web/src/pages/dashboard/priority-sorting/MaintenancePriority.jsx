@@ -129,10 +129,10 @@ export default function MaintenancePriority() {
     .trim()
     .toLowerCase();
   const canOverride =
-    ["maintenance manager", "superadmin"].includes(role) ||
+    ["maintenance manager", "admin staff"].includes(role) ||
     String(user?.access || "")
       .trim()
-      .toLowerCase() === "superadmin";
+      .toLowerCase() === "admin staff";
   const [searchText, setSearchText] = useState("");
   const debouncedSearchText = useDebouncedValue(searchText, 300);
   const [loading, setLoading] = useState(true);

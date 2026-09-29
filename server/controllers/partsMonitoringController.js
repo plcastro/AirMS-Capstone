@@ -41,7 +41,7 @@ const publishPartsMonitoringChanged = (aircraft, action = "updated") => {
   publishTypedForRecipients(
     {
       recipientRoles: [
-        "superadmin",
+        "admin staff",
         "maintenance manager",
         "officer-in-charge",
       ],
@@ -1008,12 +1008,12 @@ exports.importPartsMonitoringWorkbook = async (req, res) => {
     const role = String(req.user?.jobTitle || req.user?.access || "")
       .trim()
       .toLowerCase();
-    const canImport = ["maintenance manager", "superadmin"].includes(role);
+    const canImport = ["maintenance manager", "admin staff"].includes(role);
 
     if (!canImport) {
       return res.status(403).json({
         success: false,
-        message: "Only maintenance managers and superadmins can add aircraft.",
+        message: "Only maintenance managers and Admin Staff can add aircraft.",
       });
     }
 
@@ -1133,12 +1133,12 @@ exports.previewPartsMonitoringWorkbook = async (req, res) => {
     const role = String(req.user?.jobTitle || req.user?.access || "")
       .trim()
       .toLowerCase();
-    const canImport = ["maintenance manager", "superadmin"].includes(role);
+    const canImport = ["maintenance manager", "admin staff"].includes(role);
 
     if (!canImport) {
       return res.status(403).json({
         success: false,
-        message: "Only maintenance managers and superadmins can add aircraft.",
+        message: "Only maintenance managers and Admin Staff can add aircraft.",
       });
     }
 

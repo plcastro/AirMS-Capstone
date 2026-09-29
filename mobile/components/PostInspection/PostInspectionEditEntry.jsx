@@ -68,7 +68,7 @@ export default function PostInspectionEditEntry({
   const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
   const canReleasePostInspection =
-    ["mechanic", "maintenance manager", "superadmin"].includes(normalizedRole);
+    ["mechanic", "maintenance manager", "admin staff"].includes(normalizedRole);
   const [formData, setFormData] = useState(
     getDefaultPostInspectionFormData(userRole),
   );
@@ -522,7 +522,7 @@ export default function PostInspectionEditEntry({
                         textTransform: "uppercase",
                       }}
                     >
-                      {["maintenance manager", "superadmin"].includes(normalizedRole)
+                      {["maintenance manager", "admin staff"].includes(normalizedRole)
                         ? "MAINTENANCE MANAGER"
                         : "MECHANIC"}
                     </AppText>

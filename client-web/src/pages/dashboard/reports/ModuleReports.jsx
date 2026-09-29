@@ -458,7 +458,12 @@ export function InspectionReport({
       key: "status",
       render: (status) => <StatusTag status={status} />,
     },
-    { title: "Created By", dataIndex: "createdBy", key: "createdBy" },
+    {
+      title: "Created By",
+      dataIndex: "createdByName",
+      key: "createdBy",
+      render: (name) => name || "Unknown user",
+    },
   ];
 
   return (

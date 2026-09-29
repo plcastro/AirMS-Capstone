@@ -20,6 +20,7 @@ export default function AircraftLogGroups({
   emptyText = "No logs found yet.",
   sortBy = "rpc",
   headerAction = null,
+  searchFilters = null,
   isNew,
 }) {
   const newCounts = useMemo(() => unviewedAircraftCounts(records, isNew), [records, isNew]);
@@ -57,6 +58,7 @@ export default function AircraftLogGroups({
                 value={query}
                 onChange={(event) => onQueryChange(event.target.value)}
               />
+              {searchFilters}
             </Space>
           </Col>
 

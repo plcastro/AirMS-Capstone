@@ -34,7 +34,9 @@ import {
 } from "../../../components/common/ExportFile";
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
-const MaintenancePerformance = React.lazy(() => import("./MaintenancePerformance"));
+const MaintenancePerformance = React.lazy(
+  () => import("./MaintenancePerformance"),
+);
 const MaintenanceSummary = React.lazy(() => import("./MaintenanceSummary"));
 const MaintenanceHistory = React.lazy(() => import("./MaintenanceHistory"));
 const ComponentUsage = React.lazy(() => import("./ComponentUsage"));
@@ -233,14 +235,18 @@ export default function MaintenanceDashboard() {
   });
   const [showAnalyticsWidgets, setShowAnalyticsWidgets] = useState(false);
   const statTitleStyle = {
-    fontSize: 12,
+    fontSize: 16,
     lineHeight: 1.25,
     whiteSpace: "normal",
+    color: "#ffffff",
+    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.35)",
   };
+
   const statValueStyle = {
     fontSize: 24,
     lineHeight: 1.1,
     wordBreak: "break-word",
+    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.4)",
   };
   const reportMasonryColumns = {
     xs: 1,
@@ -331,38 +337,37 @@ export default function MaintenanceDashboard() {
         setLoadingTasks(true);
 
         const headers = await getAuthHeader();
-        if (!headers.Authorization) {
-          throw new Error("No authentication token found. Please log in.");
-        }
+        // Web sessions authenticate through an HttpOnly cookie, without a bearer header.
+        const requestOptions = { headers, credentials: "include" };
         const requests = {
-          tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
+          tasks: fetch(`${API_BASE}/api/tasks/getAll`, requestOptions),
           baseAnalytics: fetch(
             `${API_BASE}/api/tasks/analytics/base-maintenance`,
-            {
-              headers,
-            },
+            requestOptions,
           ),
-          aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, {
-            headers,
-          }),
-          parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
-            headers,
-          }),
+          aircraftBases: fetch(
+            `${API_BASE}/api/aircraft/aircraft-with-bases`,
+            requestOptions,
+          ),
+          parts: fetch(
+            `${API_BASE}/api/parts-monitoring?page=1&limit=1000`,
+            requestOptions,
+          ),
           flightLogs: fetch(
             `${API_BASE}/api/flightlogs?page=1&limit=300&sortBy=date&sortOrder=desc`,
-            { headers },
+            requestOptions,
           ),
           preInspections: fetch(
             `${API_BASE}/api/pre-flight/getAllPreInspection`,
-            { headers },
+            requestOptions,
           ),
           postInspections: fetch(
             `${API_BASE}/api/post-flight/getAllPostInspection`,
-            { headers },
+            requestOptions,
           ),
           partsRequisitions: fetch(
             `${API_BASE}/api/parts-requisition/get-all-requisition`,
-            { headers },
+            requestOptions,
           ),
         };
 
@@ -372,7 +377,6 @@ export default function MaintenanceDashboard() {
               const response = await request;
               if (!response.ok) {
                 if (response.status === 401) {
-                  localStorage.removeItem("token");
                   throw new Error("Session expired. Please log in again.");
                 }
                 throw new Error(`${key} request failed (${response.status})`);
@@ -1323,8 +1327,16 @@ export default function MaintenanceDashboard() {
         overflowX: "hidden",
       }}
     >
-      <Card style={{ marginBottom: 10 }}>
+      <Card
+        style={{
+          marginBottom: 10,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
         <Row gutter={[16, 16]} align="middle">
+          {/* Search */}
           <Col xs={24} sm={24} md={12} lg={10}>
             <Input
               size="large"
@@ -1336,33 +1348,41 @@ export default function MaintenanceDashboard() {
             />
           </Col>
 
+          {/* Export Controls - Right Side */}
           {canExportReports && (
-            <>
-              <Col xs={12} sm={8} md={6} lg={5}>
+            <Col
+              xs={24}
+              sm={24}
+              md={12}
+              lg={14}
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Space size={8}>
                 <Select
                   value={selectedFileType}
                   onChange={setSelectedFileType}
                   size="large"
-                  style={{ width: "100%" }}
-                  options={fileTypeOptions.map((type) => ({
-                    label: type,
-                    value: type,
-                  }))}
+                  style={{ width: screens.md ? "100%" : 130 }}
+                  options={[
+                    { label: "PDF", value: "pdf" },
+                    { label: "Excel", value: "excel" },
+                  ]}
                 />
-              </Col>
 
-              <Col xs={12} sm={8} md={6} lg={4}>
                 <Button
+                  size="large"
                   type="primary"
                   icon={<ExportOutlined />}
-                  block
                   onClick={handleExportReports}
-                  width={"100%"}
+                  style={{ width: screens.md ? "100%" : 130 }}
                 >
                   Export
                 </Button>
-              </Col>
-            </>
+              </Space>
+            </Col>
           )}
         </Row>
       </Card>
@@ -1374,10 +1394,17 @@ export default function MaintenanceDashboard() {
                 Operations
               </Title>
             </Col>
-            <Col xs={12} sm={12} lg={6}>
+            <Col xs={12} sm={12} md={4} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12 } }}
+                styles={{
+                  body: {
+                    padding: 12,
+                    height: 90,
+                    display: "flex",
+                    flexDirection: "column",
+                  },
+                }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("completed");
@@ -1385,81 +1412,148 @@ export default function MaintenanceDashboard() {
                 }}
                 style={{
                   borderColor:
-                    activeKpi === "completed" ? "#048a25" : undefined,
+                    activeKpi === "completed" ? "#0cec44" : undefined,
+                  borderWidth: 4,
+                  background:
+                    "linear-gradient(135deg, #00a02b 0%, #00854d 100%)",
                 }}
               >
                 <Statistic
                   title="Completed Tasks"
                   value={stats.completed}
                   styles={{
-                    title: statTitleStyle,
-                    content: { ...statValueStyle, color: "#048a25" },
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
+                    content: {
+                      ...statValueStyle,
+                      color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
+                    },
                   }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={12} lg={6}>
+
+            <Col xs={12} sm={12} md={4} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12 } }}
+                styles={{ body: { padding: 12, height: 90 } }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("dueSoon");
                   setActiveKpi("dueSoon");
                 }}
                 style={{
-                  borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
+                  borderColor: activeKpi === "dueSoon" ? "#ffaa00" : undefined,
+                  borderWidth: 4,
+                  background:
+                    "linear-gradient(135deg, #fac654 0%, #e29b00 100%)",
                 }}
               >
                 <Statistic
-                  title="Due Soon (next 3 days)"
+                  title="Due Soon (in 3 days)"
                   value={stats.dueSoon}
                   styles={{
-                    title: statTitleStyle,
-                    content: { ...statValueStyle, color: "#faad14" },
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
+                    content: {
+                      ...statValueStyle,
+                      color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
+                    },
                   }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={12} lg={6}>
+
+            <Col xs={12} sm={12} md={4} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12 } }}
+                styles={{ body: { padding: 12, height: 90 } }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("overdue");
                   setActiveKpi("overdue");
                 }}
                 style={{
-                  borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
+                  borderColor: activeKpi === "overdue" ? "#ff0015" : undefined,
+                  borderWidth: 4,
+                  background:
+                    "linear-gradient(135deg, #cf1322 0%, #830606 100%)",
                 }}
               >
                 <Statistic
                   title="Overdue Tasks"
                   value={stats.overdue}
                   styles={{
-                    title: statTitleStyle,
-                    content: { ...statValueStyle, color: "#cf1322" },
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
+                    content: {
+                      ...statValueStyle,
+                      color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
+                    },
                   }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={12} lg={6}>
+
+            <Col xs={12} sm={12} md={4} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12 } }}
+                styles={{ body: { padding: 12, height: 90 } }}
                 hoverable
                 onClick={() => setActiveKpi("modules")}
                 style={{
-                  borderColor: activeKpi === "modules" ? "#26866f" : undefined,
+                  borderColor: activeKpi === "modules" ? "#0051ff" : undefined,
+                  borderWidth: 4,
+                  background:
+                    "linear-gradient(135deg, #007db8 0%, #003380 100%)",
                 }}
               >
                 <Statistic
                   title="Module Reports"
                   value={cards.length}
                   styles={{
-                    title: statTitleStyle,
-                    content: { ...statValueStyle, color: "#26866f" },
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
+                    content: {
+                      ...statValueStyle,
+                      color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
+                    },
                   }}
                 />
               </Card>
@@ -1723,63 +1817,68 @@ export default function MaintenanceDashboard() {
         />
       ) : null}
 
-      {showAnalyticsWidgets && remainingCardsByGroup.map(([category, categoryCards]) => {
-        const useSingleColumn = isCompactReports || category === "Logbook";
+      {showAnalyticsWidgets &&
+        remainingCardsByGroup.map(([category, categoryCards]) => {
+          const useSingleColumn = isCompactReports || category === "Logbook";
 
-        return (
-          <Card
-            key={category}
-            size="small"
-            title={`${category} Reports`}
-            style={{ marginBottom: 16 }}
-            styles={{
-              body: {
-                paddingTop: 10,
-                paddingInline: isCompactReports ? 10 : 16,
-              },
-            }}
-          >
-            {useSingleColumn ? (
-              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
-                {categoryCards.map((card) => (
-                  <Card
-                    key={card.key}
-                    size="small"
-                    title={card.title}
-                    style={{ width: "100%" }}
-                    styles={{ body: { padding: 10 } }}
-                  >
-                    <React.Suspense fallback={analyticsFallback}>
-                      {card.component}
-                    </React.Suspense>
-                  </Card>
-                ))}
-              </Space>
-            ) : (
-              <Masonry
-                columns={reportMasonryColumns}
-                gutter={[16, 16]}
-                items={categoryCards.map((card) => ({
-                  key: card.key,
-                  data: card,
-                }))}
-                itemRender={({ data: card }) => (
-                  <Card
-                    size="small"
-                    title={card.title}
-                    style={{ width: "100%" }}
-                    styles={{ body: { padding: 12 } }}
-                  >
-                    <React.Suspense fallback={analyticsFallback}>
-                      {card.component}
-                    </React.Suspense>
-                  </Card>
-                )}
-              />
-            )}
-          </Card>
-        );
-      })}
+          return (
+            <Card
+              key={category}
+              size="small"
+              title={`${category} Reports`}
+              style={{ marginBottom: 16 }}
+              styles={{
+                body: {
+                  paddingTop: 10,
+                  paddingInline: isCompactReports ? 10 : 16,
+                },
+              }}
+            >
+              {useSingleColumn ? (
+                <Space
+                  orientation="vertical"
+                  size={12}
+                  style={{ width: "100%" }}
+                >
+                  {categoryCards.map((card) => (
+                    <Card
+                      key={card.key}
+                      size="small"
+                      title={card.title}
+                      style={{ width: "100%" }}
+                      styles={{ body: { padding: 10 } }}
+                    >
+                      <React.Suspense fallback={analyticsFallback}>
+                        {card.component}
+                      </React.Suspense>
+                    </Card>
+                  ))}
+                </Space>
+              ) : (
+                <Masonry
+                  columns={reportMasonryColumns}
+                  gutter={[16, 16]}
+                  items={categoryCards.map((card) => ({
+                    key: card.key,
+                    data: card,
+                  }))}
+                  itemRender={({ data: card }) => (
+                    <Card
+                      size="small"
+                      title={card.title}
+                      style={{ width: "100%" }}
+                      styles={{ body: { padding: 12 } }}
+                    >
+                      <React.Suspense fallback={analyticsFallback}>
+                        {card.component}
+                      </React.Suspense>
+                    </Card>
+                  )}
+                />
+              )}
+            </Card>
+          );
+        })}
       <ResultPopup
         open={popup.open}
         status={popup.status}

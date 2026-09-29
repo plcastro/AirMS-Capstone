@@ -9,6 +9,7 @@ import React, {
 import { AppState, Platform, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "../utilities/API_BASE";
+import { normalizeAccountRoles } from "../../shared/accountRoles";
 import {
   getClientActiveAt,
   getDeviceAuditHeaders,
@@ -346,7 +347,7 @@ export const AuthProvider = ({ children }) => {
         const storedUser = await getStoredUser();
         const accessToken = await getStoredAccessToken();
         const persistedRefreshToken = await getStoredRefreshToken();
-        const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+        const parsedStoredUser = normalizeAccountRoles(storedUser ? JSON.parse(storedUser) : null);
         lastActivityRef.current = (await getClientActiveAt()) || Date.now();
         if (parsedStoredUser && Date.now() - lastActivityRef.current >= SESSION_IDLE_LIMIT_MS) {
           void logoutUser();

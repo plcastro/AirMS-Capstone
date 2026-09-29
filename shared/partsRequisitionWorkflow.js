@@ -61,14 +61,14 @@ export function displayStatus(record = {}) {
 }
 export const roleOf = (user) =>
   String(
-    user?.access === "superadmin"
-      ? "superadmin"
+    String(user?.access || "").trim().toLowerCase() === "admin staff"
+      ? "admin staff"
       : user?.jobTitle || user?.access || "",
   )
     .trim()
     .toLowerCase();
 export const isOversight = (user) =>
-  ["officer-in-charge", "superadmin"].includes(roleOf(user));
+  ["officer-in-charge", "admin staff"].includes(roleOf(user));
 export const canCreate = (user) =>
   ["mechanic", "maintenance manager"].includes(roleOf(user));
 export const isOpen = (record) =>
@@ -87,7 +87,7 @@ export const isRequisitionOwner = (user, record) =>
   );
 export function canAct(user, record, action) {
   const role = roleOf(user),
-    admin = role === "superadmin";
+    admin = role === "admin staff";
   const own = isRequisitionOwner(user, record);
   if (action === "stock" || action === "deliver")
     return role === "warehouse personnel";

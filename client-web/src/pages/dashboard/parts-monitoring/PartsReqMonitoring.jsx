@@ -350,7 +350,7 @@ export default function PartsReqMonitoring() {
   );
   if (
     ![
-      "superadmin",
+      "admin staff",
       "officer-in-charge",
       "warehouse personnel",
       "maintenance manager",

@@ -377,7 +377,7 @@ export default function PartsMonitoring() {
   const isMobileLayout = !screens.md;
   const normalizedRole = String(user?.jobTitle || "").toLowerCase();
   const isOfficerInCharge = normalizedRole === "officer-in-charge";
-  const canManageAircraft = ["maintenance manager", "superadmin"].includes(
+  const canManageAircraft = ["maintenance manager", "admin staff"].includes(
     normalizedRole,
   );
   const [refs, setRefs] = useState({
@@ -543,7 +543,7 @@ export default function PartsMonitoring() {
   const uploadWorkbookForPreview = async (file) => {
     if (!canManageAircraft) {
       showOperationError(
-        "Only maintenance managers and superadmins can add aircraft.",
+        "Only maintenance managers and Admin Staff can add aircraft.",
       );
       return Upload.LIST_IGNORE;
     }
@@ -1733,7 +1733,7 @@ export default function PartsMonitoring() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <Text>Acft. Type:</Text>
+                <Text>Aircraft Type:</Text>
                 <Text className="info-value">
                   {aircraftDetails.aircraftType || "Not available"}
                 </Text>
@@ -1757,7 +1757,9 @@ export default function PartsMonitoring() {
                 {/* Engine Cycle */}
                 <Col xs={24} sm={12} md={6}>
                   <Form.Item
-                    label={isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"}
+                    label={
+                      isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"
+                    }
                     style={{ marginBottom: 8 }}
                   >
                     <Input
@@ -2034,7 +2036,7 @@ export default function PartsMonitoring() {
                         gap: 12,
                       }}
                     >
-                      <Text>Acft. Type:</Text>
+                      <Text>Aircraft Type:</Text>
                       <Text className="info-value">
                         {importPreview.aircraftType || "Not available"}
                         {importPreview.serialNumber

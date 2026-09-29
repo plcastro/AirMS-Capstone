@@ -23,7 +23,7 @@ const {
 router.get(
   "/",
   verifyToken,
-  requirePermission(permissions.ADMIN_PANEL),
+  requirePermission(permissions.ADMINSTAFF_PANEL),
   getSecurityAlerts,
 );
 
@@ -31,7 +31,7 @@ router.get(
 router.get(
   "/stats",
   verifyToken,
-  requirePermission(permissions.ADMIN_PANEL),
+  requirePermission(permissions.ADMINSTAFF_PANEL),
   getAlertStats,
 );
 
@@ -39,7 +39,7 @@ router.get(
 router.get(
   "/unacknowledged-count",
   verifyToken,
-  requirePermission(permissions.ADMIN_PANEL),
+  requirePermission(permissions.ADMINSTAFF_PANEL),
   getUnacknowledgedCount,
 );
 
@@ -47,7 +47,7 @@ router.get(
 router.put(
   "/:alertId/acknowledge",
   verifyToken,
-  requirePermission(permissions.ADMIN_PANEL),
+  requirePermission(permissions.ADMINSTAFF_PANEL),
   acknowledgeAlert,
 );
 
@@ -55,7 +55,7 @@ router.put(
 router.put(
   "/:alertId/resolve",
   verifyToken,
-  requirePermission(permissions.ADMIN_PANEL),
+  requirePermission(permissions.ADMINSTAFF_PANEL),
   resolveAlert,
 );
 

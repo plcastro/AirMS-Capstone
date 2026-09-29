@@ -4,7 +4,7 @@ const normalizeCrewRole = (user = {}) =>
 export const getAssignedCrewField = (user = {}) => {
   const role = normalizeCrewRole(user);
   if (role === "pilot") return "assignedPilot";
-  if (role === "mechanic") return "assignedMechanic";
+  if (role === "mechanic" || role === "maintenance manager") return "assignedMechanic";
   return null;
 };
 

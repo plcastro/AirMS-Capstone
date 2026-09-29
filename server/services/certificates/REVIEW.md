@@ -31,7 +31,7 @@ the main application has already parsed the body. Responses use `{ data: ... }`.
 | Revoke verified source | `POST /:id/revoke` | `expectedRevision`, `reviewNote` |
 
 Mechanics may analyze/correct their own uploads, preview and read their own records.
-Maintenance Managers and Superadmins may do this for any mechanic and have the new
+Maintenance Managers and Admin Staff may do this for any mechanic and have the new
 `certificates.review.all` permission to confirm. Other roles cannot use these APIs.
 
 Analysis returns `{ certificate, preview }`, saving `ANALYZED` processing status.

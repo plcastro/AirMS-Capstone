@@ -34,7 +34,7 @@ const footerButtonStyle = (isMobile) => ({
 });
 
 const ROLE_MAP = {
-  Superadmin: "Superadmin",
+  "Admin Staff": "Admin Staff",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",
@@ -573,7 +573,7 @@ export default function UserForm({
                       size="large"
                       disabled={isEditingSelf}
                       options={[
-                        { label: "Superadmin", value: "Superadmin" },
+                        { label: "Admin Staff", value: "Admin Staff" },
                         {
                           label: "Maintenance Manager",
                           value: "Maintenance Manager",
@@ -594,7 +594,7 @@ export default function UserForm({
                   {isEditingSelf ? (
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       Your own job title and access level are managed by another
-                      Superadmin.
+                      Admin Staff.
                     </Text>
                   ) : null}
                 </Col>

@@ -222,7 +222,7 @@ const Login = () => {
     let dashboardPath = "/dashboard/profile";
 
     switch (pos) {
-      case "superadmin":
+      case "admin staff":
         dashboardPath = "/dashboard/user-management/view-users";
         break;
       case "mechanic":

@@ -109,6 +109,7 @@ export default function AircraftLogGroups({
   onSelect,
   emptyText = "No logs found yet.",
   sortBy = "rpc",
+  searchFilters = null,
   isNew,
   ...listProps
 }) {

@@ -10,6 +10,7 @@
     "seed:manual-rules": "node scripts/seedManualRules.js",
     "seed:manual-procedures": "node scripts/seedManualProcedures.js",
     "migrate:parts-requisition-statuses": "node scripts/migratePartsRequisitionStatuses.js",
+    "migrate:admin-staff": "node scripts/migrateAdminStaff.js",
     "pdf:text": "powershell -ExecutionPolicy Bypass -File scripts/extractPdfText.ps1"
   },
   "keywords": [],

@@ -176,7 +176,7 @@ test('server rejects every cross-role action before any write', async () => {
   }
 });
 test('creation roles and requester identity are enforced, supplied status/timestamps are ignored', async () => {
-  for (const role of ['Mechanic', 'Maintenance Manager', 'Superadmin', 'Warehouse Personnel', 'Officer-In-Charge', 'Pilot']) {
+  for (const role of ['Mechanic', 'Maintenance Manager', 'Admin Staff', 'Warehouse Personnel', 'Officer-In-Charge', 'Pilot']) {
     const h = harness(),
       res = response();
     await h.controller.createRequisition({
@@ -255,7 +255,7 @@ test('full lifecycle supports repeated stock reversals then delivery and owner c
   assert.equal(buildTimeline(h.record()).filter(event => event.label === 'Stock checked').length, 5);
 });
 test('cancellation is allowed only to the mechanic or manager owner before delivery', async () => {
-  for (const status of workflow.requisitionStatuses) for (const actor of [user('Mechanic'), user('Maintenance Manager'), user('Mechanic', 'other'), user('Officer-In-Charge'), user('Superadmin')]) {
+  for (const status of workflow.requisitionStatuses) for (const actor of [user('Mechanic'), user('Maintenance Manager'), user('Mechanic', 'other'), user('Officer-In-Charge'), user('Admin Staff')]) {
     const h = harness({
       status
     });

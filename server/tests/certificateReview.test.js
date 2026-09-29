@@ -312,7 +312,7 @@ test('permissions, explicit owner selection and source acknowledgment prevent au
   await assert.rejects(f.service.qualifications(req('mechanic', other), owner), error => error.status === 403);
   await assert.rejects(f.service.correct(req('mechanic', other), id, { expectedRevision: 2, corrections: { holderName: 'Other' }, reviewNote: 'Correction' }), error => error.status === 403);
   assert.equal(f.record().status, 'PENDING_REVIEW');
-  assert.equal((await f.service.confirm(req('superadmin', manager), id, confirmBody(f))).status, 'VERIFIED');
+  assert.equal((await f.service.confirm(req('admin staff', manager), id, confirmBody(f))).status, 'VERIFIED');
 });
 
 test('stale corrections/confirmations and concurrent analysis cannot overwrite later revisions', async () => {

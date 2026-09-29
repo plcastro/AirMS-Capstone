@@ -428,7 +428,7 @@ export default function UserManagement() {
       .map((u) => String(u.access || "").trim())
       .filter(Boolean);
     const merged = Array.from(
-      new Set(["Superadmin", "Superuser", "User", ...dynamicAccess]),
+      new Set(["Admin Staff", "Superuser", "User", ...dynamicAccess]),
     );
     return ["all", ...merged];
   }, [users]);

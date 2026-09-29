@@ -548,11 +548,20 @@ export default function FlightWorkspace({
                 </Typography.Text>
                 <Tag>{workspace.readiness.aircraftStatus}</Tag>
               </Space>
-              <p>
-                Pilot: {log.assignedPilot?.name || "Unassigned"} · Mechanic:{" "}
-                {log.assignedMechanic?.name || "Unassigned"} · Last update:{" "}
-                {labelTime(log.updatedAt)}
-              </p>
+              <div className="fl-workspace-crew">
+                <div>
+                  <strong>Pilot:</strong>
+                  <span>{log.assignedPilot?.name || "Unassigned"}</span>
+                </div>
+                <div>
+                  <strong>Mechanic:</strong>
+                  <span>{log.assignedMechanic?.name || "Unassigned"}</span>
+                </div>
+                <div>
+                  <strong>Last update:</strong>
+                  <span>{labelTime(log.updatedAt)}</span>
+                </div>
+              </div>
               {assigned &&
                 log.status !== "completed" &&
                 saveState !== "Saved on server" && (

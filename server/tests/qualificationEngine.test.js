@@ -70,7 +70,7 @@ test('a certificate with both aircraft covers both but never an unknown aircraft
 test('eligibility is scoped to the certificate holder and mechanic role', () => {
   assert.equal(evaluate([certificate({ personnelId: 'someone-else' })]).qualified, false);
   assert.equal(evaluate([], { personnelData: {} }).qualified, false);
-  for (const jobTitle of ['Pilot', 'Maintenance Manager', 'Superadmin', '']) {
+  for (const jobTitle of ['Pilot', 'Maintenance Manager', 'Admin Staff', '']) {
     assert.equal(evaluate(undefined, { personnelData: { ...personnelData, jobTitle } }).qualified, false);
   }
   assert.equal(evaluate([certificate({ aircraftRatings: ['B412EP'] })]).qualified, false);

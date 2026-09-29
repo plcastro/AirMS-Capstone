@@ -46,9 +46,9 @@ const createSecurityAlert = async ({
  */
 const notifyAdmins = async (alert) => {
   try {
-    // Get all superadmin users
+    // Get all admin staff users
     const admins = await UserModel.find({
-      access: { $in: ["Superadmin", "Superuser"] },
+      access: { $in: ["Admin Staff", "Superuser"] },
       status: "active",
     });
 

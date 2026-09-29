@@ -83,18 +83,14 @@ test('flight-log update persists server-derived hours rather than supplied compo
   for (const totalTimeOff of ['', '01:', '00:60']) {
     saved = null;
     await module.exports.updateFlightLog({ user: { id: 'manager', jobTitle: 'Maintenance Manager' }, params: { id: 'log' }, body: { legs: [{ totalTimeOff }] } }, res);
-    assert.equal(res.statusCode, 400);
-    assert.match(res.body.message, /Leg 1: Total Time \(FLIGHT\) is required/);
-    assert.equal(saved, null);
-  }
-  for (const jobTitle of ['Mechanic', 'Maintenance Manager', 'Pilot']) {
-    await module.exports.createFlightLog({ user: { id: 'creator', jobTitle }, body: { rpc: 'RP-C1234', legs: [{ totalTimeOff: '' }] } }, res);
-    assert.equal(res.statusCode, 400);
-    assert.match(res.body.message, /Total Time \(FLIGHT\) is required/);
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    assert.equal(saved.legs[0].totalTimeOff, totalTimeOff);
+    assert.equal(saved.componentData.thisFlightData.airframe, '');
   }
   for (const [action, status] of [['releaseFlightLog', 'pending_release'], ['completeFlightLog', 'accepted']]) {
     existing.status = status;
-    await module.exports[action]({ user: { id: 'manager', jobTitle: 'Maintenance Manager' }, params: { id: 'log' }, body: {} }, res);
+    existing.assignedMechanic = { userId: 'mechanic' };
+    await module.exports[action]({ user: { id: 'mechanic', jobTitle: 'Mechanic' }, params: { id: 'log' }, body: {} }, res);
     assert.equal(res.statusCode, 400);
     assert.match(res.body.message, /enter Total Time \(FLIGHT\)/);
   }

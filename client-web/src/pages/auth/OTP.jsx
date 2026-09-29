@@ -133,7 +133,7 @@ export default function OTP() {
 
           const role = String(data?.user?.jobTitle || "").toLowerCase();
           let dashboardPath = "/dashboard/profile";
-          if (role === "superadmin") {
+          if (role === "admin staff") {
             dashboardPath = "/dashboard/user-management/view-users";
           } else if (role === "mechanic") {
             dashboardPath = "/dashboard/tasks";

@@ -25,7 +25,7 @@ const withActorId = (req, action, fallbackId = null) => {
 const publishTaskUpdated = (task, actorUserId, extraData = {}) =>
   publishTypedForRecipients(
     {
-      recipientRoles: ["superadmin", "maintenance manager"],
+      recipientRoles: ["admin staff", "maintenance manager"],
       recipientUsers: task?.assignedTo ? [task.assignedTo] : [],
       excludedUsers: actorUserId ? [actorUserId] : [],
     },
