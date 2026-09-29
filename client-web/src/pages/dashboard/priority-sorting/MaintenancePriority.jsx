@@ -146,7 +146,7 @@ export default function MaintenancePriority() {
   const [selectedAircraft, setSelectedAircraft] = useState([]);
   const [selectedPriority, setSelectedPriority] = useState("Critical");
   const [savingPriority, setSavingPriority] = useState(false);
-  const [showTieBreakLogic, setShowTieBreakLogic] = useState(false);
+  const [priorityMode, setPriorityMode] = useState("automatic");
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -161,6 +161,11 @@ export default function MaintenancePriority() {
     () => areRulesChanged(draftRules, rules),
     [draftRules, rules],
   );
+  const handlePriorityModeChange = (mode) => {
+    setPriorityMode(mode);
+    setAircraftSelectionMode(false);
+    setSelectedAircraft([]);
+  };
 
   const fetchPriorityData = useCallback(async (activeRules = DEFAULT_RULES) => {
     try {
@@ -547,7 +552,8 @@ export default function MaintenancePriority() {
         title: "Priority",
         dataIndex: "priorityLevel",
         key: "priorityLevel",
-        width: 190,
+        width: 100,
+        centered: true,
         render: (value, record) => {
           const isSelected = selectedAircraftSet.has(record.aircraft);
 
@@ -599,7 +605,7 @@ export default function MaintenancePriority() {
   );
 
   const columns = useMemo(() => {
-    if (!aircraftSelectionMode) return baseColumns;
+    if (priorityMode !== "manual") return baseColumns;
 
     const selectionColumn = {
       title: "",
@@ -628,7 +634,7 @@ export default function MaintenancePriority() {
 
     return [selectionColumn, ...baseColumns];
   }, [
-    aircraftSelectionMode,
+    priorityMode,
     baseColumns,
     savingPriority,
     savingRules,
@@ -1046,80 +1052,63 @@ export default function MaintenancePriority() {
               }}
             >
               {/* Main Controls */}
-              <Space wrap>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* Search */}
                 <Input
                   allowClear
                   size="large"
                   prefix={<SearchOutlined />}
                   placeholder="Search aircraft or inspection"
-                  style={{ width: 280, maxWidth: "100%" }}
+                  style={{
+                    width: 280,
+                    flexShrink: 0,
+                  }}
                   value={searchText}
                   onChange={(event) => setSearchText(event.target.value)}
                 />
 
-                <Button
+                {/* Priority Mode */}
+                <Select
                   size="large"
-                  onClick={() => setShowControls(true)}
+                  value={priorityMode}
+                  onChange={handlePriorityModeChange}
                   disabled={savingPriority || savingRules}
-                >
-                  Automatic Priority Controls
-                </Button>
-
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => fetchPriorityData(rules)}
-                  loading={loading}
-                  size="large"
-                  aria-label="Refresh rankings"
-                  title="Refresh rankings"
-                />
-              </Space>
-
-              {/* Manual Priority */}
-              <div
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  paddingLeft: 12,
-                  borderLeft: "1px solid #f0f0f0",
-                }}
-              >
-                <Text
-                  strong
                   style={{
-                    fontSize: 13,
-                    whiteSpace: "nowrap",
+                    width: 140,
+                    flexShrink: 0,
                   }}
-                >
-                  Manual Priority
-                </Text>
+                  options={[
+                    {
+                      value: "automatic",
+                      label: "Automatic",
+                    },
+                    {
+                      value: "manual",
+                      label: "Manual",
+                    },
+                  ]}
+                />
 
-                {!aircraftSelectionMode ? (
+                {priorityMode === "automatic" && (
                   <Button
                     size="large"
-                    type="primary"
-                    onClick={() => {
-                      setAircraftSelectionMode(true);
-                      setSelectedAircraft([]);
-                    }}
+                    onClick={() => setShowControls(true)}
                     disabled={savingPriority || savingRules}
                   >
-                    Select Aircraft
+                    Automatic Controls
                   </Button>
-                ) : (
-                  <>
-                    <Text
-                      type="secondary"
-                      style={{
-                        fontSize: 13,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {selectedAircraft.length} selected
-                    </Text>
+                )}
 
+                {priorityMode === "manual" && (
+                  <>
                     <Select
                       size="large"
                       value={selectedPriority}
@@ -1129,28 +1118,60 @@ export default function MaintenancePriority() {
                       options={PRIORITY_OPTIONS}
                     />
 
-                    <Button
-                      size="large"
-                      onClick={() => {
-                        setSelectedAircraft([]);
-                        setAircraftSelectionMode(false);
-                      }}
-                      disabled={savingPriority || savingRules}
-                    >
-                      Cancel
-                    </Button>
+                    {!aircraftSelectionMode ? (
+                      <Button
+                        size="large"
+                        type="primary"
+                        onClick={() => {
+                          setAircraftSelectionMode(true);
+                          setSelectedAircraft([]);
+                        }}
+                        disabled={savingPriority || savingRules}
+                      >
+                        Select Aircraft
+                      </Button>
+                    ) : (
+                      <>
+                        <Text type="secondary">
+                          {selectedAircraft.length} selected
+                        </Text>
 
-                    <Button
-                      size="large"
-                      type="primary"
-                      loading={savingPriority}
-                      disabled={selectedAircraft.length === 0 || savingRules}
-                      onClick={applyMaintenanceControls}
-                    >
-                      Apply Priority
-                    </Button>
+                        <Button
+                          size="large"
+                          onClick={() => {
+                            setSelectedAircraft([]);
+                            setAircraftSelectionMode(false);
+                          }}
+                          disabled={savingPriority || savingRules}
+                        >
+                          Cancel
+                        </Button>
+
+                        <Button
+                          size="large"
+                          type="primary"
+                          loading={savingPriority}
+                          disabled={
+                            selectedAircraft.length === 0 || savingRules
+                          }
+                          onClick={applyMaintenanceControls}
+                        >
+                          Apply Priority
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
+
+                {/* Refresh */}
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchPriorityData(rules)}
+                  loading={loading}
+                  size="large"
+                  aria-label="Refresh rankings"
+                  title="Refresh rankings"
+                />
               </div>
             </div>
           </Col>
@@ -1182,10 +1203,18 @@ export default function MaintenancePriority() {
               ? { background: "#f6ffed" }
               : undefined,
         })}
-        pagination={false}
-        scroll={{ x: aircraftSelectionMode ? 1646 : 1600 }}
+        pagination={{
+          pageSize: 7,
+
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} aircraft`,
+        }}
+        scroll={{
+          x: aircraftSelectionMode ? 1646 : 1600,
+          y: "calc(100vh - 360px)",
+        }}
         bordered
-        size={"small"}
+        size="small"
       />
       <ResultPopup
         open={popup.open}
