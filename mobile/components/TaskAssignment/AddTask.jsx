@@ -194,6 +194,22 @@ export default function AddTask({
   const selectedEmployeeRecord = employees.find(
     (emp) => emp.id === selectedEmployee,
   );
+  const sortedEmployees = React.useMemo(() => {
+    return [...employees].sort((a, b) => {
+      const aQualified = qualification.option(a.id).qualified;
+      const bQualified = qualification.option(b.id).qualified;
+      if (aQualified !== bQualified) return aQualified ? -1 : 1;
+      return (a.activeTaskCount || 0) - (b.activeTaskCount || 0);
+    });
+  }, [employees, qualification]);
+
+  useEffect(() => {
+    if (selectedEmployee || !employees.length || qualification.message) return;
+    const bestMatch = sortedEmployees.find(
+      (emp) => qualification.option(emp.id).qualified,
+    );
+    if (bestMatch) setSelectedEmployee(bestMatch.id);
+  }, [employees, selectedAircraft, qualification.message, selectedEmployee, sortedEmployees]);
   const derivedMaintenanceType = isCustomTask
     ? "Custom Task"
     : initialDraft
@@ -1147,7 +1163,10 @@ export default function AddTask({
                 })),
                 visible: showAircraftDropdown,
                 onToggle: setShowAircraftDropdown,
-                onSelect: setSelectedAircraft,
+                onSelect: (value) => {
+                  setSelectedAircraft(value);
+                  setSelectedEmployee("");
+                },
               })}
 
               {renderDropdownField({
@@ -1250,8 +1269,8 @@ export default function AddTask({
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
-                options: rankedMechanics.map((emp) => ({
-                  label: `${emp.name} — ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
+                options: sortedEmployees.map((emp) => ({
+                  label: `${emp.name} - ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
                           emp.activeTaskCount === 1 ? "" : "s"

@@ -175,6 +175,8 @@ export default function PartsRequisitionEntry({
 
             <ScrollView
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
               style={{ flexShrink: 1 }}
               contentContainerStyle={{
                 paddingHorizontal: 14,
@@ -184,17 +186,12 @@ export default function PartsRequisitionEntry({
             >
               <View
                 style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 20,
-                  paddingHorizontal: 18,
-                  paddingTop: 22,
                   paddingBottom: 16,
-                  marginBottom: 18,
-                  borderWidth: 1,
-                  borderColor: "#EEEEEE",
+                  marginBottom: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#EEEEEE",
                   position: "relative",
                   zIndex: 10,
-                  elevation: 10,
                 }}
               >
                 <AppText
@@ -202,7 +199,7 @@ export default function PartsRequisitionEntry({
                     fontSize: 12,
                     fontWeight: "700",
                     color: "#3C3C3C",
-                    marginBottom: 14,
+                    marginBottom: 10,
                   }}
                 >
                   Choose Aircraft *
@@ -234,17 +231,12 @@ export default function PartsRequisitionEntry({
                 <View
                   key={item.id}
                   style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 20,
-                    paddingHorizontal: 18,
-                    paddingTop: 22,
                     paddingBottom: 16,
-                    marginBottom: 18,
-                    borderWidth: 1,
-                    borderColor: "#EEEEEE",
+                    marginBottom: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#EEEEEE",
                     position: "relative",
                     zIndex: 1,
-                    elevation: 1,
                   }}
                 >
                   <View
@@ -252,7 +244,7 @@ export default function PartsRequisitionEntry({
                       flexDirection: "row",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      marginBottom: 18,
+                      marginBottom: 14,
                     }}
                   >
                     <AppText

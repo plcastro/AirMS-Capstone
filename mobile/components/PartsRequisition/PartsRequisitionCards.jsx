@@ -66,105 +66,96 @@ export default function PartsRequisitionCards({
   const sorted = [...requisitions].sort((a, b) => sortOrder === 'oldest' ? dateValue(a) - dateValue(b) : dateValue(b) - dateValue(a));
 
   return <FlatList {...props} data={sorted} keyExtractor={item => item._id} contentContainerStyle={{
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: 10,
+    paddingTop: 6,
     paddingBottom: 96
   }} ListEmptyComponent={<AppText style={{
     textAlign: 'center',
-    padding: 24
+    padding: 24,
+    fontSize: 12,
+    color: COLORS.grayDark
   }}>No requisitions found</AppText>} renderItem={({
     item
   }) => {
     const status = displayStatus(item);
     const badge = badgeForStatus(status);
     return <View style={{
-      marginBottom: 14
+      marginBottom: 12
     }}>
-      <TouchableOpacity accessibilityRole="button" activeOpacity={0.82} onPress={() => onViewDetails(item)} style={{
-        minHeight: 112,
-        backgroundColor: '#fff',
+      <TouchableOpacity accessibilityRole="button" activeOpacity={0.82} style={{
+        flexDirection: 'row',
+        backgroundColor: COLORS.white,
         borderRadius: 10,
-        paddingVertical: 18,
-        paddingLeft: 28,
-        paddingRight: 18,
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 1
-        },
-        shadowOpacity: 0.06,
-        shadowRadius: 3,
-        elevation: 1,
+        elevation: 3,
         overflow: 'hidden'
-      }}>
+      }} onPress={() => onViewDetails(item)}>
         <View style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
           width: 5,
           backgroundColor: COLORS.primaryLight
         }} />
         <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 10
+          flex: 1,
+          padding: 12
         }}>
           <View style={{
-            flex: 1
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: 6
           }}>
-            <AppText style={{
-              fontWeight: '700',
-              fontSize: 18,
-              color: '#111'
-            }}>Warehouse Slip</AppText>
-            <AppText style={{
-              fontSize: 14,
-              color: '#777',
-              marginTop: 1
-            }}>{formatDate(item.dateRequested || item.createdAt || item.updatedAt)}</AppText>
+            <View style={{
+              flex: 1,
+              marginRight: 10
+            }}>
+              <AppText style={{
+                fontWeight: 'bold',
+                fontSize: 13,
+                color: '#000'
+              }}>Warehouse Slip</AppText>
+              <AppText style={{
+                fontSize: 11,
+                color: '#777',
+                marginTop: 1
+              }}>{formatDate(item.dateRequested || item.createdAt || item.updatedAt)}</AppText>
+            </View>
+            <View style={{
+              backgroundColor: badge.backgroundColor,
+              borderRadius: 12,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              maxWidth: 150
+            }}>
+              <AppText numberOfLines={1} style={{
+                color: badge.color,
+                fontSize: 10,
+                fontWeight: '600'
+              }}>{badge.label}</AppText>
+            </View>
           </View>
-          <View style={{
-            backgroundColor: badge.backgroundColor,
-            borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 4,
-            marginTop: 6,
-            maxWidth: 172
-          }}>
-            <AppText numberOfLines={1} style={{
-              color: badge.color,
-              fontSize: 12,
-              fontWeight: '700'
-            }}>{badge.label}</AppText>
-          </View>
-        </View>
-        <View style={{
-          marginTop: 16
-        }}>
           <AppText style={{
-            color: '#666',
-            fontSize: 15
+            color: '#555',
+            fontSize: 12,
+            marginBottom: 2
           }}>Slip No: {item.wrsNo || '-'}</AppText>
           <AppText numberOfLines={2} style={{
-            color: '#666',
-            fontSize: 15,
-            marginTop: 2
+            color: '#777',
+            fontSize: 12,
+            marginBottom: 2
           }}>Items: {formatItems(item.items)}</AppText>
           <AppText numberOfLines={1} style={{
-            color: '#666',
-            fontSize: 15,
-            marginTop: 2
+            color: '#777',
+            fontSize: 12
           }}>Purpose: {item.purpose || item.items?.find(part => part.purpose)?.purpose || '-'}</AppText>
         </View>
       </TouchableOpacity>
       {oversight && followUpTarget(item) && <TouchableOpacity disabled={busy} accessibilityRole="button" onPress={() => onFollowUp(item)} style={{
         alignSelf: 'flex-end',
-        paddingVertical: 8,
+        paddingVertical: 6,
         paddingHorizontal: 4
       }}><AppText style={{
-          color: COLORS.primaryLight
+          color: COLORS.primaryLight,
+          fontSize: 12,
+          fontWeight: '600'
         }}>Follow Up</AppText></TouchableOpacity>}
     </View>;
   }} />;

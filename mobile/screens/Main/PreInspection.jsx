@@ -15,13 +15,12 @@ import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import { exportPreInspectionTemplatePdf } from "../../utilities/documentExport";
 import { showToast } from "../../utilities/toast";
-import { styles } from "../../stylesheets/styles";
 import {
   EmptyState,
   LoadingState,
   SearchBar,
-  SectionTitle,
 } from "../../components/common/MobileModule";
+import InlineDropdown from "../../components/common/InlineDropdown";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
 import useViewedLogs from "../../utilities/useViewedLogs";
 
@@ -49,8 +48,10 @@ export default function PreInspection({ route }) {
   const [aircraftQuery, setAircraftQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("completed");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [sortOrder, setSortOrder] = useState("newest");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   useEffect(() => {
@@ -109,7 +110,7 @@ export default function PreInspection({ route }) {
       handledNotificationTarget.current = targetKey;
       setSelectedAircraft(getLogAircraftRegistration(match));
       setSearchQuery("");
-      setSelectedStatus("all");
+      setSelectedStatus(getDisplayStatus(match.status));
       setShowStatusDropdown(false);
       setSelectedInspection(match);
       setShowEditModal(true);
@@ -122,24 +123,37 @@ export default function PreInspection({ route }) {
   ]);
 
   const statusOptions = [
-    { label: "All Status", value: "all" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
+
+  const sortOptions = [
+    { label: "Newest First", value: "newest" },
+    { label: "Oldest First", value: "oldest" },
+  ];
+
+  const inspectionDateValue = (inspection) =>
+    new Date(inspection.date || inspection.createdAt || 0).getTime() || 0;
 
   const aircraftInspections = inspections.filter(
     (inspection) => getLogAircraftRegistration(inspection) === selectedAircraft,
   );
 
-  const filteredInspections = aircraftInspections.filter((inspection) => {
-    const matchesSearchText = matchesSearch(searchQuery, inspection);
+  const filteredInspections = aircraftInspections
+    .filter((inspection) => {
+      const matchesSearchText = matchesSearch(searchQuery, inspection);
 
-    const matchesStatus =
-      selectedStatus === "all" ||
-      getDisplayStatus(inspection.status) === selectedStatus;
+      const matchesStatus =
+        selectedStatus === "all" ||
+        getDisplayStatus(inspection.status) === selectedStatus;
 
-    return matchesSearchText && matchesStatus;
-  });
+      return matchesSearchText && matchesStatus;
+    })
+    .sort((a, b) =>
+      sortOrder === "oldest"
+        ? inspectionDateValue(a) - inspectionDateValue(b)
+        : inspectionDateValue(b) - inspectionDateValue(a),
+    );
 
   const handleEdit = (inspection) => {
     setSelectedInspection(inspection);
@@ -153,7 +167,7 @@ export default function PreInspection({ route }) {
   const selectAircraft = (aircraft) => {
     setSelectedAircraft(aircraft);
     setSearchQuery("");
-    setSelectedStatus("all");
+    setSelectedStatus("completed");
     setShowStatusDropdown(false);
   };
 
@@ -162,32 +176,16 @@ export default function PreInspection({ route }) {
     setShowStatusDropdown(false);
   };
 
+  const selectSortOrder = (order) => {
+    setSortOrder(order);
+    setShowSortDropdown(false);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
 
       <View key={selectedAircraft || "aircraft-groups"} style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}>
-        {!!selectedAircraft && (
-          <View
-            style={[
-              styles.unifiedControlRow,
-              { justifyContent: "flex-start" },
-            ]}
-          >
-            {!!selectedAircraft && (
-              <TouchableOpacity
-                style={{ flexDirection: "row", alignItems: "center", minHeight: 48 }}
-                onPress={() => selectAircraft("")}
-              >
-                <MaterialCommunityIcons name="arrow-left" size={22} color={COLORS.primary} />
-                <AppText style={{ marginLeft: 6, color: COLORS.primary, fontWeight: "700" }}>
-                  Back to aircraft
-                </AppText>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
         {!selectedAircraft ? (
           <AircraftLogGroups
             isNew={isNew}
@@ -203,51 +201,72 @@ export default function PreInspection({ route }) {
           />
         ) : (
           <>
-            <SectionTitle
-              title={selectedAircraft}
-              subtitle={`${aircraftInspections.length} pre-flight inspections`}
-            />
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+              <TouchableOpacity
+                onPress={() => selectAircraft("")}
+                accessibilityRole="button"
+                accessibilityLabel="Back to aircraft"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: COLORS.white,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 10,
+                  elevation: 2,
+                  shadowColor: COLORS.black,
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 3,
+                }}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.primary} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                  {selectedAircraft}
+                </AppText>
+                <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 1 }}>
+                  {aircraftInspections.length} pre-flight inspections
+                </AppText>
+              </View>
+            </View>
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search pre-flight inspections"
             />
 
-            <View style={{ marginBottom: 20 }}>
-              <TouchableOpacity
-                style={styles.unifiedFilterButton}
-                onPress={() => setShowStatusDropdown((open) => !open)}
-              >
-                <AppText style={styles.unifiedFilterButtonText} numberOfLines={1}>
-                  {statusOptions.find((option) => option.value === selectedStatus)
-                    ?.label || "Status"}
-                </AppText>
-                <MaterialCommunityIcons
-                  name={showStatusDropdown ? "chevron-up" : "chevron-down"}
-                  size={22}
-                  color={COLORS.grayDark}
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+              <View style={{ flex: 1, zIndex: showStatusDropdown ? 20 : 1 }}>
+                <InlineDropdown
+                  value={selectedStatus}
+                  placeholder="Status"
+                  open={showStatusDropdown}
+                  onToggle={() => {
+                    setShowSortDropdown(false);
+                    setShowStatusDropdown((open) => !open);
+                  }}
+                  onChange={selectStatus}
+                  options={statusOptions}
+                  toggleStyle={{ backgroundColor: COLORS.white, borderColor: COLORS.grayMedium }}
                 />
-              </TouchableOpacity>
-
-              {showStatusDropdown && (
-                <View style={styles.unifiedDropdownMenu}>
-                  {statusOptions.map((option, index) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={{
-                        ...styles.unifiedDropdownItem,
-                        borderBottomWidth: index < statusOptions.length - 1 ? 1 : 0,
-                        borderBottomColor: COLORS.grayMedium,
-                      }}
-                      onPress={() => selectStatus(option.value)}
-                    >
-                      <AppText style={styles.unifiedDropdownItemText}>
-                        {option.label}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              </View>
+              <View style={{ flex: 1, zIndex: showSortDropdown ? 20 : 1 }}>
+                <InlineDropdown
+                  value={sortOrder}
+                  placeholder="Sort"
+                  open={showSortDropdown}
+                  onToggle={() => {
+                    setShowStatusDropdown(false);
+                    setShowSortDropdown((open) => !open);
+                  }}
+                  onChange={selectSortOrder}
+                  options={sortOptions}
+                  toggleStyle={{ backgroundColor: COLORS.white, borderColor: COLORS.grayMedium }}
+                />
+              </View>
             </View>
 
             <PreInspectionCards ListEmptyComponent={loading ? (<LoadingState text="Loading pre-flight inspections..." />) : (<EmptyState text="No pre-flight inspections match your filters." />)}

@@ -67,6 +67,17 @@ export default function PostInspectionCards({
     }
   };
 
+  const getNextStepLabel = (inspection) => {
+    switch (getDisplayStatus(inspection.status)) {
+      case "completed":
+        return null;
+      case "released":
+        return "Awaiting pilot acceptance";
+      default:
+        return "Awaiting mechanic release";
+    }
+  };
+
 
 
   return (
@@ -107,6 +118,7 @@ export default function PostInspectionCards({
         const isViewOnly = isOfficerInCharge || isCompleted || !isAssignedFlightCrew(currentUser, inspection);
         const inspectionKey = String(inspection._id || inspection.id || "");
         const exportLoading = exportingInspectionId === inspectionKey;
+        const nextStepLabel = getNextStepLabel(inspection);
 
         return (
           <TouchableOpacity
@@ -182,10 +194,35 @@ export default function PostInspectionCards({
                   {inspection.aircraftType || "N/A"}
                 </AppText>
 
+                <AppText style={{ fontSize: 11, color: "#444", marginTop: 4 }}>
+                  <AppText style={{ color: "#777" }}>Pilot:</AppText>{" "}
+                  {inspection.assignedPilot?.name || "Unassigned"}
+                </AppText>
+
+                <AppText style={{ fontSize: 11, color: "#444" }}>
+                  <AppText style={{ color: "#777" }}>Mechanic:</AppText>{" "}
+                  {inspection.assignedMechanic?.name || "Unassigned"}
+                </AppText>
+
                 <AppText style={{ fontSize: 11, color: "#444" }}>
                   <AppText style={{ color: "#777" }}>Released By:</AppText>{" "}
                   {inspection?.releasedBy?.name || "N/A"}
                 </AppText>
+
+                {!!nextStepLabel && (
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+                    <MaterialCommunityIcons name="clock-outline" size={12} color={COLORS.primaryLight} />
+                    <AppText style={{ fontSize: 11, color: COLORS.primaryLight, fontWeight: "600", marginLeft: 4 }}>
+                      {nextStepLabel}
+                    </AppText>
+                  </View>
+                )}
+
+                {!!inspection.acceptedBy?.name && (
+                  <AppText style={{ fontSize: 10, color: "#777", marginTop: 4 }}>
+                    Accepted by {inspection.acceptedBy.name}
+                  </AppText>
+                )}
               </View>
 
               <CardActionRow style={{ paddingHorizontal: 10, paddingBottom: 10 }}>

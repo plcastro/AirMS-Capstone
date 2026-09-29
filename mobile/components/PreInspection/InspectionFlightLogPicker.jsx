@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import AppText from "../common/AppText";
+import InlineDropdown from "../common/InlineDropdown";
+import { COLORS } from "../../stylesheets/colors";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders } from "../../utilities/mobileApi";
@@ -34,16 +36,34 @@ export default function InspectionFlightLogPicker({ rpc, value, onChange, active
     return () => { cancelled = true; };
   }, [rpc, active, user, attempt]);
   const label = (log) => `${log.controlNo || log.rpc} — ${log.date || "No date"} — ${log.status.replace(/_/g, " ")}`;
-  const selected = logs.find((log) => log._id === value);
+  const disabled = !rpc || loading || Boolean(error);
   return <View style={{ marginBottom: 16 }}>
-    <AppText style={{ marginBottom: 6 }}>Linked Flight Log *</AppText>
-    <TouchableOpacity disabled={!rpc || loading || Boolean(error)} onPress={() => setOpen(!open)} style={{ padding: 12, borderWidth: 1, borderColor: "#ccc", borderRadius: 6 }}>
-      <AppText>{loading ? "Loading Flight Logs…" : selected ? label(selected) : "Select Flight Log ▾"}</AppText>
-    </TouchableOpacity>
-    {error && <><AppText>{error}</AppText><TouchableOpacity onPress={() => setAttempt((value) => value + 1)}><AppText>Retry</AppText></TouchableOpacity></>}
-    {open && <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
-      {!logs.length && <AppText>No open Flight Logs assigned to you for this aircraft</AppText>}
-      {logs.map((log) => <TouchableOpacity key={log._id} onPress={() => { onChange(log); setOpen(false); }} style={{ padding: 12 }}><AppText>{label(log)}</AppText></TouchableOpacity>)}
-    </ScrollView>}
+    <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: "500" }}>
+      Linked Flight Log: <AppText style={{ color: "red" }}>*</AppText>
+    </AppText>
+    <InlineDropdown
+      value={value}
+      placeholder={loading ? "Loading Flight Logs…" : "Select Flight Log"}
+      disabled={disabled}
+      open={open}
+      onToggle={() => setOpen((current) => !current)}
+      onChange={(logId) => {
+        onChange(logs.find((log) => log._id === logId) || null);
+        setOpen(false);
+      }}
+      options={logs.map((log) => ({ label: label(log), value: log._id }))}
+      menuMaxHeight={200}
+    />
+    {!!error && <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+      <AppText style={{ color: COLORS.dangerBorder, fontSize: 12, flex: 1 }}>{error}</AppText>
+      <TouchableOpacity onPress={() => setAttempt((current) => current + 1)}>
+        <AppText style={{ color: COLORS.primaryLight, fontSize: 12, fontWeight: "600" }}>Retry</AppText>
+      </TouchableOpacity>
+    </View>}
+    {!loading && !error && !logs.length && !!rpc && (
+      <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 6 }}>
+        No open Flight Logs assigned to you for this aircraft
+      </AppText>
+    )}
   </View>;
 }

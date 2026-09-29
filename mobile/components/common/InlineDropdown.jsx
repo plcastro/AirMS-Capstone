@@ -13,6 +13,8 @@ export default function InlineDropdown({
   onChange,
   menuMaxHeight = 220,
   menuPosition = "absolute",
+  disabled = false,
+  toggleStyle,
 }) {
   const selected = options.find((option) => String(option.value) === String(value));
   const isInlineMenu = menuPosition === "relative";
@@ -21,19 +23,21 @@ export default function InlineDropdown({
     <View style={{ position: "relative", zIndex: open ? 1000 : 1 }}>
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        accessibilityState={{ expanded: open, disabled }}
+        disabled={disabled}
         onPress={onToggle}
-        style={{
+        style={[{
           minHeight: 48,
           paddingHorizontal: 12,
           borderRadius: 8,
           borderWidth: 1,
           borderColor: COLORS.border || "#d1d5db",
-          backgroundColor: "#F1F1F1",
+          backgroundColor: disabled ? COLORS.grayLight : "#F1F1F1",
+          opacity: disabled ? 0.7 : 1,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-        }}
+        }, toggleStyle]}
       >
         <AppText
           numberOfLines={1}
@@ -46,13 +50,15 @@ export default function InlineDropdown({
         >
           {selected?.label || placeholder}
         </AppText>
-        <MaterialCommunityIcons
-          name={open ? "chevron-up" : "chevron-down"}
-          size={22}
-          color={COLORS.grayDark}
-        />
+        {!disabled && (
+          <MaterialCommunityIcons
+            name={open ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={COLORS.grayDark}
+          />
+        )}
       </TouchableOpacity>
-      {open && (
+      {open && !disabled && (
         <ScrollView
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
