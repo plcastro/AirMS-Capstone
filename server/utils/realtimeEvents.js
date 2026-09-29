@@ -39,6 +39,23 @@ const getTokenFromRequest = (req) => {
     const queryToken = url.searchParams.get("token");
     if (queryToken) return queryToken;
 
+    const cookieHeader = String(req.headers.cookie || "");
+    const cookies = Object.fromEntries(
+      cookieHeader
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const separator = part.indexOf("=");
+          if (separator === -1) return [part, ""];
+          return [
+            decodeURIComponent(part.slice(0, separator)),
+            decodeURIComponent(part.slice(separator + 1)),
+          ];
+        }),
+    );
+    if (cookies.accessToken) return cookies.accessToken;
+
     const protocolHeader = req.headers["sec-websocket-protocol"];
     if (protocolHeader) {
       const protocolTokens = String(protocolHeader)

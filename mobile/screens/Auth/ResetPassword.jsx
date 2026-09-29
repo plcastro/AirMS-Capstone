@@ -16,11 +16,15 @@ import { COLORS } from "../../stylesheets/colors";
 import Button from "../../components/Button";
 import { API_BASE } from "../../utilities/API_BASE";
 import LoginLayout from "../../Layout/LoginLayout";
+import { secureDeleteItem, secureGetItem } from "../../utilities/secureStorage";
+
+const RESET_PASSWORD_TOKEN_KEY = "pendingPasswordResetToken";
 
 export default function ResetPassword() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { token } = route.params || {};
+  const [token, setToken] = useState(route.params?.token || "");
+  const [tokenLoading, setTokenLoading] = useState(!route.params?.token);
 
   const [formData, setFormData] = useState({
     newPassword: "",
@@ -30,6 +34,27 @@ export default function ResetPassword() {
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (token) {
+      setTokenLoading(false);
+      return undefined;
+    }
+
+    secureGetItem(RESET_PASSWORD_TOKEN_KEY)
+      .then((storedToken) => {
+        if (isMounted && storedToken) setToken(storedToken);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setTokenLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const passwordRequirements = {
     minLength: formData.newPassword.length >= 8,
@@ -97,6 +122,7 @@ export default function ResetPassword() {
 
       if (!res.ok) throw new Error(data.message || "Failed to reset password.");
 
+      await secureDeleteItem(RESET_PASSWORD_TOKEN_KEY);
       setRedirecting(true);
       setSuccessMessage("Password reset successfully. Taking you to login...");
       setTimeout(() => navigation.replace("login"), 1600);
@@ -107,6 +133,16 @@ export default function ResetPassword() {
       setLoading(false);
     }
   };
+
+  if (tokenLoading) {
+    return (
+      <LoginLayout cardTitle="Reset Password" cardsubTitle="Preparing reset">
+        <View style={invalidStyles.container}>
+          <ActivityIndicator color="#26866F" size="small" />
+        </View>
+      </LoginLayout>
+    );
+  }
 
   if (!token) {
     return (

@@ -5,31 +5,16 @@ let reconnectTimeout = null;
 let shutdownTimeout = null;
 let closedByManager = false;
 let reconnectAttempt = 0;
-let activeToken = "";
 
 const listeners = new Set();
 
-const buildWsUrl = (token) => {
+const buildWsUrl = () => {
   const wsBase = String(API_BASE || "")
     .replace(/\/+$/, "")
     .replace(/^http/i, (match) =>
       match.toLowerCase() === "https" ? "wss" : "ws",
     );
-  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
-};
-
-const getStoredToken = () => {
-  const sessionToken = sessionStorage.getItem("token");
-  if (sessionToken) return sessionToken;
-
-  const legacyToken =
-    localStorage.getItem("currentUserToken") || localStorage.getItem("token");
-  if (legacyToken) {
-    sessionStorage.setItem("token", legacyToken);
-  }
-  localStorage.removeItem("currentUserToken");
-  localStorage.removeItem("token");
-  return legacyToken || "";
+  return `${wsBase}/ws`;
 };
 
 const notifyListeners = (payload) => {
@@ -64,14 +49,12 @@ const getReconnectDelayMs = () => {
 
 const ensureConnection = () => {
   clearShutdownTimer();
-  const token = getStoredToken();
-  if (!token || listeners.size === 0) return;
+  if (listeners.size === 0) return;
 
   if (
     socket &&
     (socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING) &&
-    activeToken === token
+      socket.readyState === WebSocket.CONNECTING)
   ) {
     return;
   }
@@ -85,8 +68,7 @@ const ensureConnection = () => {
   }
 
   closedByManager = false;
-  activeToken = token;
-  socket = new WebSocket(buildWsUrl(token));
+  socket = new WebSocket(buildWsUrl());
 
   socket.onopen = () => {
     reconnectAttempt = 0;
@@ -114,7 +96,6 @@ const ensureConnection = () => {
 
   socket.onclose = () => {
     socket = null;
-    activeToken = "";
     if (closedByManager || listeners.size === 0) return;
 
     reconnectAttempt += 1;
@@ -143,7 +124,6 @@ export const subscribeRealtime = (listener) => {
       closedByManager = true;
       clearReconnectTimer();
       reconnectAttempt = 0;
-      activeToken = "";
       if (socket && socket.readyState === WebSocket.OPEN) {
         try {
           socket.close();

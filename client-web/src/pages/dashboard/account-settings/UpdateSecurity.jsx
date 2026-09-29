@@ -23,7 +23,7 @@ import {
 const { Text } = Typography;
 
 export default function UpdateSecurity() {
-  const { user, setUser, getValidToken } = useContext(AuthContext);
+  const { user, setUser, getAuthHeader } = useContext(AuthContext);
   const userId = user?.id || user?._id;
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -158,7 +158,7 @@ export default function UpdateSecurity() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${await getValidToken()}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
           body: JSON.stringify({ currentPassword, newPassword }),
@@ -206,7 +206,7 @@ export default function UpdateSecurity() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await getValidToken()}`,
+          ...(await getAuthHeader()),
           "x-action-confirmed": "true",
         },
         body: JSON.stringify({
@@ -250,7 +250,7 @@ export default function UpdateSecurity() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${await getValidToken()}`,
+            ...(await getAuthHeader()),
           },
           body: JSON.stringify({ currentPassword: passwordForPin }),
         },
@@ -293,7 +293,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await getValidToken()}`,
+          ...(await getAuthHeader()),
         },
         body: JSON.stringify({ otp, token: pinResetToken }), // use token from state
       });
@@ -348,7 +348,7 @@ export default function UpdateSecurity() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await getValidToken()}`,
+          ...(await getAuthHeader()),
           "x-action-confirmed": "true",
         },
         body: JSON.stringify({

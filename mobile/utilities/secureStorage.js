@@ -11,10 +11,15 @@ try {
 }
 
 const isWeb = Platform.OS === "web";
-const WEB_SENSITIVE_KEYS = ["accessToken", "refreshToken", "rememberedPassword"];
+const SENSITIVE_KEYS = [
+  "accessToken",
+  "currentUserToken",
+  "refreshToken",
+  "rememberedPassword",
+];
 
 const isSensitiveWebKey = (key = "") =>
-  WEB_SENSITIVE_KEYS.includes(key) || String(key).startsWith("trustedDeviceToken");
+  SENSITIVE_KEYS.includes(key) || String(key).startsWith("trustedDeviceToken");
 
 const removeWebLocalValue = (key) => {
   if (!isWeb || typeof window === "undefined") return;
@@ -35,6 +40,7 @@ export const secureGetItem = async (key) => {
       if (value !== null && value !== undefined) return value;
     } catch {}
   }
+  if (isSensitiveWebKey(key)) return null;
   return AsyncStorage.getItem(key);
 };
 
@@ -49,6 +55,7 @@ export const secureSetItem = async (key, value) => {
       await SecureStoreModule.setItemAsync(key, value);
     } catch {}
   }
+  if (isSensitiveWebKey(key)) return;
   await AsyncStorage.setItem(key, value);
 };
 
@@ -62,5 +69,6 @@ export const secureDeleteItem = async (key) => {
       await SecureStoreModule.deleteItemAsync(key);
     } catch {}
   }
+  if (isSensitiveWebKey(key)) return;
   await AsyncStorage.removeItem(key);
 };

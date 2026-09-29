@@ -83,7 +83,7 @@ const resizeImage = (file, size = 172) =>
   });
 
 export default function Profile() {
-  const { user, setUser, getValidToken } = useContext(AuthContext);
+  const { user, setUser, getAuthHeader } = useContext(AuthContext);
   const [file, setFile] = useState(null);
   const [previewUri, setPreviewUri] = useState("");
   const [fontScalePreference, setFontScalePreference] = useState(1);
@@ -273,7 +273,7 @@ export default function Profile() {
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${await getValidToken()}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
           body: formData,
@@ -325,7 +325,7 @@ export default function Profile() {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${await getValidToken()}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
         },

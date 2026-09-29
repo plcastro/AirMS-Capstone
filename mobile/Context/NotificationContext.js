@@ -79,13 +79,13 @@ const getStoredToken = async () => {
   return token;
 };
 
-const buildWsUrl = (token) => {
+const buildWsUrl = () => {
   const wsBase = String(API_BASE || "")
     .replace(/\/+$/, "")
     .replace(/^http/i, (match) =>
       match.toLowerCase() === "https" ? "wss" : "ws",
     );
-  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
+  return `${wsBase}/ws`;
 };
 
 const getModuleName = (payload) =>
@@ -1129,7 +1129,7 @@ export function NotificationProvider({ children }) {
       if (closedByEffect || !authToken || !user?.id) return;
 
       try {
-        const ws = new WebSocket(buildWsUrl(authToken));
+        const ws = new WebSocket(buildWsUrl(), ["airms", authToken]);
         wsRef.current = ws;
         log("ws:connect:attempt", wsReconnectAttemptsRef.current);
 

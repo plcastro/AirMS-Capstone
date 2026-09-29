@@ -13,7 +13,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   secureDeleteItem,
   secureGetItem,
-  secureSetItem,
 } from "../../utilities/secureStorage";
 import LoginLayout from "../../Layout/LoginLayout";
 import { styles } from "../../stylesheets/styles";
@@ -38,14 +37,8 @@ import {
   detectLoginLocation,
 } from "../../utilities/loginLocation";
 
-const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "")
-    .trim()
-    .toLowerCase();
-  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
-};
-
 const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
+const TRUSTED_DEVICE_TOKEN_KEY = "trustedDeviceToken";
 
 export default function Login() {
   const nav = useNavigation();
@@ -73,11 +66,11 @@ export default function Login() {
           const savedIdentifier = await AsyncStorage.getItem(
             "rememberedIdentifier",
           );
-          const savedPassword = await secureGetItem(REMEMBERED_PASSWORD_KEY);
+          await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
 
           setFormData({
             identifier: savedIdentifier || "",
-            password: savedPassword || "",
+            password: "",
           });
         }
       } catch (err) {
@@ -110,10 +103,8 @@ export default function Login() {
     setMessage("");
 
     try {
-      const trustedDeviceKey = getTrustedDeviceStorageKey(formData.identifier);
-      const trustedDeviceToken = trustedDeviceKey
-        ? await secureGetItem(trustedDeviceKey)
-        : "";
+      const trustedDeviceToken =
+        (await secureGetItem(TRUSTED_DEVICE_TOKEN_KEY)) || "";
 
       const parseResponse = async (res) => {
         const text = await res.text();
@@ -200,7 +191,7 @@ export default function Login() {
           "rememberedIdentifier",
           formData.identifier.trim(),
         );
-        await secureSetItem(REMEMBERED_PASSWORD_KEY, formData.password.trim());
+        await secureDeleteItem(REMEMBERED_PASSWORD_KEY);
       } else {
         await AsyncStorage.removeItem("rememberedIdentifier");
         await secureDeleteItem(REMEMBERED_PASSWORD_KEY);

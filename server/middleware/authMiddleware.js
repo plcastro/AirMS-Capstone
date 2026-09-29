@@ -11,11 +11,14 @@ const {
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const cookieToken = req.cookies?.accessToken;
+  if ((!authHeader || !authHeader.startsWith("Bearer ")) && !cookieToken) {
     return res.status(401).json({ message: "No token provided" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : cookieToken;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

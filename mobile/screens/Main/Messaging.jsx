@@ -218,13 +218,13 @@ const mergeFetchedMessages = (currentMessages, fetchedMessages) => {
   });
 };
 
-const buildWsUrl = (token) => {
+const buildWsUrl = () => {
   const wsBase = String(API_BASE || "")
     .replace(/\/+$/, "")
     .replace(/^http/i, (match) =>
       match.toLowerCase() === "https" ? "wss" : "ws",
     );
-  return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
+  return `${wsBase}/ws`;
 };
 
 export default function Messaging({ navigation, route }) {
@@ -317,20 +317,25 @@ export default function Messaging({ navigation, route }) {
     }
   }, [authFetch, currentUserId]);
 
-  const fetchConversations = useCallback(async ({ signal } = {}) => {
-    try {
-      const data = await authFetch(`${API_BASE}/api/messages/conversations`, { signal });
-      if (signal?.aborted) return;
-      setConversations(Array.isArray(data.data) ? data.data : []);
-    } catch (error) {
-      if (error.status === 404) {
-        setConversations([]);
-        return;
-      }
+  const fetchConversations = useCallback(
+    async ({ signal } = {}) => {
+      try {
+        const data = await authFetch(`${API_BASE}/api/messages/conversations`, {
+          signal,
+        });
+        if (signal?.aborted) return;
+        setConversations(Array.isArray(data.data) ? data.data : []);
+      } catch (error) {
+        if (error.status === 404) {
+          setConversations([]);
+          return;
+        }
 
-      throw error;
-    }
-  }, [authFetch]);
+        throw error;
+      }
+    },
+    [authFetch],
+  );
 
   const fetchThread = useCallback(
     async (conversationId, signal) => {
@@ -343,7 +348,11 @@ export default function Messaging({ navigation, route }) {
         `${API_BASE}/api/messages/${conversationId}`,
         { signal },
       );
-      if (signal?.aborted || String(selectedConversationRef.current?.id) !== String(conversationId)) return;
+      if (
+        signal?.aborted ||
+        String(selectedConversationRef.current?.id) !== String(conversationId)
+      )
+        return;
       const nextMessages = Array.isArray(data.data) ? data.data : [];
       setMessages((current) => mergeFetchedMessages(current, nextMessages));
       await fetchConversations({ signal });
@@ -351,15 +360,18 @@ export default function Messaging({ navigation, route }) {
     [authFetch, fetchConversations],
   );
 
-  const syncMessaging = useCallback(async (signal) => {
-    const activeConversation = selectedConversationRef.current;
-    if (activeConversation?.id) {
-      await fetchThread(activeConversation.id, signal);
-      return;
-    }
+  const syncMessaging = useCallback(
+    async (signal) => {
+      const activeConversation = selectedConversationRef.current;
+      if (activeConversation?.id) {
+        await fetchThread(activeConversation.id, signal);
+        return;
+      }
 
-    await fetchConversations({ signal });
-  }, [fetchConversations, fetchThread]);
+      await fetchConversations({ signal });
+    },
+    [fetchConversations, fetchThread],
+  );
 
   const notifyIncomingChat = useCallback((messagePayload) => {
     const messageId = String(messagePayload?._id || "");
@@ -496,138 +508,149 @@ export default function Messaging({ navigation, route }) {
     }, [syncMessaging]),
   );
 
-  useFocusEffect(useCallback(() => {
-    let closedByEffect = false;
-    let appState = AppState.currentState;
-    let connectionGeneration = 0;
-    const disconnect = () => {
-      connectionGeneration += 1;
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-      const ws = wsRef.current;
-      wsRef.current = null;
-      if (ws) {
-        ws.onclose = null;
-        ws.close();
-      }
-    };
-    const connect = async () => {
-      const generation = ++connectionGeneration;
-      const token = await getToken();
-      if (closedByEffect || appState !== "active" || generation !== connectionGeneration || !token || !currentUserId) return;
-      const ws = new WebSocket(buildWsUrl(token));
-      wsRef.current = ws;
-      ws.onopen = () => liveSyncRef.current?.request();
-      ws.onmessage = (event) => {
-        if (closedByEffect || appState !== "active") return;
-        try {
-          const payload = JSON.parse(event.data);
+  useFocusEffect(
+    useCallback(() => {
+      let closedByEffect = false;
+      let appState = AppState.currentState;
+      let connectionGeneration = 0;
+      const disconnect = () => {
+        connectionGeneration += 1;
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+        const ws = wsRef.current;
+        wsRef.current = null;
+        if (ws) {
+          ws.onclose = null;
+          ws.close();
+        }
+      };
+      const connect = async () => {
+        const generation = ++connectionGeneration;
+        const token = await getToken();
+        if (
+          closedByEffect ||
+          appState !== "active" ||
+          generation !== connectionGeneration ||
+          !token ||
+          !currentUserId
+        )
+          return;
+        const ws = new WebSocket(buildWsUrl(), ["airms", token]);
+        wsRef.current = ws;
+        ws.onopen = () => liveSyncRef.current?.request();
+        ws.onmessage = (event) => {
+          if (closedByEffect || appState !== "active") return;
+          try {
+            const payload = JSON.parse(event.data);
 
-          if (payload.event === "chat:conversation") {
-            const group = payload.data?.group;
-            const removedConversationId = payload.data?.removedConversationId;
-            const currentSelected = selectedConversationRef.current;
+            if (payload.event === "chat:conversation") {
+              const group = payload.data?.group;
+              const removedConversationId = payload.data?.removedConversationId;
+              const currentSelected = selectedConversationRef.current;
+
+              if (
+                currentSelected?.type === "group" &&
+                String(currentSelected.id) === String(removedConversationId) &&
+                (!group ||
+                  !(group.members || []).some(
+                    (member) =>
+                      String(getEntityId(member)) === String(currentUserId),
+                  ))
+              ) {
+                setSelectedConversation(null);
+                setMessages([]);
+              }
+              liveSyncRef.current?.request();
+              return;
+            }
+
+            if (payload.event === "chat:read") {
+              const readReceipt = payload.data || {};
+              const messageIds = new Set(
+                (readReceipt.messageIds || []).map(String),
+              );
+
+              setMessages((current) =>
+                current.map((item) =>
+                  messageIds.has(String(item._id))
+                    ? {
+                        ...item,
+                        readAt: readReceipt.readAt,
+                        deliveryStatus: "sent",
+                      }
+                    : item,
+                ),
+              );
+              liveSyncRef.current?.request();
+              return;
+            }
 
             if (
-              currentSelected?.type === "group" &&
-              String(currentSelected.id) === String(removedConversationId) &&
-              (!group ||
-                !(group.members || []).some((member) =>
-                  String(getEntityId(member)) === String(currentUserId),
-                ))
+              payload.event === "data-changed" &&
+              String(payload.data?.url || "").startsWith("/api/messages")
             ) {
-              setSelectedConversation(null);
-              setMessages([]);
+              liveSyncRef.current?.request();
+
+              return;
             }
-            liveSyncRef.current?.request();
-            return;
-          }
 
-          if (payload.event === "chat:read") {
-            const readReceipt = payload.data || {};
-            const messageIds = new Set(
-              (readReceipt.messageIds || []).map(String),
+            if (payload.event !== "chat:message") return;
+
+            const nextMessage = withSentStatus(payload.data);
+            notifyIncomingChat(nextMessage);
+            const conversationId = nextMessage.conversation
+              ? String(getEntityId(nextMessage.conversation))
+              : String(getEntityId(nextMessage.sender)) ===
+                  String(currentUserId)
+                ? String(getEntityId(nextMessage.recipient))
+                : String(getEntityId(nextMessage.sender));
+
+            if (
+              String(conversationId) ===
+              String(selectedConversationRef.current?.id)
+            ) {
+              setMessages((current) => {
+                if (current.some((item) => item._id === nextMessage._id)) {
+                  return current.map((item) =>
+                    item._id === nextMessage._id
+                      ? withSentStatus({ ...item, ...nextMessage })
+                      : item,
+                  );
+                }
+                return [...current, nextMessage];
+              });
+            }
+
+            liveSyncRef.current?.request();
+          } catch (error) {
+            ignoreBackgroundMessagingError(error);
+          }
+        };
+
+        ws.onclose = () => {
+          if (wsRef.current === ws) wsRef.current = null;
+          if (!closedByEffect && appState === "active") {
+            reconnectTimeoutRef.current = setTimeout(
+              () => connect().catch(ignoreBackgroundMessagingError),
+              1500,
             );
-
-            setMessages((current) =>
-              current.map((item) =>
-                messageIds.has(String(item._id))
-                  ? {
-                      ...item,
-                      readAt: readReceipt.readAt,
-                      deliveryStatus: "sent",
-                    }
-                  : item,
-              ),
-            );
-            liveSyncRef.current?.request();
-            return;
           }
-
-          if (
-            payload.event === "data-changed" &&
-            String(payload.data?.url || "").startsWith("/api/messages")
-          ) {
-            liveSyncRef.current?.request();
-
-            return;
-          }
-
-          if (payload.event !== "chat:message") return;
-
-          const nextMessage = withSentStatus(payload.data);
-          notifyIncomingChat(nextMessage);
-          const conversationId = nextMessage.conversation
-            ? String(getEntityId(nextMessage.conversation))
-            : String(getEntityId(nextMessage.sender)) === String(currentUserId)
-              ? String(getEntityId(nextMessage.recipient))
-              : String(getEntityId(nextMessage.sender));
-
-          if (
-            String(conversationId) ===
-            String(selectedConversationRef.current?.id)
-          ) {
-            setMessages((current) => {
-              if (current.some((item) => item._id === nextMessage._id)) {
-                return current.map((item) =>
-                  item._id === nextMessage._id
-                    ? withSentStatus({ ...item, ...nextMessage })
-                    : item,
-                );
-              }
-              return [...current, nextMessage];
-            });
-
-
-          }
-
-          liveSyncRef.current?.request();
-        } catch (error) {
-          ignoreBackgroundMessagingError(error);
-        }
+        };
+        ws.onerror = () => ws.close();
       };
-
-
-      ws.onclose = () => {
-        if (wsRef.current === ws) wsRef.current = null;
-        if (!closedByEffect && appState === "active") {
-          reconnectTimeoutRef.current = setTimeout(() => connect().catch(ignoreBackgroundMessagingError), 1500);
-        }
+      connect().catch(ignoreBackgroundMessagingError);
+      const subscription = AppState.addEventListener("change", (state) => {
+        appState = state;
+        disconnect();
+        if (state === "active") connect().catch(ignoreBackgroundMessagingError);
+      });
+      return () => {
+        closedByEffect = true;
+        subscription.remove();
+        disconnect();
       };
-      ws.onerror = () => ws.close();
-    };
-    connect().catch(ignoreBackgroundMessagingError);
-    const subscription = AppState.addEventListener("change", (state) => {
-      appState = state;
-      disconnect();
-      if (state === "active") connect().catch(ignoreBackgroundMessagingError);
-    });
-    return () => {
-      closedByEffect = true;
-      subscription.remove();
-      disconnect();
-    };
-  }, [currentUserId, getToken, notifyIncomingChat]));
+    }, [currentUserId, getToken, notifyIncomingChat]),
+  );
 
   const conversationItems = useMemo(() => {
     const directFromConversations = conversations
@@ -938,11 +961,18 @@ export default function Messaging({ navigation, route }) {
     }));
 
     const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
-    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
-    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
-      try { return await resizePickedImage(file); }
-      catch { showToast('Could not prepare ' + file.name); return null; }
-    }));
+    if (selected.length > slots)
+      showToast("You can attach up to 5 files per message.");
+    const prepared = await Promise.all(
+      selected.slice(0, slots).map(async (file) => {
+        try {
+          return await resizePickedImage(file);
+        } catch {
+          showToast("Could not prepare " + file.name);
+          return null;
+        }
+      }),
+    );
     const valid = prepared.filter(Boolean).filter((file) => {
       const validationError = getAttachmentValidationError(file);
       if (validationError) showToast(validationError);
@@ -988,11 +1018,18 @@ export default function Messaging({ navigation, route }) {
     }));
 
     const slots = Math.max(0, MAX_MESSAGE_ATTACHMENTS - attachments.length);
-    if (selected.length > slots) showToast('You can attach up to 5 files per message.');
-    const prepared = await Promise.all(selected.slice(0, slots).map(async (file) => {
-      try { return await resizePickedImage(file); }
-      catch { showToast('Could not prepare ' + file.name); return null; }
-    }));
+    if (selected.length > slots)
+      showToast("You can attach up to 5 files per message.");
+    const prepared = await Promise.all(
+      selected.slice(0, slots).map(async (file) => {
+        try {
+          return await resizePickedImage(file);
+        } catch {
+          showToast("Could not prepare " + file.name);
+          return null;
+        }
+      }),
+    );
     const valid = prepared.filter(Boolean).filter((file) => {
       const validationError = getAttachmentValidationError(file);
       if (validationError) showToast(validationError);
@@ -1061,9 +1098,12 @@ export default function Messaging({ navigation, route }) {
     );
   };
 
-  const renderAvatar = useCallback((item, size = 42) => (
-    <MessagingAvatar item={item} size={size} getImageUrl={getImageUrl} />
-  ), []);
+  const renderAvatar = useCallback(
+    (item, size = 42) => (
+      <MessagingAvatar item={item} size={size} getImageUrl={getImageUrl} />
+    ),
+    [],
+  );
 
   const selectedGroupMembers =
     selectedConversationDetails?.type === "group"
@@ -1128,7 +1168,6 @@ export default function Messaging({ navigation, route }) {
       selectedGroupMembers={selectedGroupMembers}
       renderAvatar={renderAvatar}
       getDisplayName={getDisplayName}
-      currentUserId={currentUserId}
     />
   );
 }

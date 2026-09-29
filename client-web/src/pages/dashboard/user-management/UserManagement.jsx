@@ -63,7 +63,7 @@ const accessLevelData = [
 export default function UserManagement() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { getValidToken } = useContext(AuthContext);
+  const { getAuthHeader } = useContext(AuthContext);
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -142,11 +142,8 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = await getValidToken();
       const res = await fetch(`${API_BASE}/api/user/get-all-users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: await getAuthHeader(),
       });
       const json = await res.json();
       if (Array.isArray(json.data)) {
@@ -233,14 +230,13 @@ export default function UserManagement() {
     });
     if (!confirmed) return;
     try {
-      const token = await getValidToken();
       const response = await fetch(
         `${API_BASE}/api/user/update-user-status/${user._id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
           body: JSON.stringify({ status: "deactivated", confirmAction: true }),
@@ -270,12 +266,11 @@ export default function UserManagement() {
   };
 
   const runInviteAction = async (endpoint, method = "PUT", payload = null) => {
-    const token = await getValidToken();
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        ...(await getAuthHeader()),
         "x-action-confirmed": "true",
       },
       body: JSON.stringify({
@@ -385,14 +380,13 @@ export default function UserManagement() {
     });
     if (!confirmed) return;
     try {
-      const token = await getValidToken();
       const response = await fetch(
         `${API_BASE}/api/user/unlock-user/${user._id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
           body: JSON.stringify({ confirmAction: true }),
@@ -429,14 +423,13 @@ export default function UserManagement() {
     });
     if (!confirmed) return;
     try {
-      const token = await getValidToken();
       const response = await fetch(
         `${API_BASE}/api/user/update-user-status/${user._id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...(await getAuthHeader()),
             "x-action-confirmed": "true",
           },
           body: JSON.stringify({ status: "active", confirmAction: true }),

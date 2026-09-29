@@ -77,7 +77,9 @@ export const getStoredAccessToken = async () => {
     removeWebValue(AUTH_KEYS.accessToken);
     return memoryAccessToken;
   }
-  return AsyncStorage.getItem(AUTH_KEYS.accessToken);
+  const token = await secureGetItem(AUTH_KEYS.accessToken);
+  await originalAsyncRemoveItem(AUTH_KEYS.accessToken);
+  return token;
 };
 
 export const setStoredAccessToken = async (token) => {
@@ -86,7 +88,8 @@ export const setStoredAccessToken = async (token) => {
     removeWebValue(AUTH_KEYS.accessToken);
     return;
   }
-  await AsyncStorage.setItem(AUTH_KEYS.accessToken, token);
+  await secureSetItem(AUTH_KEYS.accessToken, token);
+  await originalAsyncRemoveItem(AUTH_KEYS.accessToken);
 };
 
 export const removeStoredAccessToken = async () => {
@@ -95,7 +98,8 @@ export const removeStoredAccessToken = async () => {
     removeWebValue(AUTH_KEYS.accessToken);
     return;
   }
-  await AsyncStorage.removeItem(AUTH_KEYS.accessToken);
+  await originalAsyncRemoveItem(AUTH_KEYS.accessToken);
+  await secureDeleteItem(AUTH_KEYS.accessToken);
 };
 
 export const getStoredUser = async () => {
@@ -126,10 +130,9 @@ export const removeStoredUser = async () => {
 
 export const getStoredRefreshToken = async () => {
   if (isWeb) return null;
-  return (
-    (await AsyncStorage.getItem(AUTH_KEYS.refreshToken)) ||
-    (await secureGetItem(AUTH_KEYS.refreshToken))
-  );
+  const token = await secureGetItem(AUTH_KEYS.refreshToken);
+  await originalAsyncRemoveItem(AUTH_KEYS.refreshToken);
+  return token;
 };
 
 export const setStoredRefreshToken = async (token) => {
@@ -137,8 +140,8 @@ export const setStoredRefreshToken = async (token) => {
     removeWebValue(AUTH_KEYS.refreshToken);
     return;
   }
-  await AsyncStorage.setItem(AUTH_KEYS.refreshToken, token);
   await secureSetItem(AUTH_KEYS.refreshToken, token);
+  await originalAsyncRemoveItem(AUTH_KEYS.refreshToken);
 };
 
 export const removeStoredRefreshToken = async () => {
@@ -146,7 +149,7 @@ export const removeStoredRefreshToken = async () => {
     removeWebValue(AUTH_KEYS.refreshToken);
     return;
   }
-  await AsyncStorage.removeItem(AUTH_KEYS.refreshToken);
+  await originalAsyncRemoveItem(AUTH_KEYS.refreshToken);
   await secureDeleteItem(AUTH_KEYS.refreshToken);
 };
 
@@ -180,43 +183,41 @@ export const clearStoredAuthMaterial = async () => {
   ]);
 };
 
-if (isWeb) {
-  const isAuthKey = (key) => Object.values(AUTH_KEYS).includes(key);
+const isAuthKey = (key) => Object.values(AUTH_KEYS).includes(key);
 
-  AsyncStorage.getItem = async (key, ...args) => {
-    if (!isAuthKey(key)) return originalAsyncGetItem(key, ...args);
-    if (key === AUTH_KEYS.accessToken) return getStoredAccessToken();
-    if (key === AUTH_KEYS.user) return getStoredUser();
-    if (key === AUTH_KEYS.refreshToken) return null;
-    if (key === AUTH_KEYS.sessionMeta) return getStoredSessionMeta();
-    return null;
-  };
+AsyncStorage.getItem = async (key, ...args) => {
+  if (!isAuthKey(key)) return originalAsyncGetItem(key, ...args);
+  if (key === AUTH_KEYS.accessToken) return getStoredAccessToken();
+  if (key === AUTH_KEYS.user) return getStoredUser();
+  if (key === AUTH_KEYS.refreshToken) return getStoredRefreshToken();
+  if (key === AUTH_KEYS.sessionMeta) return getStoredSessionMeta();
+  return null;
+};
 
-  AsyncStorage.setItem = async (key, value, ...args) => {
-    if (!isAuthKey(key)) return originalAsyncSetItem(key, value, ...args);
-    if (key === AUTH_KEYS.accessToken) return setStoredAccessToken(value);
-    if (key === AUTH_KEYS.user) return setStoredUser(value);
-    if (key === AUTH_KEYS.refreshToken) return removeStoredRefreshToken();
-    if (key === AUTH_KEYS.sessionMeta) return setStoredSessionMeta(value);
+AsyncStorage.setItem = async (key, value, ...args) => {
+  if (!isAuthKey(key)) return originalAsyncSetItem(key, value, ...args);
+  if (key === AUTH_KEYS.accessToken) return setStoredAccessToken(value);
+  if (key === AUTH_KEYS.user) return setStoredUser(value);
+  if (key === AUTH_KEYS.refreshToken) return setStoredRefreshToken(value);
+  if (key === AUTH_KEYS.sessionMeta) return setStoredSessionMeta(value);
+  return undefined;
+};
+
+AsyncStorage.removeItem = async (key, ...args) => {
+  if (!isAuthKey(key)) return originalAsyncRemoveItem(key, ...args);
+  if (key === AUTH_KEYS.accessToken) return removeStoredAccessToken();
+  if (key === AUTH_KEYS.user) return removeStoredUser();
+  if (key === AUTH_KEYS.refreshToken) return removeStoredRefreshToken();
+  if (key === AUTH_KEYS.sessionMeta) return removeStoredSessionMeta();
+  return undefined;
+};
+
+if (originalAsyncMultiRemove) {
+  AsyncStorage.multiRemove = async (keys = [], ...args) => {
+    const authKeys = keys.filter(isAuthKey);
+    const otherKeys = keys.filter((key) => !isAuthKey(key));
+    await Promise.all(authKeys.map((key) => AsyncStorage.removeItem(key)));
+    if (otherKeys.length) return originalAsyncMultiRemove(otherKeys, ...args);
     return undefined;
   };
-
-  AsyncStorage.removeItem = async (key, ...args) => {
-    if (!isAuthKey(key)) return originalAsyncRemoveItem(key, ...args);
-    if (key === AUTH_KEYS.accessToken) return removeStoredAccessToken();
-    if (key === AUTH_KEYS.user) return removeStoredUser();
-    if (key === AUTH_KEYS.refreshToken) return removeStoredRefreshToken();
-    if (key === AUTH_KEYS.sessionMeta) return removeStoredSessionMeta();
-    return undefined;
-  };
-
-  if (originalAsyncMultiRemove) {
-    AsyncStorage.multiRemove = async (keys = [], ...args) => {
-      const authKeys = keys.filter(isAuthKey);
-      const otherKeys = keys.filter((key) => !isAuthKey(key));
-      await Promise.all(authKeys.map((key) => AsyncStorage.removeItem(key)));
-      if (otherKeys.length) return originalAsyncMultiRemove(otherKeys, ...args);
-      return undefined;
-    };
-  }
 }

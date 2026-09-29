@@ -47,7 +47,7 @@ const mergeAircraftFhNotifications = (
 };
 
 export default function PushNotificationsCard({ open, onClose }) {
-  const { getAuthHeader, getValidToken, user } = useContext(AuthContext);
+  const { getAuthHeader, user } = useContext(AuthContext);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const reconnectTimeoutRef = useRef(null);
@@ -180,24 +180,22 @@ export default function PushNotificationsCard({ open, onClose }) {
 
     let isMounted = true;
 
-    const getWebSocketUrl = (token) => {
+    const getWebSocketUrl = () => {
       const wsBase = String(API_BASE || "")
         .replace(/\/+$/, "")
         .replace(/^http/i, (match) =>
           match.toLowerCase() === "https" ? "wss" : "ws",
         );
-      return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
+      return `${wsBase}/ws`;
     };
 
     const connect = async () => {
       try {
-        const token = await getValidToken();
-
-        if (!token || !isMounted) {
+        if (!isMounted) {
           return;
         }
 
-        const socket = new WebSocket(getWebSocketUrl(token));
+        const socket = new WebSocket(getWebSocketUrl());
         websocketRef.current = socket;
 
         socket.onmessage = (event) => {
@@ -240,7 +238,7 @@ export default function PushNotificationsCard({ open, onClose }) {
       clearTimeout(reconnectTimeoutRef.current);
       websocketRef.current?.close?.();
     };
-  }, [fetchNotifications, getValidToken, user?.id]);
+  }, [fetchNotifications, user?.id]);
 
   const markNotificationRead = async (notificationId) => {
     if (isAircraftFhNotification(notificationId)) {

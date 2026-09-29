@@ -500,7 +500,7 @@ export const AuthProvider = ({ children }) => {
     return payload;
   }, [token, getSessionMeta, defaultPlatform]);
 
-  const contextValue = useMemo(() => ({ user, session, token, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity }), [user, session, token, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity]);
+  const contextValue = useMemo(() => ({ user, session, token: null, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity }), [user, session, loginUser, updateUser, logoutUser, loading, refreshSession, rememberMePreference, updateRememberMePreference, markClientActivity]);
 
   return (
     <AuthContext.Provider

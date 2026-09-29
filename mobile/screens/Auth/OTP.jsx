@@ -26,7 +26,10 @@ import { getDeviceAuditHeaders } from "../../utilities/mobileApi";
 import { setStoredAccessToken } from "../../utilities/authStorage";
 import { buildLoginLocationHeaders } from "../../utilities/loginLocation";
 
-const getTrustedDeviceStorageKey = (account) => {
+const TRUSTED_DEVICE_TOKEN_KEY = "trustedDeviceToken";
+const RESET_PASSWORD_TOKEN_KEY = "pendingPasswordResetToken";
+
+const getLegacyTrustedDeviceStorageKey = (account) => {
   const normalizedAccount = String(account || "")
     .trim()
     .toLowerCase();
@@ -39,10 +42,10 @@ const storeTrustedDeviceTokenForAccounts = async (accounts = [], token) => {
   if (!token) return;
 
   const keys = new Set(
-    accounts.map(getTrustedDeviceStorageKey).filter(Boolean),
+    accounts.map(getLegacyTrustedDeviceStorageKey).filter(Boolean),
   );
-  await Promise.all([...keys].map((key) => secureSetItem(key, token)));
-  await secureDeleteItem("trustedDeviceToken");
+  await secureSetItem(TRUSTED_DEVICE_TOKEN_KEY, token);
+  await Promise.all([...keys].map((key) => secureDeleteItem(key)));
 };
 
 export default function OTP() {
@@ -102,7 +105,8 @@ export default function OTP() {
         setMessage("OTP verified. Redirecting...");
         showToast("OTP verified. Redirecting...");
         await new Promise((resolve) => setTimeout(resolve, 1200));
-        navigation.replace("resetPassword", { token });
+        await secureSetItem(RESET_PASSWORD_TOKEN_KEY, token);
+        navigation.replace("resetPassword");
       } else {
         const message = String(data?.message || "");
         setMessage(

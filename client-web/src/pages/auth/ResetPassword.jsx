@@ -16,7 +16,7 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
-  const token = query.get("token");
+  const token = location.state?.token || query.get("token");
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",

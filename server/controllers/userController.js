@@ -134,11 +134,11 @@ const setRefreshTokenCookie = (
   isPersistent,
   platform = "",
 ) => {
+  const isProduction = process.env.NODE_ENV === "production";
   const refreshCookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    secure: true,
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
   };
 
   if (isPersistent) {
@@ -146,6 +146,35 @@ const setRefreshTokenCookie = (
   }
 
   res.cookie("refreshToken", refreshToken, refreshCookieOptions);
+};
+
+const getAuthCookieOptions = (maxAge) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  const options = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
+  };
+  if (maxAge) options.maxAge = maxAge;
+  return options;
+};
+
+const setAccessTokenCookie = (res, accessToken) => {
+  res.cookie("accessToken", accessToken, getAuthCookieOptions(30 * 60 * 1000));
+};
+
+const setTrustedDeviceCookie = (res, trustedDeviceToken) => {
+  res.cookie(
+    "trustedDeviceToken",
+    trustedDeviceToken,
+    getAuthCookieOptions(TRUSTED_DEVICE_TTL_MS),
+  );
+};
+
+const clearAuthCookies = (res) => {
+  const options = getAuthCookieOptions();
+  res.clearCookie("accessToken", options);
+  res.clearCookie("refreshToken", options);
 };
 
 const storeRefreshToken = async ({
@@ -582,6 +611,9 @@ const buildLoginSuccessPayload = async ({
   const session = await createUserSession(req, user._id, loginPlatform);
 
   const token = buildAccessToken(user, session);
+  if (loginPlatform === "WEB") {
+    setAccessTokenCookie(res, token);
+  }
 
   const usePersistentRefreshCookie = Boolean(rememberMe);
   const { token: refreshToken, jti } = issueRefreshToken(
@@ -629,7 +661,7 @@ const buildLoginSuccessPayload = async ({
 
   return {
     message: "Login successful",
-    token,
+    token: loginPlatform === "MOBILE" ? token : undefined,
     refreshToken: loginPlatform === "MOBILE" ? refreshToken : undefined,
     session: buildSessionPayload(session),
     sessionId: session.sessionId,
@@ -781,7 +813,9 @@ const loginUser = async (req, res) => {
     }
 
     const inboundTrustedDeviceToken =
-      trustedDeviceToken || req.headers["x-trusted-device-token"];
+      trustedDeviceToken ||
+      req.cookies?.trustedDeviceToken ||
+      req.headers["x-trusted-device-token"];
     const validTrustedDevice = findValidTrustedDevice(
       user,
       inboundTrustedDeviceToken,
@@ -945,9 +979,15 @@ const verifyLoginOtp = async (req, res) => {
       });
       await user.save();
 
+      if (loginPlatform === "WEB") {
+        setTrustedDeviceCookie(res, rawTrustedDeviceToken);
+      }
+
       return res.status(200).json({
         ...payload,
-        trustedDeviceToken: rawTrustedDeviceToken,
+        trustedDeviceToken:
+          loginPlatform === "MOBILE" ? rawTrustedDeviceToken : undefined,
+        trustedDeviceRegistered: true,
         trustedDeviceExpiresAt: new Date(
           Date.now() + TRUSTED_DEVICE_TTL_MS,
         ).toISOString(),
@@ -1064,12 +1104,7 @@ const refreshToken = async (req, res) => {
         payload.id,
         "Refresh token replay/reuse detected during rotation",
       );
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "None",
-        secure: true,
-      });
+      clearAuthCookies(res);
       return res.status(403).json({ message: "Invalid refresh token" });
     }
 
@@ -1158,18 +1193,16 @@ const refreshToken = async (req, res) => {
     );
     const isMobileClient =
       String(req.headers["x-platform"] || "").toUpperCase() === "MOBILE";
+    if (!isMobileClient) {
+      setAccessTokenCookie(res, newAccessToken);
+    }
     res.json({
-      token: newAccessToken,
+      token: isMobileClient ? newAccessToken : undefined,
       refreshToken: isMobileClient ? newRefreshToken : undefined,
       user: buildClientUserProfile(user),
     });
   } catch {
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "None",
-      secure: true,
-    });
+    clearAuthCookies(res);
     res.status(403).json({ message: "Invalid refresh token" });
   }
 };
@@ -1326,17 +1359,15 @@ const logoutUser = async (req, res) => {
       );
     }
 
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.split(" ")[1]
+      : req.cookies?.accessToken;
     if (!token) {
       await deactivateSessionById(
         revokedRefreshToken?.userId,
         req.headers["x-session-id"],
       );
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        sameSite: "None",
-        secure: true,
-      });
+      clearAuthCookies(res);
       return res.status(200).json({ message: "Logged out successfully" });
     }
 
@@ -1349,11 +1380,7 @@ const logoutUser = async (req, res) => {
           revokedRefreshToken?.userId,
           req.headers["x-session-id"],
         );
-        res.clearCookie("refreshToken", {
-          httpOnly: true,
-          sameSite: "None",
-          secure: true,
-        });
+        clearAuthCookies(res);
         return res.status(200).json({ message: "Logged out successfully" });
       }
       decoded = jwt.verify(token, process.env.JWT_SECRET, {
@@ -1386,12 +1413,7 @@ const logoutUser = async (req, res) => {
       decoded.username || null,
     );
 
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "None",
-      secure: true,
-    });
+    clearAuthCookies(res);
 
     res.status(200).json({ message: "Logged out successfully" });
   } catch (err) {

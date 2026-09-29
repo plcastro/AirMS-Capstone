@@ -93,7 +93,7 @@ export default function UserForm({
 }) {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const { user: currentUser, getValidToken } = useContext(AuthContext);
+  const { user: currentUser, getAuthHeader } = useContext(AuthContext);
   const [form] = Form.useForm();
   const formValues = Form.useWatch([], form);
 
@@ -197,10 +197,9 @@ export default function UserForm({
     setLoading(true);
 
     try {
-      const token = await getValidToken();
       let body;
       const headers = {
-        Authorization: `Bearer ${token}`,
+        ...(await getAuthHeader()),
         "x-action-confirmed": "true",
       };
 

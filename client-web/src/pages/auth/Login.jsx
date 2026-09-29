@@ -21,14 +21,8 @@ import {
   buildLoginLocationHeaders,
   detectLoginLocation,
 } from "../../utils/loginLocation";
+import { airmStorage } from "../../utils/airmsStorage";
 const { Text } = Typography;
-
-const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "")
-    .trim()
-    .toLowerCase();
-  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
-};
 
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
@@ -52,8 +46,8 @@ const Login = () => {
   const [termsOpen, setTermsOpen] = useState(false);
   // Load saved credentials on component mount
   useEffect(() => {
-    const savedIdentifier = localStorage.getItem("rememberedIdentifier");
-    const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+    const savedIdentifier = airmStorage.get("rememberedIdentifier", "");
+    const savedRememberMe = airmStorage.get("rememberMe", false) === true;
 
     setRememberMe(savedRememberMe);
 
@@ -99,10 +93,10 @@ const Login = () => {
     setRememberMe(isChecked);
 
     if (!isChecked) {
-      localStorage.setItem("rememberMe", "false");
-      localStorage.removeItem("rememberedIdentifier");
+      airmStorage.set("rememberMe", false);
+      airmStorage.remove("rememberedIdentifier");
     } else {
-      localStorage.setItem("rememberMe", "true");
+      airmStorage.set("rememberMe", true);
     }
   };
 
@@ -133,11 +127,6 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const trustedDeviceKey = getTrustedDeviceStorageKey(identifier);
-      const trustedDeviceToken = trustedDeviceKey
-        ? localStorage.getItem(trustedDeviceKey) || ""
-        : "";
-
       const response = await fetch(`${API_BASE}/api/user/login`, {
         method: "POST",
         headers: {
@@ -152,7 +141,6 @@ const Login = () => {
           client: "web",
           rememberMe,
           location,
-          trustedDeviceToken,
         }),
 
         credentials: "include",
@@ -195,15 +183,15 @@ const Login = () => {
         });
 
         if (rememberMe) {
-          localStorage.setItem(
+          airmStorage.set(
             "rememberedIdentifier",
             formData.identifier.trim(),
           );
 
-          localStorage.setItem("rememberMe", "true");
+          airmStorage.set("rememberMe", true);
         } else {
-          localStorage.removeItem("rememberedIdentifier");
-          localStorage.removeItem("rememberMe");
+          airmStorage.remove("rememberedIdentifier");
+          airmStorage.remove("rememberMe");
         }
         handleNavigate(data.user);
       } else {

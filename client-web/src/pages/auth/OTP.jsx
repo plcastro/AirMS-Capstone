@@ -6,29 +6,13 @@ import { API_BASE } from "../../utils/API_BASE";
 import { useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { buildLoginLocationHeaders } from "../../utils/loginLocation";
+import { airmStorage } from "../../utils/airmsStorage";
 
 import "./login.css";
 import "../../App.css";
 import LoginLayout from "../../components/layout/LoginLayout";
 import ResultPopup from "../../components/common/ResultPopup";
 const { Title, Text } = Typography;
-
-const getTrustedDeviceStorageKey = (account) => {
-  const normalizedAccount = String(account || "")
-    .trim()
-    .toLowerCase();
-  return normalizedAccount ? `trustedDeviceToken:${normalizedAccount}` : "";
-};
-
-const storeTrustedDeviceTokenForAccounts = (accounts = [], token) => {
-  if (!token) return;
-
-  const keys = new Set(
-    accounts.map(getTrustedDeviceStorageKey).filter(Boolean),
-  );
-  keys.forEach((key) => localStorage.setItem(key, token));
-  localStorage.removeItem("trustedDeviceToken");
-};
 
 export default function OTP() {
   const navigate = useNavigate();
@@ -128,12 +112,6 @@ export default function OTP() {
 
       if (res.ok) {
         if (mode === "login-2fa") {
-          if (data?.trustedDeviceToken) {
-            storeTrustedDeviceTokenForAccounts(
-              [params.identifier, data.user?.email, data.user?.username],
-              data.trustedDeviceToken,
-            );
-          }
           await loginUser(data.user, data.token, {
             rememberMe: Boolean(params.rememberMe),
             location: data.session?.location || params.loginLocation,
@@ -141,16 +119,16 @@ export default function OTP() {
           });
 
           if (params.rememberMe) {
-            localStorage.setItem("rememberMe", "true");
+            airmStorage.set("rememberMe", true);
             if (params.identifier) {
-              localStorage.setItem(
+              airmStorage.set(
                 "rememberedIdentifier",
                 String(params.identifier).trim(),
               );
             }
           } else {
-            localStorage.removeItem("rememberedIdentifier");
-            localStorage.removeItem("rememberMe");
+            airmStorage.remove("rememberedIdentifier");
+            airmStorage.remove("rememberMe");
           }
 
           const role = String(data?.user?.jobTitle || "").toLowerCase();
@@ -187,7 +165,7 @@ export default function OTP() {
           subTitle: "OTP has been verified. Redirecting...",
         });
         setTimeout(() => {
-          navigate(`/reset-password?token=${token}`);
+          navigate("/reset-password", { state: { token } });
         }, 1000);
       } else {
         const message = String(data?.message || "");
