@@ -235,15 +235,18 @@ export default function MaintenanceDashboard() {
   });
   const [showAnalyticsWidgets, setShowAnalyticsWidgets] = useState(false);
   const statTitleStyle = {
-    fontSize: 12,
+    fontSize: 16,
     lineHeight: 1.25,
     whiteSpace: "normal",
     color: "#ffffff",
+    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.35)",
   };
+
   const statValueStyle = {
     fontSize: 24,
     lineHeight: 1.1,
     wordBreak: "break-word",
+    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.4)",
   };
   const reportMasonryColumns = {
     xs: 1,
@@ -1394,7 +1397,14 @@ export default function MaintenanceDashboard() {
             <Col xs={12} sm={12} md={4} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12, height: 90 } }}
+                styles={{
+                  body: {
+                    padding: 12,
+                    height: 90,
+                    display: "flex",
+                    flexDirection: "column",
+                  },
+                }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("completed");
@@ -1402,7 +1412,8 @@ export default function MaintenanceDashboard() {
                 }}
                 style={{
                   borderColor:
-                    activeKpi === "completed" ? "#048a25" : undefined,
+                    activeKpi === "completed" ? "#0cec44" : undefined,
+                  borderWidth: 4,
                   background:
                     "linear-gradient(135deg, #00a02b 0%, #00854d 100%)",
                 }}
@@ -1411,10 +1422,20 @@ export default function MaintenanceDashboard() {
                   title="Completed Tasks"
                   value={stats.completed}
                   styles={{
-                    title: statTitleStyle,
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
                     content: {
                       ...statValueStyle,
                       color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
                     },
                   }}
                 />
@@ -1431,7 +1452,8 @@ export default function MaintenanceDashboard() {
                   setActiveKpi("dueSoon");
                 }}
                 style={{
-                  borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
+                  borderColor: activeKpi === "dueSoon" ? "#ffaa00" : undefined,
+                  borderWidth: 4,
                   background:
                     "linear-gradient(135deg, #fac654 0%, #e29b00 100%)",
                 }}
@@ -1440,10 +1462,20 @@ export default function MaintenanceDashboard() {
                   title="Due Soon (in 3 days)"
                   value={stats.dueSoon}
                   styles={{
-                    title: statTitleStyle,
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
                     content: {
                       ...statValueStyle,
                       color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
                     },
                   }}
                 />
@@ -1460,7 +1492,8 @@ export default function MaintenanceDashboard() {
                   setActiveKpi("overdue");
                 }}
                 style={{
-                  borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
+                  borderColor: activeKpi === "overdue" ? "#ff0015" : undefined,
+                  borderWidth: 4,
                   background:
                     "linear-gradient(135deg, #cf1322 0%, #830606 100%)",
                 }}
@@ -1469,10 +1502,20 @@ export default function MaintenanceDashboard() {
                   title="Overdue Tasks"
                   value={stats.overdue}
                   styles={{
-                    title: statTitleStyle,
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
                     content: {
                       ...statValueStyle,
                       color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
                     },
                   }}
                 />
@@ -1486,7 +1529,8 @@ export default function MaintenanceDashboard() {
                 hoverable
                 onClick={() => setActiveKpi("modules")}
                 style={{
-                  borderColor: activeKpi === "modules" ? "#0148e0" : undefined,
+                  borderColor: activeKpi === "modules" ? "#0051ff" : undefined,
+                  borderWidth: 4,
                   background:
                     "linear-gradient(135deg, #007db8 0%, #003380 100%)",
                 }}
@@ -1495,10 +1539,20 @@ export default function MaintenanceDashboard() {
                   title="Module Reports"
                   value={cards.length}
                   styles={{
-                    title: statTitleStyle,
+                    root: {
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    },
+                    title: {
+                      ...statTitleStyle,
+                      fontWeight: "bold",
+                    },
                     content: {
                       ...statValueStyle,
                       color: "#ffffff",
+                      fontWeight: "bolder",
+                      marginTop: "auto",
                     },
                   }}
                 />
