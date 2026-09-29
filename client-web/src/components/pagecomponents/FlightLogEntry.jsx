@@ -8,14 +8,7 @@ import {
   requiredFlightTimeError,
 } from "../../../../shared/flightLogTimes";
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  Alert,
-  Button,
-  message,
-  Modal,
-  Spin,
-  Typography,
-} from "antd";
+import { Alert, Button, message, Modal, Spin, Typography } from "antd";
 import {
   InfoCircleOutlined,
   EnvironmentOutlined,
@@ -244,7 +237,7 @@ const WORK_DONE_TAB = {
 
 function EntryShell({ embedded, children, ...props }) {
   return embedded ? (
-    <div>{children}</div>
+    <div className="fl-entry-embedded">{children}</div>
   ) : (
     <Modal {...props}>{children}</Modal>
   );
@@ -259,7 +252,7 @@ export default function FlightLogEntry({
   editMode = false,
   lockedRpc = "",
   initialData = null,
-  initialAircraftRpc = '',
+  initialAircraftRpc = "",
   initialComponentData = null,
   readOnly = false,
   onRelease,
@@ -275,10 +268,16 @@ export default function FlightLogEntry({
   const resolvedRole = resolveRole(userRole);
   const isPilot = resolvedRole === "pilot";
   const isMechanic = resolvedRole === "mechanic";
-  const managerCreation = !editMode && isFlightLogManager({ jobTitle: userRole });
-  const lockedAircraftRpc = String(lockedRpc || (!editMode ? initialAircraftRpc : '') || '').trim();
+  const managerCreation =
+    !editMode && isFlightLogManager({ jobTitle: userRole });
+  const lockedAircraftRpc = String(
+    lockedRpc || (!editMode ? initialAircraftRpc : "") || "",
+  ).trim();
   const canEnterDestinations = ["mechanic", "maintenance manager"].includes(
-    String(userRole || "").trim().toLowerCase().replace(/[\s-]+/g, " "),
+    String(userRole || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, " "),
   );
 
   const normalizeInitialForm = (source) => {
@@ -539,7 +538,8 @@ export default function FlightLogEntry({
   }, [activeTab, effectiveActiveTab]);
 
   const updateForm = (field, value) => {
-    if (field === 'rpc' && lockedAircraftRpc && value !== lockedAircraftRpc) return;
+    if (field === "rpc" && lockedAircraftRpc && value !== lockedAircraftRpc)
+      return;
     if (field === "rpc") {
       setActiveTab("info");
 
@@ -728,12 +728,14 @@ export default function FlightLogEntry({
 
   // EDIT PERMISSIONS (who can edit what)
   const canEditBasicInfo =
-    !readOnly && isMechanic &&
+    !readOnly &&
+    isMechanic &&
     (!editMode || isMechanic || embedded) &&
     (!permissions || permissions.preparation);
   const isCompletedLog = editMode && formData.status === "completed";
   const isRPCEditable =
-    !lockedAircraftRpc && (!editMode || !isReleasedFlightLogStatus(formData.status));
+    !lockedAircraftRpc &&
+    (!editMode || !isReleasedFlightLogStatus(formData.status));
   const canEditDestinations =
     !readOnly && !isCompletedLog && canEnterDestinations;
   const canEditComponent = !readOnly && isMechanic;
@@ -742,7 +744,8 @@ export default function FlightLogEntry({
     !readOnly && isMechanic && (!permissions || permissions.maintenance);
   const canEditWorkDone =
     !readOnly && isMechanic && (!permissions || permissions.maintenance);
-  const canEditDiscrepancy = !readOnly && isMechanic && (!permissions || permissions.flight);
+  const canEditDiscrepancy =
+    !readOnly && isMechanic && (!permissions || permissions.flight);
   const canSave = !readOnly && isMechanic && !isCompletedLog;
   const canSaveCurrentTab =
     canSave ||
@@ -815,7 +818,9 @@ export default function FlightLogEntry({
     }
     if (!validateRequiredFlightTime()) return;
     if (managerCreation && !formData.assignedMechanic?.userId) {
-      message.error("Select an assigned mechanic before creating the flight log.");
+      message.error(
+        "Select an assigned mechanic before creating the flight log.",
+      );
       setActiveTab("info");
       return;
     }
@@ -1117,9 +1122,23 @@ export default function FlightLogEntry({
       centered
       zIndex={3000}
       rootClassName="fl-entry-modal-root"
-      styles={{ body: { padding: 0 } }}
       className="fl-entry-modal"
       destroyOnHidden
+      styles={{
+        content: {
+          height: "80vh",
+          maxHeight: "80vh",
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+        },
+        body: {
+          padding: 0,
+          minHeight: 0,
+          flex: 1,
+          overflow: "hidden",
+        },
+      }}
     >
       <Spin spinning={submitting}>
         {!embedded && (
@@ -1201,9 +1220,7 @@ export default function FlightLogEntry({
               </div>
             )}
           {!embedded &&
-            (showReleaseButton ||
-              showAcceptButton ||
-              showCompleteButton) && (
+            (showReleaseButton || showAcceptButton || showCompleteButton) && (
               <div
                 style={{
                   marginTop: 12,

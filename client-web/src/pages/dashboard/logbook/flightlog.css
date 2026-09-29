@@ -217,10 +217,15 @@
   border-radius: 16px;
   display: flex;
   flex-direction: column;
+  height: calc(100dvh - 48px);
   max-height: calc(100dvh - 48px);
 }
 .fl-workspace-modal .ant-modal-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 .fl-workspace-modal .ant-modal-header,
 .fl-workspace-modal .ant-modal-footer {
@@ -267,12 +272,16 @@
   border-top: 1px solid #e4ece7;
 }
 .fl-workspace-tabs > .ant-tabs-nav {
+  flex-shrink: 0;
   margin-bottom: 0;
 }
 .fl-workspace-modal .fl-modal-body {
+  flex: 1 1 auto;
   height: auto;
   max-height: none;
-  overflow: visible;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 0 0 12px 12px;
 }
 .fl-workspace-modal .fl-tab-nav {
@@ -294,6 +303,57 @@
 }
 .fl-inspection-checks-pager .ant-pagination {
   margin: 0;
+}
+.fl-workspace-modal .ant-spin-nested-loading,
+.fl-workspace-modal .ant-spin-container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.fl-workspace-modal .ant-spin-container > .fl-workspace-summary,
+.fl-workspace-modal .ant-spin-container > .ant-alert,
+.fl-workspace-modal .ant-spin-container > .ant-card {
+  flex-shrink: 0;
+}
+.fl-workspace-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.fl-workspace-tabs > .ant-tabs-content-holder {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.fl-workspace-tabs > .ant-tabs-content-holder > .ant-tabs-content {
+  height: 100%;
+  min-height: 0;
+}
+.fl-workspace-tabs .ant-tabs-tabpane {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fl-entry-embedded {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.fl-entry-embedded > .ant-spin-nested-loading,
+.fl-entry-embedded .ant-spin-container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.fl-entry-embedded .fl-tab-nav {
+  flex-shrink: 0;
 }
 
 /* ── Modal footer ────────────────────────────────────────── */

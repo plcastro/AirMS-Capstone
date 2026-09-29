@@ -490,7 +490,7 @@ export default function FlightWorkspace({
       destroyOnHidden
       styles={{
         body: {
-          overflowY: "visible",
+          overflow: "hidden",
         },
       }}
     >
