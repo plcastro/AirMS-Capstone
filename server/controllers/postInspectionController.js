@@ -1,4 +1,5 @@
 const PostInspection = require("../models/postInspectionModel");
+const { withInspectionCreatorNames } = require("../utils/inspectionCreatorNames");
 const { isAssignedFlightCrew, getAssignedCrewField, CREW_ACCESS_MESSAGE } = require("../../shared/flightCrewAccess");
 const { getInspectionFlightLog, withInspectionCrew, pickInspectionUpdates } = require("../utils/inspectionFlightCrew");
 const {
@@ -143,7 +144,8 @@ const createPostInspection = async (req, res) => {
 const getAllPostInspections = async (req, res) => {
   try {
     const inspections = await PostInspection.find().sort({ createdAt: -1 }).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
-    res.status(200).json({ status: "Ok", data: inspections.map((inspection) => withInspectionCrew(inspection)) });
+    const data = await withInspectionCreatorNames(inspections.map((inspection) => withInspectionCrew(inspection)));
+    res.status(200).json({ status: "Ok", data });
   } catch (err) {
     console.error("Error fetching post-flight inspections:", err);
     res

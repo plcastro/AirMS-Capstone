@@ -1,4 +1,5 @@
 const PreInspection = require("../models/preInspectionModel");
+const { withInspectionCreatorNames } = require("../utils/inspectionCreatorNames");
 const PostInspection = require("../models/postInspectionModel");
 const { isAssignedFlightCrew, getAssignedCrewField, CREW_ACCESS_MESSAGE } = require("../../shared/flightCrewAccess");
 const { getInspectionFlightLog, withInspectionCrew, pickInspectionUpdates } = require("../utils/inspectionFlightCrew");
@@ -154,7 +155,8 @@ const createPreInspection = async (req, res) => {
 const getAllPreInspections = async (req, res) => {
   try {
     const inspections = await PreInspection.find().sort({ createdAt: -1 }).populate("flightLogId", "assignedPilot assignedMechanic controlNo");
-    res.status(200).json({ status: "Ok", data: inspections.map((inspection) => withInspectionCrew(inspection)) });
+    const data = await withInspectionCreatorNames(inspections.map((inspection) => withInspectionCrew(inspection)));
+    res.status(200).json({ status: "Ok", data });
   } catch (err) {
     console.error("Error fetching pre-flight inspections:", err);
     res.status(500).json({ message: "Failed to fetch pre-flight inspections" });
