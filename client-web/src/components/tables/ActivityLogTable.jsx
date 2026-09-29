@@ -35,7 +35,7 @@ const headers = [
     title: "Action Made",
     dataIndex: "actionMade",
     key: "actionMade",
-    width: 500,
+    width: 250,
     flexWrap: "wrap",
   },
   {
@@ -49,7 +49,7 @@ const headers = [
     title: "Platform",
     dataIndex: "platformLabel",
     key: "platform",
-    width: 100,
+    width: 70,
     render: (text, record) =>
       renderContextValue(text || record.platform, getPlatformColor),
   },
@@ -94,13 +94,12 @@ const headers = [
     key: "dateTime",
     sorter: (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
     width: 100,
-    render: (_, record) =>
-      (
-        <DateTimeCell
-          value={record.dateTime}
-          fallback={record.displayDateTime || "N/A"}
-        />
-      ),
+    render: (_, record) => (
+      <DateTimeCell
+        value={record.dateTime}
+        fallback={record.displayDateTime || "N/A"}
+      />
+    ),
   },
 ];
 export default function ActivityLogTable({ data = [], loading }) {

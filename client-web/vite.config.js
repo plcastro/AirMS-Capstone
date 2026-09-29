@@ -4,10 +4,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+const AIRMS_ROOT = path.resolve(__dirname, "..");
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      allow: [AIRMS_ROOT],
+    },
+  },
   resolve: {
     alias: [
       {

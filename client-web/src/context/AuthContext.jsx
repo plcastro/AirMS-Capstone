@@ -7,7 +7,6 @@ import React, {
   useState,
 } from "react";
 import { API_BASE } from "../utils/API_BASE";
-import { normalizeAccountRoles } from "../../../shared/accountRoles";
 import { buildLoginLocationHeaders } from "../utils/loginLocation";
 import {
   clearCurrentSessionProfile,
@@ -22,7 +21,7 @@ import {
   removeLegacyClientReadableCredentials,
 } from "../utils/airmsStorage";
 import { trustedDeviceManager } from "../utils/trustedDeviceManager";
-
+import { normalizeAccountRoles } from "../../../shared/accountRoles";
 import {
   createIdleSession,
   SESSION_IDLE_LIMIT_MS,
@@ -181,7 +180,9 @@ export const AuthProvider = ({ children }) => {
     return {
       ...userData,
       id: userData.id || userData._id || null,
-      jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
+      jobTitle: userData.jobTitle
+        ? userData.jobTitle.trim().toLowerCase()
+        : null,
       access: userData.access ? userData.access.trim().toLowerCase() : null,
     };
   };
@@ -384,9 +385,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     clearCurrentSessionProfile();
     clearAuthStorage();
-    setRememberMePreferenceState(
-      airmStorage.get("rememberMe", false) === true,
-    );
+    setRememberMePreferenceState(airmStorage.get("rememberMe", false) === true);
     if (broadcast) {
       publishAuthSync({ type: "LOGOUT" });
     }
