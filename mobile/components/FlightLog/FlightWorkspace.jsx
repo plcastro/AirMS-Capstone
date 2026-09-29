@@ -525,11 +525,16 @@ export default function FlightWorkspace({
                         ? ` — ${log[step.crew]?.name || "Unassigned"}`
                         : ""}
                     </AppText>
-                    <AppText>
-                      Pilot: {log.assignedPilot?.name || "Unassigned"}
-                      {"\n"}Mechanic:{" "}
-                      {log.assignedMechanic?.name || "Unassigned"}
-                    </AppText>
+                    <View style={{ gap: 10, marginVertical: 12 }}>
+                      <AppText style={{ lineHeight: 22 }}>
+                        <AppText style={{ fontWeight: "600" }}>Pilot: </AppText>
+                        {log.assignedPilot?.name || "Unassigned"}
+                      </AppText>
+                      <AppText style={{ lineHeight: 22 }}>
+                        <AppText style={{ fontWeight: "600" }}>Mechanic: </AppText>
+                        {log.assignedMechanic?.name || "Unassigned"}
+                      </AppText>
+                    </View>
                     <AppText>{workspace.readiness.aircraftStatus}</AppText>
                     {saveState !== "Saved on server" && (
                       <AppText>{saveState}</AppText>

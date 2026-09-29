@@ -250,6 +250,26 @@
   background: #f7fbf9;
   border-radius: 12px;
 }
+.fl-workspace-crew {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 14px 0;
+  line-height: 1.6;
+}
+.fl-workspace-crew > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.fl-workspace-crew strong {
+  font-weight: 600;
+}
+.fl-workspace-crew span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
 .fl-workspace-details {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
