@@ -6,7 +6,7 @@ const ROLE_TO_JOB_TITLE = {
   mechanic: "Mechanic",
   "warehouse personnel": "Warehouse Personnel",
   pilot: "Pilot",
-  superadmin: "Superadmin",
+  "admin staff": "Admin Staff",
 };
 
 const normalizeRole = (role = "") =>

@@ -1,17 +1,14 @@
 const User = require("../models/userModel");
 const { isPilotFlightLogRequest } = require("./flightLogPayload");
-const { isFlightLogManager } = require("../../shared/flightLogCreationAccess");
+const { getAssignedCrewField } = require("../../shared/flightCrewAccess");
 
 const crewName = (user) => `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
 // Resolve IDs against the user directory instead of trusting names or roles
 // supplied by a client. Keep existing assignments usable if a user goes inactive.
 const resolveFlightLogCrew = async (req, payload, existing = null, users = User) => {
-  const managerCreation = !existing && isFlightLogManager(req.user);
-  const fields = managerCreation ? ["assignedPilot", "assignedMechanic"]
-    : [isPilotFlightLogRequest(req) ? "assignedMechanic" : "assignedPilot"];
+  const fields = [isPilotFlightLogRequest(req) ? "assignedMechanic" : "assignedPilot"];
   const assignments = {};
-  if (managerCreation && !payload.assignedMechanic) return { error: 'Select an assigned mechanic before creating the flight log.' };
 
   for (const field of fields) {
     const role = field === "assignedPilot" ? "Pilot" : "Mechanic";
@@ -44,9 +41,7 @@ const resolveFlightLogCrew = async (req, payload, existing = null, users = User)
   if (!existing && /^[a-f\d]{24}$/i.test(String(req.user?.id || ""))) {
     const creator = await users.findOne({ _id: String(req.user.id), status: "active" })
       .select("firstName lastName jobTitle").lean();
-    const ownField = creator?.jobTitle === "Pilot"
-      ? "assignedPilot"
-      : creator?.jobTitle === "Mechanic" ? "assignedMechanic" : null;
+    const ownField = creator ? getAssignedCrewField(creator) : null;
     if (ownField && !fields.includes(ownField)) {
       assignments[ownField] = { userId: String(creator._id), name: crewName(creator) };
     }

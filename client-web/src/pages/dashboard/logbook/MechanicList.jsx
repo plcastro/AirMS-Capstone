@@ -34,7 +34,7 @@ const isCompletedTask = (task) =>
   );
 export default function MechanicList() {
   const { user } = useContext(AuthContext);
-  const manager = ["maintenance manager", "superadmin"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "superadmin";
+  const manager = ["maintenance manager", "admin staff"].includes(String(user?.jobTitle || "").toLowerCase()) || String(user?.access || "").toLowerCase() === "admin staff";
   if (!manager) return <div style={{ padding: 20 }}><Card><Title level={4}>{`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "My mechanic profile"}</Title><Text type="secondary">My certificates and aircraft qualifications</Text></Card><MechanicCertificates key={user?.id || user?._id} personnelId={user?.id || user?._id} /></div>;
   return <MechanicDirectory />;
 }

@@ -51,6 +51,17 @@ test('inactive accounts cannot sign even with the correct PIN', async () => {
   const h = signerHarness(); h.user.status = 'inactive'; await assert.rejects(h.sign(), { status: 403 });
 });
 
+test('maintenance manager signatures retain their account identity for assigned mechanic actions', async () => {
+  const h = signerHarness();
+  h.user.jobTitle = 'Maintenance Manager';
+  for (const scope of ['pre_confirmed_all', 'release', 'post_confirmed_all', 'complete']) {
+    const signed = await h.sign({}, { jobTitle: h.user.jobTitle }, scope);
+    assert.equal(signed.userId, id);
+    assert.equal(signed.title, 'Maintenance Manager');
+    assert.equal(signed.scope, scope);
+  }
+});
+
 test('repeated incorrect workflow PINs are rate limited and an old authenticated role cannot sign', async () => {
   const h = signerHarness();
   for (let i = 0; i < 5; i++) await assert.rejects(h.sign({ pin: '999999' }), { status: 403 });

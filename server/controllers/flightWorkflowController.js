@@ -1,6 +1,7 @@
 const { b412WorkflowComponents } = require('../../shared/b412WorkflowComponents');
 const { populateFlightInputs } = require('../../shared/flightAutomaticInputs');
 const { syncFlightLogDates } = require('../../shared/flightLogDates');
+const { requiredFlightTimeError } = require('../../shared/flightLogTimes');
 const { populateMonitoringBroughtForward } = require('../../shared/flightLogBroughtForward');
 const { confirmInspection } = require('../utils/flightInspectionConfirmation');
 const mongoose = require('mongoose');
@@ -117,6 +118,8 @@ const readiness = (record, links) => {
   const missing = [],
     warnings = [],
     maintenanceDue = [];
+  const timeError = requiredFlightTimeError(record.legs);
+  if (timeError) missing.push(timeError);
   if (!record.assignedPilot?.userId) missing.push('Assign a pilot.');
   if (!record.assignedMechanic?.userId) missing.push('Assign a mechanic.');
   if (!record.controlNo?.trim()) missing.push('Enter a control number.');

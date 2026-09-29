@@ -174,7 +174,7 @@ export default function PartsRequisition({
   });
   const activeCount = records.filter(record => !['Closed', 'Cancelled'].includes(displayStatus(record)) && canSee(record)).length;
 
-  if (!['superadmin', 'officer-in-charge', 'warehouse personnel', 'maintenance manager', 'mechanic'].includes(roleOf(user))) return <AppText>Parts requisition access denied</AppText>;
+  if (!['admin staff', 'officer-in-charge', 'warehouse personnel', 'maintenance manager', 'mechanic'].includes(roleOf(user))) return <AppText>Parts requisition access denied</AppText>;
 
   return <View style={{
     flex: 1,

@@ -188,9 +188,6 @@ const createFlightLog = async (req, res) => {
     );
 
     Object.assign(flightLogData, syncFlightLogDates(flightLogData));
-    const timeError = requiredFlightTimeError(flightLogData.legs);
-    if (timeError)
-      return res.status(400).json({ success: false, message: timeError });
 
     const b412PayloadError = getB412PayloadShapeError(flightLogData.b412Data);
     if (b412PayloadError) {
@@ -688,11 +685,6 @@ const updateFlightLog = async (req, res) => {
       for (const key of ["legs", "fuelServicing", "oilServicing"])
         updates[key] = dated[key];
     }
-    const timeError = requiredFlightTimeError(
-      Object.hasOwn(updates, "legs") ? updates.legs : existingFlightLog.legs,
-    );
-    if (timeError)
-      return res.status(400).json({ success: false, message: timeError });
 
     if (
       isRestrictedPilotFlightLogRequest(req) &&

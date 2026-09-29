@@ -59,7 +59,7 @@ export default function PreInspectionEditEntry({
 
   const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
-  const isMechanic = ["mechanic", "maintenance manager", "superadmin"].includes(
+  const isMechanic = ["mechanic", "maintenance manager", "admin staff"].includes(
     normalizedRole,
   );
 

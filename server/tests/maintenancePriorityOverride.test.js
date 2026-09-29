@@ -182,7 +182,7 @@ test("removing the next inspection or its schedule expires a stored override", a
   }
 });
 
-test("override route requires authentication, confirmation, and manager/superadmin permission", async (t) => {
+test("override route requires authentication, confirmation, and manager/admin staff permission", async (t) => {
   const h = harness();
   const router = load("../routes/partsMonitoringRoute.js", {
     "../controllers/partsMonitoringController": h.controller,
@@ -208,6 +208,6 @@ test("override route requires authentication, confirmation, and manager/superadm
   assert.equal(await request({ "x-action-confirmed": "" }), 400);
   for (const role of ["mechanic", "pilot", "officer-in-charge", "warehouse personnel"]) assert.equal(await request({ "x-test-role": role }), 403);
   assert.equal(await request({}), 200);
-  assert.equal(await request({ "x-test-role": "superadmin" }), 200);
-  assert.equal(await request({ "x-test-role": "mechanic", "x-test-access": "superadmin" }), 200);
+  assert.equal(await request({ "x-test-role": "admin staff" }), 200);
+  assert.equal(await request({ "x-test-role": "mechanic", "x-test-access": "admin staff" }), 200);
 });

@@ -115,7 +115,7 @@ const getUserHomePath = (user) => {
     .toLowerCase();
 
   switch (role) {
-    case "superadmin":
+    case "admin staff":
       return "/dashboard/user-management/view-users";
     case "mechanic":
       return "/dashboard/maintenance-log";
@@ -171,7 +171,7 @@ const AppRouter = () => {
             <Route
               path="user-management/view-users"
               element={
-                <ProtectedRoute allowedRoles={["superadmin"]}>
+                <ProtectedRoute allowedRoles={["admin staff"]}>
                   <UserManagement />
                 </ProtectedRoute>
               }
@@ -179,7 +179,7 @@ const AppRouter = () => {
             <Route
               path="user-management/activity-logs"
               element={
-                <ProtectedRoute allowedRoles={["superadmin"]}>
+                <ProtectedRoute allowedRoles={["admin staff"]}>
                   <UserLogs />
                 </ProtectedRoute>
               }
@@ -189,7 +189,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -205,7 +205,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "pilot",
@@ -221,7 +221,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -236,7 +236,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "mechanic",
                   ]}
@@ -249,7 +249,7 @@ const AppRouter = () => {
               path="mechanics"
               element={
                 <ProtectedRoute
-                  allowedRoles={["superadmin", "maintenance manager", "mechanic"]}
+                  allowedRoles={["admin staff", "maintenance manager", "mechanic"]}
                 >
                   <MechanicList />
                 </ProtectedRoute>
@@ -260,7 +260,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -275,7 +275,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -289,7 +289,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -303,7 +303,7 @@ const AppRouter = () => {
               path="maintenance-priority"
               element={
                 <ProtectedRoute
-                  allowedRoles={["superadmin", "maintenance manager"]}
+                  allowedRoles={["admin staff", "maintenance manager"]}
                 >
                   <MaintenancePriority />
                 </ProtectedRoute>
@@ -314,7 +314,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                   ]}
@@ -328,7 +328,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "mechanic",
@@ -344,7 +344,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "warehouse personnel",
@@ -361,7 +361,7 @@ const AppRouter = () => {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    "superadmin",
+                    "admin staff",
                     "maintenance manager",
                     "officer-in-charge",
                     "warehouse personnel",

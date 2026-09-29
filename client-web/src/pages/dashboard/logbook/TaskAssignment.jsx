@@ -1,4 +1,5 @@
 import { createUseTaskQualifications } from "../../../../../shared/taskQualificationsClient";
+import { createUseTaskMechanicSuggestion } from "../../../../../shared/taskMechanicSuggestion";
 import React, {
   useCallback,
   useContext,
@@ -52,6 +53,7 @@ import { formatTaskInspectionLabel } from "../../../utils/taskInspectionLabel";
 const { Text } = Typography;
 const ACTIVE_OPEN = new Set(["pending", "ongoing", "returned"]);
 const useTaskQualifications = createUseTaskQualifications(React);
+const useTaskMechanicSuggestion = createUseTaskMechanicSuggestion(React);
 
 const CUSTOM_INSPECTION_ID = "custom-task";
 const MINIMUM_TASK_MINUTES = 60;
@@ -404,6 +406,7 @@ export default function TaskAssignment() {
   const [editingTask, setEditingTask] = useState(null);
   const [form] = Form.useForm();
   const assignmentAircraft = Form.useWatch('aircraft', form);
+  const assignmentMechanic = Form.useWatch('assignedTo', form);
   const qualification = useTaskQualifications(API_BASE, getAuthHeader, assignmentAircraft, createOpen);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -425,8 +428,8 @@ export default function TaskAssignment() {
   const access = String(user?.access || "")
     .trim()
     .toLowerCase();
-  const isSuperadmin = role === "superadmin" || access === "superadmin";
-  const isManager = role === "maintenance manager" || isSuperadmin;
+  const isAdminStaff = role === "admin staff" || access === "admin staff";
+  const isManager = role === "maintenance manager" || isAdminStaff;
   const watchedInspectionType = Form.useWatch("inspectionType", form);
   const rawChecklistItems = Form.useWatch("checklistItems", form);
   const watchedChecklistItems = useMemo(
@@ -563,7 +566,7 @@ export default function TaskAssignment() {
           const id = item._id || item.id;
           const activeTaskCount = tasks.filter(
             (task) =>
-              String(task.assignedTo || "") === String(id) &&
+              String(task.assignedTo?._id || task.assignedTo?.id || task.assignedTo || "") === String(id) &&
               ACTIVE_OPEN.has(normalizeStatus(task.status)),
           ).length;
           return {
@@ -578,6 +581,12 @@ export default function TaskAssignment() {
         }),
     [tasks, users],
   );
+
+  const { rankedMechanics, selectManually } = useTaskMechanicSuggestion({
+    mechanics, qualification, aircraft: assignmentAircraft, inspection: watchedInspectionType,
+    enabled: createOpen && !editingTask, selectedId: assignmentMechanic,
+    onSelect: id => form.setFieldValue('assignedTo', id || undefined),
+  });
 
   const getTaskAssigneeId = useCallback((task = {}) => {
     const assignee = task.assignedTo;
@@ -632,7 +641,7 @@ export default function TaskAssignment() {
 
   const mechanicSelectOptions = useMemo(() => {
     const seen = new Set();
-    const options = mechanics.reduce((list, item) => {
+    const options = rankedMechanics.reduce((list, item) => {
       if (!item.id) return list;
       const key = String(item.id);
       if (seen.has(key)) return list;
@@ -644,7 +653,7 @@ export default function TaskAssignment() {
             ? ` (${item.activeTaskCount} active task${
                 item.activeTaskCount === 1 ? "" : "s"
               })`
-            : ""
+            : " (No active tasks)"
         }`,
         disabled: !qualification.option(item.id).qualified,
         title: qualification.option(item.id).reason,
@@ -659,7 +668,7 @@ export default function TaskAssignment() {
       );
 
       if (assignedTo && !hasCurrentAssignee) {
-        options.unshift({
+        options.push({
           value: assignedTo,
           label: getTaskAssigneeName(editingTask),
           disabled: !qualification.option(assignedTo).qualified,
@@ -668,7 +677,7 @@ export default function TaskAssignment() {
     }
 
     return options;
-  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, mechanics, qualification]);
+  }, [editingTask, getTaskAssigneeId, getTaskAssigneeName, rankedMechanics, qualification]);
 
   const aircraftSelectOptions = useMemo(
     () => toUniqueSelectOptions(aircraftOptions, (aircraft) => aircraft),
@@ -1579,7 +1588,7 @@ export default function TaskAssignment() {
                         const status = normalizeStatus(record.status);
                         const canEditDelete =
                           activeTab === "assigned" &&
-                          (isSuperadmin || status === "pending");
+                          (isAdminStaff || status === "pending");
                         const canReview =
                           activeTab === "for_review" && isForReview(record);
                         if (canReview) {
@@ -1717,12 +1726,13 @@ export default function TaskAssignment() {
                 <Form.Item
                   label="Assign Mechanic"
                   name="assignedTo"
-                  extra={<span>{qualification.message || 'A verified certificate for this aircraft is required.'} {qualification.error && <Button type="link" onClick={qualification.retry}>Retry</Button>}</span>}
+                  extra={<span>{qualification.message || (watchedInspectionType && !rankedMechanics.some(person => qualification.option(person.id).qualified) ? 'No qualified mechanics found for this aircraft.' : 'Qualified mechanics are listed first. The suggestion prioritizes fewer active tasks; you can choose another mechanic.')} {qualification.error && <Button type="link" onClick={qualification.retry}>Retry</Button>}</span>}
                   rules={[{ required: true, message: "Assignee is required" }, { validator: (_, value) => !value || qualification.option(value).qualified ? Promise.resolve() : Promise.reject(new Error(qualification.option(value).reason)) }]}
                 >
                   <Select
                     size="large"
                     placeholder="Pick Mechanic"
+                    onChange={selectManually}
                     showSearch
                     optionFilterProp="label"
                     options={mechanicSelectOptions.map(option => ({ ...option, label: `${option.label} — ${qualification.option(option.value).qualified ? 'Qualified' : qualification.option(option.value).reason}` }))}

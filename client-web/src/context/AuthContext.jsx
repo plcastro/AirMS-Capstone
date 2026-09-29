@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { API_BASE } from "../utils/API_BASE";
+import { normalizeAccountRoles } from "../../../shared/accountRoles";
 import { buildLoginLocationHeaders } from "../utils/loginLocation";
 import {
   clearCurrentSessionProfile,
@@ -175,12 +176,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.getItem(SESSION_META_KEY),
     );
 
-  const normalizeUser = (userData) => ({
-    ...userData,
-    id: userData.id || userData._id || null,
-    jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
-    access: userData.access ? userData.access.trim().toLowerCase() : null,
-  });
+  const normalizeUser = (profile) => {
+    const userData = normalizeAccountRoles(profile);
+    return {
+      ...userData,
+      id: userData.id || userData._id || null,
+      jobTitle: userData.jobTitle ? userData.jobTitle.trim().toLowerCase() : null,
+      access: userData.access ? userData.access.trim().toLowerCase() : null,
+    };
+  };
 
   const hasUserIdentity = (userData = {}) =>
     Boolean(

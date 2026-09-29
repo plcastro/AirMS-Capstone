@@ -38,7 +38,9 @@ test("crew membership uses authenticated identity and matching crew role without
   const log = newLog();
   assert.equal(isAssignedFlightCrew(pilot, log), true);
   assert.equal(isAssignedFlightCrew(mechanic, log), true);
-  for (const user of [null, { id: otherId, jobTitle: "Mechanic" }, { id: mechanicId, jobTitle: "Pilot" }, { id: mechanicId, jobTitle: "Superadmin" }, { id: otherId, jobTitle: "Superadmin" }]) {
+  assert.equal(isAssignedFlightCrew({ id: mechanicId, jobTitle: "Maintenance Manager" }, log), true);
+  assert.equal(isAssignedFlightCrew({ id: otherId, jobTitle: "Maintenance Manager" }, log), false);
+  for (const user of [null, { id: otherId, jobTitle: "Mechanic" }, { id: mechanicId, jobTitle: "Pilot" }, { id: mechanicId, jobTitle: "Admin Staff" }, { id: otherId, jobTitle: "Admin Staff" }]) {
     assert.equal(isAssignedFlightCrew(user, log), false);
   }
   assert.equal(isAssignedFlightCrew(mechanic, { createdByUserId: mechanicId }), false);
@@ -62,7 +64,7 @@ const flightHarness = (values = {}) => {
 
 test("flight-log save, release, accept and completion deny unassigned users before any write or notification", async () => {
   for (const action of ["updateFlightLog", "releaseFlightLog", "acceptFlightLog", "completeFlightLog"]) {
-    for (const role of ["Mechanic", "Pilot", "Superadmin"]) {
+    for (const role of ["Mechanic", "Pilot", "Admin Staff"]) {
       const { controller, writes, notifications } = flightHarness();
       const res = response();
       await controller[action]({ user: { id: otherId, jobTitle: role }, params: { id: flightId }, body: { assignedMechanic: { userId: otherId }, assignedPilot: { userId: otherId }, remarks: "Hijack" } }, res);
@@ -116,7 +118,7 @@ const inspectionHarness = (kind, linkedLog = newLog(), values = {}) => {
 test("inspection updates and deletes use the persisted link and deny unassigned users", async () => {
   for (const kind of ["pre", "post"]) {
     for (const action of ["update", "delete"]) {
-      for (const jobTitle of ["Pilot", "Mechanic", "Superadmin"]) {
+      for (const jobTitle of ["Pilot", "Mechanic", "Admin Staff"]) {
         const { controller, writes, notifications } = inspectionHarness(kind);
         const res = response();
         await controller[`${action}${kind === "pre" ? "Pre" : "Post"}Inspection`]({ user: { id: otherId, jobTitle }, params: { id: inspectionId }, body: { flightLogId: otherId, assignedMechanic: { userId: otherId }, status: "completed" } }, res);

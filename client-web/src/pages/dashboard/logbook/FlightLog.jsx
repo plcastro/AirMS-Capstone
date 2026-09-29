@@ -269,12 +269,18 @@ export default function FlightLog() {
       {!aircraft ? (
         <AircraftLogGroups
           isNew={isNew}
+          searchFilters={
+            <Checkbox checked={mine} onChange={(event) => setMine(event.target.checked)}>
+              Needs My Action
+            </Checkbox>
+          }
+          emptyText={mine ? "No flight logs need your action." : "No logs found yet."}
           headerAction={canCreate ? (
             <Button size="large" type="primary" icon={<PlusOutlined />} disabled={loading} onClick={() => startEntry()}>
               New Entry
             </Button>
           ) : null}
-          records={logs}
+          records={mine ? logs.filter((log) => needsMyFlightAction(user, log)) : logs}
           loading={loading}
           query={aircraftQuery}
           onQueryChange={setAircraftQuery}

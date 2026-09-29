@@ -87,8 +87,8 @@ function PriorityOverrideEditor({ record, onSave }) {
 export default function MaintenancePriority() {
   const { user, refreshSession } = useContext(AuthContext);
   const role = String(user?.jobTitle || user?.access || "").trim().toLowerCase();
-  const canOverride = ["maintenance manager", "superadmin"].includes(role) ||
-    String(user?.access || "").trim().toLowerCase() === "superadmin";
+  const canOverride = ["maintenance manager", "admin staff"].includes(role) ||
+    String(user?.access || "").trim().toLowerCase() === "admin staff";
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

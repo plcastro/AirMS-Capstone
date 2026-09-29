@@ -25,6 +25,7 @@ export default function AircraftLogGroups({
   onSelect,
   emptyText = "No logs found yet.",
   sortBy = "rpc",
+  searchFilters = null,
   isNew,
   ...listProps
 }) {
@@ -39,11 +40,16 @@ export default function AircraftLogGroups({
 
   return (
     <View style={{ flex: 1 }}>
-      <SearchBar
-        value={query}
-        onChangeText={onQueryChange}
-        placeholder="Search aircraft or base"
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <View style={{ flexGrow: 1, flexBasis: 200 }}>
+          <SearchBar
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder="Search aircraft or base"
+          />
+        </View>
+        {searchFilters}
+      </View>
       <SectionTitle subtitle="Select an aircraft to view and filter its logs." />
       <FlatList
         ListEmptyComponent={

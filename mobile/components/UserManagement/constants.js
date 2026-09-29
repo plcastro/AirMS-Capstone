@@ -1,7 +1,7 @@
 export const STATUS_OPTIONS = ["all", "active", "inactive", "deactivated"];
 
 export const JOB_TITLE_OPTIONS = [
-  "Superadmin",
+  "Admin Staff",
   "Maintenance Manager",
   "Pilot",
   "Officer-In-Charge",
@@ -12,7 +12,7 @@ export const JOB_TITLE_OPTIONS = [
 export const BASE_OPTIONS = ["MANILA", "CEBU", "CDO"];
 
 export const ROLE_MAP = {
-  Superadmin: "Superadmin",
+  "Admin Staff": "Admin Staff",
   Pilot: "User",
   "Maintenance Manager": "Superuser",
   "Officer-In-Charge": "Superuser",

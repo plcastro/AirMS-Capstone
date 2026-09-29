@@ -18,8 +18,8 @@ const hasPermission = (req, permission) => {
 
   const rolePermissions = resolvedRole ? jobTitles[resolvedRole] || [] : [];
 
-  // Hard guarantee: Superadmin access can open all modules even if role mapping drifts.
-  if (accessRole === "superadmin" || jobTitleRole === "superadmin") return true;
+  // Hard guarantee: Admin Staff access can open all modules even if role mapping drifts.
+  if (accessRole === "admin staff" || jobTitleRole === "admin staff") return true;
 
   return (
     rolePermissions.includes("*") || rolePermissions.includes(permission)

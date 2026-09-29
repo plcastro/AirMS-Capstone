@@ -18,7 +18,7 @@ export function createUseTaskQualifications(React) {
     }, [base, getHeaders, aircraft, enabled, attempt]);
     const current = enabled && aircraft && state.aircraft === aircraft;
     const message = !aircraft ? 'Select an aircraft to check qualifications.' : current && state.error ? state.error : !current || !state.ready ? 'Checking mechanic qualifications…' : '';
-    return { message, error: current ? state.error : '', retry: () => setAttempt(value => value + 1),
+    return { ready: Boolean(current && state.ready), message, error: current ? state.error : '', retry: () => setAttempt(value => value + 1),
       option: id => current && state.ready ? state.items.find(item => String(item.id) === String(id)) || { qualified: false, reason: 'No verified qualification.' } : { qualified: false, reason: message },
     };
   };

@@ -29,7 +29,7 @@ export default function TaskAssignment({ route }) {
 
   const userRole = resolveUserRole(user);
 
-  if (["maintenance manager", "superadmin"].includes(userRole)) {
+  if (["maintenance manager", "admin staff"].includes(userRole)) {
     return (
       <HeadTaskScreen
         targetTaskId={targetTaskId}

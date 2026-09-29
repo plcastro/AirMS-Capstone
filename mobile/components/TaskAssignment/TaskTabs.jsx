@@ -35,7 +35,7 @@ export default function TaskTabs({
 }) {
   const { user } = useContext(AuthContext);
   const userRole = resolveUserRole(user);
-  const isHead = ["maintenance manager", "superadmin"].includes(userRole);
+  const isHead = ["maintenance manager", "admin staff"].includes(userRole);
   const now = new Date();
 
   const mechanicTabs = ["Upcoming", "Past Due", "Completed"];

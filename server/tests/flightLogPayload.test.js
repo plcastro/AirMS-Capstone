@@ -6,7 +6,7 @@ const { isValidFlightLogLegDate } = require("../../shared/flightLogLegValidation
 const {
   canEditFlightLogRequest,
   getTrustedFlightLogRole,
-  hasSuperadminFlightLogAccess,
+  hasAdminStaffFlightLogAccess,
   hasCompleteFlightLogLegs,
   isB412AircraftType,
   isMechanicFlightLogRequest,
@@ -41,9 +41,9 @@ test("flight-log role comes only from the authenticated user", () => {
   assert.equal(canEditFlightLogRequest(officerRequest), false);
 
   const elevatedPilotRequest = {
-    user: { jobTitle: "Pilot", access: "Superadmin" },
+    user: { jobTitle: "Pilot", access: "Admin Staff" },
   };
-  assert.equal(hasSuperadminFlightLogAccess(elevatedPilotRequest), true);
+  assert.equal(hasAdminStaffFlightLogAccess(elevatedPilotRequest), true);
   assert.equal(isPilotFlightLogRequest(elevatedPilotRequest), true);
   assert.equal(isRestrictedPilotFlightLogRequest(elevatedPilotRequest), false);
   assert.equal(isMechanicFlightLogRequest(elevatedPilotRequest), true);

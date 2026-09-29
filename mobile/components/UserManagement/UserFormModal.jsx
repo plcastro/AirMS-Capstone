@@ -379,7 +379,7 @@ export default function UserFormModal({
               {isEditingSelf ? (
                 <AppText style={styles.helperText}>
                   Your own job title and access level are managed by another
-                  Superadmin.
+                  Admin Staff.
                 </AppText>
               ) : null}
 

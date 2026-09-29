@@ -16,7 +16,6 @@ export default function FlightLogModalInfo({
   isEditable = true,
   isRPCEditable = true,
   isActive = true,
-  assignMechanic = false,
   onAircraftDataLoaded,
   isB412 = false,
 }) {
@@ -418,13 +417,6 @@ export default function FlightLogModalInfo({
               disabled={!isEditable} isActive={isActive} />
           </View>
 
-          {assignMechanic && (
-            <View style={{ marginBottom: 16 }}>
-              <AppText style={{ fontSize: 12, color: COLORS.black, marginBottom: 6, fontWeight: '500' }}>Assigned Mechanic: *</AppText>
-              <FlightAssignedPilotSelect crewRole="Mechanic" value={formData.assignedMechanic}
-                onChange={value => updateForm('assignedMechanic', value)} disabled={!isEditable} isActive={isActive} />
-            </View>
-          )}
           <View style={{ marginBottom: 8 }}>
             <AppText
               style={{

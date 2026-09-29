@@ -93,7 +93,7 @@ export function createCertificateApi(base, getHeaders) {
 export function createUseCertificates(React) {
   return function useCertificates(user, api, personnelId = '') {
     const userId = String(user?.id || user?._id || '');
-    const reviewer = ['maintenance manager', 'superadmin'].includes(String(user?.jobTitle || '').toLowerCase()) || String(user?.access || '').toLowerCase() === 'superadmin';
+    const reviewer = ['maintenance manager', 'admin staff'].includes(String(user?.jobTitle || '').toLowerCase()) || String(user?.access || '').toLowerCase() === 'admin staff';
     const scopedPerson = reviewer ? String(personnelId || '') : userId;
     const [people, setPeople] = React.useState([]), [person, setPerson] = React.useState(scopedPerson);
     const [page, setPage] = React.useState(1), [status, setStatus] = React.useState('all');

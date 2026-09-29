@@ -170,7 +170,6 @@ export default function FlightLog({ route, navigation }) {
     setAircraft(value);
     setQuery("");
     setStatus("all");
-    setOnlyMine(false);
   };
   const changed = () => {
     refresh();
@@ -299,9 +298,16 @@ export default function FlightLog({ route, navigation }) {
       {!aircraft ? (
         <AircraftLogGroups
           isNew={isNew}
+          searchFilters={
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: onlyMine }}
+              onPress={() => setOnlyMine((value) => !value)} style={{ padding: 10 }}>
+              <AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText>
+            </TouchableOpacity>
+          }
+          emptyText={onlyMine ? "No flight logs need your action." : "No logs found yet."}
           refreshing={loading}
           onRefresh={() => refresh(true)}
-          records={logs}
+          records={onlyMine ? logs.filter((log) => needsMyFlightAction(user, log)) : logs}
           loading={loading}
           sortBy="latestActivity"
           query={aircraftQuery}

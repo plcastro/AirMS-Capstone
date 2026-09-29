@@ -94,7 +94,7 @@ test('directory matching selects only mechanic names and restricts mechanics to 
       return { lean: async () => [mechanic()] };
     } }; },
   } });
-  for (const jobTitle of ['Maintenance Manager', 'Superadmin', 'Mechanic']) {
+  for (const jobTitle of ['Maintenance Manager', 'Admin Staff', 'Mechanic']) {
     const result = await matchHolder({ user: { id: owner, jobTitle } }, 'Juan Dela Cruz');
     assert.equal(result.comparisonScope, jobTitle === 'Mechanic' ? 'OWN_PROFILE' : 'MECHANIC_DIRECTORY');
     assert.deepEqual(calls.at(-1), jobTitle === 'Mechanic' ? { jobTitle: 'Mechanic', _id: owner } : { jobTitle: 'Mechanic' });

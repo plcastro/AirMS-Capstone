@@ -34,7 +34,7 @@ const MODULE_ACTIONS = {
   maintenancepriority: ["read", "update"],
   partsrequisition: ["read", "create", "update", "cancel"],
   profile: ["read", "update"],
-  superadmin: ["panel"],
+  adminstaff: ["panel"],
 };
 
 const generatedPermissions = Object.entries(MODULE_ACTIONS).reduce(

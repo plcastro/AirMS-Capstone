@@ -7,7 +7,7 @@ The full certificate workflow is embedded in the mechanic profile alongside the
 Ongoing and Completed task tabs. There is no separate Certificates menu/module.
 Mechanic accounts open their own certificate profile directly from Mechanics;
 they do not fetch the manager's mechanic directory or task list. Maintenance
-Managers and Superadmins select a mechanic in the existing directory. The certificate
+Managers and Admin Staff select a mechanic in the existing directory. The certificate
 owner is fixed to that profile, and the initial filter is All. The old
 web `/dashboard/certificates` address redirects to `/dashboard/mechanics`.
 

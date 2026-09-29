@@ -313,7 +313,7 @@ export default function FlightLogModalDestinations({
       </AppText>
       <AppText style={{ marginBottom: 16 }}>
         Flight and block ON/OFF times are optional. Use 24-hour times (HH:mm)
-        if entered. Total Time (FLIGHT) is required for component hours.
+        if entered. Total Time (FLIGHT) can be left blank in drafts and is required before release to the pilot.
         Passengers default to 0.
       </AppText>
 

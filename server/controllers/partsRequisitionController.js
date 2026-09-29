@@ -28,7 +28,7 @@ const event = (req, label, details = '') => ({
   actorId: req.user.id,
   actorName: actorName(req.user)
 });
-const allowedReaders = ['superadmin', 'warehouse personnel', 'maintenance manager', 'officer-in-charge', 'mechanic'];
+const allowedReaders = ['admin staff', 'warehouse personnel', 'maintenance manager', 'officer-in-charge', 'mechanic'];
 async function readAllowed(req, res) {
   const {
     roleOf
@@ -51,7 +51,7 @@ async function publish(record, req, previous, followUp = false) {
     requisition: record,
     actorUserId: req.user.id
   }), publishTypedForRecipients({
-    recipientRoles: ['superadmin', 'officer-in-charge', 'warehouse personnel'],
+    recipientRoles: ['admin staff', 'officer-in-charge', 'warehouse personnel'],
     recipientUsers: record.staff?.requisitionerId ? [record.staff.requisitionerId] : []
   }, 'requisition:updated', {
     requisitionId: String(record._id),
@@ -136,7 +136,7 @@ exports.createRequisition = async (req, res) => {
       canCreate
     } = await workflow();
     if (!canCreate(req.user)) return res.status(403).json({
-      message: 'Only mechanics, maintenance managers and superadmins can create requisitions.'
+      message: 'Only mechanics, maintenance managers and Admin Staff can create requisitions.'
     });
     const {
       aircraft,

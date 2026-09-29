@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     enum: [
       "Maintenance Manager",
       "Pilot",
-      "Superadmin",
+      "Admin Staff",
       "Officer-In-Charge",
       "Mechanic",
       "Warehouse Personnel",
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
   },
   access: {
     type: String,
-    enum: ["Superadmin", "Superuser", "User"],
+    enum: ["Admin Staff", "Superuser", "User"],
     default: "User",
   },
   tempPasswordExpires: Date,

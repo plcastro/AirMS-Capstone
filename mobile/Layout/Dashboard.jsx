@@ -15,7 +15,7 @@ export default function Dashboard({ children, currentRouteName }) {
 
   const normalizedRole = String(user?.jobTitle || "").toLowerCase();
   const canAccessMessages = [
-    "superadmin",
+    "admin staff",
     "maintenance manager",
     "mechanic",
     "pilot",
