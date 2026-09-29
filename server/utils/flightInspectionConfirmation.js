@@ -9,7 +9,10 @@ const confirmInspection = (record, kind, allGood, remarks, signer, user) => {
   if (typeof allGood !== 'boolean') throw fail('Answer the inspection confirmation.');
   if (!allGood && !String(remarks || '').trim()) throw fail('Describe the inspection discrepancies.');
   if (allGood && !signer?.signature) throw fail('A verified mechanic signature is required.');
-  Object.assign(record, checklistValues(kind, record.aircraftType, allGood));
+  // "Yes" checks every item, matching the confirmation copy. "No" records a
+  // discrepancy hold but must not discard checklist progress the mechanic
+  // already made, so leave existing item values untouched in that case.
+  if (allGood) Object.assign(record, checklistValues(kind, record.aircraftType, true));
   record.confirmation = { allGood, remarks: String(remarks || '').trim(), at: new Date().toISOString(), actorId: String(user.id), signer: allGood ? signer : null };
   record.status = allGood ? kind === 'pre' ? 'released' : 'completed' : 'pending';
   record.releasedBy = allGood ? signer : {};

@@ -1,4 +1,4 @@
-import { isAssignedFlightCrew, getAssignedCrewField } from './flightCrewAccess.js';
+import { isAssignedFlightCrew, getAssignedCrewField, normalizeCrewRole } from './flightCrewAccess.js';
 
 export const FLIGHT_PURPOSES = [
   ['company_transport', 'Company transport'], ['line_inspection', 'Line inspection'],
@@ -68,7 +68,12 @@ export const flightEditPermissions = (user, record = {}) => {
   const preparation = ['pending_release', 'returned_to_mechanic'].includes(stage);
   const flight = ['accepted', 'returned_to_pilot'].includes(stage);
   const maintenance = assigned && mechanic && (preparation || flight || stage === 'submitted');
+  // A maintenance manager reviewing their own self-prepared work isn't a real
+  // review, so they can't return it for correction the way a mechanic can
+  // recall their own submission. This only affects the maintenance-manager
+  // job title; mechanics keep returning their own work as before.
+  const isSelfPreparedByManager = mechanic && normalizeCrewRole(user) === 'maintenance manager';
   return { preparation: assigned && mechanic && preparation, flight: assigned && mechanic && (preparation || flight || stage === 'submitted'), maintenance,
-    canSave: maintenance, canReturn: assigned && mechanic && ['pending_acceptance', 'submitted'].includes(stage),
+    canSave: maintenance, canReturn: assigned && mechanic && !isSelfPreparedByManager && ['pending_acceptance', 'submitted'].includes(stage),
     canAmend: assigned && mechanic && stage === 'completed' };
 };

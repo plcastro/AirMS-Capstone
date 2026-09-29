@@ -133,6 +133,7 @@ export default function AircraftLogGroups({
       <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>
         Select an aircraft to view and filter its logs.
       </AppText>
+      {searchFilters}
       <FlatList
         ListEmptyComponent={
           loading ? (

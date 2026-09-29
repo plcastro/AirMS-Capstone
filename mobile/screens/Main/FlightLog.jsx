@@ -11,23 +11,21 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
+  StatusBar,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AppText from "../../components/common/AppText";
 import NewLogBadge from "../../components/common/NewLogBadge";
+import ActionIconButton from "../../components/common/ActionIconButton";
 import useViewedLogs from "../../utilities/useViewedLogs";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
-import {
-  SearchBar,
-  InfoCard,
-  FieldRow,
-  EmptyState,
-} from "../../components/common/MobileModule";
+import { SearchBar, EmptyState, CardActionRow } from "../../components/common/MobileModule";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
 import FlightWorkspace from "../../components/FlightLog/FlightWorkspace";
 import { AuthContext } from "../../Context/AuthContext";
 import { NotificationContext } from "../../Context/NotificationContext";
+import { COLORS } from "../../stylesheets/colors";
 import { API_BASE } from "../../utilities/API_BASE";
 import { getAuthHeaders, formatDateTime } from "../../utilities/mobileApi";
 import { exportFlightLogPdf } from "../../utilities/pdfExport";
@@ -47,32 +45,45 @@ import {
   nextFlightStep,
   hasOngoingFlightLog,
 } from "../../../shared/flightWorkflow";
-const button = {
-  padding: 12,
-  margin: 4,
-  backgroundColor: "#26866f",
-  borderRadius: 6,
-};
-function Action({ children, onPress, disabled = false }) {
+
+function NeedsActionToggle({ value, onToggle }) {
   return (
     <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      style={[button, disabled && { opacity: 0.45 }]}
-      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: value }}
+      onPress={onToggle}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        alignSelf: "flex-start",
+        backgroundColor: value ? `${COLORS.primaryLight}1A` : COLORS.white,
+        borderWidth: 1,
+        borderColor: value ? COLORS.primaryLight : COLORS.grayMedium,
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        marginBottom: 10,
+      }}
     >
+      <MaterialCommunityIcons
+        name={value ? "checkbox-marked" : "checkbox-blank-outline"}
+        size={16}
+        color={value ? COLORS.primaryLight : COLORS.grayDark}
+      />
       <AppText
         style={{
-          color: "white",
+          fontSize: 12,
           fontWeight: "600",
+          color: value ? COLORS.primaryLight : COLORS.grayDark,
+          marginLeft: 6,
         }}
       >
-        {children}
+        Needs My Action
       </AppText>
     </TouchableOpacity>
   );
 }
+
 export default function FlightLog({ route, navigation }) {
   const { user } = useContext(AuthContext);
   const { fetchNotifications } = useContext(NotificationContext);
@@ -214,161 +225,251 @@ export default function FlightLog({ route, navigation }) {
     [logs, aircraft, status, onlyMine, user, query],
   );
   return (
-    <View
-      style={{
-        flex: 1,
-        padding: 12,
-        backgroundColor: "#f7faf8",
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <AppText
-          style={{
-            fontSize: 19,
-            fontWeight: "700",
-          }}
-        >
-          {aircraft || "Flight Logs"}
-        </AppText>
-        {canCreate && (
-          <Action disabled={loading || ongoingFlight} onPress={() => startEntry(aircraft)}>New Entry</Action>
-        )}
-      </View>
-      {canCreate && ongoingFlight && (
-        <AppText style={{ color: "#64766e", marginTop: 4, marginBottom: 12 }}>
-          Complete this aircraft's ongoing flight log before creating a new entry.
-        </AppText>
-      )}
-      {!!aircraft && (
-        <>
-          <Action onPress={() => chooseAircraft("")}>Back to Aircraft</Action>
-          <SearchBar
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search flight logs or crew"
-          />
-          <ScrollView
-            horizontal
-            style={{
-              flexGrow: 0,
-              marginBottom: 8,
-            }}
-          >
-            {[
-              ["all", "All Stages"],
-              ...Object.entries(FLIGHT_STAGES).map(([value, step]) => [
-                value,
-                step.label,
-              ]),
-            ].map(([value, label]) => (
+    <View style={{ flex: 1, backgroundColor: COLORS.grayLight }}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.grayLight} />
+      <View style={{ flex: 1, paddingHorizontal: 7, paddingTop: 10 }}>
+        {!aircraft ? (
+          <>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <AppText style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>Flight Logs</AppText>
+              {canCreate && (
+                <TouchableOpacity
+                  disabled={loading}
+                  onPress={() => startEntry("")}
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    borderRadius: 8,
+                    paddingHorizontal: 14,
+                    height: 36,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: loading ? 0.5 : 1,
+                  }}
+                >
+                  <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700" }}>
+                    New Entry
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </View>
+            <AircraftLogGroups
+            isNew={isNew}
+            searchFilters={
+              <NeedsActionToggle
+                value={onlyMine}
+                onToggle={() => setOnlyMine((value) => !value)}
+              />
+            }
+            emptyText={
+              onlyMine ? "No flight logs need your action." : "No logs found yet."
+            }
+            refreshing={loading}
+            onRefresh={() => refresh(true)}
+            records={onlyMine ? logs.filter((log) => needsMyFlightAction(user, log)) : logs}
+            loading={loading}
+            sortBy="latestActivity"
+            query={aircraftQuery}
+            onQueryChange={setAircraftQuery}
+            onSelect={chooseAircraft}
+            />
+          </>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
               <TouchableOpacity
-                key={value}
-                onPress={() => setStatus(value)}
+                onPress={() => chooseAircraft("")}
+                accessibilityRole="button"
+                accessibilityLabel="Back to aircraft"
                 style={{
-                  padding: 10,
-                  borderRadius: 6,
-                  margin: 2,
-                  backgroundColor: status === value ? "#d1ede0" : "white",
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: COLORS.white,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 10,
+                  elevation: 2,
+                  shadowColor: COLORS.black,
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 3,
                 }}
               >
-                <AppText>{label}</AppText>
+                <MaterialCommunityIcons name="arrow-left" size={20} color={COLORS.primary} />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            accessibilityRole="checkbox"
-            accessibilityState={{
-              checked: onlyMine,
-            }}
-            onPress={() => setOnlyMine((value) => !value)}
-            style={{
-              padding: 10,
-            }}
-          >
-            <AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText>
-          </TouchableOpacity>
-        </>
-      )}
-      {!aircraft ? (
-        <AircraftLogGroups
-          isNew={isNew}
-          searchFilters={
-            <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: onlyMine }}
-              onPress={() => setOnlyMine((value) => !value)} style={{ padding: 10 }}>
-              <AppText>{onlyMine ? "[x]" : "[ ]"} Needs My Action</AppText>
-            </TouchableOpacity>
-          }
-          emptyText={onlyMine ? "No flight logs need your action." : "No logs found yet."}
-          refreshing={loading}
-          onRefresh={() => refresh(true)}
-          records={onlyMine ? logs.filter((log) => needsMyFlightAction(user, log)) : logs}
-          loading={loading}
-          sortBy="latestActivity"
-          query={aircraftQuery}
-          onQueryChange={setAircraftQuery}
-          onSelect={chooseAircraft}
-        />
-      ) : (
-        <FlatList
-          ListEmptyComponent={
-            <EmptyState text="No flight logs match your filters." />
-          }
-          refreshing={loading}
-          onRefresh={() => refresh(true)}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 110 }}
-          keyboardShouldPersistTaps="handled"
-          data={filtered}
-          keyExtractor={(item, index) => String(item._id || item.id || index)}
-          initialNumToRender={12}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-          renderItem={({ item: log }) => {
-            const step = nextFlightStep(log);
-            return (
-              <InfoCard
-                key={log._id}
-                title={log.controlNo || "Flight Log"}
-                right={isNew(log) ? <NewLogBadge /> : null}
-                subtitle={step.label}
-                onPress={() => setOpened(log._id)}
-              >
-                <FieldRow label="Date" value={log.date} />
-                <FieldRow
-                  label="Latest update"
-                  value={formatDateTime(log.updatedAt || log.createdAt)}
-                />
-                <FieldRow
-                  label="Next action"
-                  value={`${step.next}${step.crew ? ` — ${log[step.crew]?.name || "Unassigned"}` : ""}`}
-                />
-                <Action onPress={() => setOpened(log._id)}>
-                  {needsMyFlightAction(user, log)
-                    ? "Continue Workflow"
-                    : "Open Record"}
-                </Action>
-                {canExportModule(userRole, "flightLogs") && (
-                  <Action
-                    onPress={() =>
-                      exportFlightLogPdf(log).catch((error) =>
-                        showToast(error.message),
-                      )
-                    }
+              <View style={{ flex: 1 }}>
+                <AppText numberOfLines={1} style={{ fontSize: 16, fontWeight: "700", color: COLORS.black }}>
+                  {aircraft}
+                </AppText>
+                <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginTop: 1 }}>
+                  {filtered.length} flight logs
+                </AppText>
+              </View>
+              {canCreate && (
+                <TouchableOpacity
+                  disabled={loading || ongoingFlight}
+                  onPress={() => startEntry(aircraft)}
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    borderRadius: 8,
+                    paddingHorizontal: 14,
+                    height: 36,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: loading || ongoingFlight ? 0.5 : 1,
+                  }}
+                >
+                  <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: "700" }}>
+                    New Entry
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {canCreate && ongoingFlight && (
+              <View style={{ backgroundColor: COLORS.dangerBg, borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                <AppText style={{ color: COLORS.dangerBorder, fontSize: 12, fontWeight: "600" }}>
+                  Complete this aircraft's ongoing flight log before creating a new entry.
+                </AppText>
+              </View>
+            )}
+
+            <SearchBar
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search flight logs or crew"
+            />
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0, marginBottom: 10 }}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {[
+                ["all", "All Stages"],
+                ...Object.entries(FLIGHT_STAGES).map(([value, step]) => [
+                  value,
+                  step.label,
+                ]),
+              ].map(([value, label]) => {
+                const active = status === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => setStatus(value)}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: active ? COLORS.primaryLight : COLORS.white,
+                      borderWidth: 1,
+                      borderColor: active ? COLORS.primaryLight : COLORS.grayMedium,
+                    }}
                   >
-                    Export PDF
-                  </Action>
-                )}
-              </InfoCard>
-            );
-          }}
-        />
-      )}
+                    <AppText style={{ fontSize: 12, fontWeight: "600", color: active ? COLORS.white : COLORS.grayDark }}>
+                      {label}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <NeedsActionToggle
+              value={onlyMine}
+              onToggle={() => setOnlyMine((value) => !value)}
+            />
+
+            <FlatList
+              ListEmptyComponent={
+                <EmptyState text="No flight logs match your filters." />
+              }
+              refreshing={loading}
+              onRefresh={() => refresh(true)}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 110 }}
+              keyboardShouldPersistTaps="handled"
+              data={filtered}
+              keyExtractor={(item, index) => String(item._id || item.id || index)}
+              initialNumToRender={12}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              renderItem={({ item: log }) => {
+                const step = nextFlightStep(log);
+                const needsAction = needsMyFlightAction(user, log);
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    onPress={() => setOpened(log._id)}
+                    style={{
+                      flexDirection: "row",
+                      backgroundColor: COLORS.white,
+                      borderRadius: 10,
+                      marginBottom: 10,
+                      elevation: 2,
+                      shadowColor: COLORS.black,
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.06,
+                      shadowRadius: 3,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View style={{ width: 5, backgroundColor: needsAction ? COLORS.primaryLight : COLORS.grayMedium }} />
+                    <View style={{ flex: 1, padding: 12 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <AppText style={{ fontSize: 14, fontWeight: "700", color: COLORS.black }}>
+                            {log.controlNo || "Flight Log"}
+                          </AppText>
+                          {isNew(log) && <NewLogBadge />}
+                        </View>
+                        <View
+                          style={{
+                            backgroundColor: needsAction ? `${COLORS.primaryLight}1A` : COLORS.grayLight,
+                            borderRadius: 999,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                          }}
+                        >
+                          <AppText style={{ fontSize: 11, fontWeight: "700", color: needsAction ? COLORS.primaryLight : COLORS.grayDark }}>
+                            {step.label}
+                          </AppText>
+                        </View>
+                      </View>
+
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
+                        Date: {log.date || "N/A"}
+                      </AppText>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
+                        Updated: {formatDateTime(log.updatedAt || log.createdAt)}
+                      </AppText>
+                      <AppText style={{ fontSize: 12, color: COLORS.grayDark }}>
+                        Next: {step.next}{step.crew ? ` — ${log[step.crew]?.name || "Unassigned"}` : ""}
+                      </AppText>
+
+                      {canExportModule(userRole, "flightLogs") && (
+                        <CardActionRow>
+                          <ActionIconButton
+                            icon="export-variant"
+                            tooltip="Export"
+                            onPress={(event) => {
+                              event?.stopPropagation?.();
+                              exportFlightLogPdf(log).catch((error) => showToast(error.message));
+                            }}
+                            color={COLORS.grayDark}
+                            size={32}
+                            iconSize={18}
+                          />
+                        </CardActionRow>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </>
+        )}
+      </View>
       <FlightEntryInspectionPrompt
         flightLogs={logs}
         visible={entryPrompt}
