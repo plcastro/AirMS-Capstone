@@ -1733,7 +1733,7 @@ export default function PartsMonitoring() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <Text>Acft. Type:</Text>
+                <Text>Aircraft Type:</Text>
                 <Text className="info-value">
                   {aircraftDetails.aircraftType || "Not available"}
                 </Text>
@@ -1757,7 +1757,9 @@ export default function PartsMonitoring() {
                 {/* Engine Cycle */}
                 <Col xs={24} sm={12} md={6}>
                   <Form.Item
-                    label={isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"}
+                    label={
+                      isB412Monitoring ? "Engine No. 1 TSN" : "Engine Cycle"
+                    }
                     style={{ marginBottom: 8 }}
                   >
                     <Input
@@ -2034,7 +2036,7 @@ export default function PartsMonitoring() {
                         gap: 12,
                       }}
                     >
-                      <Text>Acft. Type:</Text>
+                      <Text>Aircraft Type:</Text>
                       <Text className="info-value">
                         {importPreview.aircraftType || "Not available"}
                         {importPreview.serialNumber
