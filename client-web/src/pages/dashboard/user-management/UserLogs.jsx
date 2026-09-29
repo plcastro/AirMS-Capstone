@@ -46,6 +46,7 @@ import {
 } from "../../../components/common/ExportFile";
 import ResultPopup from "../../../components/common/ResultPopup";
 import { useDebouncedValue } from "../../../utils/debounce";
+import { formatActivityLogPlatform } from "../../../utils/activityLogPlatform";
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
@@ -161,6 +162,11 @@ export default function UserLogs() {
             firstName: log.firstName || "",
             lastName: log.lastName || "",
             platform: log.platform || "",
+            devicePlatform: log.devicePlatform || "",
+            platformLabel: formatActivityLogPlatform(
+              log.devicePlatform,
+              log.platform,
+            ),
             deviceModel: log.deviceModel || "",
             locationText: log.locationText || "",
             locationCoordinates:
@@ -250,7 +256,8 @@ export default function UserLogs() {
 
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
       filtered = filtered.filter((log) =>
-        String(log.platform || "").toUpperCase() === selectedScopeValue,
+        String(log.platformLabel || log.platform || "").toUpperCase() ===
+        selectedScopeValue,
       );
     }
 
@@ -269,7 +276,7 @@ export default function UserLogs() {
         new Set(
           allUserLogs
             .map((log) =>
-              String(log.platform || "")
+              String(log.platformLabel || log.platform || "")
                 .trim()
                 .toUpperCase(),
             )
@@ -316,7 +323,7 @@ export default function UserLogs() {
           : "N/A",
         "Performed By": log.displayName || "Unknown",
         Action: log.actionMade || "N/A",
-        Platform: log.platform || "Not captured",
+        Platform: log.platformLabel || log.platform || "Not captured",
         "Device Model": log.deviceModel || "Not captured",
         Location: log.locationText || "Not captured",
         Coordinates: log.locationCoordinates || "Not captured",

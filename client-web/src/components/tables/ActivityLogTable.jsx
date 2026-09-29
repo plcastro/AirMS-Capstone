@@ -7,6 +7,8 @@ const { Text } = Typography;
 
 const getPlatformColor = (platform) => {
   if (platform.toUpperCase().includes("WEB")) return "blue";
+  if (platform.toUpperCase().includes("IOS")) return "purple";
+  if (platform.toUpperCase().includes("ANDROID")) return "green";
   if (platform.toUpperCase().includes("MOBILE")) return "purple";
   return "geekblue";
 };
@@ -45,10 +47,11 @@ const headers = [
   },
   {
     title: "Platform",
-    dataIndex: "platform",
+    dataIndex: "platformLabel",
     key: "platform",
     width: 100,
-    render: (text) => renderContextValue(text, getPlatformColor),
+    render: (text, record) =>
+      renderContextValue(text || record.platform, getPlatformColor),
   },
   {
     title: "Device Model",
