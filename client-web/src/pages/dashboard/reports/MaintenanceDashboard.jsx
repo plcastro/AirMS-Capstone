@@ -331,38 +331,31 @@ export default function MaintenanceDashboard() {
         setLoadingTasks(true);
 
         const headers = await getAuthHeader();
-        if (!headers.Authorization) {
-          throw new Error("No authentication token found. Please log in.");
-        }
+        // Web sessions authenticate through an HttpOnly cookie, without a bearer header.
+        const requestOptions = { headers, credentials: "include" };
         const requests = {
-          tasks: fetch(`${API_BASE}/api/tasks/getAll`, { headers }),
+          tasks: fetch(`${API_BASE}/api/tasks/getAll`, requestOptions),
           baseAnalytics: fetch(
             `${API_BASE}/api/tasks/analytics/base-maintenance`,
-            {
-              headers,
-            },
+            requestOptions,
           ),
-          aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, {
-            headers,
-          }),
-          parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, {
-            headers,
-          }),
+          aircraftBases: fetch(`${API_BASE}/api/aircraft/aircraft-with-bases`, requestOptions),
+          parts: fetch(`${API_BASE}/api/parts-monitoring?page=1&limit=1000`, requestOptions),
           flightLogs: fetch(
             `${API_BASE}/api/flightlogs?page=1&limit=300&sortBy=date&sortOrder=desc`,
-            { headers },
+            requestOptions,
           ),
           preInspections: fetch(
             `${API_BASE}/api/pre-flight/getAllPreInspection`,
-            { headers },
+            requestOptions,
           ),
           postInspections: fetch(
             `${API_BASE}/api/post-flight/getAllPostInspection`,
-            { headers },
+            requestOptions,
           ),
           partsRequisitions: fetch(
             `${API_BASE}/api/parts-requisition/get-all-requisition`,
-            { headers },
+            requestOptions,
           ),
         };
 
@@ -372,7 +365,6 @@ export default function MaintenanceDashboard() {
               const response = await request;
               if (!response.ok) {
                 if (response.status === 401) {
-                  localStorage.removeItem("token");
                   throw new Error("Session expired. Please log in again.");
                 }
                 throw new Error(`${key} request failed (${response.status})`);
