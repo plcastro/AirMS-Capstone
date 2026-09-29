@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View } from "react-native";
 import { COLORS } from "../../stylesheets/colors";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE } from "../../utilities/API_BASE";
 import { BASE_OPTIONS } from "../UserManagement/constants";
 import { isB412Aircraft } from "./b412PreInspectionData";
 import DateInput from "../common/DateInput";
+import InlineDropdown from "../common/InlineDropdown";
 import InspectionFlightLogPicker from "./InspectionFlightLogPicker";
 import FlightLogCrewAssignment from "../FlightLog/FlightLogCrewAssignment";
 
@@ -146,9 +146,9 @@ export default function PreInspectionModalInfo({
     <View>
       <AppInput
         style={{
-          backgroundColor: "#E8E8E8",
-          borderRadius: 6,
-          height: 42,
+          backgroundColor: COLORS.grayLight,
+          borderRadius: 8,
+          height: 48,
           paddingHorizontal: 12,
           fontSize: 12,
           color: COLORS.grayDark,
@@ -162,178 +162,36 @@ export default function PreInspectionModalInfo({
   );
 
   const renderRPCDropdown = () => (
-    <View style={{ zIndex: showRPCDropdown ? 3000 : 1000 }}>
-      <TouchableOpacity
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: canEditRPC ? "#F8F8F8" : "#E8E8E8",
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          height: 42,
-          paddingHorizontal: 12,
-        }}
-        disabled={!canEditRPC}
-        onPress={canEditRPC ? toggleRPCDropdown : null}
-      >
-        <AppText
-          style={{
-            fontSize: 12,
-            color: formData.rpc ? COLORS.black : COLORS.grayDark,
-          }}
-        >
-          {formData.rpc || "Select RP/C"}
-        </AppText>
-        {canEditRPC && (
-          <MaterialCommunityIcons
-            name={showRPCDropdown ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={COLORS.grayDark}
-          />
-        )}
-      </TouchableOpacity>
-
-      {showRPCDropdown && canEditRPC && (
-        <View
-          style={{
-            marginTop: 6,
-            backgroundColor: COLORS.white,
-            borderRadius: 6,
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            zIndex: 3000,
-            elevation: 5,
-            shadowColor: COLORS.black,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            maxHeight: 240,
-          }}
-        >
-          <ScrollView
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-          >
-            {dynamicRpcOptions.map((rpc, index) => (
-              <TouchableOpacity
-                key={index}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderBottomWidth:
-                    index < dynamicRpcOptions.length - 1 ? 1 : 0,
-                  borderBottomColor: COLORS.grayLight,
-                  backgroundColor:
-                    formData.rpc === rpc
-                      ? COLORS.primaryLight + "10"
-                      : COLORS.white,
-                }}
-                onPress={() => {
-                  updateForm("rpc", rpc);
-                  resolveAircraftTypeByRpc(rpc);
-                  resolveFobByRpc(rpc, { force: rpc !== formData.rpc });
-                  setShowRPCDropdown(false);
-                }}
-              >
-                <AppText
-                  style={{
-                    fontSize: 12,
-                    color:
-                      formData.rpc === rpc ? COLORS.primaryLight : COLORS.black,
-                  }}
-                >
-                  {rpc}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-    </View>
+    <InlineDropdown
+      value={formData.rpc}
+      placeholder="Select RP/C"
+      disabled={!canEditRPC}
+      open={showRPCDropdown}
+      onToggle={toggleRPCDropdown}
+      onChange={(rpc) => {
+        updateForm("rpc", rpc);
+        resolveAircraftTypeByRpc(rpc);
+        resolveFobByRpc(rpc, { force: rpc !== formData.rpc });
+        setShowRPCDropdown(false);
+      }}
+      options={dynamicRpcOptions.map((rpc) => ({ label: rpc, value: rpc }))}
+      menuMaxHeight={240}
+    />
   );
 
   const renderBaseDropdown = () => (
-    <View style={{ zIndex: showBaseDropdown ? 2500 : 900 }}>
-      <TouchableOpacity
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: isEditable ? "#F8F8F8" : "#E8E8E8",
-          borderRadius: 6,
-          borderWidth: 1,
-          borderColor: COLORS.grayMedium,
-          height: 42,
-          paddingHorizontal: 12,
-        }}
-        onPress={
-          isEditable ? () => setShowBaseDropdown((current) => !current) : null
-        }
-      >
-        <AppText
-          style={{
-            fontSize: 12,
-            color: formData.base ? COLORS.black : COLORS.grayDark,
-          }}
-        >
-          {formData.base || "Select Base"}
-        </AppText>
-        {isEditable && (
-          <MaterialCommunityIcons
-            name={showBaseDropdown ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={COLORS.grayDark}
-          />
-        )}
-      </TouchableOpacity>
-
-      {showBaseDropdown && isEditable && (
-        <View
-          style={{
-            marginTop: 6,
-            backgroundColor: COLORS.white,
-            borderRadius: 6,
-            borderWidth: 1,
-            borderColor: COLORS.grayMedium,
-            zIndex: 2500,
-            elevation: 5,
-          }}
-        >
-          {BASE_OPTIONS.map((base) => (
-            <TouchableOpacity
-              key={base}
-              style={{
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-                borderBottomWidth:
-                  base === BASE_OPTIONS[BASE_OPTIONS.length - 1] ? 0 : 1,
-                borderBottomColor: COLORS.grayLight,
-                backgroundColor:
-                  formData.base === base
-                    ? COLORS.primaryLight + "10"
-                    : COLORS.white,
-              }}
-              onPress={() => {
-                updateForm("base", base);
-                setShowBaseDropdown(false);
-              }}
-            >
-              <AppText
-                style={{
-                  fontSize: 12,
-                  color:
-                    formData.base === base ? COLORS.primaryLight : COLORS.black,
-                }}
-              >
-                {base}
-              </AppText>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
+    <InlineDropdown
+      value={formData.base}
+      placeholder="Select Base"
+      disabled={!isEditable}
+      open={showBaseDropdown}
+      onToggle={() => setShowBaseDropdown((current) => !current)}
+      onChange={(base) => {
+        updateForm("base", base);
+        setShowBaseDropdown(false);
+      }}
+      options={BASE_OPTIONS.map((base) => ({ label: base, value: base }))}
+    />
   );
 
   return (

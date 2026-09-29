@@ -12,13 +12,13 @@ import {
 const ChecklistBox = ({ checked, partiallyChecked = false }) => (
   <View
     style={{
-      width: 20,
-      height: 20,
-      borderRadius: 4,
+      width: 22,
+      height: 22,
+      borderRadius: 6,
       borderWidth: 2,
-      borderColor: COLORS.primaryLight,
+      borderColor: checked || partiallyChecked ? COLORS.primaryLight : COLORS.grayMedium,
       backgroundColor:
-        checked || partiallyChecked ? COLORS.primaryLight : "transparent",
+        checked || partiallyChecked ? COLORS.primaryLight : COLORS.white,
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
@@ -26,7 +26,7 @@ const ChecklistBox = ({ checked, partiallyChecked = false }) => (
   >
     {(checked || partiallyChecked) && (
       <MaterialCommunityIcons
-        name={checked ? "check" : "minus"}
+        name={checked ? "check-bold" : "minus"}
         size={14}
         color={COLORS.white}
       />
@@ -162,9 +162,8 @@ export default function PostInspectionB412Checklist({
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  borderBottomWidth: 1,
-                  borderBottomColor: COLORS.grayMedium,
-                  paddingVertical: 14,
+                  backgroundColor: COLORS.grayLight,
+                  paddingVertical: 12,
                   paddingHorizontal: 16,
                 }}
               >
@@ -176,7 +175,7 @@ export default function PostInspectionB412Checklist({
                   style={{
                     color: COLORS.black,
                     fontSize: 12,
-                    fontWeight: "500",
+                    fontWeight: "600",
                   }}
                 >
                   Select All
@@ -185,62 +184,65 @@ export default function PostInspectionB412Checklist({
             )}
 
             <View
-              style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}
+              style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}
             >
-              {section.items.map((item) => (
-                <React.Fragment key={item.key}>
-                  {!!item.cautionBefore && (
-                    <ChecklistCaution text={item.cautionBefore} />
-                  )}
-
-                  <View style={{ marginBottom: 18 }}>
-                    <AppText
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "bold",
-                        color: COLORS.black,
-                        marginBottom: 8,
-                      }}
-                    >
-                      {item.title}
-                    </AppText>
+              {section.items.map((item) => {
+                const checked = Boolean(checks[item.key]);
+                return (
+                  <React.Fragment key={item.key}>
+                    {!!item.cautionBefore && (
+                      <ChecklistCaution text={item.cautionBefore} />
+                    )}
 
                     <TouchableOpacity
                       accessibilityRole="checkbox"
-                      accessibilityState={{ checked: checks[item.key] }}
+                      accessibilityState={{ checked }}
                       accessibilityLabel={`${item.title}: ${item.description}`}
                       disabled={!isEditable}
-                      onPress={() =>
-                        emitChecks({ [item.key]: !checks[item.key] })
-                      }
+                      onPress={() => emitChecks({ [item.key]: !checked })}
                       activeOpacity={0.7}
                       style={{
                         flexDirection: "row",
                         alignItems: "flex-start",
-                        marginLeft: 14,
-                        paddingRight: 8,
+                        backgroundColor: checked ? `${COLORS.primaryLight}12` : COLORS.grayLight,
+                        borderWidth: 1,
+                        borderColor: checked ? COLORS.primaryLight : COLORS.border,
+                        borderRadius: 10,
+                        padding: 12,
+                        marginBottom: 10,
                       }}
                     >
-                      <ChecklistBox checked={checks[item.key]} />
-                      <AppText
-                        style={{
-                          fontSize: 12,
-                          lineHeight: 18,
-                          color: COLORS.grayDark,
-                          flex: 1,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        {item.description}
-                      </AppText>
+                      <ChecklistBox checked={checked} />
+                      <View style={{ flex: 1 }}>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            fontWeight: "700",
+                            color: COLORS.black,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {item.title}
+                        </AppText>
+                        <AppText
+                          style={{
+                            fontSize: 12,
+                            lineHeight: 18,
+                            color: COLORS.grayDark,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {item.description}
+                        </AppText>
+                      </View>
                     </TouchableOpacity>
-                  </View>
 
-                  {!!item.cautionAfter && (
-                    <ChecklistCaution text={item.cautionAfter} />
-                  )}
-                </React.Fragment>
-              ))}
+                    {!!item.cautionAfter && (
+                      <ChecklistCaution text={item.cautionAfter} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </View>
           </View>
         );

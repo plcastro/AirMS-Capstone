@@ -7,6 +7,26 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+const ChecklistBox = ({ checked }) => (
+  <View
+    style={{
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: checked ? COLORS.primaryLight : COLORS.grayMedium,
+      backgroundColor: checked ? COLORS.primaryLight : COLORS.white,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    }}
+  >
+    {checked && (
+      <MaterialCommunityIcons name="check-bold" size={14} color={COLORS.white} />
+    )}
+  </View>
+);
+
 export default function PostInspectionModalMainRotor({
   formData,
   updateForm,
@@ -248,14 +268,28 @@ export default function PostInspectionModalMainRotor({
   };
 
   const renderItemWithChecks = (index, item) => {
+    const allChecked = item.checks.every(
+      (check) => formData[`${item.key}_${check.subKey}`],
+    );
+
     return (
-      <View key={item.key} style={{ marginBottom: 20 }}>
+      <View
+        key={item.key}
+        style={{
+          backgroundColor: allChecked ? `${COLORS.primaryLight}12` : COLORS.grayLight,
+          borderWidth: 1,
+          borderColor: allChecked ? COLORS.primaryLight : COLORS.border,
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 10,
+        }}
+      >
         <AppText
           style={{
             fontSize: 12,
-            fontWeight: "bold",
+            fontWeight: "700",
             color: COLORS.black,
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           {index + 1}. {item.title}
@@ -268,42 +302,24 @@ export default function PostInspectionModalMainRotor({
           return (
             <TouchableOpacity
               key={check.subKey}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: value }}
+              accessibilityLabel={check.label}
               style={{
                 flexDirection: "row",
-                alignItems: "center",
-                marginLeft: 16,
-                marginBottom: 10,
-                paddingRight: 8,
+                alignItems: "flex-start",
+                marginBottom: 6,
               }}
               onPress={
                 isEditable ? () => handleCheck(item.key, check.subKey) : null
               }
               activeOpacity={0.7}
             >
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
-                  borderWidth: 2,
-                  borderColor: COLORS.primaryLight,
-                  backgroundColor: value ? COLORS.primaryLight : "transparent",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginRight: 12,
-                }}
-              >
-                {value && (
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={14}
-                    color={COLORS.white}
-                  />
-                )}
-              </View>
+              <ChecklistBox checked={value} />
               <AppText
                 style={{
                   fontSize: 12,
+                  lineHeight: 18,
                   color: COLORS.grayDark,
                   flex: 1,
                   flexWrap: "wrap",
@@ -351,9 +367,8 @@ export default function PostInspectionModalMainRotor({
         {isEditable && (
           <View
             style={{
-              borderBottomWidth: 1,
-              borderBottomColor: COLORS.grayMedium,
-              paddingVertical: 14,
+              backgroundColor: COLORS.grayLight,
+              paddingVertical: 12,
               paddingHorizontal: 16,
             }}
           >
@@ -361,31 +376,9 @@ export default function PostInspectionModalMainRotor({
               onPress={handleMainRotorSelectAll}
               style={{ flexDirection: "row", alignItems: "center" }}
             >
-              <View
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
-                  borderWidth: 2,
-                  borderColor: COLORS.primaryLight,
-                  backgroundColor: mainRotorSelectAll
-                    ? COLORS.primaryLight
-                    : "transparent",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginRight: 12,
-                }}
-              >
-                {mainRotorSelectAll && (
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={14}
-                    color={COLORS.white}
-                  />
-                )}
-              </View>
+              <ChecklistBox checked={mainRotorSelectAll} />
               <AppText
-                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "600" }}
               >
                 Select All
               </AppText>

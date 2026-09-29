@@ -1,14 +1,11 @@
 import React, { useMemo } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AppText from "./AppText";
 import {
   EmptyState,
-  FieldRow,
-  InfoCard,
   LoadingState,
   SearchBar,
-  SectionTitle,
-  StatusChip,
 } from "./MobileModule";
 import { COLORS } from "../../stylesheets/colors";
 import { formatDate, formatDateTime } from "../../utilities/mobileApi";
@@ -16,6 +13,93 @@ import { matchesSearch } from "../../utilities/search";
 import { groupAircraftLogs } from "../../../shared/aircraftLogGroups";
 import { unviewedAircraftCounts } from "../../../shared/viewedLogs";
 import NewLogBadge from "./NewLogBadge";
+
+function AircraftMetaField({ label, value }) {
+  return (
+    <View style={{ flex: 1, minWidth: "45%" }}>
+      <AppText style={{ fontSize: 10, color: COLORS.grayDark, textTransform: "uppercase", fontWeight: "600" }}>
+        {label}
+      </AppText>
+      <AppText style={{ fontSize: 12, color: COLORS.black, fontWeight: "600", marginTop: 2 }}>
+        {value}
+      </AppText>
+    </View>
+  );
+}
+
+function AircraftCard({ group, sortBy, newCount, onPress }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.82}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        backgroundColor: COLORS.white,
+        borderRadius: 10,
+        marginBottom: 10,
+        elevation: 2,
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        overflow: "hidden",
+      }}
+    >
+      <View style={{ width: 5, backgroundColor: COLORS.primaryLight }} />
+      <View style={{ flex: 1, padding: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: `${COLORS.primaryLight}1A`,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 10,
+            }}
+          >
+            <MaterialCommunityIcons name="helicopter" size={18} color={COLORS.primaryLight} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText style={{ fontSize: 14, fontWeight: "700", color: COLORS.black }}>
+              {group.rpc}
+            </AppText>
+            {newCount > 0 && <NewLogBadge count={newCount} />}
+          </View>
+          <View
+            style={{
+              backgroundColor: `${COLORS.primaryLight}1A`,
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              marginRight: 8,
+            }}
+          >
+            <AppText style={{ fontSize: 11, fontWeight: "700", color: COLORS.primaryLight }}>
+              {group.count} {group.count === 1 ? "log" : "logs"}
+            </AppText>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.grayDark} />
+        </View>
+
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+          <AircraftMetaField label="Aircraft type" value={group.aircraftType || "N/A"} />
+          <AircraftMetaField label="Base" value={group.base || "N/A"} />
+        </View>
+
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <MaterialCommunityIcons name="clock-outline" size={13} color={COLORS.grayDark} />
+          <AppText style={{ fontSize: 11, color: COLORS.grayDark, marginLeft: 4 }}>
+            {sortBy === "latestActivity"
+              ? `Updated ${formatDateTime(group.latestActivity)}`
+              : `Latest log: ${formatDate(group.latestDate)}`}
+          </AppText>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function AircraftLogGroups({
   records = [],
@@ -43,8 +127,11 @@ export default function AircraftLogGroups({
         value={query}
         onChangeText={onQueryChange}
         placeholder="Search aircraft or base"
+        containerStyle={{ marginBottom: 6 }}
       />
-      <SectionTitle subtitle="Select an aircraft to view and filter its logs." />
+      <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>
+        Select an aircraft to view and filter its logs.
+      </AppText>
       <FlatList
         ListEmptyComponent={
           loading ? (
@@ -65,48 +152,13 @@ export default function AircraftLogGroups({
         windowSize={7}
         {...listProps}
         renderItem={({ item: group }) => (
-          <InfoCard
+          <AircraftCard
             key={group.rpc}
-            title={group.rpc}
-            subtitle="View aircraft logs"
-            right={
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <View style={{ alignItems: "flex-start", gap: 4 }}>
-                  <StatusChip
-                    label={`${group.count} ${group.count === 1 ? "log" : "logs"}`}
-                  />
-                  {newCounts.get(group.rpc) > 0 && <NewLogBadge count={newCounts.get(group.rpc)} />}
-                </View>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={22}
-                  color={COLORS.primary}
-                />
-              </View>
-            }
+            group={group}
+            sortBy={sortBy}
+            newCount={newCounts.get(group.rpc) || 0}
             onPress={() => onSelect(group.rpc)}
-          >
-            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-              <FieldRow
-                label="Aircraft type"
-                value={group.aircraftType || "N/A"}
-              />
-              <FieldRow label="Base" value={group.base || "N/A"} />
-              {sortBy === "latestActivity" ? (
-                <FieldRow
-                  label="Last updated"
-                  value={formatDateTime(group.latestActivity)}
-                />
-              ) : (
-                <FieldRow
-                  label="Latest log"
-                  value={formatDate(group.latestDate)}
-                />
-              )}
-            </View>
-          </InfoCard>
+          />
         )}
       />
     </View>

@@ -21,7 +21,6 @@ import PostInspectionModalCabinInterior from "./PostInspectionModalCabinInterior
 import PostInspectionModalNotes from "./PostInspectionModalNotes";
 import PostInspectionB412Checklist from "./PostInspectionB412Checklist";
 import PostInspectionSignatureModal from "./PostInspectionSignatureModal";
-import AlertComp from "../AlertComp";
 import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import {
   areAllPostInspectionChecksComplete,
@@ -65,12 +64,6 @@ export default function PostInspectionEditEntry({
   const scrollViewRef = useRef(null);
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedbackAlert, setFeedbackAlert] = useState({
-    visible: false,
-    title: "",
-    message: "",
-    closeOnFinish: false,
-  });
 
   const normalizedRole = String(userRole || "").trim().toLowerCase();
   const isPilot = normalizedRole === "pilot";
@@ -212,12 +205,8 @@ export default function PostInspectionEditEntry({
     await persistInspection(nextFormData, { closeOnSave: false });
     setFormData(nextFormData);
     setShowReleaseModal(false);
-    setFeedbackAlert({
-      visible: true,
-      title: "Success",
-      message: "Post-inspection has been completed",
-      closeOnFinish: true,
-    });
+    showToast("Post-inspection has been completed");
+    onClose();
   };
 
   const handleNext = () => {
@@ -745,19 +734,6 @@ export default function PostInspectionEditEntry({
           useNativeModal={false}
         />
 
-        <AlertComp
-          visible={feedbackAlert.visible}
-          title={feedbackAlert.title}
-          message={feedbackAlert.message}
-          duration={1400}
-          onFinish={() => {
-            const shouldClose = feedbackAlert.closeOnFinish;
-            setFeedbackAlert((prev) => ({ ...prev, visible: false }));
-            if (shouldClose) {
-              onClose();
-            }
-          }}
-        />
         </SafeAreaView>
       </IosModalSafeAreaProvider>
     </Modal>
