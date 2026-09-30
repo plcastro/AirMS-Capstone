@@ -66,6 +66,14 @@ const headers = [
       ),
   },
   {
+    title: "Base",
+    dataIndex: "base",
+    key: "base",
+    width: 110,
+    render: (text) =>
+      text ? <Text>{text}</Text> : <Text type="secondary">Not captured</Text>,
+  },
+  {
     title: "Location",
     dataIndex: "locationText",
     key: "locationText",

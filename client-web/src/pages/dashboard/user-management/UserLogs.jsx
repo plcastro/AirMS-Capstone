@@ -1,3 +1,4 @@
+import { baseLabel } from "../../../../../shared/bases";
 import React, {
   useCallback,
   useContext,
@@ -168,6 +169,7 @@ export default function UserLogs() {
               log.platform,
             ),
             deviceModel: log.deviceModel || "",
+            base: baseLabel(log.base),
             locationText: log.locationText || "",
             locationCoordinates:
               log.locationLatitude !== null &&
@@ -328,6 +330,7 @@ export default function UserLogs() {
         Action: log.actionMade || "N/A",
         Platform: log.platformLabel || log.platform || "Not captured",
         "Device Model": log.deviceModel || "Not captured",
+        Base: log.base || "Not captured",
         Location: log.locationText || "Not captured",
         Coordinates: log.locationCoordinates || "Not captured",
       })),

@@ -26,6 +26,7 @@ import { exportReportPdf } from "../../utilities/reportExport";
 import { matchesSearch } from "../../utilities/search";
 import { AuthContext } from "../../Context/AuthContext";
 import { canExportModule } from "../../../shared/exportAccess";
+import { baseLabel } from "../../../shared/bases";
 import {
   AUDIT_ACTION_CHART_CATEGORIES,
   buildEmptyAuditCategoryCounts,
@@ -217,6 +218,7 @@ export default function ActivityLogs() {
               .trim()
               .toUpperCase(),
             deviceModel: String(item.deviceModel || "").trim(),
+            base: baseLabel(item.base),
             locationText: String(item.locationText || "").trim(),
             locationCoordinates:
               item.locationLatitude !== null &&
@@ -564,6 +566,7 @@ export default function ActivityLogs() {
               "Action",
               "Platform",
               "Device Model",
+              "Base",
               "Location",
               "Coordinates",
             ],
@@ -573,6 +576,7 @@ export default function ActivityLogs() {
               Action: log.actionMade || "N/A",
               Platform: log.platformLabel || log.platform || "Not captured",
               "Device Model": log.deviceModel || "Not captured",
+              Base: log.base || "Not captured",
               Location: log.locationText || "Not captured",
               Coordinates: log.locationCoordinates || "Not captured",
             })),
@@ -770,6 +774,13 @@ export default function ActivityLogs() {
                     <View style={[styles.tag, styles.deviceTag]}>
                       <AppText style={[styles.tagText, styles.deviceTagText]}>
                         Device: {item.deviceModel}
+                      </AppText>
+                    </View>
+                  )}
+                  {!!item.base && (
+                    <View style={[styles.tag, styles.deviceTag]}>
+                      <AppText style={[styles.tagText, styles.deviceTagText]}>
+                        Base: {item.base}
                       </AppText>
                     </View>
                   )}

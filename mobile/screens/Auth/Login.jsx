@@ -22,6 +22,7 @@ import Button from "../../components/Button";
 import CheckBox from "../../components/CheckBox";
 import LoadingScreen from "../LoadingScreen";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { BASE_OPTIONS } from "../../../shared/bases";
 import { AuthContext } from "../../Context/AuthContext";
 import { API_BASE } from "../../utilities/API_BASE";
 import { COLORS } from "../../stylesheets/colors";
@@ -40,11 +41,6 @@ import {
 
 const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
 const REMEMBERED_BASE_KEY = "rememberedBase";
-const BASE_OPTIONS = [
-  { label: "Manila", value: "MANILA" },
-  { label: "Cebu", value: "CEBU" },
-  { label: "CDO", value: "CDO" },
-];
 const TRUSTED_DEVICE_TOKEN_KEY = "trustedDeviceToken";
 
 export default function Login() {
@@ -94,7 +90,7 @@ export default function Login() {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const validate = () => {
+  const validate = async () => {
     const { identifier, password } = formData;
     if (!identifier.trim() && !password.trim())
       return setMessage("Username/email and password are required");
@@ -102,16 +98,22 @@ export default function Login() {
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Password is required");
     if (!BASE_OPTIONS.some((option) => option.value === selectedBase)) {
-      return setMessage("Select your base: Manila, Cebu or CDO.");
+      return setMessage("Select your base: Manila, Cebu or Cagayan de Oro.");
     }
-    if (!loginLocation?.text) {
-      return setMessage("Detect your login location before signing in.");
+    // The location isn't shown, but it is still required and recorded.
+    const location = loginLocation?.text
+      ? loginLocation
+      : await handleDetectLocation();
+    if (!location?.text) {
+      return setMessage(
+        "Allow location access so AirMS can record where you are logging in from.",
+      );
     }
 
-    login();
+    login(location);
   };
 
-  const login = async () => {
+  const login = async (location = loginLocation) => {
     setLoading(true);
     setMessage("");
 
@@ -134,7 +136,7 @@ export default function Login() {
           "Content-Type": "application/json",
           "x-platform": loginPlatform,
           "x-base": selectedBase,
-          ...buildLoginLocationHeaders(loginLocation),
+          ...buildLoginLocationHeaders(location),
           ...getDeviceAuditHeaders(),
         },
         body: JSON.stringify({
@@ -142,7 +144,7 @@ export default function Login() {
           password: formData.password.trim(),
           client: loginClient,
           rememberMe,
-          location: loginLocation,
+          location,
           base: selectedBase,
           trustedDeviceToken,
         }),
@@ -181,7 +183,7 @@ export default function Login() {
           maskedEmail: data.verification.maskedEmail,
           identifier: formData.identifier.trim(),
           rememberMe,
-          loginLocation,
+          loginLocation: location,
           base: selectedBase,
           client: loginClient,
         });
@@ -228,7 +230,7 @@ export default function Login() {
       await loginUser({
         user,
         session: {
-          location: loginLocation,
+          location,
           sessionId: data.sessionId,
           platform: loginPlatform,
           ...(session || {}),
@@ -272,12 +274,13 @@ export default function Login() {
   const handleDetectLocation = async () => {
     try {
       setDetectingLocation(true);
-      setMessage("");
       const nextLocation = await detectLoginLocation();
       setLoginLocation(nextLocation);
+      return nextLocation;
     } catch (error) {
+      console.warn("Login location detection failed:", error?.message);
       setLoginLocation(null);
-      setMessage(error.message || "Could not detect your login location.");
+      return null;
     } finally {
       setDetectingLocation(false);
     }
@@ -397,48 +400,6 @@ export default function Login() {
             )}
           </View>
 
-          <AppText style={styles.label}>Login Location</AppText>
-
-          <View style={loginLocationStyles.wrap}>
-            <View style={loginLocationStyles.panel}>
-              <MaterialCommunityIcons
-                name={loginLocation?.text ? "map-marker-check" : "map-marker"}
-                size={22}
-                color={loginLocation?.text ? COLORS.primary : "gray"}
-              />
-
-              <View style={loginLocationStyles.textWrap}>
-                <AppText
-                  style={[
-                    loginLocationStyles.locationText,
-                    {
-                      color: loginLocation?.text ? "#111827" : "gray",
-                    },
-                  ]}
-                >
-                  {loginLocation?.text || "Detecting your location..."}
-                </AppText>
-
-                {loginLocation?.text && (
-                  <AppText style={loginLocationStyles.statusText}>
-                    Location detected for login security
-                  </AppText>
-                )}
-
-                {!loginLocation && getMessage && (
-                  <TouchableOpacity
-                    onPress={handleDetectLocation}
-                    disabled={detectingLocation}
-                    activeOpacity={0.7}
-                  >
-                    <AppText style={loginLocationStyles.retryText}>
-                      {detectingLocation ? "Detecting..." : "Try again"}
-                    </AppText>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </View>
           {getMessage && !loginSuccess && (
             <AppText style={styles.error}>{getMessage}</AppText>
           )}
@@ -547,50 +508,3 @@ const loginDropdownStyles = StyleSheet.create({
   },
 });
 
-const loginLocationStyles = StyleSheet.create({
-  wrap: {
-    marginBottom: 12,
-  },
-  panel: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: COLORS.grayMedium,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 48,
-  },
-  textWrap: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  locationText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  coordinateText: {
-    color: COLORS.grayDark,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  detectButton: {
-    marginTop: 8,
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    columnGap: 8,
-  },
-  detectButtonDisabled: {
-    opacity: 0.65,
-  },
-  detectButtonText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-});

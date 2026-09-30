@@ -848,42 +848,6 @@ export default function FlightWorkspace({
               )}
             </>
           }
-          ListFooterComponent={
-            <>
-              {log && (
-                <>
-                  {!readOnly && mechanic && needsMyFlightAction(user, log) && (
-                    <Action disabled={busy} onPress={advance}>
-                      {step.button}
-                    </Action>
-                  )}
-                  {permissions.canSave && (
-                    <Action
-                      disabled={busy}
-                      onPress={() =>
-                        execute(id, {
-                          changes: draft,
-                          expectedVersion: log.__v || 0,
-                        })
-                      }
-                    >
-                      Save Draft
-                    </Action>
-                  )}
-                  {permissions.canReturn && (
-                    <Action
-                      onPress={() => {
-                        setComment("");
-                        setReturning(true);
-                      }}
-                    >
-                      Return for Correction
-                    </Action>
-                  )}
-                </>
-              )}
-            </>
-          }
           renderItem={({ item: row }) => {
             if (row.kind === "inspection")
               return ((record) => (

@@ -24,6 +24,7 @@ const userLogSchema = new mongoose.Schema({
   locationText: { type: String, default: "" },
   locationLatitude: { type: Number, default: null },
   locationLongitude: { type: Number, default: null },
+  base: { type: String, enum: ["MANILA", "CEBU", "CDO", null], default: null },
   ipAddress: { type: String, default: "" },
   userAgent: { type: String, default: "" },
 });

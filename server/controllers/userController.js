@@ -715,7 +715,7 @@ const loginUser = async (req, res) => {
     if (!normalizeBase(req.headers["x-base"] || req.body?.base)) {
       return res
         .status(400)
-        .json({ message: "Select your base: Manila, Cebu or CDO." });
+        .json({ message: "Select your base: Manila, Cebu or Cagayan de Oro." });
     }
     const normalizedClient =
       typeof client === "string" ? client.trim().toLowerCase() : "";
@@ -938,7 +938,7 @@ const verifyLoginOtp = async (req, res) => {
     if (!normalizeBase(req.headers["x-base"] || base)) {
       return res
         .status(400)
-        .json({ message: "Select your base: Manila, Cebu or CDO." });
+        .json({ message: "Select your base: Manila, Cebu or Cagayan de Oro." });
     }
     const normalizedOtp = String(otp || "").trim();
     if (!/^\d{6}$/.test(normalizedOtp)) {

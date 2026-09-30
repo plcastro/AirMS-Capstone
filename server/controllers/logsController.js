@@ -30,7 +30,8 @@ const resolveAuditContext = async (context = {}, userId = null) => {
     resolved.sessionId &&
     resolved.devicePlatform &&
     resolved.deviceModel &&
-    resolved.locationText
+    resolved.locationText &&
+    resolved.base
   ) {
     return resolved;
   }
@@ -67,6 +68,7 @@ const resolveAuditContext = async (context = {}, userId = null) => {
     parseCoordinate(resolved.locationLongitude) ??
     session.locationLongitude ??
     null;
+  resolved.base = resolved.base || session.base || null;
 
   return resolved;
 };
@@ -161,6 +163,7 @@ const auditLog = async (
       locationText: compactText(context.locationText, 240),
       locationLatitude: parseCoordinate(context.locationLatitude),
       locationLongitude: parseCoordinate(context.locationLongitude),
+      base: context.base || null,
     });
     publishTypedForRecipients(
       { recipientRoles: ["admin staff"], excludedUsers: userId ? [userId] : [] },
@@ -300,7 +303,8 @@ const getAllUserLogs = async (req, res) => {
               (!isKnownPlatform(log.platform) ||
                 !log.devicePlatform ||
                 !log.deviceModel ||
-                !log.locationText),
+                !log.locationText ||
+                !log.base),
           )
           .map((log) => log.sessionId),
       ),
@@ -312,7 +316,7 @@ const getAllUserLogs = async (req, res) => {
             (
               await UserSession.find({ sessionId: { $in: sessionIds } })
                 .select(
-                  "sessionId platform devicePlatform deviceModel locationText locationLatitude locationLongitude",
+                  "sessionId platform devicePlatform deviceModel locationText locationLatitude locationLongitude base",
                 )
                 .lean()
             ).map((session) => [session.sessionId, session]),
@@ -380,6 +384,7 @@ const getAllUserLogs = async (req, res) => {
         locationText,
         locationLatitude,
         locationLongitude,
+        base: log.base || session?.base || null,
         sessionId: log.sessionId || null,
         ipAddress: log.ipAddress || "",
         userAgent: log.userAgent || "",

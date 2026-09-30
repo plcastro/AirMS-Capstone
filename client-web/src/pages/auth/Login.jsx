@@ -9,12 +9,7 @@ import { AuthContext } from "../../context/AuthContext";
 import LoginLayout from "../../components/layout/LoginLayout";
 import PrivacyPolicyModal from "../../components/common/PrivacyPolicyModal";
 import TermsAndConditionsModal from "../../components/common/TermsAndConditionsModal";
-import {
-  AimOutlined,
-  EnvironmentOutlined,
-  LockOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import AirMSLogo from "../../assets/AirMS_web.webp";
 import ResultPopup from "../../components/common/ResultPopup";
 import {
@@ -22,13 +17,8 @@ import {
   detectLoginLocation,
 } from "../../utils/loginLocation";
 import { airmStorage } from "../../utils/airmsStorage";
+import { BASE_OPTIONS } from "../../../../shared/bases";
 const { Text } = Typography;
-
-const BASE_OPTIONS = [
-  { value: "MANILA", label: "Manila" },
-  { value: "CEBU", label: "Cebu" },
-  { value: "CDO", label: "CDO" },
-];
 
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
@@ -39,7 +29,6 @@ const Login = () => {
   });
   const [location, setLocation] = useState(null);
   const [base, setBase] = useState(() => airmStorage.get("rememberedBase", ""));
-  const [locationStatus, setLocationStatus] = useState("");
   const [popup, setPopup] = useState({
     open: false,
     status: "success",
@@ -66,25 +55,22 @@ const Login = () => {
     }
   }, []);
 
-  const handleDetectLocation = async () => {
+  // The login location is detected in the background (not shown) and still
+  // recorded with the session and activity logs.
+  const detectLocation = async () => {
     try {
-      setLocationStatus("Getting your location...");
-      setError("");
       const nextLocation = await detectLoginLocation();
       setLocation(nextLocation);
-      setLocationStatus("Location detected.");
+      return nextLocation;
     } catch (locationError) {
       console.error("Geolocation error:", locationError);
       setLocation(null);
-      setLocationStatus(
-        locationError?.message ||
-          "Unable to detect your location. Please allow location access.",
-      );
+      return null;
     }
   };
 
   useEffect(() => {
-    handleDetectLocation();
+    detectLocation();
   }, []);
 
   const handleInputChange = (e) => {
@@ -126,16 +112,21 @@ const Login = () => {
       return;
     }
     if (!BASE_OPTIONS.some((option) => option.value === base)) {
-      setError("Select your base: Manila, Cebu or CDO.");
+      setError("Select your base: Manila, Cebu or Cagayan de Oro.");
       return;
     }
-    if (!location?.text || !location?.coordinateText) {
+    setLoading(true);
+    const loginLocation =
+      location?.text && location?.coordinateText
+        ? location
+        : await detectLocation();
+    if (!loginLocation?.text || !loginLocation?.coordinateText) {
+      setLoading(false);
       setError(
         "Allow location access so AirMS can detect where you are logging in from.",
       );
       return;
     }
-    setLoading(true);
 
     try {
       const response = await fetch(`${API_BASE}/api/user/login`, {
@@ -145,14 +136,14 @@ const Login = () => {
           "x-platform": "WEB",
           "x-base": base,
           ...getDeviceAuditHeaders(),
-          ...buildLoginLocationHeaders(location),
+          ...buildLoginLocationHeaders(loginLocation),
         },
         body: JSON.stringify({
           identifier,
           password,
           client: "web",
           rememberMe,
-          location,
+          location: loginLocation,
           base,
         }),
 
@@ -183,7 +174,7 @@ const Login = () => {
               maskedEmail: data.verification.maskedEmail,
               identifier,
               rememberMe,
-              loginLocation: location,
+              loginLocation,
               base,
               client: "web",
             },
@@ -193,7 +184,7 @@ const Login = () => {
 
         await loginUser(data.user, data.token, {
           rememberMe,
-          location: data.session?.location || location,
+          location: data.session?.location || loginLocation,
           sessionId: data.sessionId || data.user?.sessionId,
           base: data.session?.base || base,
         });
@@ -333,48 +324,11 @@ const Login = () => {
             />
           </Form.Item>
 
-          <Form.Item label="Login Location" required>
-            <div
-              className="login-location-panel"
-              role="status"
-              aria-live="polite"
-            >
-              <EnvironmentOutlined className="login-location-icon" />
-
-              <div className="login-location-copy">
-                {location?.text ? (
-                  <>
-                    <Text strong>{location.text}</Text>
-                    <Text
-                      type="secondary"
-                      className="login-location-coordinates"
-                    >
-                      Location detected for login security
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text type="secondary">
-                      {locationStatus || "Detecting your location..."}
-                    </Text>
-
-                    {locationStatus && (
-                      <Button
-                        type="link"
-                        icon={<AimOutlined />}
-                        onClick={handleDetectLocation}
-                        style={{ padding: 0, marginTop: 4 }}
-                      >
-                        Try again
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
+          {error && (
+            <div style={{ marginBottom: 16 }}>
+              <Text type="danger">{error}</Text>
             </div>
-
-            {error && <Text type="danger">{error}</Text>}
-          </Form.Item>
+          )}
 
           <Row style={{ marginBottom: 20 }}>
             <Col xs={12} sm={12}>
