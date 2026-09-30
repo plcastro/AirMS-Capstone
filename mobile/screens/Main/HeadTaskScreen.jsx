@@ -31,6 +31,11 @@ const { width } = Dimensions.get("window");
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
 const ADD_TASK_TIMEOUT_MS = 30000;
+// iOS cannot present a modal while another is still dismissing; swapping the
+// confirm alert and a task form in the same moment can leave an invisible
+// modal covering the screen. Keep the form hidden while it is confirmed and
+// saved, and only bring it back once the alert has finished closing.
+const MODAL_SWAP_DELAY_MS = 400;
 const normalizeTaskStatus = (status) =>
   String(status || "")
     .trim()
@@ -71,6 +76,10 @@ export default function HeadTaskScreen({
   const [refreshing, setRefreshing] = useState(false);
   const tabs = ["Assigned", "For Review", "Reviewed"];
   const [employees, setEmployees] = useState([]);
+  const [heldForm, setHeldForm] = useState(null);
+  const holdForm = (form) => setHeldForm(form);
+  const releaseForm = () =>
+    setTimeout(() => setHeldForm(null), MODAL_SWAP_DELAY_MS);
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: "",
@@ -342,12 +351,16 @@ export default function HeadTaskScreen({
     );
     const activeTaskCount = selectedMechanic?.activeTaskCount || 0;
 
+    holdForm("add");
     const confirmed = await confirmWithAlert({
       title: "Create Task",
       message: "Submit this new task assignment?",
       confirmText: "Create",
     });
-    if (!confirmed) return;
+    if (!confirmed) {
+      releaseForm();
+      return;
+    }
 
     // A stalled network must not leave the form stuck on "Saving...".
     const controller = new AbortController();
@@ -392,6 +405,7 @@ export default function HeadTaskScreen({
       );
     } finally {
       clearTimeout(timeoutId);
+      releaseForm();
     }
   };
 
@@ -404,12 +418,16 @@ export default function HeadTaskScreen({
         OPEN_TASK_STATUSES.has(normalizeTaskStatus(task?.status)),
     ).length;
 
+    holdForm("edit");
     const confirmed = await confirmWithAlert({
       title: "Update Task",
       message: "Save changes to this task?",
       confirmText: "Save",
     });
-    if (!confirmed) return;
+    if (!confirmed) {
+      releaseForm();
+      return;
+    }
 
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
@@ -448,6 +466,8 @@ export default function HeadTaskScreen({
     } catch (error) {
       console.error("Error updating task:", error);
       showToast("Failed to update task");
+    } finally {
+      releaseForm();
     }
   };
 
@@ -756,7 +776,7 @@ export default function HeadTaskScreen({
 
       <AddTask
         visible={addModalVisible}
-        suspended={alertConfig.visible}
+        suspended={alertConfig.visible || heldForm === "add"}
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={mechanicOptions}
@@ -764,7 +784,9 @@ export default function HeadTaskScreen({
       />
 
       <EditTask
-        visible={editModalVisible && !alertConfig.visible}
+        visible={
+          editModalVisible && !alertConfig.visible && heldForm !== "edit"
+        }
         onClose={() => setEditModalVisible(false)}
         task={selectedTask}
         onSave={handleEditTask}
