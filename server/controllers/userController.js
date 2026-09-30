@@ -207,6 +207,7 @@ const buildAccessToken = (user, session = {}) =>
       id: user._id,
       sessionId: session.sessionId || null,
       platform: session.platform || "UNKNOWN",
+      base: session.base || null,
     },
     process.env.JWT_SECRET,
     { expiresIn: "30m" },
@@ -229,6 +230,7 @@ const buildClientUserProfile = (user) => ({
 const buildSessionPayload = (session = {}) => ({
   sessionId: session.sessionId || null,
   platform: session.platform || "UNKNOWN",
+  base: session.base || null,
   location: {
     text: session.locationText || "",
     coordinates: {
@@ -710,6 +712,11 @@ const loginUser = async (req, res) => {
 
     identifier = identifier.trim();
     password = password.trim();
+    if (!normalizeBase(req.headers["x-base"] || req.body?.base)) {
+      return res
+        .status(400)
+        .json({ message: "Select your base: Manila, Cebu or CDO." });
+    }
     const normalizedClient =
       typeof client === "string" ? client.trim().toLowerCase() : "";
     const loginPlatform =
@@ -927,6 +934,11 @@ const verifyLoginOtp = async (req, res) => {
     } = req.body;
     if (!token || !otp) {
       return res.status(400).json({ message: "Token and OTP are required" });
+    }
+    if (!normalizeBase(req.headers["x-base"] || base)) {
+      return res
+        .status(400)
+        .json({ message: "Select your base: Manila, Cebu or CDO." });
     }
     const normalizedOtp = String(otp || "").trim();
     if (!/^\d{6}$/.test(normalizedOtp)) {
@@ -1196,6 +1208,7 @@ const refreshToken = async (req, res) => {
     const newAccessToken = buildAccessToken(user, {
       sessionId: req.headers["x-session-id"] || payload.sessionId || null,
       platform: req.headers["x-platform"] || payload.platform || "UNKNOWN",
+      base: activeSession.base,
     });
 
     const { token: newRefreshToken, jti } = issueRefreshToken(

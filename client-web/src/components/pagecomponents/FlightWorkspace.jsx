@@ -615,24 +615,10 @@ export default function FlightWorkspace({
                 <Space wrap>
                   <Button
                     type="primary"
-                    disabled={busy || !acceptance.preInspection}
-                    onClick={() =>
-                      saveInspection(
-                        "pre",
-                        acceptance.preInspection,
-                        {},
-                        "completed",
-                      )
-                    }
-                  >
-                    Accept Pre-Flight
-                  </Button>
-                  <Button
-                    type="primary"
                     disabled={busy || !acceptance.canAcceptFlight}
                     onClick={() => prepareAction("accept")}
                   >
-                    Accept Flight Log
+                    Accept Pre-Flight & Flight Log
                   </Button>
                 </Space>
               </Card>
@@ -744,6 +730,9 @@ export default function FlightWorkspace({
                             mechanic={mechanic}
                             isMaintenanceManager={
                               normalizeCrewRole(user) === "maintenance manager"
+                            }
+                            isMechanicRole={
+                              normalizeCrewRole(user) === "mechanic"
                             }
                             onConfirm={(kind, record, values) =>
                               setInspectionPrompt({ kind, record, values })
@@ -1291,6 +1280,7 @@ function InspectionEditor({
   editable,
   mechanic,
   isMaintenanceManager,
+  isMechanicRole,
   flightStatus,
   onSave,
   onReturn,
@@ -1327,6 +1317,7 @@ function InspectionEditor({
     editable &&
     mechanic &&
     !isSelfPreparedByManager &&
+    !isMechanicRole &&
     record.status !== "pending" &&
     (kind === "pre" ? preparing : postFlight && mechanic);
   return (

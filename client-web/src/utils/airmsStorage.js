@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   authSyncEvent: "authSyncEvent",
   maintenanceLogSeenIds: "maintenanceLogSeenIds",
   rememberMe: "rememberMe",
+  rememberedBase: "rememberedBase",
   rememberedIdentifier: "rememberedIdentifier",
 };
 

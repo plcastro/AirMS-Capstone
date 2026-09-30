@@ -90,6 +90,7 @@ const edit = kind => catchRequest(async (req, res) => {
       if (populated.b412Data) log.b412Data = populated.b412Data;
     }
   } else if (returning) {
+    if (normalizeCrewRole(req.user) === 'mechanic') throw fail('Mechanics cannot return inspections for correction.', 403);
     if (kind === 'post' && !mechanic) throw fail('The assigned mechanic must return Post-Flight for correction.', 403);
     if (mechanic && normalizeCrewRole(req.user) === 'maintenance manager') throw fail('You cannot return your own self-prepared inspection for correction.', 403);
     if (!String(req.body.comment || '').trim()) throw fail('Explain the inspection correction.');

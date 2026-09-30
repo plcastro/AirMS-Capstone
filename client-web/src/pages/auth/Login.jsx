@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./login.css";
-import { Input, Checkbox, Button, Typography, Row, Col, Form } from "antd";
+import { Input, Checkbox, Button, Typography, Row, Col, Form, Select } from "antd";
 import { getDeviceAuditHeaders } from "../../utils/deviceAudit";
 import { API_BASE } from "../../utils/API_BASE";
 import { AuthContext } from "../../context/AuthContext";
@@ -24,6 +24,12 @@ import {
 import { airmStorage } from "../../utils/airmsStorage";
 const { Text } = Typography;
 
+const BASE_OPTIONS = [
+  { value: "MANILA", label: "Manila" },
+  { value: "CEBU", label: "Cebu" },
+  { value: "CDO", label: "CDO" },
+];
+
 const Login = () => {
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -32,6 +38,7 @@ const Login = () => {
     password: "",
   });
   const [location, setLocation] = useState(null);
+  const [base, setBase] = useState(() => airmStorage.get("rememberedBase", ""));
   const [locationStatus, setLocationStatus] = useState("");
   const [popup, setPopup] = useState({
     open: false,
@@ -118,6 +125,10 @@ const Login = () => {
       setError("Password is required");
       return;
     }
+    if (!BASE_OPTIONS.some((option) => option.value === base)) {
+      setError("Select your base: Manila, Cebu or CDO.");
+      return;
+    }
     if (!location?.text || !location?.coordinateText) {
       setError(
         "Allow location access so AirMS can detect where you are logging in from.",
@@ -132,6 +143,7 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
           "x-platform": "WEB",
+          "x-base": base,
           ...getDeviceAuditHeaders(),
           ...buildLoginLocationHeaders(location),
         },
@@ -141,6 +153,7 @@ const Login = () => {
           client: "web",
           rememberMe,
           location,
+          base,
         }),
 
         credentials: "include",
@@ -153,6 +166,7 @@ const Login = () => {
         : { message: (await response.text()) || "Login failed" };
 
       if (response.ok) {
+        airmStorage.set("rememberedBase", base);
         if (data.requireSetup) {
           navigate(
             `/security-setup?setupToken=${encodeURIComponent(data.user.setupToken)}&email=${encodeURIComponent(data.user.email)}`,
@@ -170,6 +184,7 @@ const Login = () => {
               identifier,
               rememberMe,
               loginLocation: location,
+              base,
               client: "web",
             },
           });
@@ -180,6 +195,7 @@ const Login = () => {
           rememberMe,
           location: data.session?.location || location,
           sessionId: data.sessionId || data.user?.sessionId,
+          base: data.session?.base || base,
         });
 
         if (rememberMe) {
@@ -303,6 +319,17 @@ const Login = () => {
               autoComplete="current-password"
               allowClear
               prefix={<LockOutlined />}
+            />
+          </Form.Item>
+
+          <Form.Item label="Base" required style={{ fontWeight: "bold" }}>
+            <Select
+              id="base"
+              size="large"
+              placeholder="Select your base"
+              value={base || undefined}
+              onChange={setBase}
+              options={BASE_OPTIONS}
             />
           </Form.Item>
 

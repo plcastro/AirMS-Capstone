@@ -144,6 +144,7 @@ export default function OTP() {
         headers: {
           "Content-Type": "application/json",
           "x-platform": loginPlatform,
+          ...(route.params?.base ? { "x-base": route.params.base } : {}),
           ...buildLoginLocationHeaders(route.params?.loginLocation),
           ...getDeviceAuditHeaders(),
         },
@@ -152,6 +153,7 @@ export default function OTP() {
           otp: code,
           rememberMe,
           location: route.params?.loginLocation,
+          base: route.params?.base,
           client: loginClient,
           trustDevice: rememberMe ? trustDevice : false,
           trustedDeviceLabel:
@@ -198,13 +200,13 @@ export default function OTP() {
 
       await loginUser({
         user,
-        session:
-          session ||
-          {
-            location: route.params?.loginLocation,
-            sessionId: data.sessionId,
-            platform: loginPlatform,
-          },
+        session: {
+          location: route.params?.loginLocation,
+          sessionId: data.sessionId,
+          platform: loginPlatform,
+          ...(session || {}),
+          base: session?.base || route.params?.base,
+        },
         accessToken,
         refreshToken,
         rememberMe,

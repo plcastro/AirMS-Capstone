@@ -46,8 +46,10 @@ export const pilotAcceptance = (user, record = {}, inspections = []) => {
   if (flightStage(record) !== 'pending_acceptance') return { message: ['accepted', 'submitted', 'completed', 'returned_to_pilot'].includes(flightStage(record)) ? 'Pilot acceptance is complete. The record is read-only.' : 'Waiting for the mechanic to release the flight log.' };
   const certified = inspection => String(inspection.releasedBy?.userId || '') === String(record.assignedMechanic?.userId || '') && Boolean(record.assignedMechanic?.userId);
   const preInspection = inspections.find(inspection => inspection.status === 'released' && certified(inspection));
-  const canAcceptFlight = inspections.length > 0 && inspections.every(inspection => inspection.status === 'completed' && certified(inspection) && String(inspection.acceptedBy?.userId || '') === String(record.assignedPilot?.userId || ''));
-  return { preInspection, canAcceptFlight, message: preInspection ? 'Review and accept Pre-Flight, then accept the Flight Log. Each acceptance requires only your signature and six-digit PIN.' : canAcceptFlight ? 'Pre-Flight is accepted. Sign and enter your six-digit PIN to accept the Flight Log.' : 'Waiting for the mechanic to certify the linked Pre-Flight inspection.' };
+  // One signature accepts the certified Pre-Flight and the Flight Log together.
+  const canAcceptFlight = inspections.length > 0 && inspections.every(inspection => certified(inspection) && (inspection.status === 'released' ||
+    inspection.status === 'completed' && String(inspection.acceptedBy?.userId || '') === String(record.assignedPilot?.userId || '')));
+  return { preInspection, canAcceptFlight, message: canAcceptFlight ? 'Review the Pre-Flight inspection and the Flight Log, then sign once with your six-digit PIN to accept both.' : 'Waiting for the mechanic to certify the linked Pre-Flight inspection.' };
 };
 // Inspection activity advances the flight version without changing form values.
 // Preserve unsaved fields only when the underlying flight data still matches.
@@ -73,7 +75,9 @@ export const flightEditPermissions = (user, record = {}) => {
   // recall their own submission. This only affects the maintenance-manager
   // job title; mechanics keep returning their own work as before.
   const isSelfPreparedByManager = mechanic && normalizeCrewRole(user) === 'maintenance manager';
+  // Mechanics may not return records for correction (the server enforces this too).
+  const isMechanicRole = normalizeCrewRole(user) === 'mechanic';
   return { preparation: assigned && mechanic && preparation, flight: assigned && mechanic && (preparation || flight || stage === 'submitted'), maintenance,
-    canSave: maintenance, canReturn: assigned && mechanic && !isSelfPreparedByManager && ['pending_acceptance', 'submitted'].includes(stage),
+    canSave: maintenance, canReturn: assigned && mechanic && !isSelfPreparedByManager && !isMechanicRole && ['pending_acceptance', 'submitted'].includes(stage),
     canAmend: assigned && mechanic && stage === 'completed' };
 };

@@ -2,7 +2,8 @@ import { createUseTaskQualifications } from "../../../shared/taskQualificationsC
 import { createUseTaskMechanicSuggestion } from "../../../shared/taskMechanicSuggestion";
 import { getAuthHeaders } from "../../utilities/mobileApi";
 import Modal from "../common/AppModal";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../../Context/AuthContext";
 import AppText from "../common/AppText";
 import AppInput from "../common/AppInput";
 import {
@@ -155,7 +156,10 @@ export default function AddTask({
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
-  const [selectedBase, setSelectedBase] = useState("");
+  // Default to the base the user chose when logging in.
+  const { session } = useContext(AuthContext);
+  const loginBase = BASE_OPTIONS.includes(session?.base) ? session.base : "";
+  const [selectedBase, setSelectedBase] = useState(loginBase);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const qualification = useTaskQualifications(API_BASE, getAuthHeaders, selectedAircraft, visible);
   const [inspectionType, setInspectionType] = useState("");
@@ -523,7 +527,7 @@ export default function AddTask({
   const resetForm = () => {
     const nextStart = getDefaultStartDate();
     setSelectedAircraft("");
-    setSelectedBase("");
+    setSelectedBase(loginBase);
     setSelectedEmployee("");
     setInspectionType("");
     setSelectedInspection(null);

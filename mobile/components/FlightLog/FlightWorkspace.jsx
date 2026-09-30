@@ -36,6 +36,7 @@ import { API_BASE } from "../../utilities/API_BASE";
 import {
   isAssignedFlightCrew,
   getAssignedCrewField,
+  normalizeCrewRole,
 } from "../../../shared/flightCrewAccess";
 import {
   preflightSignatureForRelease,
@@ -648,23 +649,10 @@ export default function FlightWorkspace({
                       </AppText>
                       <AppText>{acceptance.message}</AppText>
                       <Action
-                        disabled={busy || !acceptance.preInspection}
-                        onPress={() =>
-                          saveInspection(
-                            "pre",
-                            acceptance.preInspection,
-                            {},
-                            "completed",
-                          )
-                        }
-                      >
-                        Accept Pre-Flight
-                      </Action>
-                      <Action
                         disabled={busy || !acceptance.canAcceptFlight}
                         onPress={advance}
                       >
-                        Accept Flight Log
+                        Accept Pre-Flight & Flight Log
                       </Action>
                     </View>
                   )}
@@ -906,6 +894,9 @@ export default function FlightWorkspace({
                   kind={tab}
                   editable={assigned && log.status !== "completed"}
                   mechanic={mechanic}
+                  returnBlocked={["mechanic", "maintenance manager"].includes(
+                    normalizeCrewRole(user),
+                  )}
                   onConfirm={(kind, record, values) =>
                     setInspectionPrompt({ kind, record, values })
                   }
@@ -1436,6 +1427,7 @@ function Inspection({
   record,
   editable,
   mechanic,
+  returnBlocked,
   onSave,
   onReturn,
   onConfirm,
@@ -1552,6 +1544,7 @@ function Inspection({
         )}
       {editable &&
         mechanic &&
+        !returnBlocked &&
         record.status !== "pending" &&
         (kind === "post"
           ? mechanic

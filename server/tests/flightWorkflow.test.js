@@ -12,8 +12,8 @@ const pilot = { id: pilotId, jobTitle: 'Pilot' }, mechanic = { id: mechanicId, j
 const leg = () => ({ date: '09/20/2026', stations: [{ from: 'A', to: 'B' }], passengers: '0', totalTimeOff: '01:30', flightTimeOff: '08:00', flightTimeOn: '09:30', blockTimeOff: '07:50', blockTimeOn: '09:40' });
 const log = () => ({ _id: '000000000000000000000003', __v: 4, rpc: 'RP-C1234', aircraftType: 'AS350B3e', status: 'submitted', date: '09/20/2026', controlNo: 'FL-TEST', flightPurpose: 'company_transport',
   assignedPilot: { userId: pilotId, name: 'Pilot' }, assignedMechanic: { userId: mechanicId, name: 'Mechanic' },
-  componentData: { broughtForwardData: { airframe: '100' }, thisFlightData: { airframe: '1.5', engine: '1.5', cycleN1: '0.2', cycleN2: '0.3', landingCycle: '1' }, toDateData: { airframe: '99999' } },
-  monitoringBaseline: { id: 'monitor', referenceData: { acftTT: 100, engTT: 200, n1Cycles: 30, n2Cycles: 40, landings: 50 } },
+  componentData: { broughtForwardData: { airframe: '100' }, thisFlightData: { airframe: '1.5', engine: '1.5', cycleN1: '0.2', cycleN2: '0.3', landingCycle: '1', usage: '0' }, toDateData: { airframe: '99999' } },
+  monitoringBaseline: { id: 'monitor', referenceData: { acftTT: 100, engTT: 200, n1Cycles: 30, n2Cycles: 40, landings: 50, usage: 10 } },
   legs: [leg()], workItems: [], workflowHistory: [], amendments: [] });
 
 test('unsaved forms can follow inspection activity but must not silently adopt concurrently changed flight data', () => {
@@ -29,10 +29,11 @@ test('only the assigned crew can perform each transition, with pilot input limit
   for (const [stage, actor, action, next] of [
     ['pending_release', mechanic, 'release', 'pending_acceptance'], ['pending_acceptance', pilot, 'accept', 'accepted'],
     ['accepted', mechanic, 'complete', 'completed'], ['submitted', mechanic, 'complete', 'completed'],
-    ['pending_acceptance', mechanic, 'return', 'returned_to_mechanic'], ['submitted', mechanic, 'return', 'returned_to_mechanic'],
     ['returned_to_pilot', mechanic, 'complete', 'completed'], ['returned_to_mechanic', mechanic, 'release', 'pending_acceptance'],
   ]) assert.equal(rules.transition({ ...record, status: stage }, actor, action), next);
   assert.throws(() => rules.transition(record, pilot, 'complete'), { status: 403 });
+  // Mechanics may not return flight records for correction.
+  for (const stage of ['pending_acceptance', 'submitted']) assert.throws(() => rules.transition({ ...record, status: stage }, mechanic, 'return'), { status: 403 });
   assert.throws(() => rules.transition(record, { id: 'unassigned', jobTitle: 'Mechanic' }, 'complete'), { status: 403 });
   assert.throws(() => rules.transition({ ...record, status: 'completed' }, mechanic, 'release'), { status: 409 });
   assert.equal(stages.needsMyFlightAction(mechanic, record), true);
@@ -90,8 +91,8 @@ test('server calculates authoritative totals, rejects missing values, and handle
 });
 
 test('B412 totals never substitute airframe usage for an unknown engine and detect legacy reference changes', () => {
-  const record = { ...log(), aircraftType: 'B412EP', b412Data: { componentData: { thisFlightData: { airframe: '1.5', landingCycle: '1', engine1: { tsn: '1.5', cycle: '1' }, engine2: { tsn: '1.5', cycle: '1' } } } } };
-  const referenceData = { acftTT: 100, landings: 20, referenceCells: { L2: 200, H2: 30, H3: 40 } };
+  const record = { ...log(), aircraftType: 'B412EP', b412Data: { componentData: { thisFlightData: { airframe: '1.5', landingCycle: '1', engine1: { tsn: '1.5', cycle: '1' }, engine2: { tsn: '1.5', cycle: '1' }, sling: '0' } } } };
+  const referenceData = { acftTT: 100, landings: 20, usage: 10, referenceCells: { L2: 200, H2: 30, H3: 40 } };
   assert.ok(totals.reviewTotals(record, { referenceData }).missing.some(x => x.includes('Engine 2 TSN: Parts Monitoring')));
   record.monitoringBaseline = { id: 'monitor', referenceData };
   assert.equal(totals.monitoringReconciliation(record, { _id: 'monitor', referenceData: { ...referenceData, today: 'new date' } }).required, false);
@@ -141,7 +142,14 @@ function controllerHarness() {
     '../../shared/b412WorkflowComponents': require('../../shared/b412WorkflowComponents'),
     mongoose: { startSession: async () => ({ endSession: async () => {}, withTransaction: async fn => { const before = clone({ state, monitoring, post }); try { await fn(); } catch (e) { state = before.state; monitoring = before.monitoring; post = before.post; throw e; } } }) },
     '../models/flightLogModel': Flight,
-    '../models/preInspectionModel': { find: () => query(() => [pre]) },
+    '../models/preInspectionModel': {
+      find: () => query(() => [pre]),
+      updateOne: async (filter, update) => {
+        if (filter.status !== pre.status) return;
+        Object.assign(pre, clone(update.$set));
+        pre.workflowHistory = [...(pre.workflowHistory || []), clone(update.$push.workflowHistory)];
+      },
+    },
     '../models/postInspectionModel': Post,
     '../models/partsMonitoringModel': { findOne: () => query(() => { const doc = new Doc(monitoring); doc.save = async () => { monitoring = doc.toObject(); }; return doc; }) },
     '../models/flightDefectModel': { find: () => query(() => []) },
@@ -205,12 +213,12 @@ test('a former assignee inspection signature cannot satisfy the current crew com
   assert.equal(h.state().status, 'submitted'); assert.equal(h.monitoring().referenceData.acftTT, 100);
 });
 
-test('corrections clear the affected current sign-off and audit digests bind amendment text', async () => {
+test('mechanics cannot return a flight record for correction; amendment audit digests bind their text', async () => {
   const h = controllerHarness(); h.state().submittedBy = { name: 'Pilot', userId: pilotId };
   const response = await h.call('return', { comment: 'Fix passenger information' });
-  assert.equal(response.statusCode, 200);
-  assert.equal(h.state().submittedBy, undefined);
-  assert.equal(h.state().status, 'returned_to_mechanic');
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(h.state().submittedBy, { name: 'Pilot', userId: pilotId });
+  assert.equal(h.state().status, 'submitted');
   const signer = { name: 'Pilot', userId: pilotId }, record = log();
   const first = rules.eventFor(record, 'amend', pilot, { correction: 'A' }, 'Reason', signer);
   const second = rules.eventFor(record, 'amend', pilot, { correction: 'B' }, 'Reason', signer);
@@ -222,7 +230,7 @@ test('B412 closure posts both engines and aligns the common-form projection with
   record.aircraftType = 'B412EP';
   Object.assign(h.monitoring().referenceData, { eng1TT: 200, eng1Cycles: 30, eng2TT: 400, eng2Cycles: 40 });
   record.monitoringBaseline.referenceData = clone(h.monitoring().referenceData);
-  record.b412Data = { componentData: { thisFlightData: { airframe: '1.5', landingCycle: '1', engine1: { tsn: '1.5', cycle: '0.2' }, engine2: { tsn: '1.5', cycle: '0.3' } } } };
+  record.b412Data = { componentData: { thisFlightData: { airframe: '1.5', landingCycle: '1', engine1: { tsn: '1.5', cycle: '0.2' }, engine2: { tsn: '1.5', cycle: '0.3' }, sling: '0' } } };
   const response = await h.call('complete');
   assert.equal(response.statusCode, 200);
   assert.equal(h.monitoring().referenceData.eng1TT, 201.5);
@@ -240,7 +248,7 @@ test('original component-hour conversion survives save, review and closure for b
     if (aircraftType === 'B412EP') {
       Object.assign(h.monitoring().referenceData, { eng1TT: 200, eng1Cycles: 30, eng2TT: 400, eng2Cycles: 40 });
       record.monitoringBaseline.referenceData = clone(h.monitoring().referenceData);
-      record.b412Data = { componentData: { thisFlightData: { engine1: { cycle: '.2' }, engine2: { cycle: '.3' } } } };
+      record.b412Data = { componentData: { thisFlightData: { engine1: { cycle: '.2' }, engine2: { cycle: '.3' }, sling: '0' } } };
     }
     record.monitoringBaseline.referenceData = clone(h.monitoring().referenceData);
     const legs = Array.from({ length: 3 }, () => ({ ...leg(), totalTimeOff: '00:20', flightTimeOn: '08:21' }));
@@ -371,6 +379,19 @@ test('pilot flight acceptance signs the stored record without saving form edits 
 });
 
 
+test('pilot accepts the Pre-Flight and the flight log with a single signature', async () => {
+  const h = controllerHarness();
+  h.state().status = 'pending_acceptance';
+  Object.assign(h.pre, { _id: 'pre', status: 'released', acceptedBy: undefined });
+  const response = await h.call('accept', { signature: 'data:image/png;base64,pilot', pin: '123456' }, pilot);
+  assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+  assert.equal(h.state().status, 'accepted');
+  assert.equal(h.pre.status, 'completed');
+  assert.equal(h.pre.acceptedBy.userId, h.state().acceptedBy.userId);
+  assert.equal(h.pre.acceptedBy.signature, h.state().acceptedBy.signature);
+  assert.equal(h.pre.workflowHistory.at(-1).action, 'pre_completed');
+});
+
 test('flights close without ON/OFF clocks and default blank passenger counts to zero for both aircraft types', async () => {
   for (const aircraftType of ['AS350B3e', 'B412EP']) {
     const h = controllerHarness(), record = h.state();
@@ -379,7 +400,7 @@ test('flights close without ON/OFF clocks and default blank passenger counts to 
     if (aircraftType === 'B412EP') {
       Object.assign(h.monitoring().referenceData, { eng1TT: 200, eng1Cycles: 30, eng2TT: 400, eng2Cycles: 40 });
       record.monitoringBaseline.referenceData = clone(h.monitoring().referenceData);
-      record.b412Data = { componentData: { thisFlightData: { engine1: { cycle: '0.2' }, engine2: { cycle: '0.3' } } } };
+      record.b412Data = { componentData: { thisFlightData: { engine1: { cycle: '0.2' }, engine2: { cycle: '0.3' }, sling: '0' } } };
     }
     const reviewed = await h.call('review');
     assert.equal(reviewed.statusCode, 200);
