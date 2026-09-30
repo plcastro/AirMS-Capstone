@@ -419,13 +419,13 @@ export const AuthProvider = ({ children }) => {
   const buildSessionHeaders = () => {
     const sessionMeta = getSessionMeta();
     const lastClientActivityAt = readLastActivity();
-    console.log(
-      "[AUTH ACTIVITY]",
-      new Date(lastClientActivityAt).toISOString(),
-      "age:",
-      Math.round((Date.now() - lastClientActivityAt) / 1000),
-      "seconds",
-    );
+    // console.log(
+    //   "[AUTH ACTIVITY]",
+    //   new Date(lastClientActivityAt).toISOString(),
+    //   "age:",
+    //   Math.round((Date.now() - lastClientActivityAt) / 1000),
+    //   "seconds",
+    // );
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...buildLoginLocationHeaders(sessionMeta.location),
