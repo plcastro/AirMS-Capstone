@@ -135,10 +135,12 @@ const setRefreshTokenCookie = (
   platform = "",
 ) => {
   const isProduction = process.env.NODE_ENV === "production";
+
   const refreshCookieOptions = {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "None" : "Lax",
+    path: "/",
   };
 
   if (isPersistent) {
@@ -368,9 +370,7 @@ const isRetryOfLostRotation = async (tokenRecord, userId) => {
     userId,
   });
   return Boolean(
-    replacement &&
-      !replacement.revokedAt &&
-      replacement.expiresAt > new Date(),
+    replacement && !replacement.revokedAt && replacement.expiresAt > new Date(),
   );
 };
 

@@ -292,12 +292,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
   const persistSessionTiming = (token, source = "unknown", options = {}) => {
-    const { restartFullWindow = false } = options;
+    const { restartFullWindow = false, rememberMe = rememberMePreference } =
+      options;
+
     const now = Date.now();
     const tokenExpiresAt = getTokenExpiryTime(token);
+
     const expiresAt = restartFullWindow
       ? now + INACTIVITY_LIMIT_MS
       : tokenExpiresAt || now + INACTIVITY_LIMIT_MS;
+
     const payload = {
       source,
       startedAt: now,
@@ -305,8 +309,10 @@ export const AuthProvider = ({ children }) => {
       remainingSeconds: Math.max(0, Math.floor((expiresAt - now) / 1000)),
       updatedAt: now,
     };
+
     sessionStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
-    if (rememberMePreference) {
+
+    if (rememberMe) {
       localStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
     } else {
       localStorage.removeItem(SESSION_TIMING_KEY);
@@ -390,17 +396,36 @@ export const AuthProvider = ({ children }) => {
       publishAuthSync({ type: "LOGOUT" });
     }
   };
-
   const recordActivity = () => {
     if (sessionEndedRef.current) return;
+
     const now = Date.now();
-    if (now - readLastActivity() < ACTIVITY_THROTTLE_MS) return;
-    idleSessionRef.current?.activity();
+    const last = readLastActivity();
+
+    if (now - last < ACTIVITY_THROTTLE_MS) {
+      return;
+    }
+
+    // Always record real user activity.
+    saveActivity(now);
+
+    // Only notify the idle-session manager when
+    // frontend inactivity enforcement is enabled.
+    if (idleSessionRef.current) {
+      idleSessionRef.current.check();
+    }
   };
 
   const buildSessionHeaders = () => {
     const sessionMeta = getSessionMeta();
     const lastClientActivityAt = readLastActivity();
+    // console.log(
+    //   "[AUTH ACTIVITY]",
+    //   new Date(lastClientActivityAt).toISOString(),
+    //   "age:",
+    //   Math.round((Date.now() - lastClientActivityAt) / 1000),
+    //   "seconds",
+    // );
     return {
       "x-platform": sessionMeta.platform || "WEB",
       ...buildLoginLocationHeaders(sessionMeta.location),
@@ -416,6 +441,7 @@ export const AuthProvider = ({ children }) => {
   const refreshAccessToken = async () => {
     if (sessionEndedRef.current) return null;
     if (
+      !rememberMePreference &&
       readLastActivity() &&
       Date.now() - readLastActivity() >= INACTIVITY_LIMIT_MS
     ) {
@@ -588,10 +614,16 @@ export const AuthProvider = ({ children }) => {
     saveActivity(Date.now());
     persistAuthState(normalized, token, rememberMe);
     if (token) {
-      persistSessionTiming(token, "login");
+      persistSessionTiming(token, "login", {
+        rememberMe,
+      });
+
       scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
     } else {
-      persistSessionTiming(null, "login");
+      persistSessionTiming(null, "login", {
+        rememberMe,
+      });
+
       scheduleCookieRefresh();
     }
     publishAuthSync({
@@ -734,6 +766,7 @@ export const AuthProvider = ({ children }) => {
         if (!hasStoredSessionHint()) return;
         lastActivityRecordedAtRef.current = readLastActivity();
         if (
+          !remembered &&
           lastActivityRecordedAtRef.current &&
           Date.now() - lastActivityRecordedAtRef.current >= INACTIVITY_LIMIT_MS
         ) {
@@ -846,62 +879,93 @@ export const AuthProvider = ({ children }) => {
       clearInactivityTimers();
       return undefined;
     }
-    const idle = createIdleSession({
-      getLastActivity: readLastActivity,
-      onActivity: (timestamp) => {
-        saveActivity(timestamp);
-      },
-      onWarning: (_minutes, warning) => {
-        void (async () => {
-          const headers = await getAuthHeader();
-          if (sessionEndedRef.current) return;
-          const response = await fetch(
-            API_BASE + "/api/notifications/session-warning",
-            {
-              method: "POST",
-              credentials: "include",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify(warning),
-            },
-          );
-          if (!response.ok)
-            throw new Error("Failed to create session notification");
-        })().catch((error) =>
-          console.error("Session notification failed:", error),
-        );
-      },
-      onExpire: () => {
-        logoutUser().catch((error) =>
-          console.error("Idle logout failed:", error),
-        );
-      },
-    });
-    idleSessionRef.current = idle;
-    idle.check();
-    const checkVisibility = () => {
-      if (!document.hidden) idle.check();
-    };
-    const syncActivity = (event) => {
-      if (event.key === AUTH_ACTIVITY_KEY) {
-        idle.check();
-      }
-    };
+
+    // Always listen for user activity.
+    // Remember Me should not disable activity tracking.
     ACTIVITY_EVENTS.forEach((eventName) =>
       window.addEventListener(eventName, recordActivity, true),
     );
+
+    const syncActivity = (event) => {
+      if (event.key === AUTH_ACTIVITY_KEY) {
+        idleSessionRef.current?.check();
+      }
+    };
+
+    const checkVisibility = () => {
+      if (!document.hidden) {
+        idleSessionRef.current?.check();
+      }
+    };
+
     document.addEventListener("visibilitychange", checkVisibility);
     window.addEventListener("focus", checkVisibility);
     window.addEventListener("storage", syncActivity);
+
+    // Only enforce the frontend inactivity timeout
+    // when Remember Me is disabled.
+    if (!rememberMePreference) {
+      const idle = createIdleSession({
+        getLastActivity: readLastActivity,
+
+        onActivity: (timestamp) => {
+          saveActivity(timestamp);
+        },
+
+        onWarning: (_minutes, warning) => {
+          void (async () => {
+            const headers = await getAuthHeader();
+
+            if (sessionEndedRef.current) return;
+
+            const response = await fetch(
+              API_BASE + "/api/notifications/session-warning",
+              {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  ...headers,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(warning),
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to create session notification");
+            }
+          })().catch((error) =>
+            console.error("Session notification failed:", error),
+          );
+        },
+
+        onExpire: () => {
+          logoutUser().catch((error) =>
+            console.error("Idle logout failed:", error),
+          );
+        },
+      });
+
+      idleSessionRef.current = idle;
+      idle.check();
+    } else {
+      // Remember Me:
+      // activity is still recorded, but no frontend idle-expiration timer.
+      idleSessionRef.current = null;
+    }
+
     return () => {
       ACTIVITY_EVENTS.forEach((eventName) =>
         window.removeEventListener(eventName, recordActivity, true),
       );
+
       document.removeEventListener("visibilitychange", checkVisibility);
       window.removeEventListener("focus", checkVisibility);
       window.removeEventListener("storage", syncActivity);
+
       clearInactivityTimers();
     };
-  }, [activeSessionId]);
+  }, [activeSessionId, rememberMePreference]);
 
   return (
     <AuthContext.Provider
