@@ -18,6 +18,8 @@ export const AUTH_KEYS = {
 };
 
 let memoryAccessToken = null;
+// AsyncStorage.getItem/setItem/removeItem are redirected below for the auth
+// keys. The storage helpers must use these originals, or they call themselves.
 let memoryUser = null;
 const originalAsyncGetItem = AsyncStorage.getItem.bind(AsyncStorage);
 const originalAsyncSetItem = AsyncStorage.setItem.bind(AsyncStorage);
@@ -106,7 +108,7 @@ export const getStoredUser = async () => {
   if (isWeb) {
     return memoryUser || getWebValue(AUTH_KEYS.user);
   }
-  return AsyncStorage.getItem(AUTH_KEYS.user);
+  return originalAsyncGetItem(AUTH_KEYS.user);
 };
 
 export const setStoredUser = async (userJson) => {
@@ -116,7 +118,7 @@ export const setStoredUser = async (userJson) => {
     else removeWebValue(AUTH_KEYS.user);
     return;
   }
-  await AsyncStorage.setItem(AUTH_KEYS.user, userJson);
+  await originalAsyncSetItem(AUTH_KEYS.user, userJson);
 };
 
 export const removeStoredUser = async () => {
@@ -125,7 +127,7 @@ export const removeStoredUser = async () => {
     removeWebValue(AUTH_KEYS.user);
     return;
   }
-  await AsyncStorage.removeItem(AUTH_KEYS.user);
+  await originalAsyncRemoveItem(AUTH_KEYS.user);
 };
 
 export const getStoredRefreshToken = async () => {
@@ -155,7 +157,7 @@ export const removeStoredRefreshToken = async () => {
 
 export const getStoredSessionMeta = async () => {
   if (isWeb) return getWebValue(AUTH_KEYS.sessionMeta);
-  return AsyncStorage.getItem(AUTH_KEYS.sessionMeta);
+  return originalAsyncGetItem(AUTH_KEYS.sessionMeta);
 };
 
 export const setStoredSessionMeta = async (value) => {
@@ -163,7 +165,7 @@ export const setStoredSessionMeta = async (value) => {
     setWebValue(AUTH_KEYS.sessionMeta, value);
     return;
   }
-  await AsyncStorage.setItem(AUTH_KEYS.sessionMeta, value);
+  await originalAsyncSetItem(AUTH_KEYS.sessionMeta, value);
 };
 
 export const removeStoredSessionMeta = async () => {
@@ -171,7 +173,7 @@ export const removeStoredSessionMeta = async () => {
     removeWebValue(AUTH_KEYS.sessionMeta);
     return;
   }
-  await AsyncStorage.removeItem(AUTH_KEYS.sessionMeta);
+  await originalAsyncRemoveItem(AUTH_KEYS.sessionMeta);
 };
 
 export const clearStoredAuthMaterial = async () => {
