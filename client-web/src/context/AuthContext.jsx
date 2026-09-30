@@ -292,12 +292,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
   const persistSessionTiming = (token, source = "unknown", options = {}) => {
-    const { restartFullWindow = false } = options;
+    const { restartFullWindow = false, rememberMe = rememberMePreference } =
+      options;
+
     const now = Date.now();
     const tokenExpiresAt = getTokenExpiryTime(token);
+
     const expiresAt = restartFullWindow
       ? now + INACTIVITY_LIMIT_MS
       : tokenExpiresAt || now + INACTIVITY_LIMIT_MS;
+
     const payload = {
       source,
       startedAt: now,
@@ -305,8 +309,10 @@ export const AuthProvider = ({ children }) => {
       remainingSeconds: Math.max(0, Math.floor((expiresAt - now) / 1000)),
       updatedAt: now,
     };
+
     sessionStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
-    if (rememberMePreference) {
+
+    if (rememberMe) {
       localStorage.setItem(SESSION_TIMING_KEY, JSON.stringify(payload));
     } else {
       localStorage.removeItem(SESSION_TIMING_KEY);
@@ -416,6 +422,7 @@ export const AuthProvider = ({ children }) => {
   const refreshAccessToken = async () => {
     if (sessionEndedRef.current) return null;
     if (
+      !rememberMePreference &&
       readLastActivity() &&
       Date.now() - readLastActivity() >= INACTIVITY_LIMIT_MS
     ) {
@@ -588,10 +595,16 @@ export const AuthProvider = ({ children }) => {
     saveActivity(Date.now());
     persistAuthState(normalized, token, rememberMe);
     if (token) {
-      persistSessionTiming(token, "login");
+      persistSessionTiming(token, "login", {
+        rememberMe,
+      });
+
       scheduleTokenExpiryLogout(token, handleAccessTokenExpired);
     } else {
-      persistSessionTiming(null, "login");
+      persistSessionTiming(null, "login", {
+        rememberMe,
+      });
+
       scheduleCookieRefresh();
     }
     publishAuthSync({
@@ -734,6 +747,7 @@ export const AuthProvider = ({ children }) => {
         if (!hasStoredSessionHint()) return;
         lastActivityRecordedAtRef.current = readLastActivity();
         if (
+          !remembered &&
           lastActivityRecordedAtRef.current &&
           Date.now() - lastActivityRecordedAtRef.current >= INACTIVITY_LIMIT_MS
         ) {
@@ -842,10 +856,11 @@ export const AuthProvider = ({ children }) => {
 
   const activeSessionId = user ? user.sessionId || user.id || user._id : null;
   useEffect(() => {
-    if (!activeSessionId) {
+    if (!activeSessionId || rememberMePreference) {
       clearInactivityTimers();
       return undefined;
     }
+
     const idle = createIdleSession({
       getLastActivity: readLastActivity,
       onActivity: (timestamp) => {
@@ -901,7 +916,7 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener("storage", syncActivity);
       clearInactivityTimers();
     };
-  }, [activeSessionId]);
+  }, [activeSessionId, rememberMePreference]);
 
   return (
     <AuthContext.Provider
