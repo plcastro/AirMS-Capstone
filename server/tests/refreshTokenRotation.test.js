@@ -164,3 +164,19 @@ test("a device replaced by a newer login is signed out without ending the newer 
   const current = await refresh(web);
   assert.equal(current.statusCode, undefined, JSON.stringify(current.body));
 });
+
+test("a server failure during refresh does not end the session", async () => {
+  const { refresh, issue, store } = setup();
+  const token = await issue();
+  store.findOne = async () => { throw new Error("database unavailable"); };
+  const failed = await refresh(token);
+  assert.equal(failed.statusCode, 500);
+  assert.doesNotMatch(failed.body.message, /refresh token/i);
+});
+
+test("a malformed refresh token is still rejected", async () => {
+  const { refresh } = setup();
+  const response = await refresh("not-a-jwt");
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.message, "Invalid refresh token");
+});

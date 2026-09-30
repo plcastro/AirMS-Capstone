@@ -30,6 +30,7 @@ const { width } = Dimensions.get("window");
 
 const isAssignableUser = (user) => user?.jobTitle?.toLowerCase() === "mechanic";
 const OPEN_TASK_STATUSES = new Set(["pending", "ongoing", "returned"]);
+const ADD_TASK_TIMEOUT_MS = 30000;
 const normalizeTaskStatus = (status) =>
   String(status || "")
     .trim()
@@ -348,10 +349,14 @@ export default function HeadTaskScreen({
     });
     if (!confirmed) return;
 
+    // A stalled network must not leave the form stuck on "Saving...".
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ADD_TASK_TIMEOUT_MS);
     try {
       const token = await AsyncStorage.getItem("currentUserToken");
       const response = await fetch(`${API_BASE}/api/tasks/create`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "x-action-confirmed": "true",
@@ -372,7 +377,7 @@ export default function HeadTaskScreen({
         );
         setAddModalVisible(false);
         showToast("Task created successfully.");
-        await fetchTasks({ silent: true });
+        fetchTasks({ silent: true });
       } else {
         const errorData = await parseJsonSafely(response).catch(() => null);
         console.error("Failed to add task:", errorData);
@@ -380,7 +385,13 @@ export default function HeadTaskScreen({
       }
     } catch (error) {
       console.error("Error adding task:", error);
-      showToast("Failed to add task");
+      showToast(
+        error?.name === "AbortError"
+          ? "Saving the task timed out. Check your connection and try again."
+          : "Failed to add task",
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -744,7 +755,8 @@ export default function HeadTaskScreen({
       )}
 
       <AddTask
-        visible={addModalVisible && !alertConfig.visible}
+        visible={addModalVisible}
+        suspended={alertConfig.visible}
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={mechanicOptions}

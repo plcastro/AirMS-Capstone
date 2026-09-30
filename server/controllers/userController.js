@@ -1088,6 +1088,12 @@ const unlockUser = async (req, res) => {
   }
 };
 
+const REFRESH_JWT_ERRORS = new Set([
+  "JsonWebTokenError",
+  "TokenExpiredError",
+  "NotBeforeError",
+]);
+
 const refreshToken = async (req, res) => {
   // Prefer the token the client sends explicitly: the native apps' cookie jar
   // persists lazily and can hold an already-rotated token after the app is killed.
@@ -1250,9 +1256,17 @@ const refreshToken = async (req, res) => {
       refreshToken: isMobileClient ? newRefreshToken : undefined,
       user: buildClientUserProfile(user),
     });
-  } catch {
-    clearAuthCookies(res);
-    res.status(403).json({ message: "Invalid refresh token" });
+  } catch (error) {
+    // Only a bad or expired token ends the session. A transient failure (e.g. a
+    // database timeout on a cold start) must not sign the app out.
+    if (REFRESH_JWT_ERRORS.has(error?.name)) {
+      clearAuthCookies(res);
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+    console.error("Refresh token error:", error);
+    res
+      .status(500)
+      .json({ message: "Could not refresh session. Please try again." });
   }
 };
 

@@ -149,6 +149,7 @@ const useTaskMechanicSuggestion = createUseTaskMechanicSuggestion(React);
 
 export default function AddTask({
   visible,
+  suspended = false,
   onClose,
   onAddTask,
   employees = [],
@@ -188,28 +189,13 @@ export default function AddTask({
   const [inspectionOptions, setInspectionOptions] = useState([]);
   const [appliedDraftKey, setAppliedDraftKey] = useState("");
   const [showDiscardAlert, setShowDiscardAlert] = useState(false);
+  const [saving, setSaving] = useState(false);
   const scheduleEstimate = estimateInspectionSchedule(checklistItems);
   const isCustomTask = inspectionType === CUSTOM_INSPECTION_ID;
   const availableEmployees = employees;
   const selectedEmployeeRecord = employees.find(
     (emp) => emp.id === selectedEmployee,
   );
-  const sortedEmployees = React.useMemo(() => {
-    return [...employees].sort((a, b) => {
-      const aQualified = qualification.option(a.id).qualified;
-      const bQualified = qualification.option(b.id).qualified;
-      if (aQualified !== bQualified) return aQualified ? -1 : 1;
-      return (a.activeTaskCount || 0) - (b.activeTaskCount || 0);
-    });
-  }, [employees, qualification]);
-
-  useEffect(() => {
-    if (selectedEmployee || !employees.length || qualification.message) return;
-    const bestMatch = sortedEmployees.find(
-      (emp) => qualification.option(emp.id).qualified,
-    );
-    if (bestMatch) setSelectedEmployee(bestMatch.id);
-  }, [employees, selectedAircraft, qualification.message, selectedEmployee, sortedEmployees]);
   const derivedMaintenanceType = isCustomTask
     ? "Custom Task"
     : initialDraft
@@ -668,7 +654,8 @@ export default function AddTask({
     fetchInspections();
   }, [visible]);
 
-  const confirmAdd = () => {
+  const confirmAdd = async () => {
+    if (saving) return;
     const warning = getAddTaskWarning();
 
     if (warning) {
@@ -762,7 +749,15 @@ export default function AddTask({
         : undefined,
     };
 
-    onAddTask(newTask);
+    setSaving(true);
+    try {
+      await onAddTask(newTask);
+    } catch (error) {
+      console.error("Error adding task:", error);
+      showToast(error?.message || "Failed to add task");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatDateTime = (date) => {
@@ -1109,6 +1104,7 @@ export default function AddTask({
     checklistItems.length > 0 ||
     Boolean(isCustomTask && customTaskTitle.trim());
   const handleCloseWithWarning = () => {
+    if (saving) return;
     if (!hasUnsavedChanges()) {
       resetForm();
       onClose?.();
@@ -1119,7 +1115,7 @@ export default function AddTask({
 
   return (
     <>
-      {visible && !showDiscardAlert && (
+      {visible && !suspended && !showDiscardAlert && (
       <Modal
         visible
         animationType="fade"
@@ -1269,7 +1265,7 @@ export default function AddTask({
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
-                options: sortedEmployees.map((emp) => ({
+                options: rankedMechanics.map((emp) => ({
                   label: `${emp.name} - ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
@@ -1554,13 +1550,15 @@ export default function AddTask({
               <Button
                 label="Discard"
                 onPress={handleCloseWithWarning}
+                disabled={saving}
                 buttonStyle={[styles.secondaryAlertBtn, { flex: 1 }]}
                 buttonTextStyle={styles.secondaryAlertBtnTxt}
               />
               <Button
-                label="Add Task"
+                label={saving ? "Saving..." : "Add Task"}
                 onPress={confirmAdd}
-                disabled={Boolean(addTaskWarning)}
+                disabled={saving || Boolean(addTaskWarning)}
+                loading={saving}
                 buttonStyle={[styles.primaryAlertBtn, { flex: 1 }]}
                 buttonTextStyle={styles.primaryBtnTxt}
               />

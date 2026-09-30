@@ -16,6 +16,7 @@ import {
   recordClientActivity,
 } from "../utilities/mobileApi";
 import { buildLoginLocationHeaders } from "../utilities/loginLocation";
+import { showToast } from "../utilities/toast";
 import {
   clearLegacyWebAuthStorage,
   clearStoredAuthMaterial,
@@ -37,6 +38,10 @@ import {
 } from "../../shared/sessionIdle";
 
 export const AuthContext = createContext();
+
+// Native apps send their tokens explicitly. Letting iOS keep the server's
+// refresh cookie can replay an already-rotated token after the app is killed.
+const AUTH_FETCH_CREDENTIALS = IS_WEB_AUTH_STORAGE ? "include" : "omit";
 
 export const AuthProvider = ({ children }) => {
   const REMEMBERED_SESSION_STARTED_AT_KEY = "rememberedSessionStartedAt";
@@ -104,7 +109,7 @@ export const AuthProvider = ({ children }) => {
           body: JSON.stringify({
             refreshToken: refreshToken || undefined,
           }),
-          credentials: "include",
+          credentials: AUTH_FETCH_CREDENTIALS,
         });
       } catch (error) {
         console.error("Mobile logout API error:", error);
@@ -179,7 +184,7 @@ export const AuthProvider = ({ children }) => {
             body: JSON.stringify(
               refreshToken ? { refreshToken } : {},
             ),
-            credentials: "include",
+            credentials: AUTH_FETCH_CREDENTIALS,
           });
 
           const text = await response.text();
@@ -233,6 +238,9 @@ export const AuthProvider = ({ children }) => {
 
         // Stale/invalid refresh token should be cleared locally to stop retry loops.
         if (isInvalidRefreshToken) {
+          if (/another device|inactivity/i.test(refreshMessage)) {
+            showToast(refreshMessage);
+          }
           sessionEndedRef.current = true;
           idleSessionRef.current?.stop();
           setUser(null);
@@ -276,7 +284,7 @@ export const AuthProvider = ({ children }) => {
           const sessionMeta = await getSessionMeta();
           if (!accessToken || sessionEndedRef.current) return;
           const response = await fetch(API_BASE + "/api/notifications/session-warning", {
-            method: "POST", credentials: "include",
+            method: "POST", credentials: AUTH_FETCH_CREDENTIALS,
             headers: {
               Authorization: "Bearer " + accessToken,
               "Content-Type": "application/json",

@@ -16,6 +16,17 @@ const card = { backgroundColor: 'white', borderRadius: 12, padding: 16, marginBo
 const input = { borderWidth: 1, borderColor: '#c8d7ce', borderRadius: 8, padding: 12, marginVertical: 6, color: '#172b21', backgroundColor: '#f8fbf9', minHeight: 46 };
 const title = { fontWeight: '700', fontSize: 17, color: '#173f29', marginBottom: 8 };
 const date = value => value ? new Date(value).toLocaleString() : '';
+const CERTIFICATE_TYPES = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+const MIME_EXTENSIONS = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/pjpeg': 'jpg', 'image/png': 'png' };
+// Pickers (Android especially) can return names without an extension or types
+// such as "image/jpg". The server needs a supported extension whose type matches.
+const normalizeCertificateAsset = asset => {
+  const name = String(asset.name || 'certificate').trim();
+  const extension = name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  if (CERTIFICATE_TYPES[extension]) return { ...asset, name, mimeType: CERTIFICATE_TYPES[extension] };
+  const mimeExtension = MIME_EXTENSIONS[String(asset.mimeType || '').toLowerCase()];
+  return mimeExtension ? { ...asset, name: `${name}.${mimeExtension}`, mimeType: CERTIFICATE_TYPES[mimeExtension] } : { ...asset, name };
+};
 function Action({ children, onPress, disabled, primary }) {
   return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={{ padding: 12, borderRadius: 8, marginVertical: 4, opacity: disabled ? 0.45 : 1, backgroundColor: primary ? '#087b39' : '#eaf3ed', minHeight: 44 }}><AppText style={{ color: primary ? 'white' : '#174c2c', fontWeight: '700', textAlign: 'center' }}>{children}</AppText></TouchableOpacity>;
 }
@@ -51,11 +62,11 @@ export default function MechanicCertificates({ personnelId }) {
   const upload = async () => {
     const files = await state.run('Selecting certificates', async current => {
       const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/jpeg', 'image/png'], copyToCacheDirectory: true, multiple: true });
-      return current() && !result.canceled ? result.assets : [];
+      return current() && !result.canceled ? result.assets.map(normalizeCertificateAsset) : [];
     });
     if (files?.length) await state.upload(files, asset => {
       const form = new FormData();
-      form.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType || (/\.pdf$/i.test(asset.name) ? 'application/pdf' : /\.png$/i.test(asset.name) ? 'image/png' : 'image/jpeg') });
+      form.append('file', { uri: asset.uri, name: asset.name, type: asset.mimeType });
       return form;
     });
   };
