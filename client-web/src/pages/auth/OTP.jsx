@@ -85,6 +85,7 @@ export default function OTP() {
               otp: code,
               rememberMe: Boolean(params.rememberMe),
               location: params.loginLocation,
+              base: params.base,
               client: params.client || "web",
               trustDevice,
               trustedDeviceLabel:
@@ -99,6 +100,7 @@ export default function OTP() {
           ...(mode === "login-2fa"
             ? {
                 "x-platform": "WEB",
+                ...(params.base ? { "x-base": params.base } : {}),
                 ...buildLoginLocationHeaders(params.loginLocation),
               }
             : {}),
@@ -116,6 +118,7 @@ export default function OTP() {
             rememberMe: Boolean(params.rememberMe),
             location: data.session?.location || params.loginLocation,
             sessionId: data.sessionId || data.user?.sessionId,
+            base: data.session?.base || params.base,
           });
 
           if (params.rememberMe) {

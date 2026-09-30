@@ -180,6 +180,8 @@ export const AuthProvider = ({ children }) => {
     return {
       ...userData,
       id: userData.id || userData._id || null,
+      // The base chosen at login lives with the session, so it survives reloads.
+      base: userData.base || getSessionMeta().base || null,
       jobTitle: userData.jobTitle
         ? userData.jobTitle.trim().toLowerCase()
         : null,
@@ -228,6 +230,7 @@ export const AuthProvider = ({ children }) => {
       sessionId: meta.sessionId || null,
       platform: meta.platform || "WEB",
       location: meta.location || null,
+      base: meta.base || null,
     };
     localStorage.setItem(SESSION_META_KEY, JSON.stringify(sessionMeta));
     return sessionMeta;
@@ -428,6 +431,7 @@ export const AuthProvider = ({ children }) => {
     // );
     return {
       "x-platform": sessionMeta.platform || "WEB",
+      ...(sessionMeta.base ? { "x-base": sessionMeta.base } : {}),
       ...buildLoginLocationHeaders(sessionMeta.location),
       ...(sessionMeta.sessionId
         ? { "x-session-id": sessionMeta.sessionId }
@@ -602,6 +606,7 @@ export const AuthProvider = ({ children }) => {
       online: true,
       platform: "web",
       sessionId: options.sessionId || userData.sessionId,
+      base: options.base || userData.base || null,
     });
     setUser(normalized);
     setCurrentSessionProfile(normalized);
@@ -610,6 +615,7 @@ export const AuthProvider = ({ children }) => {
       sessionId: normalized.sessionId,
       platform: "WEB",
       location: options.location || null,
+      base: normalized.base,
     });
     saveActivity(Date.now());
     persistAuthState(normalized, token, rememberMe);

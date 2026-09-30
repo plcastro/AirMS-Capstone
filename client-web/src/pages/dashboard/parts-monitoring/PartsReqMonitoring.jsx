@@ -30,6 +30,7 @@ import {
   InboxOutlined,
   CheckCircleOutlined,
   EditOutlined,
+  FilePdfOutlined,
 } from "@ant-design/icons";
 import { useLocation } from "react-router-dom";
 import { AuthContext } from "../../../context/AuthContext";
@@ -39,6 +40,7 @@ import PRMTable from "../../../components/tables/PRMTable";
 import PRMCardView from "../../../components/tables/PRMCardView";
 import WRSModal from "../../../components/pagecomponents/WRSModal";
 import PartNameInput from "../../../components/pagecomponents/PartNameInput";
+import { exportPartsRequisitionMonitoringReport } from "../../../components/common/ExportFile";
 import {
   canCreate,
   displayStatus,
@@ -66,6 +68,8 @@ export default function PartsReqMonitoring() {
     [tab, setTab] = useState("active"),
     [search, setSearch] = useState("");
   const [dateSort, setDateSort] = useState("updated");
+  const [exportingReport, setExportingReport] = useState(false);
+  const canExportReport = roleOf(user) === "warehouse personnel";
   const [entry, setEntry] = useState(false),
     [busy, setBusy] = useState(false),
     [items, setItems] = useState([]),
@@ -348,6 +352,19 @@ export default function PartsReqMonitoring() {
       }),
     [records, tab, user, oversight, search],
   );
+  const exportReport = async () => {
+    if (!canExportReport || exportingReport) return;
+    setExportingReport(true);
+    try {
+      // Reports what the warehouse is currently viewing (tab and search).
+      await exportPartsRequisitionMonitoringReport({
+        data: filtered,
+        selectedStatus: tab === "history" ? "closed" : "active",
+      });
+    } finally {
+      setExportingReport(false);
+    }
+  };
   if (
     ![
       "admin staff",
@@ -420,6 +437,28 @@ export default function PartsReqMonitoring() {
                 )}
               </Row>
             </Col>
+
+            {canExportReport && (
+              <Col
+                xs={24}
+                md={6}
+                style={{
+                  display: "flex",
+                  justifyContent: screens.md ? "flex-end" : "stretch",
+                }}
+              >
+                <Button
+                  size="large"
+                  icon={<FilePdfOutlined />}
+                  loading={exportingReport}
+                  disabled={!filtered.length}
+                  onClick={exportReport}
+                  block={!screens.md}
+                >
+                  Export Report (PDF)
+                </Button>
+              </Col>
+            )}
 
             {/* Add Requisition */}
             {canCreate(user) && (

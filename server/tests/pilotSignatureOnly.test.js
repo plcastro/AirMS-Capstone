@@ -13,23 +13,26 @@ const mechanicId = '000000000000000000000002';
 const signature = 'data:image/png;base64,verified';
 const { pilotAcceptance } = require('../../shared/flightWorkflow');
 
-test('pilot acceptance buttons follow release, Pre-Flight signing and flight-log signing in order', () => {
+test('pilot accepts the certified Pre-Flight and the flight log with one signature', () => {
   const record = { status: 'pending_acceptance', assignedPilot: { userId: pilot.id }, assignedMechanic: { userId: mechanicId } };
   const pre = { _id: 'inspection', status: 'released', releasedBy: { userId: mechanicId } };
   const first = pilotAcceptance(pilot, record, [pre]);
   assert.equal(first.preInspection, pre);
-  assert.equal(first.canAcceptFlight, false);
+  // A certified Pre-Flight no longer needs its own signature before the flight log.
+  assert.equal(first.canAcceptFlight, true);
   const accepted = { ...pre, status: 'completed', acceptedBy: { userId: pilot.id } };
   const second = pilotAcceptance(pilot, record, [accepted]);
   assert.equal(second.preInspection, undefined);
   assert.equal(second.canAcceptFlight, true);
+  assert.equal(pilotAcceptance(pilot, record, [{ ...pre, status: 'pending' }]).canAcceptFlight, false);
   assert.equal(pilotAcceptance(pilot, { ...record, status: 'accepted' }, [accepted]).canAcceptFlight, undefined);
   assert.equal(pilotAcceptance({ ...pilot, id: mechanicId }, record, [pre]).preInspection, undefined);
   assert.equal(pilotAcceptance(pilot, { ...record, status: 'pending_release' }, [pre]).preInspection, undefined);
   assert.equal(pilotAcceptance(pilot, record, []).canAcceptFlight, false);
   assert.equal(pilotAcceptance(pilot, record, [{ ...pre, releasedBy: { userId: 'former mechanic' } }]).preInspection, undefined);
   assert.equal(pilotAcceptance({ id: mechanicId, jobTitle: 'Mechanic' }, record, [pre]), null);
-  assert.equal(pilotAcceptance(pilot, record, [accepted, pre]).canAcceptFlight, false);
+  assert.equal(pilotAcceptance(pilot, record, [accepted, pre]).canAcceptFlight, true);
+  assert.equal(pilotAcceptance(pilot, record, [{ ...accepted, acceptedBy: { userId: 'another pilot' } }]).canAcceptFlight, false);
 });
 
 function harness(aircraftType = 'AS350B3e') {

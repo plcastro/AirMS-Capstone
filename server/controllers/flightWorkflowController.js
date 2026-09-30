@@ -310,7 +310,8 @@ const action = actionName => catchRequest(async (req, res) => {
   const signer = actionName === 'return' ? null : await verifyWorkflowSigner(signingRequest, log, actionName);
   if (['release', 'accept'].includes(actionName)) {
     const missing = readiness(log, links).missing;
-    missing.push(...inspectionSignoffErrors(log, links, actionName === 'accept'));
+    // Accepting the aircraft also accepts its Pre-Flight, so the pilot signs once.
+    missing.push(...inspectionSignoffErrors(log, links, false));
     if (missing.length) throw fail(missing.join('\n'), 400, {
       missing
     });
@@ -325,7 +326,18 @@ const action = actionName => catchRequest(async (req, res) => {
     log.submittedBy = undefined;
     log.notifiedForCompletion = false;
   }
-  if (actionName === 'accept') log.acceptedBy = signer;
+  if (actionName === 'accept') {
+    log.acceptedBy = signer;
+    // Apply the same verified signature to each certified, not yet accepted
+    // Pre-Flight. Done before saving the flight log so a retry is harmless.
+    for (const pre of links.preInspections.filter(record => record.status === 'released')) {
+      await Pre.updateOne({ _id: pre._id, status: 'released' }, {
+        $set: { status: 'completed', acceptedBy: signer },
+        $push: { workflowHistory: { ...eventFor(pre, 'pre_completed', req.user, {}, '', signer), flightLogId: String(log._id) } },
+        $inc: { __v: 1 },
+      });
+    }
+  }
   if (actionName === 'submit') {
     const validation = validateLegs(log);
     if (validation.missing.length) throw fail(validation.missing.join('\n'), 400, {

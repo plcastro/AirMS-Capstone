@@ -87,6 +87,21 @@ export default function FlightWorkspace({
     [saveState, setSaveState] = useState("Saved on server");
   const [defectForm, setDefectForm] = useState(null),
     [amendment, setAmendment] = useState(null);
+  // Inspection tabs only appear while an inspection is on discrepancy hold, so
+  // the assigned mechanic can resolve it and sign.
+  const heldInspectionKinds = ["pre", "post"].filter((kind) =>
+    (kind === "pre" ? workspace?.preInspections : workspace?.postInspections)
+      ?.some((record) => record.confirmation?.allGood === false),
+  );
+  const heldInspectionKey = heldInspectionKinds.join(",");
+  useEffect(() => {
+    if (
+      !inspectionSection &&
+      ["pre", "post"].includes(tab) &&
+      !heldInspectionKey.split(",").includes(tab)
+    )
+      setTab("flight");
+  }, [inspectionSection, tab, heldInspectionKey]);
   const [inspectionPrompt, setInspectionPrompt] = useState(null);
   const storageKey = `flight-draft:${user?.id || user?._id}:${id}`;
   const api = useCallback(
@@ -600,24 +615,10 @@ export default function FlightWorkspace({
                 <Space wrap>
                   <Button
                     type="primary"
-                    disabled={busy || !acceptance.preInspection}
-                    onClick={() =>
-                      saveInspection(
-                        "pre",
-                        acceptance.preInspection,
-                        {},
-                        "completed",
-                      )
-                    }
-                  >
-                    Accept Pre-Flight
-                  </Button>
-                  <Button
-                    type="primary"
                     disabled={busy || !acceptance.canAcceptFlight}
                     onClick={() => prepareAction("accept")}
                   >
-                    Accept Flight Log
+                    Accept Pre-Flight & Flight Log
                   </Button>
                 </Space>
               </Card>
@@ -688,10 +689,17 @@ export default function FlightWorkspace({
                   label: "Preparation Checks",
                   children: preparationChecks,
                 },
-                ...(inspectionSection ? [inspectionSection] : []).map(
+                ...(inspectionSection
+                  ? [inspectionSection]
+                  : heldInspectionKinds
+                ).map(
                   (kind) => ({
                     key: kind,
-                    label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
+                    label: inspectionSection
+                      ? kind === "pre" ? "Pre-Flight" : "Post-Flight"
+                      : kind === "pre"
+                        ? "Pre-Flight Inspection (On Hold)"
+                        : "Post-Flight Inspection (On Hold)",
                     children: (
                       <>
                         {assigned && mechanic && permissions.preparation && (
@@ -722,6 +730,9 @@ export default function FlightWorkspace({
                             mechanic={mechanic}
                             isMaintenanceManager={
                               normalizeCrewRole(user) === "maintenance manager"
+                            }
+                            isMechanicRole={
+                              normalizeCrewRole(user) === "mechanic"
                             }
                             onConfirm={(kind, record, values) =>
                               setInspectionPrompt({ kind, record, values })
@@ -1269,6 +1280,7 @@ function InspectionEditor({
   editable,
   mechanic,
   isMaintenanceManager,
+  isMechanicRole,
   flightStatus,
   onSave,
   onReturn,
@@ -1305,6 +1317,7 @@ function InspectionEditor({
     editable &&
     mechanic &&
     !isSelfPreparedByManager &&
+    !isMechanicRole &&
     record.status !== "pending" &&
     (kind === "pre" ? preparing : postFlight && mechanic);
   return (

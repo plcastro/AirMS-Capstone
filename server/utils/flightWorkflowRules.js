@@ -56,6 +56,7 @@ const transition = (record, user, action) => {
     }
   };
   if (action === 'return') {
+    if (normalizeCrewRole(user) === 'mechanic') throw fail('Mechanics cannot return flight records for correction.', 403);
     const isSelfPreparedByManager = mechanic && normalizeCrewRole(user) === 'maintenance manager';
     if (mechanic && !isSelfPreparedByManager && ['pending_acceptance', 'submitted'].includes(stage)) return 'returned_to_mechanic';
     throw fail('This flight record cannot be returned at this stage.', 409);

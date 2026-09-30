@@ -17,6 +17,7 @@ import {
   displayStatus,
   followUpTarget,
   isOpen,
+  itemDisplayStatus,
   normalizeItemStatus,
 } from "../../../../shared/partsRequisitionWorkflow";
 import { RequisitionStatus } from "../tables/PRMTable";
@@ -138,9 +139,7 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
               title: "Stock status",
               render: (_, item) => (
                 <Space orientation="vertical">
-                  <RequisitionStatus
-                    status={normalizeItemStatus(item.stockStatus)}
-                  />
+                  <RequisitionStatus status={itemDisplayStatus(record, item)} />
                   {stock && (
                     <Radio.Group
                       size="small"

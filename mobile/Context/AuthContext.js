@@ -123,6 +123,7 @@ export const AuthProvider = ({ children }) => {
       sessionId: sessionData.sessionId || null,
       platform: sessionData.platform || defaultPlatform,
       location: sessionData.location || null,
+      base: sessionData.base || null,
     };
     await setStoredSessionMeta(JSON.stringify(payload));
     setSession(payload);
@@ -174,6 +175,7 @@ export const AuthProvider = ({ children }) => {
             headers: {
               "Content-Type": "application/json",
               "x-platform": sessionMeta?.platform || defaultPlatform,
+              ...(sessionMeta?.base ? { "x-base": sessionMeta.base } : {}),
               "x-client-active-at": String(clientActiveAt),
               ...getDeviceAuditHeaders(),
               ...buildLoginLocationHeaders(sessionMeta?.location),
@@ -444,6 +446,7 @@ export const AuthProvider = ({ children }) => {
       await persistSessionMeta({
         sessionId: sessionData?.sessionId || userData?.sessionId,
         location: sessionData?.location,
+        base: sessionData?.base,
       });
       refreshFailureLoggedRef.current = false;
 

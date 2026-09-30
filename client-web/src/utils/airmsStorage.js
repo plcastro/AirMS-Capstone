@@ -36,6 +36,11 @@ const STORAGE_KEYS = {
     key: "rememberMe",
   },
 
+  rememberedBase: {
+    bucket: "auth",
+    key: "rememberedBase",
+  },
+
   rememberedIdentifier: {
     bucket: "auth",
     key: "rememberedIdentifier",

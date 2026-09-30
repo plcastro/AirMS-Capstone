@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Modal from '../common/AppModal';
 import IosModalSafeAreaProvider from '../common/IosModalSafeAreaProvider';
 import AppText from '../common/AppText';
-import { buildTimeline, canAct, displayStatus, followUpTarget, isOpen, normalizeItemStatus, statusColors, statusLabel } from '../../../shared/partsRequisitionWorkflow';
+import { buildTimeline, canAct, displayStatus, followUpTarget, isOpen, itemDisplayStatus, normalizeItemStatus, statusColors, statusLabel } from '../../../shared/partsRequisitionWorkflow';
 
 function StatusChip({ status, style }) {
   const color = statusColors[status] || COLORS.grayDark;
@@ -148,7 +148,7 @@ function RequisitionDetails({
           marginBottom: 8
         }}>Items</AppText>
     {items.map(item => {
-      const itemStatus = normalizeItemStatus(item.stockStatus);
+      const itemStatus = itemDisplayStatus(record, item);
       const itemColor = statusColors[itemStatus] || COLORS.grayDark;
       return <View key={item._id || item.itemNo} style={{
             flexDirection: 'row',

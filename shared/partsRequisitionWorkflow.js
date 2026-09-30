@@ -28,6 +28,15 @@ export const normalizeItemStatus = (status) =>
       : status === "To Be Ordered"
         ? "Out of Stock"
         : "Pending Check";
+// Items in a delivered (or closed) requisition were handed over, so show them
+// as Delivered rather than their earlier stock-check result.
+export const itemDisplayStatus = (record = {}, item = {}) => {
+  const status = normalizeItemStatus(item.stockStatus);
+  return status === "In Stock" &&
+    ["Delivered", "Closed"].includes(displayStatus(record))
+    ? "Delivered"
+    : status;
+};
 export function computedStatus(record) {
   if (record.cancelledAt || record.status === "Cancelled") return "Cancelled";
   if (record.confirmedAt) return "Closed";

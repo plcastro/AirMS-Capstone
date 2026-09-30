@@ -39,6 +39,12 @@ import {
 } from "../../utilities/loginLocation";
 
 const REMEMBERED_PASSWORD_KEY = "rememberedPassword";
+const REMEMBERED_BASE_KEY = "rememberedBase";
+const BASE_OPTIONS = [
+  { label: "Manila", value: "MANILA" },
+  { label: "Cebu", value: "CEBU" },
+  { label: "CDO", value: "CDO" },
+];
 const TRUSTED_DEVICE_TOKEN_KEY = "trustedDeviceToken";
 
 export default function Login() {
@@ -47,6 +53,8 @@ export default function Login() {
 
   const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [loginLocation, setLoginLocation] = useState(null);
+  const [selectedBase, setSelectedBase] = useState("");
+  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [getMessage, setMessage] = useState("");
@@ -61,6 +69,7 @@ export default function Login() {
   useEffect(() => {
     const loadSavedCredentials = async () => {
       try {
+        setSelectedBase((await AsyncStorage.getItem(REMEMBERED_BASE_KEY)) || "");
         const savedRememberMe = await AsyncStorage.getItem("rememberMe");
         setRememberMe(savedRememberMe === "true");
         if (savedRememberMe === "true") {
@@ -92,6 +101,9 @@ export default function Login() {
     if (!identifier.trim())
       return setMessage("Please enter your username or email");
     if (!password.trim()) return setMessage("Password is required");
+    if (!BASE_OPTIONS.some((option) => option.value === selectedBase)) {
+      return setMessage("Select your base: Manila, Cebu or CDO.");
+    }
     if (!loginLocation?.text) {
       return setMessage("Detect your login location before signing in.");
     }
@@ -121,6 +133,7 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
           "x-platform": loginPlatform,
+          "x-base": selectedBase,
           ...buildLoginLocationHeaders(loginLocation),
           ...getDeviceAuditHeaders(),
         },
@@ -130,9 +143,11 @@ export default function Login() {
           client: loginClient,
           rememberMe,
           location: loginLocation,
+          base: selectedBase,
           trustedDeviceToken,
         }),
       });
+      if (res.ok) await AsyncStorage.setItem(REMEMBERED_BASE_KEY, selectedBase);
 
       const data = await parseResponse(res);
 
@@ -167,6 +182,7 @@ export default function Login() {
           identifier: formData.identifier.trim(),
           rememberMe,
           loginLocation,
+          base: selectedBase,
           client: loginClient,
         });
         return;
@@ -211,10 +227,12 @@ export default function Login() {
 
       await loginUser({
         user,
-        session: session || {
+        session: {
           location: loginLocation,
           sessionId: data.sessionId,
           platform: loginPlatform,
+          ...(session || {}),
+          base: session?.base || selectedBase,
         },
         accessToken: token,
         refreshToken,
@@ -329,6 +347,56 @@ export default function Login() {
               />
             </TouchableOpacity>
           </View>
+          <AppText style={styles.label}>Base</AppText>
+          <View style={loginDropdownStyles.wrap}>
+            <TouchableOpacity
+              style={loginDropdownStyles.button}
+              activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel="Select your base"
+              onPress={() => setShowBaseDropdown((open) => !open)}
+            >
+              <AppText
+                style={[
+                  loginDropdownStyles.buttonText,
+                  { color: selectedBase ? "#111827" : "gray" },
+                ]}
+                numberOfLines={1}
+              >
+                {BASE_OPTIONS.find((option) => option.value === selectedBase)
+                  ?.label || "Select base"}
+              </AppText>
+              <MaterialCommunityIcons
+                name={showBaseDropdown ? "chevron-up" : "chevron-down"}
+                size={22}
+                color="gray"
+              />
+            </TouchableOpacity>
+            {showBaseDropdown && (
+              <View style={loginDropdownStyles.menu}>
+                {BASE_OPTIONS.map((option, index) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      loginDropdownStyles.item,
+                      index < BASE_OPTIONS.length - 1
+                        ? loginDropdownStyles.itemBordered
+                        : null,
+                    ]}
+                    onPress={() => {
+                      setSelectedBase(option.value);
+                      setShowBaseDropdown(false);
+                    }}
+                  >
+                    <AppText style={loginDropdownStyles.itemText}>
+                      {option.label}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
           <AppText style={styles.label}>Login Location</AppText>
 
           <View style={loginLocationStyles.wrap}>
@@ -433,6 +501,51 @@ export default function Login() {
     </KeyboardAvoidingView>
   );
 }
+
+const loginDropdownStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  buttonText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  menu: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.grayMedium,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
+  },
+  item: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  itemBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayMedium,
+  },
+  itemText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+});
 
 const loginLocationStyles = StyleSheet.create({
   wrap: {

@@ -13,7 +13,34 @@ import { showToast } from '../../utilities/toast';
 import PartsRequisitionCards from '../../components/PartsRequisition/PartsRequisitionCards';
 import PartsRequisitionEntry from '../../components/PartsRequisition/PartsRequisitionEntry';
 import PartsRequisitionDetails from '../../components/PartsRequisition/PartsRequisitionDetails';
-import { canCreate, displayStatus, isOversight, isRequisitionOwner, roleOf } from '../../../shared/partsRequisitionWorkflow';
+import { canCreate, displayStatus, isOversight, isRequisitionOwner, roleOf, statusLabel } from '../../../shared/partsRequisitionWorkflow';
+import { exportReportPdf } from '../../utilities/reportExport';
+
+const quantityOf = record => (record.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+const requestedOn = record => {
+  const date = new Date(record.dateRequested || record.createdAt);
+  return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+};
+const buildRequisitionReportSections = (records, tab) => {
+  const statusCounts = records.reduce((counts, record) => {
+    const label = statusLabel(displayStatus(record));
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+  return [{
+    title: 'Summary',
+    columns: ['Metric', 'Value'],
+    rows: [['Filter', tab === 'history' ? 'History' : 'Pending'], ['Total Requisitions', records.length], ['Total Items', records.reduce((sum, record) => sum + (record.items || []).length, 0)], ['Total Quantity', records.reduce((sum, record) => sum + quantityOf(record), 0)]]
+  }, {
+    title: 'Status Distribution',
+    columns: ['Status', 'Count'],
+    rows: Object.entries(statusCounts)
+  }, {
+    title: 'Requisitions',
+    columns: ['WRS No.', 'Aircraft', 'Requester', 'Date Requested', 'Status', 'Items', 'Total Qty'],
+    rows: records.map(record => [record.wrsNo || 'N/A', record.aircraft || 'N/A', record.staff?.requisitioner || 'N/A', requestedOn(record), statusLabel(displayStatus(record)), (record.items || []).length, quantityOf(record)])
+  }];
+};
 
 const confirm = (title, message) => new Promise(resolve => Alert.alert(title, message, [{
   text: 'Cancel',
@@ -37,6 +64,7 @@ export default function PartsRequisition({
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [exportingReport, setExportingReport] = useState(false);
   const [tab, setTab] = useState('active'),
     [sortOrder, setSortOrder] = useState('oldest'),
     [search, setSearch] = useState(''),
@@ -179,6 +207,30 @@ export default function PartsRequisition({
   });
   const activeCount = records.filter(record => !['Closed', 'Cancelled'].includes(displayStatus(record)) && canSee(record)).length;
 
+  const canExportReport = roleOf(user) === 'warehouse personnel';
+  const exportReport = async () => {
+    if (!canExportReport || exportingReport) return;
+    if (!filtered.length) {
+      showToast('No requisition data available for the report.');
+      return;
+    }
+    setExportingReport(true);
+    try {
+      const today = new Date();
+      const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      await exportReportPdf({
+        title: 'Parts Requisition Monitoring Report',
+        fileName: `Parts-Requisition-Monitoring-Report-${stamp}.pdf`,
+        sections: buildRequisitionReportSections(filtered, tab)
+      });
+    } catch (error) {
+      console.error('Parts requisition PDF export failed:', error);
+      showToast(error.message || 'Failed to export parts requisition report.');
+    } finally {
+      setExportingReport(false);
+    }
+  };
+
   if (!['admin staff', 'officer-in-charge', 'warehouse personnel', 'maintenance manager', 'mechanic'].includes(roleOf(user))) return <AppText>Parts requisition access denied</AppText>;
 
   return <View style={{
@@ -197,6 +249,24 @@ export default function PartsRequisition({
         gap: 8
       }}>
         <SearchBar placeholder="Search by WRS#" value={search} onChangeText={setSearch} containerStyle={{ flex: 1, marginBottom: 0 }} />
+        {canExportReport && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Export report as PDF" disabled={exportingReport || !filtered.length} activeOpacity={0.85} onPress={exportReport} style={{
+          height: 46,
+          paddingHorizontal: 14,
+          backgroundColor: COLORS.primaryLight,
+          borderRadius: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          opacity: exportingReport || !filtered.length ? 0.6 : 1
+        }}>
+          <MaterialCommunityIcons name="file-pdf-box" size={18} color={COLORS.white} />
+          <AppText style={{
+            color: COLORS.white,
+            fontSize: 12,
+            fontWeight: '700'
+          }}>{exportingReport ? 'Exporting...' : 'Export'}</AppText>
+        </TouchableOpacity>}
         {canCreate(user) && <TouchableOpacity disabled={busy} activeOpacity={0.85} onPress={() => { setSelectedId(null); setEntry(true); }} style={{
           height: 46,
           paddingHorizontal: 14,
