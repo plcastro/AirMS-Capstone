@@ -27,6 +27,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Modal from "../common/AppModal";
 import AppText from "../common/AppText";
+import { COLORS } from "../../stylesheets/colors";
 import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import FlightLogEditEntry from "./FlightLogEditEntry";
 import { AuthContext } from "../../Context/AuthContext";
@@ -52,20 +53,24 @@ import AS from "../../../shared/as350InspectionChecklist.json";
 import BP from "../../../shared/b412PreInspectionChecklist.json";
 import BO from "../../../shared/b412PostInspectionChecklist.json";
 const panel = {
-  padding: 12,
+  padding: 14,
   marginBottom: 10,
-  borderWidth: 1,
-  borderColor: "#dce6e1",
-  borderRadius: 10,
-  backgroundColor: "#fff",
+  borderRadius: 12,
+  backgroundColor: COLORS.white,
+  elevation: 1,
+  shadowColor: COLORS.black,
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.06,
+  shadowRadius: 3,
 };
 const input = {
   borderWidth: 1,
-  borderColor: "#c7d4ce",
+  borderColor: COLORS.border,
   padding: 10,
-  borderRadius: 6,
+  borderRadius: 8,
   marginVertical: 5,
-  color: "#172b23",
+  color: COLORS.black,
+  fontSize: 12,
 };
 const when = (value) => (value ? new Date(value).toLocaleString() : "");
 function Action({ children, onPress, disabled, secondary = false }) {
@@ -77,16 +82,20 @@ function Action({ children, onPress, disabled, secondary = false }) {
       onPress={onPress}
       style={{
         padding: 12,
-        backgroundColor: disabled ? "#e0e7e3" : secondary ? "#f0f5f2" : "#26866f",
+        backgroundColor: disabled ? COLORS.grayLight : secondary ? COLORS.white : COLORS.primaryLight,
+        borderWidth: secondary ? 1 : 0,
+        borderColor: COLORS.grayMedium,
         borderRadius: 8,
         marginVertical: 5,
         maxWidth: "100%",
+        alignItems: "center",
       }}
     >
       <AppText
         style={{
-          color: disabled ? "#72837a" : secondary ? "#245e49" : "#fff",
+          color: disabled ? COLORS.grayDark : secondary ? COLORS.grayDark : COLORS.white,
           fontWeight: "600",
+          fontSize: 12,
         }}
       >
         {children}
@@ -491,7 +500,7 @@ export default function FlightWorkspace({
             paddingVertical: 8,
             backgroundColor: "#fff",
             borderBottomWidth: 1,
-            borderBottomColor: "#e1ebe5",
+            borderBottomColor: "#E8E8E8",
             flexDirection: "row",
             alignItems: "center",
             gap: 12,
@@ -500,13 +509,14 @@ export default function FlightWorkspace({
           <View style={{ flex: 1 }}>
           <AppText
             style={{
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: "700",
+              color: COLORS.black,
             }}
           >
             {inspectionSection ? `${inspectionSection === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection` : "Flight Workspace"}
           </AppText>
-          {log && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 3 }}>{log.rpc} · {log.controlNo}</AppText>}
+          {log && <AppText style={{ color: COLORS.grayDark, fontSize: 12, marginTop: 2 }}>{log.rpc} · {log.controlNo}</AppText>}
           </View>
           {busy && <ActivityIndicator />}
           <TouchableOpacity
@@ -552,7 +562,7 @@ export default function FlightWorkspace({
                   <AppText
                     accessibilityRole="alert"
                     style={{
-                      color: "#b12626",
+                      color: COLORS.dangerBorder,
                     }}
                   >
                     {error}
@@ -582,7 +592,7 @@ export default function FlightWorkspace({
               {log && (
                 <>
                   <View style={panel}>
-                    <AppText style={{ color: "#26866f", fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{step.label}</AppText>
+                    <AppText style={{ color: COLORS.primaryLight, fontSize: 12, fontWeight: "700", marginBottom: 6 }}>{step.label}</AppText>
                     <AppText
                       style={{
                         fontWeight: "700",
@@ -988,7 +998,7 @@ export default function FlightWorkspace({
               bottom: 0,
               left: 0,
               zIndex: 900,
-              backgroundColor: "#0007",
+              backgroundColor: "rgba(0, 0, 0, 0.45)",
               justifyContent: "center",
               padding: 16,
             }}
@@ -1042,7 +1052,7 @@ export default function FlightWorkspace({
                     <AppText
                       key={i}
                       style={{
-                        color: "#b12626",
+                        color: COLORS.dangerBorder,
                       }}
                     >
                       • {m}
@@ -1287,7 +1297,7 @@ export default function FlightWorkspace({
               {!!error && (
                 <AppText
                   style={{
-                    color: "#b12626",
+                    color: COLORS.dangerBorder,
                   }}
                 >
                   {error}

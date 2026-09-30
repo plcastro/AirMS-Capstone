@@ -29,6 +29,7 @@ import PinVerifiedSignatureModal from "../common/PinVerifiedSignatureModal";
 import {
   isAssignedFlightCrew,
   getAssignedCrewField,
+  normalizeCrewRole,
 } from "../../../../shared/flightCrewAccess";
 import {
   preflightSignatureForRelease,
@@ -719,6 +720,9 @@ export default function FlightWorkspace({
                             record={record}
                             editable={assigned && log.status !== "completed"}
                             mechanic={mechanic}
+                            isMaintenanceManager={
+                              normalizeCrewRole(user) === "maintenance manager"
+                            }
                             onConfirm={(kind, record, values) =>
                               setInspectionPrompt({ kind, record, values })
                             }
@@ -1264,6 +1268,7 @@ function InspectionEditor({
   record,
   editable,
   mechanic,
+  isMaintenanceManager,
   flightStatus,
   onSave,
   onReturn,
@@ -1295,9 +1300,11 @@ function InspectionEditor({
     mechanic &&
     record.status === "pending" &&
     (kind === "pre" ? preparing : postFlight);
+  const isSelfPreparedByManager = mechanic && isMaintenanceManager;
   const canReturn =
     editable &&
     mechanic &&
+    !isSelfPreparedByManager &&
     record.status !== "pending" &&
     (kind === "pre" ? preparing : postFlight && mechanic);
   return (

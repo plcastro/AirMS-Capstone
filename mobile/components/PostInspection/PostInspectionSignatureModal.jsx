@@ -1,4 +1,5 @@
 import Modal from "../common/AppModal";
+import IosModalSafeAreaProvider from "../common/IosModalSafeAreaProvider";
 import React, { useContext, useRef, useState } from "react";
 import AppText from "../common/AppText";
 import {
@@ -343,7 +344,9 @@ export default function PostInspectionSignatureModal({
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
-      {content}
+      <IosModalSafeAreaProvider>
+        {content}
+      </IosModalSafeAreaProvider>
     </Modal>
   );
 }

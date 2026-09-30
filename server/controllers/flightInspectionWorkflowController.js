@@ -20,7 +20,8 @@ const {
 } = require('../utils/flightWorkflowSigning');
 const {
   isAssignedFlightCrew,
-  getAssignedCrewField
+  getAssignedCrewField,
+  normalizeCrewRole
 } = require('../../shared/flightCrewAccess');
 const {
   withInspectionCrew,
@@ -90,6 +91,7 @@ const edit = kind => catchRequest(async (req, res) => {
     }
   } else if (returning) {
     if (kind === 'post' && !mechanic) throw fail('The assigned mechanic must return Post-Flight for correction.', 403);
+    if (mechanic && normalizeCrewRole(req.user) === 'maintenance manager') throw fail('You cannot return your own self-prepared inspection for correction.', 403);
     if (!String(req.body.comment || '').trim()) throw fail('Explain the inspection correction.');
     if (kind === 'pre' && !preparation) throw fail('Return the flight record to mechanic preparation before correcting its Pre-Flight certification.');
     record.status = 'pending';

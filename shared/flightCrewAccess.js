@@ -1,4 +1,4 @@
-const normalizeCrewRole = (user = {}) =>
+export const normalizeCrewRole = (user = {}) =>
   String(user.jobTitle || user.role || user.access || "").trim().toLowerCase().replace(/[\s-]+/g, " ");
 
 export const getAssignedCrewField = (user = {}) => {

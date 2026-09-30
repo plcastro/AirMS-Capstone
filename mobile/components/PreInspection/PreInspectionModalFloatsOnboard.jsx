@@ -110,61 +110,68 @@ export default function PreInspectionModalFloatsOnboard({
   };
 
   const renderListItem = (index, title, label, field, value, onCheck) => (
-    <View key={field} style={{ marginBottom: 18 }}>
-      <AppText
+    <TouchableOpacity
+      key={field}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={`${title}: ${label}`}
+      style={{
+        flexDirection: "row",
+        alignItems: "flex-start",
+        backgroundColor: value ? `${COLORS.primaryLight}12` : COLORS.grayLight,
+        borderWidth: 1,
+        borderColor: value ? COLORS.primaryLight : COLORS.border,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 10,
+      }}
+      onPress={isEditable ? onCheck : null}
+      activeOpacity={0.7}
+    >
+      <View
         style={{
-          fontSize: 12,
-          fontWeight: "bold",
-          color: COLORS.black,
-          marginBottom: 8,
-        }}
-      >
-        {index + 1}. {title}
-      </AppText>
-
-      <TouchableOpacity
-        style={{
-          flexDirection: "row",
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          borderWidth: 2,
+          borderColor: value ? COLORS.primaryLight : COLORS.grayMedium,
+          backgroundColor: value ? COLORS.primaryLight : COLORS.white,
+          justifyContent: "center",
           alignItems: "center",
-          marginLeft: 14,
-          paddingRight: 8,
+          marginRight: 12,
         }}
-        onPress={isEditable ? onCheck : null}
-        activeOpacity={0.7}
       >
-        <View
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 4,
-            borderWidth: 2,
-            borderColor: COLORS.primaryLight,
-            backgroundColor: value ? COLORS.primaryLight : "transparent",
-            justifyContent: "center",
-            alignItems: "center",
-            marginRight: 12,
-          }}
-        >
-          {value && (
-            <MaterialCommunityIcons
-              name="check"
-              size={14}
-              color={COLORS.white}
-            />
-          )}
-        </View>
+        {value && (
+          <MaterialCommunityIcons
+            name="check-bold"
+            size={14}
+            color={COLORS.white}
+          />
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
         <AppText
           style={{
             fontSize: 12,
+            fontWeight: "700",
+            color: COLORS.black,
+            marginBottom: 3,
+          }}
+        >
+          {index + 1}. {title}
+        </AppText>
+        <AppText
+          style={{
+            fontSize: 12,
+            lineHeight: 18,
             color: COLORS.grayDark,
-            flex: 1,
             flexWrap: "wrap",
           }}
         >
           {label}
         </AppText>
-      </TouchableOpacity>
-    </View>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -200,9 +207,8 @@ export default function PreInspectionModalFloatsOnboard({
         {isEditable && (
           <View
             style={{
-              borderBottomWidth: 1,
-              borderBottomColor: COLORS.grayMedium,
-              paddingVertical: 14,
+              backgroundColor: COLORS.grayLight,
+              paddingVertical: 12,
               paddingHorizontal: 16,
             }}
           >
@@ -212,14 +218,14 @@ export default function PreInspectionModalFloatsOnboard({
             >
               <View
                 style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
                   borderWidth: 2,
-                  borderColor: COLORS.primaryLight,
+                  borderColor: floatsSelectAll ? COLORS.primaryLight : COLORS.grayMedium,
                   backgroundColor: floatsSelectAll
                     ? COLORS.primaryLight
-                    : "transparent",
+                    : COLORS.white,
                   justifyContent: "center",
                   alignItems: "center",
                   marginRight: 12,
@@ -227,14 +233,14 @@ export default function PreInspectionModalFloatsOnboard({
               >
                 {floatsSelectAll && (
                   <MaterialCommunityIcons
-                    name="check"
+                    name="check-bold"
                     size={14}
                     color={COLORS.white}
                   />
                 )}
               </View>
               <AppText
-                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "600" }}
               >
                 Select All
               </AppText>
@@ -289,9 +295,8 @@ export default function PreInspectionModalFloatsOnboard({
         {isEditable && (
           <View
             style={{
-              borderBottomWidth: 1,
-              borderBottomColor: COLORS.grayMedium,
-              paddingVertical: 14,
+              backgroundColor: COLORS.grayLight,
+              paddingVertical: 12,
               paddingHorizontal: 16,
             }}
           >
@@ -301,14 +306,14 @@ export default function PreInspectionModalFloatsOnboard({
             >
               <View
                 style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 4,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
                   borderWidth: 2,
-                  borderColor: COLORS.primaryLight,
+                  borderColor: onboardSelectAll ? COLORS.primaryLight : COLORS.grayMedium,
                   backgroundColor: onboardSelectAll
                     ? COLORS.primaryLight
-                    : "transparent",
+                    : COLORS.white,
                   justifyContent: "center",
                   alignItems: "center",
                   marginRight: 12,
@@ -316,14 +321,14 @@ export default function PreInspectionModalFloatsOnboard({
               >
                 {onboardSelectAll && (
                   <MaterialCommunityIcons
-                    name="check"
+                    name="check-bold"
                     size={14}
                     color={COLORS.white}
                   />
                 )}
               </View>
               <AppText
-                style={{ color: COLORS.black, fontSize: 12, fontWeight: "500" }}
+                style={{ color: COLORS.black, fontSize: 12, fontWeight: "600" }}
               >
                 Select All
               </AppText>

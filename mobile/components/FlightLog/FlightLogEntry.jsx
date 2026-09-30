@@ -172,7 +172,7 @@ export default function FlightLogEntry({
   // Start with 1 leg only
   const [formData, setFormData] = useState({
     aircraftType: entryConfirmation?.aircraftType || "",
-    rpc: lockedAircraftRpc,
+    rpc: entryConfirmation?.rpc || lockedAircraftRpc,
     date: new Date(),
     controlNo: "",
     legs: [
@@ -195,7 +195,12 @@ export default function FlightLogEntry({
     oilServicing: [],
     workItems: [],
     createdBy: userRole,
-    ...entryConfirmation,
+    // Only the fields the create flow actually needs downstream — the rest
+    // of the confirmation ticket (e.g. `remarks`, which holds the pre-flight
+    // discrepancy note, not this flight's own remarks; and `allGood`, which
+    // isn't a flight log field) must not leak in.
+    confirmationId: entryConfirmation?.confirmationId,
+    initialInspectionSignature: entryConfirmation?.initialInspectionSignature,
     status: "pending_release",
     notifiedForCompletion: false,
     broughtForwardLocked: false,
@@ -567,7 +572,13 @@ export default function FlightLogEntry({
 
   useEffect(() => {
     if (visible && entryConfirmation)
-      setFormData((previous) => ({ ...previous, ...entryConfirmation }));
+      setFormData((previous) => ({
+        ...previous,
+        aircraftType: entryConfirmation.aircraftType || previous.aircraftType,
+        rpc: entryConfirmation.rpc || previous.rpc,
+        confirmationId: entryConfirmation.confirmationId,
+        initialInspectionSignature: entryConfirmation.initialInspectionSignature,
+      }));
   }, [visible, entryConfirmation]);
 
   const formatDateForSave = (date) => {

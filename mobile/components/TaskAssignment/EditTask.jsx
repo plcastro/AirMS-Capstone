@@ -65,6 +65,14 @@ export default function EditTask({
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const qualification = useTaskQualifications(API_BASE, getAuthHeaders, selectedAircraft, visible);
+  const sortedEmployees = React.useMemo(() => {
+    return [...employees].sort((a, b) => {
+      const aQualified = qualification.option(a.id).qualified;
+      const bQualified = qualification.option(b.id).qualified;
+      if (aQualified !== bQualified) return aQualified ? -1 : 1;
+      return (a.activeTaskCount || 0) - (b.activeTaskCount || 0);
+    });
+  }, [employees, qualification]);
   const [selectedPriority, setSelectedPriority] = useState("Normal");
 
   const [startDate, setStartDate] = useState(new Date());
@@ -573,8 +581,8 @@ export default function EditTask({
                 required: true,
                 value: selectedEmployeeLabel,
                 placeholder: "Pick Mechanic",
-                options: rankTaskMechanics(employees, qualification).map((emp) => ({
-                  label: `${emp.name} ? ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
+                options: sortedEmployees.map((emp) => ({
+                  label: `${emp.name} - ${qualification.option(emp.id).qualified ? "Qualified" : qualification.option(emp.id).reason}${
                     emp.activeTaskCount
                       ? ` (${emp.activeTaskCount} active task${
                           emp.activeTaskCount === 1 ? "" : "s"
