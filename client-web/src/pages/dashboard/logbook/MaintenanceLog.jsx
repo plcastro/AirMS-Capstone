@@ -903,7 +903,30 @@ export default function MaintenanceLog() {
                         }}
                       >
                         <span>{reg}</span>
-                        {newCount > 0 ? buildNewBadge() : null}
+                        {newCount > 0 ? (
+                          <span
+                            aria-label={
+                              newCount
+                                ? `${newCount} new or updated logs not yet viewed`
+                                : "New or updated log not yet viewed"
+                            }
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              flexShrink: 0,
+                              borderRadius: 999,
+                              padding: "1px 8px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "#8a3f00",
+                              background: "#fff3e0",
+                              border: "1px solid #ffd8a8",
+                              letterSpacing: 0.4,
+                            }}
+                          >
+                            {newCount} new
+                          </span>
+                        ) : null}
                       </Title>
 
                       <Text type="secondary">
@@ -917,14 +940,6 @@ export default function MaintenanceLog() {
                       <div style={{ marginTop: 4 }}>
                         <Text type="secondary">LAST UPDATED:</Text>
                         <DateTimeCell value={latestUpdatedAt} />
-                      </div>
-
-                      <div style={{ height: 22, marginTop: "auto" }}>
-                        {newCount > 0 ? (
-                          <Text style={{ color: "#d46b08", fontWeight: 600 }}>
-                            {newCount} new work done
-                          </Text>
-                        ) : null}
                       </div>
                     </div>
                   </div>
