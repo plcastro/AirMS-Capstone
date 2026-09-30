@@ -87,6 +87,21 @@ export default function FlightWorkspace({
     [saveState, setSaveState] = useState("Saved on server");
   const [defectForm, setDefectForm] = useState(null),
     [amendment, setAmendment] = useState(null);
+  // Inspection tabs only appear while an inspection is on discrepancy hold, so
+  // the assigned mechanic can resolve it and sign.
+  const heldInspectionKinds = ["pre", "post"].filter((kind) =>
+    (kind === "pre" ? workspace?.preInspections : workspace?.postInspections)
+      ?.some((record) => record.confirmation?.allGood === false),
+  );
+  const heldInspectionKey = heldInspectionKinds.join(",");
+  useEffect(() => {
+    if (
+      !inspectionSection &&
+      ["pre", "post"].includes(tab) &&
+      !heldInspectionKey.split(",").includes(tab)
+    )
+      setTab("flight");
+  }, [inspectionSection, tab, heldInspectionKey]);
   const [inspectionPrompt, setInspectionPrompt] = useState(null);
   const storageKey = `flight-draft:${user?.id || user?._id}:${id}`;
   const api = useCallback(
@@ -688,10 +703,17 @@ export default function FlightWorkspace({
                   label: "Preparation Checks",
                   children: preparationChecks,
                 },
-                ...(inspectionSection ? [inspectionSection] : []).map(
+                ...(inspectionSection
+                  ? [inspectionSection]
+                  : heldInspectionKinds
+                ).map(
                   (kind) => ({
                     key: kind,
-                    label: kind === "pre" ? "Pre-Flight" : "Post-Flight",
+                    label: inspectionSection
+                      ? kind === "pre" ? "Pre-Flight" : "Post-Flight"
+                      : kind === "pre"
+                        ? "Pre-Flight Inspection (On Hold)"
+                        : "Post-Flight Inspection (On Hold)",
                     children: (
                       <>
                         {assigned && mechanic && permissions.preparation && (

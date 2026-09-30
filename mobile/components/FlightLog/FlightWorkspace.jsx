@@ -471,6 +471,21 @@ export default function FlightWorkspace({
       );
     else setSign(task);
   };
+  // Inspection tabs only appear while an inspection is on discrepancy hold, so
+  // the assigned mechanic can resolve it and sign.
+  const heldInspectionKinds = ["pre", "post"].filter((kind) =>
+    (kind === "pre" ? workspace?.preInspections : workspace?.postInspections)
+      ?.some((record) => record.confirmation?.allGood === false),
+  );
+  const heldInspectionKey = heldInspectionKinds.join(",");
+  useEffect(() => {
+    if (
+      !inspectionSection &&
+      ["pre", "post"].includes(tab) &&
+      !heldInspectionKey.split(",").includes(tab)
+    )
+      setTab("flight");
+  }, [inspectionSection, tab, heldInspectionKey]);
   const workspaceRows = useMemo(() => {
     const rows = (kind, values = []) =>
       values.map((value, index) => ({ kind, value, index }));
@@ -537,7 +552,7 @@ export default function FlightWorkspace({
           </TouchableOpacity>
         </View>
         {log && !inspectionSection && <View style={{ backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e1ebe5" }}>
-          <Choice inset={12} values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
+          <Choice inset={12} values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ...heldInspectionKinds.map((kind) => [kind, kind === "pre" ? "Pre-Flight Inspection (On Hold)" : "Post-Flight Inspection (On Hold)"]), ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
         </View>}
         <FlatList
           key={tab}
