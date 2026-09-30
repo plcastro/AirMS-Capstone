@@ -541,8 +541,26 @@ const updateTask = async (req, res) => {
     if (!managerAccess && (!hasPermission(req, permissions.TASKS_UPDATE_OWN) || String(existingTask.assignedTo) !== String(req.user?.id) || assignmentChanged)) {
       return res.status(403).json({ message: 'You cannot assign or update this task.' });
     }
-    // Historical approvals remain reviewable; new work and reassignment use current evidence.
-    if (assignmentChanged || !['Approved', 'Completed', 'Turned in'].includes(nextTask.status)) {
+    const submittedStatuses = ['Completed', 'Turned in'];
+    const wasSubmitted = submittedStatuses.includes(existingTask.status);
+    const isUndoTurnIn = wasSubmitted && nextTask.status === 'Ongoing';
+    const statusChanged = nextTask.status !== existingTask.status;
+    // A turn-in can only be reviewed while it is still turned in; an undo withdraws it.
+    if (statusChanged && ['Approved', 'Returned'].includes(nextTask.status) && !wasSubmitted) {
+      return res.status(409).json({ message: 'This task is no longer turned in. The mechanic may have undone the turn in.', code: 'TASK_NOT_TURNED_IN' });
+    }
+    if (statusChanged && !managerAccess && existingTask.status === 'Approved') {
+      return res.status(409).json({ message: 'This task was already approved and can no longer be changed.', code: 'TASK_ALREADY_APPROVED' });
+    }
+    if (statusChanged && !managerAccess && submittedStatuses.includes(nextTask.status) && !['Pending', 'Ongoing', 'Returned'].includes(existingTask.status)) {
+      return res.status(409).json({ message: 'This task cannot be turned in from its current status.', code: 'TASK_CANNOT_TURN_IN' });
+    }
+    if (isUndoTurnIn) {
+      nextTask.completedAt = null;
+      nextTask.isApproved = false;
+    }
+    // Historical approvals remain reviewable; undoing a turn in only reverts state, so it needs no fresh certificate check.
+    if (!isUndoTurnIn && (assignmentChanged || !['Approved', 'Completed', 'Turned in'].includes(nextTask.status))) {
       const qualification = await taskQualifications.assertQualified(nextTask);
       nextTask.assignedToName = qualification.name;
     } else if (!['Approved', 'Completed', 'Turned in'].includes(existingTask.status)) {

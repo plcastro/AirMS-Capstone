@@ -19,6 +19,7 @@ const pilot = { id: pilotId, jobTitle: "Pilot" };
 const mechanic = { id: mechanicId, jobTitle: "Mechanic" };
 const newLog = (values = {}) => new FlightLog({
   _id: flightId, rpc: "RP-C1234", aircraftType: "AS350B3", status: "pending_release",
+  legs: [{ totalTimeOff: "01:00" }],
   assignedPilot: { userId: pilotId, name: "Assigned Pilot" },
   assignedMechanic: { userId: mechanicId, name: "Assigned Mechanic" }, ...values,
 });

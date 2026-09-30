@@ -666,6 +666,12 @@ const updateFlightLog = async (req, res) => {
       });
     }
 
+    if (!isAssignedFlightCrew(req.user, existingFlightLog)) {
+      return res
+        .status(403)
+        .json({ success: false, message: CREW_ACCESS_MESSAGE });
+    }
+
     if (existingFlightLog.status === "completed") {
       return res.status(400).json({
         success: false,
@@ -774,15 +780,12 @@ const updateFlightLog = async (req, res) => {
       updates.oilServicing = calculated.oilServicing;
     }
 
-    if (Object.hasOwn(updates, "assignedPilot")) {
-      const pilot = await resolveAssignedPilot(
-        updates.assignedPilot,
-        existingFlightLog.assignedPilot,
-      );
-      if (pilot.error)
-        return res.status(400).json({ success: false, message: pilot.error });
-      updates.assignedPilot = pilot.value;
-    }
+    const crew = await resolveFlightLogCrew(req, updates, existingFlightLog);
+    if (crew.error)
+      return res.status(400).json({ success: false, message: crew.error });
+    delete updates.assignedPilot;
+    delete updates.assignedMechanic;
+    Object.assign(updates, crew.assignments);
 
     // Update the flight log
     const flightLog = await FlightLog.findByIdAndUpdate(

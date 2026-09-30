@@ -50,7 +50,7 @@ test('flight-log update persists server-derived hours rather than supplied compo
   const file = path.join(__dirname, '../controllers/flightLogController.js');
   const localRequire = require('node:module').createRequire(file);
   let saved;
-  const existing = { _id: 'log', status: 'pending_release', rpc: 'RP-C1234', componentData: { broughtForwardData: { airframe: '100' } }, legs: [] };
+  const existing = { _id: 'log', status: 'pending_release', rpc: 'RP-C1234', componentData: { broughtForwardData: { airframe: '100' } }, legs: [], assignedMechanic: { userId: 'manager' } };
   const stubs = {
     '../models/flightLogModel': { findById: async () => existing, findByIdAndUpdate: async (_id, values) => { saved = values; return { ...existing, ...values }; } },
     '../utils/flightLogNotificationService': { createFlightLogNotifications: async () => {} },
