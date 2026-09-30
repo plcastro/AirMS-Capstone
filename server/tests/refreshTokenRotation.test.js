@@ -78,7 +78,7 @@ const setup = () => {
     return stubs[name];
   }, controllerModule, controllerModule.exports, path.dirname(controllerPath), controllerPath);
 
-  const refresh = async (refreshToken) => {
+  const refresh = async (refreshToken, cookieRefreshToken) => {
     const response = {
       cookie() {}, clearCookie() {},
       status(code) { this.statusCode = code; return this; },
@@ -86,6 +86,7 @@ const setup = () => {
     };
     await controllerModule.exports.refreshToken({
       body: { refreshToken },
+      ...(cookieRefreshToken ? { cookies: { refreshToken: cookieRefreshToken } } : {}),
       headers: { "x-platform": "MOBILE", "x-session-id": "session-1", "x-client-active-at": String(Date.now()) },
       ip: "127.0.0.1",
     }, response);
@@ -122,6 +123,17 @@ test("retrying with the previous token succeeds while its replacement was never 
   assert.notEqual(current, lost);
   // The never-delivered token is retired; the newest token keeps working.
   assert.equal((await refresh(lost)).statusCode, 403);
+});
+
+test("a stale cookie left in the app's cookie jar does not override the body token", async () => {
+  const { refresh, issue } = setup();
+  const first = await issue();
+  const second = (await refresh(first)).body.refreshToken;
+  const third = (await refresh(second)).body.refreshToken;
+  // Relaunch after the app was killed: the native cookie jar still holds `first`.
+  const response = await refresh(third, first);
+  assert.equal(response.statusCode, undefined, JSON.stringify(response.body));
+  assert.ok(response.body.refreshToken);
 });
 
 test("reusing an old token after its replacement was used is still rejected", async () => {

@@ -1089,8 +1089,10 @@ const unlockUser = async (req, res) => {
 };
 
 const refreshToken = async (req, res) => {
+  // Prefer the token the client sends explicitly: the native apps' cookie jar
+  // persists lazily and can hold an already-rotated token after the app is killed.
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+    req.body?.refreshToken || req.cookies?.refreshToken;
   if (!incomingRefreshToken) {
     return res
       .status(401)
@@ -1282,9 +1284,9 @@ const updateSessionPreference = async (req, res) => {
     }
 
     const incomingRefreshToken =
-      req.cookies?.refreshToken ||
       refreshToken ||
       req.body?.refreshToken ||
+      req.cookies?.refreshToken ||
       null;
     const incomingTokenHash = incomingRefreshToken
       ? hashRefreshToken(incomingRefreshToken)
@@ -1397,7 +1399,7 @@ const deactivateSessionById = async (userId, sessionId) => {
 const logoutUser = async (req, res) => {
   try {
     const incomingRefreshToken =
-      req.cookies?.refreshToken || req.body?.refreshToken;
+      req.body?.refreshToken || req.cookies?.refreshToken;
     let revokedRefreshToken = null;
     if (incomingRefreshToken) {
       revokedRefreshToken = await revokeRefreshTokenByHash(
