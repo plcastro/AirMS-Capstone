@@ -3,6 +3,12 @@ const { isPilotFlightLogRequest } = require("./flightLogPayload");
 const { getAssignedCrewField } = require("../../shared/flightCrewAccess");
 
 const crewName = (user) => `${user.firstName || ""} ${user.lastName || ""}`.trim();
+const crewAssignment = (user) => ({
+  userId: String(user._id),
+  name: crewName(user),
+  firstName: String(user.firstName || "").trim(),
+  lastName: String(user.lastName || "").trim(),
+});
 
 // Resolve IDs against the user directory instead of trusting names or roles
 // supplied by a client. Keep existing assignments usable if a user goes inactive.
@@ -30,7 +36,7 @@ const resolveFlightLogCrew = async (req, payload, existing = null, users = User)
             jobTitle: role,
           }).select("firstName lastName").lean();
           if (!user) return { error: `The assigned ${role.toLowerCase()} must be an active ${role.toLowerCase()}.` };
-          assignments[field] = { userId: String(user._id), name: crewName(user) };
+          assignments[field] = crewAssignment(user);
         }
       }
     }
@@ -43,7 +49,7 @@ const resolveFlightLogCrew = async (req, payload, existing = null, users = User)
       .select("firstName lastName jobTitle").lean();
     const ownField = creator ? getAssignedCrewField(creator) : null;
     if (ownField && !fields.includes(ownField)) {
-      assignments[ownField] = { userId: String(creator._id), name: crewName(creator) };
+      assignments[ownField] = crewAssignment(creator);
     }
   }
 

@@ -20,6 +20,22 @@ export const FLIGHT_STAGES = {
   completed: { label: 'Closed', next: 'Record closed', crew: null, tab: 'info' },
 };
 export const nextFlightStep = (record = {}) => FLIGHT_STAGES[flightStage(record)] || FLIGHT_STAGES.pending_release;
+// "Last, F." — older logs only saved "First Last", so fall back to splitting it.
+export const crewDisplayName = (crew = {}) => {
+  const first = String(crew?.firstName || '').trim(), last = String(crew?.lastName || '').trim();
+  if (last) return first ? `${last}, ${first[0].toUpperCase()}.` : last;
+  const parts = String(crew?.name || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? `${parts.at(-1)}, ${parts[0][0].toUpperCase()}.` : parts[0] || '';
+};
+// For an aircraft's in-progress flight log, the crew member who must act next.
+export const incomingFlightLogHandoff = (records = []) => {
+  const open = records
+    .filter(record => nextFlightStep(record).crew && flightStage(record) !== 'completed')
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0];
+  if (!open) return null;
+  const crew = nextFlightStep(open).crew;
+  return { role: crew === 'assignedPilot' ? 'Pilot' : 'Mechanic', name: crewDisplayName(open[crew]) || 'Unassigned' };
+};
 export const hasOngoingFlightLog = (records = [], rpc = '') => {
   const aircraft = String(rpc).trim().toUpperCase();
   if (!aircraft) return false;

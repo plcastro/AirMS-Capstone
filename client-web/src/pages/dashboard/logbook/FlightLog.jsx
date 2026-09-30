@@ -269,6 +269,7 @@ export default function FlightLog() {
       {!aircraft ? (
         <AircraftLogGroups
           isNew={isNew}
+          showFlightHandoff
           searchFilters={
             <Checkbox checked={mine} onChange={(event) => setMine(event.target.checked)}>
               Needs My Action

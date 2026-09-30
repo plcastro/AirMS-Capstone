@@ -293,6 +293,8 @@ const flightLogSchema = new mongoose.Schema(
       type: new mongoose.Schema({
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
         name: { type: String, required: true },
+        firstName: { type: String, default: "" },
+        lastName: { type: String, default: "" },
       }, { _id: false }),
       default: null,
     },
@@ -300,6 +302,8 @@ const flightLogSchema = new mongoose.Schema(
       type: new mongoose.Schema({
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
         name: { type: String, required: true },
+        firstName: { type: String, default: "" },
+        lastName: { type: String, default: "" },
       }, { _id: false }),
       default: null,
     },

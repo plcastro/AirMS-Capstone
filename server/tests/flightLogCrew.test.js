@@ -26,7 +26,7 @@ test("mechanic assigns an active pilot with a server-resolved name", async () =>
     assignedPilot: { userId: pilotId, name: "Forged name" },
     assignedMechanic: { userId: mechanicId, name: "Should be ignored" },
   }, null, users);
-  assert.deepEqual(result, { assignments: { assignedPilot: { userId: pilotId, name: "Juan Dela Cruz" } } });
+  assert.deepEqual(result, { assignments: { assignedPilot: { userId: pilotId, name: "Juan Dela Cruz", firstName: "Juan", lastName: "Dela Cruz" } } });
 });
 
 test("pilot assignment survives create and update payload filtering", async () => {

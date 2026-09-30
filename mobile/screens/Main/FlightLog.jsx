@@ -254,6 +254,7 @@ export default function FlightLog({ route, navigation }) {
             </View>
             <AircraftLogGroups
             isNew={isNew}
+            showFlightHandoff
             searchFilters={
               <NeedsActionToggle
                 value={onlyMine}

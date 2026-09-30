@@ -10,9 +10,13 @@ import {
 import { COLORS } from "../../stylesheets/colors";
 import { formatDate, formatDateTime } from "../../utilities/mobileApi";
 import { matchesSearch } from "../../utilities/search";
-import { groupAircraftLogs } from "../../../shared/aircraftLogGroups";
+import {
+  getLogAircraftRegistration,
+  groupAircraftLogs,
+} from "../../../shared/aircraftLogGroups";
+import { incomingFlightLogHandoff } from "../../../shared/flightWorkflow";
 import { unviewedAircraftCounts } from "../../../shared/viewedLogs";
-import NewLogBadge from "./NewLogBadge";
+import NewLogBadge, { IncomingLogBadge } from "./NewLogBadge";
 
 function AircraftMetaField({ label, value }) {
   return (
@@ -27,7 +31,7 @@ function AircraftMetaField({ label, value }) {
   );
 }
 
-function AircraftCard({ group, sortBy, newCount, onPress }) {
+function AircraftCard({ group, sortBy, newCount, handoff, largeTitle, onPress }) {
   return (
     <TouchableOpacity
       activeOpacity={0.82}
@@ -62,7 +66,7 @@ function AircraftCard({ group, sortBy, newCount, onPress }) {
             <MaterialCommunityIcons name="helicopter" size={18} color={COLORS.primaryLight} />
           </View>
           <View style={{ flex: 1 }}>
-            <AppText style={{ fontSize: 14, fontWeight: "700", color: COLORS.black }}>
+            <AppText style={{ fontSize: largeTitle ? 16 : 14, fontWeight: "700", color: COLORS.black }}>
               {group.rpc}
             </AppText>
             {newCount > 0 && <NewLogBadge count={newCount} />}
@@ -96,6 +100,7 @@ function AircraftCard({ group, sortBy, newCount, onPress }) {
               : `Latest log: ${formatDate(group.latestDate)}`}
           </AppText>
         </View>
+        {handoff && <IncomingLogBadge {...handoff} />}
       </View>
     </TouchableOpacity>
   );
@@ -111,9 +116,21 @@ export default function AircraftLogGroups({
   sortBy = "rpc",
   searchFilters = null,
   isNew,
+  showFlightHandoff = false,
   ...listProps
 }) {
   const newCounts = useMemo(() => unviewedAircraftCounts(records, isNew), [records, isNew]);
+  const handoffs = useMemo(() => {
+    if (!showFlightHandoff) return new Map();
+    const byAircraft = new Map();
+    records.forEach((record) => {
+      const rpc = getLogAircraftRegistration(record);
+      byAircraft.set(rpc, [...(byAircraft.get(rpc) || []), record]);
+    });
+    return new Map(
+      [...byAircraft].map(([rpc, logs]) => [rpc, incomingFlightLogHandoff(logs)]),
+    );
+  }, [records, showFlightHandoff]);
   const groups = useMemo(
     () =>
       groupAircraftLogs(records, sortBy).filter((group) =>
@@ -159,6 +176,8 @@ export default function AircraftLogGroups({
             group={group}
             sortBy={sortBy}
             newCount={newCounts.get(group.rpc) || 0}
+            handoff={handoffs.get(group.rpc)}
+            largeTitle={showFlightHandoff}
             onPress={() => onSelect(group.rpc)}
           />
         )}

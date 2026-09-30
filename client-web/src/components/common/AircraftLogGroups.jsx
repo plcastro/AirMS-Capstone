@@ -1,11 +1,15 @@
 import { useMemo } from "react";
 import { Card, Col, Input, Row, Space, Spin, Typography } from "antd";
 import { RightOutlined, SearchOutlined } from "@ant-design/icons";
-import { groupAircraftLogs } from "../../../../shared/aircraftLogGroups";
+import {
+  getLogAircraftRegistration,
+  groupAircraftLogs,
+} from "../../../../shared/aircraftLogGroups";
+import { incomingFlightLogHandoff } from "../../../../shared/flightWorkflow";
 import { matchesSearch } from "../../utils/search";
 import DateOnlyCell from "./DateOnlyCell";
 import DateTimeCell from "./DateTimeCell";
-import NewLogBadge from "./NewLogBadge";
+import NewLogBadge, { IncomingLogBadge } from "./NewLogBadge";
 import { unviewedAircraftCounts } from "../../../../shared/viewedLogs";
 
 const { Text, Title } = Typography;
@@ -22,8 +26,20 @@ export default function AircraftLogGroups({
   headerAction = null,
   searchFilters = null,
   isNew,
+  showFlightHandoff = false,
 }) {
   const newCounts = useMemo(() => unviewedAircraftCounts(records, isNew), [records, isNew]);
+  const handoffs = useMemo(() => {
+    if (!showFlightHandoff) return new Map();
+    const byAircraft = new Map();
+    records.forEach((record) => {
+      const rpc = getLogAircraftRegistration(record);
+      byAircraft.set(rpc, [...(byAircraft.get(rpc) || []), record]);
+    });
+    return new Map(
+      [...byAircraft].map(([rpc, logs]) => [rpc, incomingFlightLogHandoff(logs)]),
+    );
+  }, [records, showFlightHandoff]);
   const groups = useMemo(
     () => groupAircraftLogs(records, sortBy),
     [records, sortBy],
@@ -135,6 +151,7 @@ export default function AircraftLogGroups({
                       level={5}
                       style={{
                         margin: "0 0 8px",
+                        ...(showFlightHandoff ? { fontSize: 18 } : {}),
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
@@ -171,6 +188,11 @@ export default function AircraftLogGroups({
                           </Text>
                         </>
                       )
+                    )}
+                    {handoffs.get(group.rpc) && (
+                      <div style={{ marginTop: 6 }}>
+                        <IncomingLogBadge {...handoffs.get(group.rpc)} />
+                      </div>
                     )}
                   </div>
                 </div>
