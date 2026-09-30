@@ -235,18 +235,14 @@ export default function MaintenanceDashboard() {
   });
   const [showAnalyticsWidgets, setShowAnalyticsWidgets] = useState(false);
   const statTitleStyle = {
-    fontSize: 16,
+    fontSize: 12,
     lineHeight: 1.25,
     whiteSpace: "normal",
-    color: "#ffffff",
-    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.35)",
   };
-
   const statValueStyle = {
     fontSize: 24,
     lineHeight: 1.1,
     wordBreak: "break-word",
-    textShadow: "1px 2px 3px rgba(0, 0, 0, 0.4)",
   };
   const reportMasonryColumns = {
     xs: 1,
@@ -1394,17 +1390,10 @@ export default function MaintenanceDashboard() {
                 Operations
               </Title>
             </Col>
-            <Col xs={12} sm={12} md={4} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
-                styles={{
-                  body: {
-                    padding: 12,
-                    height: 90,
-                    display: "flex",
-                    flexDirection: "column",
-                  },
-                }}
+                styles={{ body: { padding: 12 } }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("completed");
@@ -1412,148 +1401,81 @@ export default function MaintenanceDashboard() {
                 }}
                 style={{
                   borderColor:
-                    activeKpi === "completed" ? "#0cec44" : undefined,
-                  borderWidth: 4,
-                  background:
-                    "linear-gradient(135deg, #00a02b 0%, #00854d 100%)",
+                    activeKpi === "completed" ? "#048a25" : undefined,
                 }}
               >
                 <Statistic
                   title="Completed Tasks"
                   value={stats.completed}
                   styles={{
-                    root: {
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    },
-                    title: {
-                      ...statTitleStyle,
-                      fontWeight: "bold",
-                    },
-                    content: {
-                      ...statValueStyle,
-                      color: "#ffffff",
-                      fontWeight: "bolder",
-                      marginTop: "auto",
-                    },
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#048a25" },
                   }}
                 />
               </Card>
             </Col>
-
-            <Col xs={12} sm={12} md={4} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12, height: 90 } }}
+                styles={{ body: { padding: 12 } }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("dueSoon");
                   setActiveKpi("dueSoon");
                 }}
                 style={{
-                  borderColor: activeKpi === "dueSoon" ? "#ffaa00" : undefined,
-                  borderWidth: 4,
-                  background:
-                    "linear-gradient(135deg, #fac654 0%, #e29b00 100%)",
+                  borderColor: activeKpi === "dueSoon" ? "#faad14" : undefined,
                 }}
               >
                 <Statistic
-                  title="Due Soon (in 3 days)"
+                  title="Due Soon (next 3 days)"
                   value={stats.dueSoon}
                   styles={{
-                    root: {
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    },
-                    title: {
-                      ...statTitleStyle,
-                      fontWeight: "bold",
-                    },
-                    content: {
-                      ...statValueStyle,
-                      color: "#ffffff",
-                      fontWeight: "bolder",
-                      marginTop: "auto",
-                    },
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#faad14" },
                   }}
                 />
               </Card>
             </Col>
-
-            <Col xs={12} sm={12} md={4} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12, height: 90 } }}
+                styles={{ body: { padding: 12 } }}
                 hoverable
                 onClick={() => {
                   setTaskDetailView("overdue");
                   setActiveKpi("overdue");
                 }}
                 style={{
-                  borderColor: activeKpi === "overdue" ? "#ff0015" : undefined,
-                  borderWidth: 4,
-                  background:
-                    "linear-gradient(135deg, #cf1322 0%, #830606 100%)",
+                  borderColor: activeKpi === "overdue" ? "#cf1322" : undefined,
                 }}
               >
                 <Statistic
                   title="Overdue Tasks"
                   value={stats.overdue}
                   styles={{
-                    root: {
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    },
-                    title: {
-                      ...statTitleStyle,
-                      fontWeight: "bold",
-                    },
-                    content: {
-                      ...statValueStyle,
-                      color: "#ffffff",
-                      fontWeight: "bolder",
-                      marginTop: "auto",
-                    },
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#cf1322" },
                   }}
                 />
               </Card>
             </Col>
-
-            <Col xs={12} sm={12} md={4} lg={6}>
+            <Col xs={12} sm={12} lg={6}>
               <Card
                 size="small"
-                styles={{ body: { padding: 12, height: 90 } }}
+                styles={{ body: { padding: 12 } }}
                 hoverable
                 onClick={() => setActiveKpi("modules")}
                 style={{
-                  borderColor: activeKpi === "modules" ? "#0051ff" : undefined,
-                  borderWidth: 4,
-                  background:
-                    "linear-gradient(135deg, #007db8 0%, #003380 100%)",
+                  borderColor: activeKpi === "modules" ? "#26866f" : undefined,
                 }}
               >
                 <Statistic
                   title="Module Reports"
                   value={cards.length}
                   styles={{
-                    root: {
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    },
-                    title: {
-                      ...statTitleStyle,
-                      fontWeight: "bold",
-                    },
-                    content: {
-                      ...statValueStyle,
-                      color: "#ffffff",
-                      fontWeight: "bolder",
-                      marginTop: "auto",
-                    },
+                    title: statTitleStyle,
+                    content: { ...statValueStyle, color: "#26866f" },
                   }}
                 />
               </Card>
