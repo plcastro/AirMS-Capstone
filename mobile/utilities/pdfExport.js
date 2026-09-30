@@ -109,8 +109,9 @@ const getExportExecutorName = async (fallback = "Unknown User") => {
 
     return (
       fullName ||
-      String(user?.displayName || user?.username || user?.email || fallback)
-        .trim()
+      String(
+        user?.displayName || user?.username || user?.email || fallback,
+      ).trim()
     );
   } catch {
     return fallback;
@@ -135,20 +136,29 @@ const appendExecutionMetadata = (
 ) => {
   const footer = `
     <style>
+      @page {
+        margin-bottom: 24pt;
+      }
+
       .export-audit-footer {
         position: fixed;
-        left: 24px;
-        right: 24px;
-        bottom: 8px;
+        left: 0;
+        right: 0;
+        bottom: -14pt;
         color: #555;
         font-family: Arial, Helvetica, sans-serif;
         font-size: 8px;
+        line-height: 10px;
         text-align: right;
+        padding: 0 18pt;
+        z-index: 9999;
       }
     </style>
+
     <div class="export-audit-footer">
-      Executed By: ${escapeHtml(executedBy || "Unknown User")} |
-      Executed On: ${escapeHtml(formatExecutedAt(executedAt))}
+      Exported By: ${escapeHtml(executedBy || "Unknown User")}
+      |
+      Export Date: ${escapeHtml(formatExecutedAt(executedAt))}
     </div>
   `;
 
@@ -396,7 +406,11 @@ const simpleTable = (rows = []) => `
   </table>
 `;
 
-const buildMaintenanceLogHtml = (log = {}, aircraftData = null, logoDataUri = "") => {
+const buildMaintenanceLogHtml = (
+  log = {},
+  aircraftData = null,
+  logoDataUri = "",
+) => {
   const workItems = (
     Array.isArray(log?.workDetails) && log.workDetails.length
       ? log.workDetails
@@ -709,23 +723,20 @@ const isB412FlightLog = (log = {}) => {
 
   if (aircraftType) {
     return (
-      aircraftType.includes("B412EP") ||
-      aircraftType.includes("BELL412EP")
+      aircraftType.includes("B412EP") || aircraftType.includes("BELL412EP")
     );
   }
 
   const b412Data = getB412FlightLogData(log);
   return Boolean(
     b412Data &&
-      typeof b412Data === "object" &&
-      Object.keys(b412Data).length > 0,
+    typeof b412Data === "object" &&
+    Object.keys(b412Data).length > 0,
   );
 };
 
 const firstFlightValue = (...values) =>
-  values.find(
-    (value) => value !== null && value !== undefined && value !== "",
-  );
+  values.find((value) => value !== null && value !== undefined && value !== "");
 
 const mergeB412LegacyValues = (primary, fallback) => {
   if (Array.isArray(primary) || Array.isArray(fallback)) {
@@ -887,10 +898,7 @@ const mergeB412OilRow = (standard = {}, legacy = {}) => ({
   ),
   engine1: {
     ...(legacy.engine1 || {}),
-    remaining: firstFlightValue(
-      standard.engineRem,
-      legacy.engine1?.remaining,
-    ),
+    remaining: firstFlightValue(standard.engineRem, legacy.engine1?.remaining),
     added: firstFlightValue(standard.engineAdd, legacy.engine1?.added),
     total: firstFlightValue(standard.engineTot, legacy.engine1?.total),
   },
@@ -1008,31 +1016,27 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
   ];
   const componentData = b412Data.componentData || {};
   const fuelRows = fitRows(
-    Array.from(
-      { length: 6 },
-      (_, index) =>
-        mergeB412FuelRow(
-          log.fuelServicing?.[index],
-          mergeB412LegacyValues(
-            b412Data.fuelServicing?.[index],
-            log.b412FuelServicing?.[index],
-          ),
+    Array.from({ length: 6 }, (_, index) =>
+      mergeB412FuelRow(
+        log.fuelServicing?.[index],
+        mergeB412LegacyValues(
+          b412Data.fuelServicing?.[index],
+          log.b412FuelServicing?.[index],
         ),
+      ),
     ),
     6,
     () => ({}),
   );
   const oilRows = fitRows(
-    Array.from(
-      { length: 2 },
-      (_, index) =>
-        mergeB412OilRow(
-          log.oilServicing?.[index],
-          mergeB412LegacyValues(
-            b412Data.oilServicing?.[index],
-            log.b412OilServicing?.[index],
-          ),
+    Array.from({ length: 2 }, (_, index) =>
+      mergeB412OilRow(
+        log.oilServicing?.[index],
+        mergeB412LegacyValues(
+          b412Data.oilServicing?.[index],
+          log.b412OilServicing?.[index],
         ),
+      ),
     ),
     2,
     () => ({}),
@@ -1313,7 +1317,8 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
             <tbody>
               ${passengerRows
                 .map(
-                  (row) => `<tr>${row.map((cell) => `<td class="center">${escapeHtml(cell)}</td>`).join("")}</tr>`,
+                  (row) =>
+                    `<tr>${row.map((cell) => `<td class="center">${escapeHtml(cell)}</td>`).join("")}</tr>`,
                 )
                 .join("")}
             </tbody>
@@ -1332,7 +1337,8 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
             <tbody>
               ${componentSections
                 .map(
-                  ([label, section]) => `<tr><td class="bold">${label}</td>${componentCells(section)}</tr>`,
+                  ([label, section]) =>
+                    `<tr><td class="bold">${label}</td>${componentCells(section)}</tr>`,
                 )
                 .join("")}
             </tbody>
@@ -1352,7 +1358,8 @@ const buildB412FlightLogHtml = (log = {}, logoDataUri = "") => {
             <tbody>
               ${componentSections
                 .map(
-                  ([label, section]) => `<tr><td class="bold">${label}</td>${engineCells(section)}</tr>`,
+                  ([label, section]) =>
+                    `<tr><td class="bold">${label}</td>${engineCells(section)}</tr>`,
                 )
                 .join("")}
             </tbody>
@@ -3005,8 +3012,7 @@ const exportRecordToPdf = async ({
 }) => {
   try {
     showToast(`Generating ${title} PDF...`);
-    let finalHtml =
-      typeof buildHtml === "function" ? await buildHtml() : html;
+    let finalHtml = typeof buildHtml === "function" ? await buildHtml() : html;
     const executedBy = await getExportExecutorName();
 
     if (!finalHtml) {
@@ -3050,11 +3056,35 @@ const exportRecordToPdf = async ({
   }
 };
 
-export const exportPreInspectionPdf = (inspection) =>
-  exportPreInspectionTemplatePdf(inspection);
+export const exportPreInspectionPdf = async (inspection) => {
+  return exportRecordToPdf({
+    title: "Pre-Flight Inspection",
+    fileName: `PreFlightInspection_${buildSafeFileToken(
+      getRpc(inspection),
+      "Aircraft",
+    )}_${formatFileDate(
+      inspection?.date || inspection?.inspectionDate || inspection?.createdAt,
+    )}`,
+    buildHtml: async () => {
+      return buildPreInspectionTemplateHtml(inspection);
+    },
+  });
+};
 
-export const exportPostInspectionPdf = (inspection) =>
-  exportPostInspectionTemplatePdf(inspection);
+export const exportPostInspectionPdf = async (inspection) => {
+  return exportRecordToPdf({
+    title: "Post-Flight Inspection",
+    fileName: `PostFlightInspection_${buildSafeFileToken(
+      getRpc(inspection),
+      "Aircraft",
+    )}_${formatFileDate(
+      inspection?.date || inspection?.inspectionDate || inspection?.createdAt,
+    )}`,
+    buildHtml: async () => {
+      return buildPostInspectionTemplateHtml(inspection);
+    },
+  });
+};
 
 export const exportFlightLogPdf = async (log) => {
   return exportRecordToPdf({
@@ -3066,8 +3096,15 @@ export const exportFlightLogPdf = async (log) => {
         ? buildB412FlightLogHtml(log, logoDataUri)
         : buildFlightLogHtml(log, logoDataUri);
       if (!log.workflowHistory?.length && !log.amendments?.length) return html;
-      const history = `<section style="page-break-before:always"><h2>Flight record history - ${escapeHtml(log.rpc)} / ${escapeHtml(log.controlNo)}</h2><table><thead><tr><th>Step / section</th><th>Record details</th></tr></thead><tbody>${flightWorkflowExportRows(log).map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(value)}</td></tr>`).join('')}</tbody></table></section>`;
-      return html.replace('</body>', `${history}</body>`);
+      const history = `<section style="page-break-before:always"><h2>Flight record history - ${escapeHtml(log.rpc)} / ${escapeHtml(log.controlNo)}</h2><table><thead><tr><th>Step / section</th><th>Record details</th></tr></thead><tbody>${flightWorkflowExportRows(
+        log,
+      )
+        .map(
+          ([label, value]) =>
+            `<tr><td>${escapeHtml(label)}</td><td style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(value)}</td></tr>`,
+        )
+        .join("")}</tbody></table></section>`;
+      return html.replace("</body>", `${history}</body>`);
     },
   });
 };

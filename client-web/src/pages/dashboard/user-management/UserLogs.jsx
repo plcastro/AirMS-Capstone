@@ -234,7 +234,9 @@ export default function UserLogs() {
     if (!anchorDate) return false;
 
     const dayDiff = Math.abs(
-      dayjs(current).startOf("day").diff(dayjs(anchorDate).startOf("day"), "day"),
+      dayjs(current)
+        .startOf("day")
+        .diff(dayjs(anchorDate).startOf("day"), "day"),
     );
 
     return dayDiff >= MAX_ACTIVITY_TREND_RANGE_DAYS;
@@ -255,9 +257,10 @@ export default function UserLogs() {
     }
 
     if (selectedScope !== "all" && selectedScopeValue !== "all") {
-      filtered = filtered.filter((log) =>
-        String(log.platformLabel || log.platform || "").toUpperCase() ===
-        selectedScopeValue,
+      filtered = filtered.filter(
+        (log) =>
+          String(log.platformLabel || log.platform || "").toUpperCase() ===
+          selectedScopeValue,
       );
     }
 
@@ -355,7 +358,6 @@ export default function UserLogs() {
         title: "Activity Logs Report",
         subtitle: generatedAt,
         logoDataUrl,
-        executedBy: getExportExecutorName(),
       });
 
       autoTable(doc, {

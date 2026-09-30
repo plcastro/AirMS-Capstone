@@ -70,8 +70,9 @@ export const getExportExecutorName = (fallback = "Unknown User") => {
 
   return (
     fullName ||
-    String(user?.displayName || user?.username || user?.email || fallback)
-      .trim()
+    String(
+      user?.displayName || user?.username || user?.email || fallback,
+    ).trim()
   );
 };
 
@@ -95,7 +96,7 @@ export const addPdfExecutionFooter = (
   const pageCount = doc.internal.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const footerText = `Executed By: ${executedBy || "Unknown User"} | Executed On: ${formatExecutedAt(executedAt)}`;
+  const footerText = `Exported By: ${executedBy || "Unknown User"} | Export Date: ${formatExecutedAt(executedAt)}`;
 
   for (let page = 1; page <= pageCount; page += 1) {
     doc.setPage(page);
@@ -269,8 +270,7 @@ export const drawPdfReportHeader = (
     title = "Export",
     subtitle = "",
     logoDataUrl = null,
-    executedBy = getExportExecutorName(),
-    exportedAt = new Date(),
+
     x = 40,
     y = 34,
     logoWidth = 78,
@@ -293,15 +293,6 @@ export const drawPdfReportHeader = (
     doc.setFontSize(10);
     doc.setTextColor(90);
     doc.text(subtitle, titleX, y + 16);
-  }
-
-  if (executedBy) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(90);
-
-    doc.text(`Executed By: ${executedBy}`, titleX, y + 31);
-    doc.text(`Executed On: ${formatExecutedAt(exportedAt)}`, titleX, y + 43);
   }
 
   doc.setTextColor(0);
