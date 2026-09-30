@@ -906,8 +906,15 @@ export default function FlightLogEntry({
               </View>
 
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Close new flight log"
                 onPress={onClose}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
                 <MaterialCommunityIcons
                   name="close"
@@ -922,37 +929,36 @@ export default function FlightLogEntry({
               ref={tabScrollViewRef}
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0 }}
               contentContainerStyle={{
-                paddingHorizontal: 16,
-                gap: 12,
+                paddingLeft: 16,
+                paddingRight: 32,
+                gap: 8,
                 paddingBottom: 12,
+                alignItems: "center",
               }}
             >
               {tabs.map((tab, index) => (
                 <TouchableOpacity
                   key={index}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: currentPage === index }}
                   onPress={() => setCurrentPage(index)}
                   style={{
                     paddingVertical: 8,
                     paddingHorizontal: 16,
                     borderRadius: 20,
                     borderWidth: 1,
-                    borderColor:
-                      currentPage === index
-                        ? COLORS.primaryLight
-                        : COLORS.grayMedium,
-                    backgroundColor:
-                      currentPage === index
-                        ? COLORS.primaryLight
-                        : "transparent",
+                    borderColor: currentPage === index ? "#26866f" : "#ddd",
+                    backgroundColor: currentPage === index ? "#e3f2ec" : "#fff",
                   }}
                 >
                   <AppText
+                    numberOfLines={1}
                     style={{
-                      fontSize: 12,
-                      fontWeight: "500",
-                      color:
-                        currentPage === index ? COLORS.white : COLORS.grayDark,
+                      fontSize: 13,
+                      fontWeight: currentPage === index ? "600" : "400",
+                      color: currentPage === index ? "#245e49" : "#4b5b54",
                     }}
                   >
                     {tab}
@@ -972,10 +978,18 @@ export default function FlightLogEntry({
 
           <ScrollView
             ref={scrollViewRef}
-            style={{ flex: 1, paddingHorizontal: 20 }}
+            style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingTop: 16 }}
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 16,
+              paddingBottom: 24,
+              width: "100%",
+              maxWidth: 720,
+              alignSelf: "center",
+            }}
           >
             {renderPage()}
 

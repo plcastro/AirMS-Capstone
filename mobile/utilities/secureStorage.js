@@ -11,6 +11,9 @@ try {
 }
 
 const isWeb = Platform.OS === "web";
+const KEYCHAIN_OPTIONS = SecureStoreModule?.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY
+  ? { keychainAccessible: SecureStoreModule.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY }
+  : undefined;
 const SENSITIVE_KEYS = [
   "accessToken",
   "currentUserToken",
@@ -52,8 +55,15 @@ export const secureSetItem = async (key, value) => {
 
   if (SecureStoreModule?.setItemAsync) {
     try {
-      await SecureStoreModule.setItemAsync(key, value);
-    } catch {}
+      // iOS keeps an item's original accessibility on update, so delete first to
+      // move older WHEN_UNLOCKED entries to AFTER_FIRST_UNLOCK. That lets
+      // background launches on a locked phone read the session instead of
+      // starting signed out.
+      await SecureStoreModule.deleteItemAsync?.(key).catch(() => {});
+      await SecureStoreModule.setItemAsync(key, value, KEYCHAIN_OPTIONS);
+    } catch (error) {
+      console.warn(`Secure storage write failed for ${key}:`, error?.message);
+    }
   }
   if (isSensitiveWebKey(key)) return;
   await AsyncStorage.setItem(key, value);

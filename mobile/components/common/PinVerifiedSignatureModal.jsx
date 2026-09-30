@@ -4,6 +4,9 @@ import AppText from "./AppText";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   TouchableOpacity,
   View
 } from "react-native";
@@ -127,37 +130,72 @@ export default function PinVerifiedSignatureModal({
     await persistSignature(signature);
   };
 
+  const secondaryButton = {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: submitting ? 0.6 : 1,
+  };
+
   const content = (
-      <View
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
           flex: 1,
           backgroundColor: "rgba(0,0,0,0.5)",
           justifyContent: "center",
           alignItems: "center",
+          padding: 16,
         }}
       >
         <View
           style={{
             backgroundColor: COLORS.white,
             borderRadius: 12,
-            width: "92%",
-            padding: 20,
+            width: "100%",
+            maxWidth: 480,
+            maxHeight: "100%",
+            overflow: "hidden",
           }}
         >
+          <ScrollView
+            // Scrolling would steal vertical strokes from the signature pad.
+            scrollEnabled={step !== "signature"}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            contentContainerStyle={{ padding: 20 }}
+          >
           <View
             style={{
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: 12,
+              gap: 8,
             }}
           >
             <AppText
-              style={{ fontSize: 14, fontWeight: "600", color: COLORS.black }}
+              style={{ flex: 1, fontSize: 14, fontWeight: "600", color: COLORS.black }}
             >
               {title}
             </AppText>
-            <TouchableOpacity onPress={handleClose} disabled={submitting}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Close signature"
+              onPress={handleClose}
+              disabled={submitting}
+              style={{
+                width: 44,
+                height: 44,
+                marginRight: -10,
+                marginTop: -10,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <MaterialCommunityIcons
                 name="close"
                 size={24}
@@ -214,6 +252,8 @@ export default function PinVerifiedSignatureModal({
                 }}
                 maxLength={6}
                 secure
+                fluid
+                autoFocus
                 containerStyle={{
                   flex: 0,
                   marginVertical: 8,
@@ -255,80 +295,23 @@ export default function PinVerifiedSignatureModal({
             </AppText>
           )}
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              gap: 10,
-              marginTop: 20,
-            }}
-          >
+          <View style={{ gap: 10, marginTop: 8 }}>
             <TouchableOpacity
-              onPress={handleClose}
-              disabled={submitting}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 18,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: COLORS.grayMedium,
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                Cancel
-              </AppText>
-            </TouchableOpacity>
-            {step === "signature" && (
-              <TouchableOpacity
-                onPress={() => {
-                  signatureRef.current?.clearSignature();
-                  setSignature("");
-                  setPinError("");
-                }}
-                disabled={submitting}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                  borderRadius: 8,
-                  backgroundColor: "#D9534F",
-                  opacity: submitting ? 0.6 : 1,
-                }}
-              >
-                <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
-                  Clear
-                </AppText>
-              </TouchableOpacity>
-            )}
-            {step === "pin" && !pinOnly && (
-              <TouchableOpacity
-                onPress={() => setStep("signature")}
-                disabled={submitting}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: COLORS.grayMedium,
-                  opacity: submitting ? 0.6 : 1,
-                }}
-              >
-                <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
-                  Redraw
-                </AppText>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleConfirm}
               disabled={submitting}
               style={{
-                paddingVertical: 10,
-                paddingHorizontal: 18,
+                minHeight: 48,
                 borderRadius: 8,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 backgroundColor: COLORS.primaryLight,
                 opacity: submitting ? 0.6 : 1,
               }}
             >
+              {submitting && <ActivityIndicator color={COLORS.white} />}
               <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
                 {submitting
                   ? "Please wait..."
@@ -337,10 +320,56 @@ export default function PinVerifiedSignatureModal({
                     : saveLabel}
               </AppText>
             </TouchableOpacity>
-            {submitting && <ActivityIndicator color={COLORS.primaryLight} />}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={handleClose}
+                disabled={submitting}
+                style={[
+                  secondaryButton,
+                  { borderWidth: 1, borderColor: COLORS.grayMedium },
+                ]}
+              >
+                <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                  Cancel
+                </AppText>
+              </TouchableOpacity>
+              {step === "signature" && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => {
+                    signatureRef.current?.clearSignature();
+                    setSignature("");
+                    setPinError("");
+                  }}
+                  disabled={submitting}
+                  style={[secondaryButton, { backgroundColor: "#D9534F" }]}
+                >
+                  <AppText style={{ color: COLORS.white, fontWeight: "600" }}>
+                    Clear
+                  </AppText>
+                </TouchableOpacity>
+              )}
+              {step === "pin" && !pinOnly && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setStep("signature")}
+                  disabled={submitting}
+                  style={[
+                    secondaryButton,
+                    { borderWidth: 1, borderColor: COLORS.grayMedium },
+                  ]}
+                >
+                  <AppText style={{ color: COLORS.grayDark, fontWeight: "600" }}>
+                    Redraw
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
   );
 
   if (!useNativeModal) {

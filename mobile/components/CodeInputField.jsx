@@ -15,6 +15,8 @@ export default function CodeInputField({
   secure = false,
   containerStyle,
   inputContainerStyle,
+  fluid = false,
+  autoFocus = false,
 }) {
   const codeDigitsArray = new Array(maxLength).fill(0);
   const textInputRef = useRef(null);
@@ -27,6 +29,13 @@ export default function CodeInputField({
   const handleOnBlur = () => {
     setInputContainerIsFocused(false);
   };
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    // Wait a frame so the input is attached before requesting focus.
+    const timer = setTimeout(handleOnPress, 100);
+    return () => clearTimeout(timer);
+  }, [autoFocus]);
 
   useEffect(() => {
     setPinReady?.(code.length === maxLength);
@@ -52,14 +61,21 @@ export default function CodeInputField({
         : styles.codeInput;
 
     return (
-      <View style={StyledCodeInput} key={index}>
+      <View style={[StyledCodeInput, fluid && fluidDigitStyle]} key={index}>
         <AppText style={styles.codeInputText}>{digit}</AppText>
       </View>
     );
   };
   return (
     <View style={[styles.codeInputSection, containerStyle]}>
-      <Pressable onPress={handleOnPress} style={[styles.codeInputContainer, inputContainerStyle]}>
+      <Pressable
+        onPress={handleOnPress}
+        style={[
+          styles.codeInputContainer,
+          fluid && { gap: 6, justifyContent: "center" },
+          inputContainerStyle,
+        ]}
+      >
         {codeDigitsArray.map(toCodeDigitInput)}
       </Pressable>
       <AppInput
@@ -68,6 +84,7 @@ export default function CodeInputField({
         value={code}
         onChangeText={handleCodeChange}
         onSubmitEditing={handleOnBlur}
+        onBlur={handleOnBlur}
         keyboardType="number-pad"
         returnKeyType="done"
         textContentType="oneTimeCode"
@@ -76,3 +93,15 @@ export default function CodeInputField({
     </View>
   );
 }
+
+// Lets the digit boxes share the available width so six fit on narrow screens.
+const fluidDigitStyle = {
+  flex: 1,
+  width: undefined,
+  minWidth: 0,
+  maxWidth: 52,
+  height: 48,
+  padding: 0,
+  alignItems: "center",
+  justifyContent: "center",
+};

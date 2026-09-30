@@ -392,7 +392,19 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+    // iOS can launch the app in the background (push, background fetch) while
+    // the phone is locked. Restoring then could read no tokens and leave the
+    // running app signed out, so wait until the user actually opens it.
+    if (AppState.currentState === "background") {
+      const subscription = AppState.addEventListener("change", (nextState) => {
+        if (nextState !== "active") return;
+        subscription.remove();
+        loadPersistedAuth();
+      });
+      return () => subscription.remove();
+    }
     loadPersistedAuth();
+    return undefined;
   }, [
     clearStoredAuth,
     getSessionMeta,

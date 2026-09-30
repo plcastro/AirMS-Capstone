@@ -1130,8 +1130,15 @@ export default function FlightLogEditEntry({
                   </View>
 
                   <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Close flight log"
                     onPress={onClose}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     <MaterialCommunityIcons
                       name="close"
@@ -1146,10 +1153,14 @@ export default function FlightLogEditEntry({
                 ref={tabScrollViewRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                style={{ flexGrow: 0 }}
                 contentContainerStyle={{
-                  paddingHorizontal: 16,
-                  gap: 12,
-                  paddingBottom: 12,
+                  paddingLeft: 12,
+                  paddingRight: 28,
+                  gap: 8,
+                  paddingVertical: embedded ? 10 : 0,
+                  paddingBottom: embedded ? 4 : 12,
+                  alignItems: "center",
                 }}
               >
                 {tabs.map((tab, index) => (
@@ -1164,23 +1175,18 @@ export default function FlightLogEditEntry({
                       borderRadius: 20,
                       borderWidth: 1,
                       borderColor:
-                        currentPage === index
-                          ? COLORS.primaryLight
-                          : COLORS.grayMedium,
+                        currentPage === index ? "#26866f" : "#ddd",
                       backgroundColor:
-                        currentPage === index
-                          ? COLORS.primaryLight
-                          : "transparent",
+                        currentPage === index ? "#e3f2ec" : "#fff",
                     }}
                   >
                     <AppText
+                      numberOfLines={1}
                       style={{
-                        fontSize: 12,
-                        fontWeight: "500",
+                        fontSize: 13,
+                        fontWeight: currentPage === index ? "600" : "400",
                         color:
-                          currentPage === index
-                            ? COLORS.white
-                            : COLORS.grayDark,
+                          currentPage === index ? "#245e49" : "#4b5b54",
                       }}
                     >
                       {tab}
@@ -1189,7 +1195,7 @@ export default function FlightLogEditEntry({
                 ))}
               </ScrollView>
 
-              {embedded && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10, gap: 8 }}>
+              {embedded && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12 }}>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Previous flight log section" accessibilityState={{ disabled: currentPage === 0 }} disabled={currentPage === 0} onPress={handlePrevious} style={{ paddingVertical: 8, opacity: currentPage === 0 ? 0.4 : 1 }}>
                   <AppText style={{ color: COLORS.primaryLight }}>Previous</AppText>
                 </TouchableOpacity>
@@ -1203,7 +1209,7 @@ export default function FlightLogEditEntry({
                 style={{
                   height: 1,
                   backgroundColor: COLORS.grayMedium,
-                  marginTop: 12,
+                  marginTop: embedded ? 0 : 12,
                 }}
               />
             </View>
@@ -1211,10 +1217,18 @@ export default function FlightLogEditEntry({
             <ScrollView
               ref={scrollViewRef}
               nestedScrollEnabled
-              style={{ flex: 1, paddingHorizontal: 20 }}
+              style={{ flex: 1 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingTop: 16, paddingBottom: 20 }}
+              automaticallyAdjustKeyboardInsets
+              contentContainerStyle={{
+                paddingHorizontal: embedded ? 12 : 16,
+                paddingTop: embedded ? 12 : 16,
+                paddingBottom: 20,
+                width: "100%",
+                maxWidth: 720,
+                alignSelf: "center",
+              }}
             >
               {renderPage()}
 

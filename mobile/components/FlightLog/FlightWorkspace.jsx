@@ -15,9 +15,15 @@ import {
   TextInput,
   ActivityIndicator,
   Share,
-  useWindowDimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Modal from "../common/AppModal";
 import AppText from "../common/AppText";
@@ -38,6 +44,10 @@ import {
   flightEditPermissions,
   flightDraftBaseChanged,
 } from "../../../shared/flightWorkflow";
+import {
+  describeAmendment,
+  describeHistoryEvent,
+} from "../../../shared/flightHistoryFormat";
 import AS from "../../../shared/as350InspectionChecklist.json";
 import BP from "../../../shared/b412PreInspectionChecklist.json";
 import BO from "../../../shared/b412PostInspectionChecklist.json";
@@ -84,9 +94,42 @@ function Action({ children, onPress, disabled, secondary = false }) {
     </TouchableOpacity>
   );
 }
-function Choice({ values, value, onChange, disabled }) {
+// Native Modals on iOS don't inherit the app's safe-area context, so the
+// workspace gets its own provider and applies the insets as explicit padding.
+function ModalSafeArea({ children, style }) {
+  const insets = useSafeAreaInsets();
+  const fallback = initialWindowMetrics?.insets;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 8 }}>
+    <View
+      style={[
+        {
+          flex: 1,
+          paddingTop: Math.max(insets.top, fallback?.top || 0),
+          paddingBottom: Math.max(insets.bottom, fallback?.bottom || 0),
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+function Choice({ values, value, onChange, disabled, inset = 0 }) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{
+        gap: 8,
+        paddingVertical: 8,
+        paddingLeft: inset,
+        paddingRight: inset + 16,
+        alignItems: "center",
+      }}
+    >
       {values.map(([key, label]) => (
         <TouchableOpacity
           key={key}
@@ -95,15 +138,24 @@ function Choice({ values, value, onChange, disabled }) {
           accessibilityState={{ selected: value === key, disabled: !!disabled }}
           onPress={() => onChange(key)}
           style={{
-            padding: 10,
+            paddingVertical: 8,
+            paddingHorizontal: 16,
             borderWidth: 1,
             borderColor: value === key ? "#26866f" : "#ddd",
             backgroundColor: value === key ? "#e3f2ec" : "#fff",
-            margin: 3,
-            borderRadius: 10,
+            borderRadius: 20,
           }}
         >
-          <AppText>{label}</AppText>
+          <AppText
+            numberOfLines={1}
+            style={{
+              fontSize: 13,
+              color: value === key ? "#245e49" : "#4b5b54",
+              fontWeight: value === key ? "600" : "400",
+            }}
+          >
+            {label}
+          </AppText>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -122,7 +174,7 @@ export default function FlightWorkspace({
   const { user } = useContext(AuthContext);
   const viewedCallback = useRef(onViewed);
   useEffect(() => { viewedCallback.current = onViewed; }, [onViewed]);
-  const { height: screenHeight } = useWindowDimensions();
+  const [listHeight, setListHeight] = useState(0);
   const inspectionSection = inspectionMode && ["pre", "post"].includes(initialSection) ? initialSection : null;
   const [workspace, setWorkspace] = useState(null),
     [source, setSource] = useState(null),
@@ -430,16 +482,13 @@ export default function FlightWorkspace({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: "#f7faf8",
-        }}
-      >
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <ModalSafeArea style={{ backgroundColor: "#f7faf8" }}>
         <View
           style={{
-            paddingHorizontal: 16,
-            paddingVertical: 12,
+            paddingLeft: 16,
+            paddingRight: 8,
+            paddingVertical: 8,
             backgroundColor: "#fff",
             borderBottomWidth: 1,
             borderBottomColor: "#e1ebe5",
@@ -460,18 +509,37 @@ export default function FlightWorkspace({
           {log && <AppText style={{ color: "#64766e", fontSize: 12, marginTop: 3 }}>{log.rpc} · {log.controlNo}</AppText>}
           </View>
           {busy && <ActivityIndicator />}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close flight workspace" onPress={onClose} style={{ padding: 10, borderRadius: 10, backgroundColor: "#edf4ef" }}>
-            <AppText style={{ color: "#245e49", fontSize: 16 }}>Close</AppText>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Close flight workspace"
+            onPress={onClose}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#edf4ef",
+            }}
+          >
+            <MaterialCommunityIcons name="close" size={22} color="#245e49" />
           </TouchableOpacity>
         </View>
-        {log && !inspectionSection && <View style={{ paddingHorizontal: 12, backgroundColor: "#fff" }}>
-          <Choice values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
+        {log && !inspectionSection && <View style={{ backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e1ebe5" }}>
+          <Choice inset={12} values={[["flight", "Flight Log"], ["preparation", "Preparation Checks"], ["defects", "Aircraft Defects"], ["history", "History & Amendments"]]} value={tab} onChange={setTab} />
         </View>}
         <FlatList
           key={tab}
           style={{ flex: 1 }}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 12 }}
+          onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
+          contentContainerStyle={{
+            padding: 12,
+            width: "100%",
+            maxWidth: 900,
+            alignSelf: "center",
+          }}
           data={workspaceRows}
           keyExtractor={(row) => row.kind + ":" + (row.value._id || row.index)}
           initialNumToRender={10}
@@ -612,7 +680,7 @@ export default function FlightWorkspace({
                     <>
                       <View
                         style={{
-                          height: Math.max(360, screenHeight - 260),
+                          height: Math.max(360, listHeight - 24),
                           borderRadius: 12,
                           overflow: "hidden",
                           borderWidth: 1,
@@ -861,37 +929,9 @@ export default function FlightWorkspace({
                 </View>
               ))(row.value, row.index);
             if (row.kind === "amendment")
-              return ((a, i) => (
-                <View key={i} style={panel}>
-                  <AppText>
-                    {a.section}: {a.correction}
-                    {"\n"}
-                    {a.reason}
-                    {"\n"}
-                    {a.signer?.name} · {when(a.at)}
-                  </AppText>
-                </View>
-              ))(row.value, row.index);
+              return <HistoryCard entry={describeAmendment(row.value)} />;
             if (row.kind === "history")
-              return ((e, i) => (
-                <View key={i} style={panel}>
-                  <AppText
-                    style={{
-                      fontWeight: "700",
-                    }}
-                  >
-                    {e.action.replace(/_/g, " ")} · {when(e.at)}
-                  </AppText>
-                  <AppText>
-                    {e.signer?.name || e.actorName || e.actorId} · Version{" "}
-                    {e.version}
-                  </AppText>
-                  <AppText>{e.comment}</AppText>
-                  <AppText selectable>
-                    {JSON.stringify(e.changes, null, 2)}
-                  </AppText>
-                </View>
-              ))(row.value, row.index);
+              return <HistoryCard entry={describeHistoryEvent(row.value)} />;
             return null;
           }}
         />
@@ -939,7 +979,8 @@ export default function FlightWorkspace({
           </View>
         )}
         {!sign && (returning || !!review || !!defect || !!amendment) && (
-          <View
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={{
               position: "absolute",
               top: 0,
@@ -1263,7 +1304,7 @@ export default function FlightWorkspace({
                 Cancel
               </Action>
             </ScrollView>
-          </View>
+          </KeyboardAvoidingView>
         )}
         {inspectionPrompt && (
           <InspectionConfirmationPrompt
@@ -1312,8 +1353,57 @@ export default function FlightWorkspace({
             return ok;
           }}
         />
-      </SafeAreaView>
+      </ModalSafeArea>
+      </SafeAreaProvider>
     </Modal>
+  );
+}
+function HistoryCard({ entry }) {
+  const muted = { color: "#64766e", fontSize: 12 };
+  return (
+    <View style={panel}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <AppText style={{ fontWeight: "700", flexShrink: 1 }}>{entry.title}</AppText>
+        {entry.signed && (
+          <AppText style={{ fontSize: 11, color: "#245e49", backgroundColor: "#e3f2ec", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" }}>
+            Signed
+          </AppText>
+        )}
+      </View>
+      <AppText style={[muted, { marginTop: 4 }]}>
+        {entry.changedBy} · {entry.at}
+        {entry.version !== null ? ` · Version ${entry.version}` : ""}
+      </AppText>
+      {!!entry.comment && (
+        <AppText style={{ marginTop: 8, fontStyle: "italic" }}>“{entry.comment}”</AppText>
+      )}
+      {entry.rows.length > 0 ? (
+        <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: "#eef3f0" }}>
+          {entry.rows.map((change, i) => (
+            <View key={i} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#eef3f0" }}>
+              <AppText style={{ fontSize: 12, fontWeight: "600", color: "#172b23" }}>{change.field}</AppText>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 4 }}>
+                <View style={{ flex: 1 }}>
+                  <AppText style={muted}>Old</AppText>
+                  <AppText selectable style={{ color: "#8a4b4b" }}>{change.before}</AppText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText style={muted}>New</AppText>
+                  <AppText selectable style={{ color: "#245e49" }}>{change.after}</AppText>
+                </View>
+              </View>
+            </View>
+          ))}
+          {entry.hiddenCount > 0 && (
+            <AppText style={[muted, { marginTop: 6 }]}>
+              +{entry.hiddenCount} more field change{entry.hiddenCount === 1 ? "" : "s"}
+            </AppText>
+          )}
+        </View>
+      ) : (
+        <AppText style={[muted, { marginTop: 8 }]}>No field changes recorded.</AppText>
+      )}
+    </View>
   );
 }
 function Inspection({

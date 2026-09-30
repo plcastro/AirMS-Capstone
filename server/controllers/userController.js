@@ -357,6 +357,23 @@ const revokeRefreshTokenByHash = async (
     { returnDocument: "after" },
   );
 
+// A rotated token may be presented again when the app was suspended or closed
+// before it saved the replacement. Accept it only while that replacement has
+// never been used; once the replacement rotates, reuse is treated as theft.
+const isRetryOfLostRotation = async (tokenRecord, userId) => {
+  if (!tokenRecord?.revokedAt || !tokenRecord.replacedByTokenHash) return false;
+  if (tokenRecord.expiresAt <= new Date()) return false;
+  const replacement = await RefreshToken.findOne({
+    tokenHash: tokenRecord.replacedByTokenHash,
+    userId,
+  });
+  return Boolean(
+    replacement &&
+      !replacement.revokedAt &&
+      replacement.expiresAt > new Date(),
+  );
+};
+
 const revokeAllUserRefreshTokens = async (userId, reason) => {
   if (!userId) return;
   await RefreshToken.updateMany(
@@ -382,6 +399,8 @@ const invalidateUserSessions = async (userId, reason) => {
   ]);
 };
 
+const SUPERSEDED_REFRESH_TOKEN_REASON = "Superseded by newer refresh token";
+
 const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
   if (!userId || !keepTokenHash) return;
   await RefreshToken.updateMany(
@@ -392,7 +411,7 @@ const deletePreviousRefreshTokens = async (userId, keepTokenHash) => {
     },
     {
       revokedAt: new Date(),
-      revokedReason: "Superseded by newer refresh token",
+      revokedReason: SUPERSEDED_REFRESH_TOKEN_REASON,
       cleanupAt: getRevokedRefreshTokenCleanupDate(),
     },
   );
@@ -1088,16 +1107,31 @@ const refreshToken = async (req, res) => {
       tokenHash: incomingTokenHash,
       userId: payload.id,
     });
+    const retryOfLostRotation = await isRetryOfLostRotation(
+      tokenRecord,
+      payload.id,
+    );
 
     if (
-      !tokenRecord ||
-      tokenRecord.revokedAt ||
-      tokenRecord.expiresAt <= new Date()
+      !retryOfLostRotation &&
+      (!tokenRecord ||
+        tokenRecord.revokedAt ||
+        tokenRecord.expiresAt <= new Date())
     ) {
       if (tokenRecord?.revokedAt && tokenRecord?.replacedByTokenHash) {
         return res
           .status(403)
           .json({ message: "Refresh token already rotated" });
+      }
+
+      // One session per user: a newer login cancelled this token. That's not
+      // token theft, so end only this device and keep the newer session.
+      if (tokenRecord?.revokedReason === SUPERSEDED_REFRESH_TOKEN_REASON) {
+        clearAuthCookies(res);
+        return res.status(401).json({
+          message:
+            "Session is no longer active: you signed in on another device.",
+        });
       }
 
       await revokeAllUserRefreshTokens(
@@ -1169,11 +1203,24 @@ const refreshToken = async (req, res) => {
     );
     const newTokenHash = hashRefreshToken(newRefreshToken);
 
-    await revokeRefreshTokenByHash(
-      incomingTokenHash,
-      "Rotated by refresh endpoint",
-      newTokenHash,
-    );
+    if (retryOfLostRotation) {
+      // The client never stored the token issued last time; retire it and
+      // point this predecessor at the replacement issued now.
+      await revokeRefreshTokenByHash(
+        tokenRecord.replacedByTokenHash,
+        "Never used; client retried with its predecessor",
+      );
+      await RefreshToken.updateOne(
+        { tokenHash: incomingTokenHash },
+        { replacedByTokenHash: newTokenHash },
+      );
+    } else {
+      await revokeRefreshTokenByHash(
+        incomingTokenHash,
+        "Rotated by refresh endpoint",
+        newTokenHash,
+      );
+    }
 
     await storeRefreshToken({
       userId: user._id,
