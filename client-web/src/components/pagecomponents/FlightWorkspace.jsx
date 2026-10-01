@@ -1032,7 +1032,7 @@ export default function FlightWorkspace({
                 </p>
                 <Table
                   size="small"
-                  pagination={false}
+                  pagination={{ pageSize: 6, size: "small", showSizeChanger: false, hideOnSinglePage: true }}
                   rowKey="field"
                   dataSource={review.monitoringReconciliation.rows || []}
                   columns={[
@@ -1119,7 +1119,7 @@ export default function FlightWorkspace({
         )}
         <Table
           size="small"
-          pagination={false}
+          pagination={{ pageSize: 6, size: "small", showSizeChanger: false, hideOnSinglePage: true }}
           rowKey="path"
           dataSource={review?.totals || []}
           columns={["item", "unit", "broughtForward", "thisFlight", "toDate"].map(

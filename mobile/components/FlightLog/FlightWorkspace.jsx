@@ -1,4 +1,5 @@
 import InspectionConfirmationPrompt from "./InspectionConfirmationPrompt";
+import PagedList from "./PagedList";
 import React, {
   useCallback,
   useContext,
@@ -1043,7 +1044,9 @@ export default function FlightWorkspace({
                       • {m}
                     </AppText>
                   ))}
-                  {review.totals.map((row) => (
+                  <PagedList
+                    items={review.totals}
+                    renderItem={(row) => (
                     <View key={row.path} style={panel}>
                       <AppText>
                         {row.item}
@@ -1055,7 +1058,8 @@ export default function FlightWorkspace({
                         {row.toDate ?? "Missing"}
                       </AppText>
                     </View>
-                  ))}
+                    )}
+                  />
                   {review.monitoringReconciliation?.required && (
                     <View style={panel}>
                       <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -1078,8 +1082,9 @@ export default function FlightWorkspace({
                         Compare the baseline before signing reconciliation.
                         Confirm this flight has not already been added.
                       </AppText>
-                      {(review.monitoringReconciliation.rows || []).map(
-                        (row) => (
+                      <PagedList
+                        items={review.monitoringReconciliation.rows || []}
+                        renderItem={(row) => (
                           <View
                             key={row.field}
                             style={{
@@ -1118,8 +1123,8 @@ export default function FlightWorkspace({
                               </AppText>
                             </View>
                           </View>
-                        ),
-                      )}
+                        )}
+                      />
                       <TextInput
                         style={input}
                         multiline
