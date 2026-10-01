@@ -49,18 +49,20 @@ export default function InspectionChecklistPanel({
   const columns = [
     {
       title: (
-        <Checkbox
-          disabled={disabled || !selectable.length}
-          checked={pageChecked}
-          indeterminate={pageSome}
-          onChange={(e) => setItems(visible, e.target.checked)}
-        >
-          Select all
-        </Checkbox>
+        <Tooltip title={pageChecked ? "Clear this page" : "Select all on this page"}>
+          <Checkbox
+            aria-label="Select all on this page"
+            disabled={disabled || !selectable.length}
+            checked={pageChecked}
+            indeterminate={pageSome}
+            onChange={(e) => setItems(visible, e.target.checked)}
+          />
+        </Tooltip>
       ),
-      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+      align: "center",
       key: "checked",
-      width: 120,
+      width: 56,
+      align: "center",
       render: (_, item) => (
         <Checkbox
           aria-label={`Check ${item.title}`}
