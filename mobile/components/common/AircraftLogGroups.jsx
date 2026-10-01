@@ -38,6 +38,7 @@ function AircraftCard({ group, sortBy, newCount, handoff, largeTitle, onPress })
       onPress={onPress}
       style={{
         flexDirection: "row",
+        height: 152,
         backgroundColor: COLORS.white,
         borderRadius: 10,
         marginBottom: 10,

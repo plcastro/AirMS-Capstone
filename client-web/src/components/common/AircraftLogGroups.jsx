@@ -142,11 +142,11 @@ export default function AircraftLogGroups({
                   }
                 }}
                 styles={{ body: { padding: 0 } }}
-                style={{ borderRadius: 12, overflow: "hidden" }}
+                style={{ borderRadius: 12, overflow: "hidden", height: "100%" }}
               >
-                <div style={{ display: "flex", minHeight: 120 }}>
+                <div style={{ display: "flex", height: 200 }}>
                   <div style={{ width: 7, background: BRAND }} />
-                  <div style={{ padding: 16, flex: 1, minWidth: 0 }}>
+                  <div style={{ padding: 16, flex: 1, minWidth: 0, overflow: "hidden" }}>
                     <Title
                       level={5}
                       style={{
