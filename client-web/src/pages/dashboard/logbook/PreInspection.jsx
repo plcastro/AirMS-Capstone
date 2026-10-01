@@ -35,7 +35,7 @@ import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace"
 import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
 import NewLogBadge from "../../../components/common/NewLogBadge";
 import useViewedLogs from "../../../utils/useViewedLogs";
-import usePersistedFlag from "../../../utils/usePersistedFlag";
+import usePersistedValue from "../../../utils/usePersistedValue";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import dayjs from "dayjs";
@@ -48,7 +48,13 @@ import { isB412Aircraft } from "../../../utils/b412PreInspection";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-const STATUS_OPTIONS = ["all", "released", "completed"];
+const STATUS_OPTIONS = ["all", "pending", "released", "completed"];
+const STATUS_LABELS = {
+  all: "ALL STATUS",
+  pending: "PENDING",
+  released: "RELEASED",
+  completed: "COMPLETED",
+};
 const sanitizeFileName = (value) =>
   String(value || "pre-flight inspection")
     .replace(/[\\/:*?"<>|]+/g, "-")
@@ -70,9 +76,11 @@ export default function PreInspection() {
   const [query, setQuery] = useState("");
   const [aircraftQuery, setAircraftQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
-  const [status, setStatus] = useState("all");
-  const [needsAttention, setNeedsAttention] = usePersistedFlag(
-    `needs-attention:pre:${user?.id}`,
+  // The status filter is shared by the aircraft list and each aircraft's logs,
+  // and is remembered per user.
+  const [status, setStatus] = usePersistedValue(
+    `status-filter:pre:${user?.id}`,
+    "released",
   );
   const [editing, setEditing] = useState(null);
   useEffect(() => {
@@ -151,13 +159,11 @@ export default function PreInspection() {
   const openAircraft = (rpc) => {
     setSelectedAircraft(rpc);
     setQuery("");
-    setStatus("all");
   };
 
   const backToAircraft = () => {
     setSelectedAircraft(null);
     setQuery("");
-    setStatus("all");
   };
 
   const filtered = useMemo(
@@ -231,19 +237,25 @@ export default function PreInspection() {
           <AircraftLogGroups
             isNew={isNew}
             searchFilters={
-              <Checkbox
-                checked={needsAttention}
-                onChange={(event) => setNeedsAttention(event.target.checked)}
-              >
-                Needs attention
-              </Checkbox>
+              <Select
+                style={{ width: 180 }}
+                size="large"
+                value={status}
+                onChange={setStatus}
+                options={STATUS_OPTIONS.map((value) => ({
+                  value,
+                  label: STATUS_LABELS[value],
+                }))}
+              />
             }
             records={
-              needsAttention
-                ? records.filter(
-                    (record) => String(record.status || "").toLowerCase() !== "completed",
+              status === "all"
+                ? records
+                : records.filter(
+                    (record) =>
+                      getDisplayStatus(String(record.status || "").toLowerCase()) ===
+                      status,
                   )
-                : records
             }
             sortBy="latestActivity"
             loading={loading}
@@ -251,9 +263,9 @@ export default function PreInspection() {
             onQueryChange={setAircraftQuery}
             onSelect={openAircraft}
             emptyText={
-            needsAttention
-              ? "No pre-flight inspections need attention."
-              : "No pre-flight inspections found."
+              status === "all"
+                ? "No pre-flight inspections found."
+                : `No ${STATUS_LABELS[status].toLowerCase()} pre-flight inspections found.`
             }
           />
         </>
@@ -308,12 +320,7 @@ export default function PreInspection() {
                     onChange={setStatus}
                     options={STATUS_OPTIONS.map((value) => ({
                       value,
-                      label:
-                        value === "all"
-                          ? "ALL STATUS"
-                          : value === "released"
-                            ? "RELEASED"
-                            : value.toUpperCase(),
+                      label: STATUS_LABELS[value],
                     }))}
                     size="large"
                   />

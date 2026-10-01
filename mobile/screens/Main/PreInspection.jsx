@@ -22,9 +22,8 @@ import {
 } from "../../components/common/MobileModule";
 import InlineDropdown from "../../components/common/InlineDropdown";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
-import NeedsToggle from "../../components/common/NeedsToggle";
 import useViewedLogs from "../../utilities/useViewedLogs";
-import usePersistedFlag from "../../utilities/usePersistedFlag";
+import usePersistedValue from "../../utilities/usePersistedValue";
 
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
@@ -50,9 +49,11 @@ export default function PreInspection({ route }) {
   const [aircraftQuery, setAircraftQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("completed");
-  const [needsAttention, setNeedsAttention] = usePersistedFlag(
-    `needs-attention:pre:${user?.id}`,
+  // One status filter for the aircraft list and each aircraft's inspections,
+  // remembered per user.
+  const [selectedStatus, setSelectedStatus] = usePersistedValue(
+    `status-filter:pre:${user?.id}`,
+    "released",
   );
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [sortOrder, setSortOrder] = useState("newest");
@@ -128,6 +129,8 @@ export default function PreInspection({ route }) {
   ]);
 
   const statusOptions = [
+    { label: "All status", value: "all" },
+    { label: "Pending", value: "pending" },
     { label: "Released", value: "released" },
     { label: "Completed", value: "completed" },
   ];
@@ -172,7 +175,6 @@ export default function PreInspection({ route }) {
   const selectAircraft = (aircraft) => {
     setSelectedAircraft(aircraft);
     setSearchQuery("");
-    setSelectedStatus("completed");
     setShowStatusDropdown(false);
   };
 
@@ -197,19 +199,34 @@ export default function PreInspection({ route }) {
                 refreshing={refreshing}
                 onRefresh={() => fetchPreInspections(true)}
             searchFilters={
-              <NeedsToggle
-                label="Needs attention"
-                value={needsAttention}
-                onToggle={() => setNeedsAttention((value) => !value)}
-              />
+              <View
+                style={{
+                  marginBottom: 10,
+                  zIndex: showStatusDropdown ? 20 : 1,
+                }}
+              >
+                <InlineDropdown
+                  value={selectedStatus}
+                  placeholder="Status"
+                  open={showStatusDropdown}
+                  menuPosition="relative"
+                  onToggle={() => setShowStatusDropdown((open) => !open)}
+                  onChange={selectStatus}
+                  options={statusOptions}
+                  toggleStyle={{
+                    backgroundColor: COLORS.white,
+                    borderColor: COLORS.grayMedium,
+                  }}
+                />
+              </View>
             }
             records={
-              needsAttention
-                ? inspections.filter(
+              selectedStatus === "all"
+                ? inspections
+                : inspections.filter(
                     (inspection) =>
-                      getDisplayStatus(inspection.status) !== "completed",
+                      getDisplayStatus(inspection.status) === selectedStatus,
                   )
-                : inspections
             }
             sortBy="latestActivity"
             loading={loading}
@@ -217,9 +234,9 @@ export default function PreInspection({ route }) {
             onQueryChange={setAircraftQuery}
             onSelect={selectAircraft}
             emptyText={
-              needsAttention
-                ? "No pre-flight inspections need attention."
-                : "No pre-flight inspections found yet."
+              selectedStatus === "all"
+                ? "No pre-flight inspections found yet."
+                : `No ${selectedStatus} pre-flight inspections found yet.`
             }
           />
         ) : (

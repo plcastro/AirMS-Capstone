@@ -1132,6 +1132,11 @@ export default function AddTask({
     : "";
   const selectedPriorityLabel = selectedPriority || "";
   const addTaskWarning = getAddTaskWarning();
+  const inspectionConflictMessage = getInspectionConflictWarning();
+  // Pop the same message up as a toast (above the form) when the conflict appears.
+  useEffect(() => {
+    if (visible && inspectionConflictMessage) showToast(inspectionConflictMessage);
+  }, [visible, inspectionConflictMessage]);
   const hasUnsavedChanges = () =>
     Boolean(selectedAircraft) ||
     Boolean(selectedEmployee) ||
