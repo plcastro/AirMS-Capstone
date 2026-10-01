@@ -27,7 +27,6 @@ import {
   ExportOutlined,
   EyeOutlined,
   SearchOutlined,
-  WarningOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -142,7 +141,6 @@ export default function PreInspection() {
     setSelectedAircraft(getLogAircraftRegistration(match));
     setQuery("");
     setStatus("all");
-    setNeedsAttention(false);
     setEditing(match);
     navigate("/dashboard/pre-flight inspection", { replace: true });
   }, [location.search, navigate, records]);
@@ -151,26 +149,13 @@ export default function PreInspection() {
     setSelectedAircraft(rpc);
     setQuery("");
     setStatus("all");
-    setNeedsAttention(false);
   };
 
   const backToAircraft = () => {
     setSelectedAircraft(null);
     setQuery("");
     setStatus("all");
-    setNeedsAttention(false);
   };
-
-  const attentionCount = useMemo(
-    () =>
-      records.filter(
-        (item) =>
-          getLogAircraftRegistration(item) === selectedAircraft &&
-          getDisplayStatus(String(item.status || "").toLowerCase()) !==
-            "completed",
-      ).length,
-    [records, selectedAircraft],
-  );
 
   const filtered = useMemo(
     () =>
@@ -178,16 +163,12 @@ export default function PreInspection() {
         const matchesQuery = matchesSearch(query, item);
         const matchesAircraft =
           getLogAircraftRegistration(item) === selectedAircraft;
-        // "Needs attention" lists every inspection that is not completed yet.
-        const matchesStatus = needsAttention
-          ? getDisplayStatus(String(item.status || "").toLowerCase()) !==
-            "completed"
-          : status === "all" ||
-            getDisplayStatus(String(item.status || "").toLowerCase()) ===
-              status;
+        const matchesStatus =
+          status === "all" ||
+          getDisplayStatus(String(item.status || "").toLowerCase()) === status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, query, selectedAircraft, status, needsAttention],
+    [records, query, selectedAircraft, status],
   );
 
   const booleanFields = useMemo(
@@ -246,13 +227,31 @@ export default function PreInspection() {
         <>
           <AircraftLogGroups
             isNew={isNew}
-            records={records}
+            searchFilters={
+              <Checkbox
+                checked={needsAttention}
+                onChange={(event) => setNeedsAttention(event.target.checked)}
+              >
+                Needs attention
+              </Checkbox>
+            }
+            records={
+              needsAttention
+                ? records.filter(
+                    (record) => String(record.status || "").toLowerCase() !== "completed",
+                  )
+                : records
+            }
             sortBy="latestActivity"
             loading={loading}
             query={aircraftQuery}
             onQueryChange={setAircraftQuery}
             onSelect={openAircraft}
-            emptyText="No pre-flight inspections found."
+            emptyText={
+            needsAttention
+              ? "No pre-flight inspections need attention."
+              : "No pre-flight inspections found."
+            }
           />
         </>
       ) : (
@@ -303,10 +302,7 @@ export default function PreInspection() {
                   <Select
                     style={{ width: 180 }}
                     value={status}
-                    onChange={(value) => {
-                      setStatus(value);
-                      setNeedsAttention(false);
-                    }}
+                    onChange={setStatus}
                     options={STATUS_OPTIONS.map((value) => ({
                       value,
                       label:
@@ -318,15 +314,6 @@ export default function PreInspection() {
                     }))}
                     size="large"
                   />
-                  <Button
-                    size="large"
-                    type={needsAttention ? "primary" : "default"}
-                    icon={<WarningOutlined />}
-                    aria-pressed={needsAttention}
-                    onClick={() => setNeedsAttention((on) => !on)}
-                  >
-                    Needs attention ({attentionCount})
-                  </Button>
                 </Space>
               </Col>
 

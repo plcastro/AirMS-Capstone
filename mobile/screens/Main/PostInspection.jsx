@@ -30,6 +30,7 @@ import {
 } from "../../components/common/MobileModule";
 import InlineDropdown from "../../components/common/InlineDropdown";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
+import NeedsToggle from "../../components/common/NeedsToggle";
 import useViewedLogs from "../../utilities/useViewedLogs";
 
 import { matchesSearch } from "../../utilities/search";
@@ -201,19 +202,13 @@ export default function PostInspection({ route }) {
     (inspection) => getLogAircraftRegistration(inspection) === selectedAircraft,
   );
 
-  const attentionCount = aircraftInspections.filter(
-    (inspection) => getDisplayStatus(inspection.status) !== "completed",
-  ).length;
-
   const filteredInspections = aircraftInspections
     .filter((inspection) => {
       const matchesSearchText = matchesSearch(searchQuery, inspection);
 
-      // "Needs attention" lists every inspection that is not completed yet.
-      const matchesStatus = needsAttention
-        ? getDisplayStatus(inspection.status) !== "completed"
-        : selectedStatus === "all" ||
-          getDisplayStatus(inspection.status) === selectedStatus;
+      const matchesStatus =
+        selectedStatus === "all" ||
+        getDisplayStatus(inspection.status) === selectedStatus;
 
       return matchesSearchText && matchesStatus;
     })
@@ -236,13 +231,11 @@ export default function PostInspection({ route }) {
     setSelectedAircraft(aircraft);
     setSearchQuery("");
     setSelectedStatus("completed");
-    setNeedsAttention(false);
     setShowStatusDropdown(false);
   };
 
   const selectStatus = (status) => {
     setSelectedStatus(status);
-    setNeedsAttention(false);
     setShowStatusDropdown(false);
   };
 
@@ -264,13 +257,31 @@ export default function PostInspection({ route }) {
             isNew={isNew}
             refreshing={refreshing}
             onRefresh={() => fetchPostInspections(true)}
-            records={inspections}
+            searchFilters={
+              <NeedsToggle
+                label="Needs attention"
+                value={needsAttention}
+                onToggle={() => setNeedsAttention((value) => !value)}
+              />
+            }
+            records={
+              needsAttention
+                ? inspections.filter(
+                    (inspection) =>
+                      getDisplayStatus(inspection.status) !== "completed",
+                  )
+                : inspections
+            }
             sortBy="latestActivity"
             loading={loading}
             query={aircraftQuery}
             onQueryChange={setAircraftQuery}
             onSelect={selectAircraft}
-            emptyText="No post-flight inspections found yet."
+            emptyText={
+              needsAttention
+                ? "No post-flight inspections need attention."
+                : "No post-flight inspections found yet."
+            }
           />
         ) : (
           <>
@@ -310,44 +321,6 @@ export default function PostInspection({ route }) {
               onChangeText={setSearchQuery}
               placeholder="Search post-flight inspections"
             />
-
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ selected: needsAttention }}
-              onPress={() => {
-                setShowStatusDropdown(false);
-                setShowSortDropdown(false);
-                setNeedsAttention((on) => !on);
-              }}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                alignSelf: "flex-start",
-                gap: 6,
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                marginBottom: 10,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: needsAttention ? COLORS.dangerBorder : COLORS.grayMedium,
-                backgroundColor: needsAttention ? COLORS.dangerBorder : COLORS.white,
-              }}
-            >
-              <MaterialCommunityIcons
-                name="alert-outline"
-                size={16}
-                color={needsAttention ? COLORS.white : COLORS.dangerBorder}
-              />
-              <AppText
-                style={{
-                  fontSize: 12,
-                  fontWeight: "600",
-                  color: needsAttention ? COLORS.white : COLORS.black,
-                }}
-              >
-                Needs attention ({attentionCount})
-              </AppText>
-            </TouchableOpacity>
 
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
               <View style={{ flex: 1, zIndex: showStatusDropdown ? 20 : 1 }}>
