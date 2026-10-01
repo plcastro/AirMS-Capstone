@@ -32,6 +32,7 @@ import InlineDropdown from "../../components/common/InlineDropdown";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
 import NeedsToggle from "../../components/common/NeedsToggle";
 import useViewedLogs from "../../utilities/useViewedLogs";
+import usePersistedFlag from "../../utilities/usePersistedFlag";
 
 import { matchesSearch } from "../../utilities/search";
 import { canExportModule } from "../../../shared/exportAccess";
@@ -78,7 +79,9 @@ export default function PostInspection({ route }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("completed");
-  const [needsAttention, setNeedsAttention] = useState(false);
+  const [needsAttention, setNeedsAttention] = usePersistedFlag(
+    `needs-attention:post:${user?.id}`,
+  );
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [sortOrder, setSortOrder] = useState("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);

@@ -25,6 +25,7 @@ import { exportFlightLogToPDF } from "../../../components/common/ExportFile";
 import ResultPopup from "../../../components/common/ResultPopup";
 import NewLogBadge from "../../../components/common/NewLogBadge";
 import useViewedLogs from "../../../utils/useViewedLogs";
+import usePersistedFlag from "../../../utils/usePersistedFlag";
 import { matchesSearch } from "../../../utils/search";
 import {
   getLogAircraftRegistration,
@@ -50,7 +51,7 @@ export default function FlightLog() {
     [aircraftQuery, setAircraftQuery] = useState(""),
     [query, setQuery] = useState(""),
     [status, setStatus] = useState("all"),
-    [mine, setMine] = useState(false);
+    [mine, setMine] = usePersistedFlag(`needs-action:flight:${user?.id}`);
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [createOpen, setCreateOpen] = useState(false),

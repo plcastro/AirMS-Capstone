@@ -35,6 +35,7 @@ import FlightWorkspace from "../../../components/pagecomponents/FlightWorkspace"
 import AircraftLogGroups from "../../../components/common/AircraftLogGroups";
 import NewLogBadge from "../../../components/common/NewLogBadge";
 import useViewedLogs from "../../../utils/useViewedLogs";
+import usePersistedFlag from "../../../utils/usePersistedFlag";
 import { renderStatusTag } from "../../../utils/statusTags";
 import ResultPopup from "../../../components/common/ResultPopup";
 import dayjs from "dayjs";
@@ -70,7 +71,9 @@ export default function PreInspection() {
   const [aircraftQuery, setAircraftQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
-  const [needsAttention, setNeedsAttention] = useState(false);
+  const [needsAttention, setNeedsAttention] = usePersistedFlag(
+    `needs-attention:pre:${user?.id}`,
+  );
   const [editing, setEditing] = useState(null);
   useEffect(() => {
     if (editing && !editing.flightLogId) markViewed(editing);

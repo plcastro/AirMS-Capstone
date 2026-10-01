@@ -19,6 +19,7 @@ import AppText from "../../components/common/AppText";
 import NewLogBadge from "../../components/common/NewLogBadge";
 import ActionIconButton from "../../components/common/ActionIconButton";
 import useViewedLogs from "../../utilities/useViewedLogs";
+import usePersistedFlag from "../../utilities/usePersistedFlag";
 import AircraftLogGroups from "../../components/common/AircraftLogGroups";
 import { SearchBar, EmptyState, CardActionRow } from "../../components/common/MobileModule";
 import FlightLogEntry from "../../components/FlightLog/FlightLogEntry";
@@ -93,7 +94,7 @@ export default function FlightLog({ route, navigation }) {
     [query, setQuery] = useState(""),
     [aircraftQuery, setAircraftQuery] = useState("");
   const [status, setStatus] = useState("all"),
-    [onlyMine, setOnlyMine] = useState(false);
+    [onlyMine, setOnlyMine] = usePersistedFlag(`needs-action:flight:${user?.id}`);
   const [creating, setCreating] = useState(false),
     [opened, setOpened] = useState(null);
   const userRole = resolveUserRole(user, "pilot");
