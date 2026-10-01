@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { populateFlightInputs, automaticFlightUsage, HOUR_FIELDS } = require('../../shared/flightAutomaticInputs');
-const { confirmInspection, checklistValues } = require('../utils/flightInspectionConfirmation');
+const { confirmInspection, checklistValues, checklistKeys } = require('../utils/flightInspectionConfirmation');
 const { flightEditPermissions, nextFlightStep } = require('../../shared/flightWorkflow');
 const { transition } = require('../utils/flightWorkflowRules');
 const pilot = { id: 'pilot', jobTitle: 'Pilot' }, mechanic = { id: 'mechanic', jobTitle: 'Mechanic' };
@@ -36,11 +36,13 @@ test('servicing rows follow the basic date and verified initial signature, inclu
   assert.equal(result.oilServicing[0].engineRem, 'MIN'); assert.equal(result.fuelServicing[0].mainAdd, '40');
 });
 
-test('a Yes checks every AS350 and B412 inspection item; a No records an unsigned hold', () => {
+test('signing needs every AS350 and B412 item checked or flagged; nothing is auto-ticked; a No records an unsigned hold', () => {
   for (const kind of ['pre', 'post']) for (const aircraftType of ['AS350B3e', 'B412EP']) {
     const record = { aircraftType, workflowHistory: [] };
     const signer = { userId: mechanic.id, signature: 'verified' };
-    confirmInspection(record, kind, true, '', signer, mechanic);
+    assert.throws(() => confirmInspection({ aircraftType, workflowHistory: [] }, kind, true, '', signer, mechanic), /not checked/);
+    assert.throws(() => confirmInspection({ aircraftType, workflowHistory: [] }, kind, true, '', signer, mechanic, { checked: checklistKeys(kind, aircraftType).slice(1) }), /not checked/);
+    confirmInspection(record, kind, true, '', signer, mechanic, { checked: checklistKeys(kind, aircraftType) });
     const expected = checklistValues(kind, aircraftType, true);
     for (const [key, value] of Object.entries(expected)) assert.deepEqual(record[key], value);
     assert.equal(record.status, kind === 'pre' ? 'released' : 'completed');
@@ -68,7 +70,7 @@ test('bulk confirmation persists every checkbox through the actual aircraft insp
   const models = { pre: require('../models/preInspectionModel'), post: require('../models/postInspectionModel') };
   for (const [kind, Model] of Object.entries(models)) for (const aircraftType of ['AS350B3e', 'B412EP']) {
     const record = new Model({ rpc: 'RP-CTEST', aircraftType, date: '09/21/2026' });
-    confirmInspection(record, kind, true, '', { userId: mechanic.id, signature: 'verified' }, mechanic);
+    confirmInspection(record, kind, true, '', { userId: mechanic.id, signature: 'verified' }, mechanic, { checked: checklistKeys(kind, aircraftType) });
     await record.validate();
     const restored = new Model(JSON.parse(JSON.stringify(record)));
     const expected = checklistValues(kind, aircraftType, true);
@@ -87,12 +89,15 @@ test('the New Entry confirmation endpoint verifies Yes on the server and stores 
     './flightWorkflowController': { catchRequest: require('../controllers/flightWorkflowController').catchRequest },
     '../utils/flightWorkflowSigning': { verifyWorkflowSigner: async req => { verifications++; assert.equal(req.body.pin, '123456'); return { userId: req.user.id, signature: 'verified' }; } },
     '../utils/flightWorkflowRules': require('../utils/flightWorkflowRules'),
+    '../utils/flightInspectionConfirmation': require('../utils/flightInspectionConfirmation'),
     '../utils/flightLogPayload': require('../utils/flightLogPayload'),
     '../../shared/flightLogCreationAccess': require('../../shared/flightLogCreationAccess'),
   };
   const file = path.join(__dirname, '../controllers/flightEntryConfirmationController.js'), module = { exports: {} };
   vm.compileFunction(fs.readFileSync(file, 'utf8'), ['require', 'module', 'exports'], { filename: file })(name => dependencies[name], module, module.exports);
-  const call = async (user, body) => {
+  const all = checklistKeys('pre', 'AS350B3e');
+  const call = async (user, rawBody) => {
+    const body = { checked: all, ...rawBody };
     const res = { statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
     await module.exports({ user, body }, res); return res;
   };
@@ -100,8 +105,15 @@ test('the New Entry confirmation endpoint verifies Yes on the server and stores 
   assert.equal(verifications, 0);
   const yes = await call(mechanic, { rpc: 'rp-ctest', allGood: true, pin: '123456', signature: 'untrusted' });
   assert.equal(yes.statusCode, 201); assert.equal(verifications, 1); assert.equal(saved.signer.signature, 'verified'); assert.equal(saved.pin, undefined);
-  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false })).statusCode, 400);
-  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false, remarks: 'Oil leak' })).statusCode, 201);
+  // An incomplete checklist without flags is a valid draft, not an error.
+  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false, checked: all.slice(2) })).statusCode, 201);
+  assert.match(saved.remarks, /draft/i); assert.equal(saved.allGood, false);
+  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false, checked: undefined })).statusCode, 400);
+  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: false, remarks: 'Oil leak', checked: [] })).statusCode, 201);
+  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: true, pin: '123456', checked: all.slice(1) })).statusCode, 400);
+  assert.equal((await call(mechanic, { rpc: 'RP-CTEST', allGood: true, pin: '123456', discrepancies: { [all[0]]: { note: 'Cracked panel' } } })).statusCode, 400);
+  const flagged = await call(mechanic, { rpc: 'RP-CTEST', allGood: false, checked: all.slice(1), discrepancies: { [all[0]]: { note: 'Cracked panel' }, bogus: { note: 'ignored' } } });
+  assert.equal(flagged.statusCode, 201); assert.deepEqual(Object.keys(saved.discrepancies), [all[0]]); assert.equal(saved.allGood, false);
   assert.equal(saved.signer, null); assert.equal(verifications, 1); assert.equal(saved.allGood, false);
   const manager = { id: 'manager', jobTitle: 'Maintenance Manager' };
   assert.equal((await call(manager, { rpc: 'RP-CTEST', allGood: true, pin: '123456' })).statusCode, 201);
@@ -111,4 +123,29 @@ test('the New Entry confirmation endpoint verifies Yes on the server and stores 
     assert.equal((await call({ id: 'other', jobTitle }, { rpc: 'RP-CTEST', allGood: true, pin: '123456', role: 'Maintenance Manager' })).statusCode, 403);
   }
   assert.equal(verifications, 2);
+});
+
+test('flagged items hold the inspection until each is resolved with a description; a flag can be left unchecked', () => {
+  for (const kind of ['pre', 'post']) for (const aircraftType of ['AS350B3e', 'B412EP']) {
+    const keys = checklistKeys(kind, aircraftType), flagged = keys[0];
+    const signer = { userId: mechanic.id, signature: 'verified' };
+    const record = { aircraftType, workflowHistory: [] };
+    confirmInspection(record, kind, false, '', null, mechanic, { checked: keys.slice(1), discrepancies: { [flagged]: { note: 'Cracked panel' }, invalid: { note: 'dropped' } } });
+    assert.deepEqual(Object.keys(record.discrepancies), [flagged]);
+    assert.equal(record.status, 'pending'); assert.equal(record.confirmation.allGood, false);
+    assert.match(record.confirmation.remarks, /Cracked panel/);
+    assert.throws(() => confirmInspection(record, kind, true, '', signer, mechanic, { checked: keys }), /flagged discrepancies/);
+    confirmInspection(record, kind, true, 'Panel replaced', signer, mechanic, { checked: keys });
+    assert.equal(record.discrepancies[flagged].resolved, true); assert.equal(record.discrepancies[flagged].resolution, 'Panel replaced');
+    assert.equal(record.status, kind === 'pre' ? 'released' : 'completed');
+  }
+});
+
+test('a plain draft (nothing flagged) can be signed later without resolution text', () => {
+  const keys = checklistKeys('pre', 'AS350B3e'), record = { aircraftType: 'AS350B3e', workflowHistory: [] };
+  confirmInspection(record, 'pre', false, '', null, mechanic, { checked: keys.slice(2), draft: true });
+  assert.equal(record.confirmation.allGood, false); assert.equal(record.confirmation.draft, true);
+  assert.match(record.confirmation.remarks, /draft/i);
+  confirmInspection(record, 'pre', true, '', { userId: mechanic.id, signature: 'verified' }, mechanic, { checked: keys });
+  assert.equal(record.status, 'released'); assert.equal(record.confirmation.allGood, true);
 });

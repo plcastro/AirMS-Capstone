@@ -53,6 +53,8 @@ const postInspectionSchema = new mongoose.Schema(
     createdBy: { type: String, default: "" },
     workflowHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
     confirmation: { type: mongoose.Schema.Types.Mixed, default: null },
+    // Per-item flags: { [itemKey]: { note, resolved, resolution } }.
+    discrepancies: { type: mongoose.Schema.Types.Mixed, default: {} },
     notes: { type: String, default: "" },
     status: {
       type: String,

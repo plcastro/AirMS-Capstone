@@ -82,7 +82,7 @@ test('assignment ignores licence expiry but still rejects non-mechanics', async 
   for (const who of [null, { ...person, jobTitle: 'Pilot' }]) await assert.rejects(serviceFixture({ who }).service.assertQualified({ aircraft: 'RP-C1234', assignedTo: owner }), error => error.status === 422);
 });
 
-function controllerFixture({ deny = false, existingStatus = 'Pending' } = {}) {
+function controllerFixture({ deny = false, existingStatus = 'Pending', conflicts = [] } = {}) {
   const filename = path.resolve(__dirname, '../controllers/taskController.js'), nativeRequire = createRequire(filename);
   const calls = [];
   let existing = { id: 'TASK-1', title: 'Repair', aircraft: 'RP-C1234', assignedTo: owner, assignedToName: 'Juan Cruz', status: existingStatus,
@@ -92,7 +92,7 @@ function controllerFixture({ deny = false, existingStatus = 'Pending' } = {}) {
     toObject() { return { ...this }; }
     set(data) { Object.assign(this, data); }
     async save() { calls.push('save'); existing = this; }
-    static find() { return query([]); }
+    static find() { return query(conflicts); }
     static async findOne() { return new Task(existing); }
     static async updateOne() { calls.push('cleanup'); }
   }
@@ -152,4 +152,29 @@ test('mechanics cannot change aircraft/assignee or update others; managers can r
   await f.controller.updateTask({ user: { id: other, jobTitle: 'Maintenance Manager' }, params: { id: 'TASK-1' }, body: { status: 'Approved' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(f.calls.some(call => Array.isArray(call)), false);
+});
+
+test('an inspection already assigned on an aircraft cannot go to another mechanic, but other tasks and the same mechanic are allowed', async () => {
+  const inspection = { ...controllerFixture().existing(), title: '100-Hour Inspection', maintenanceType: 'Inspection' };
+  const holder = { id: 'TASK-9', title: '100-Hour Inspection', status: 'Ongoing', assignedTo: other, assignedToName: 'Pedro Santos', aircraft: 'RP-C1234' };
+  const manager = { id: other, jobTitle: 'Maintenance Manager' };
+
+  const blocked = controllerFixture({ conflicts: [holder] }), res = blocked.response();
+  await blocked.controller.createTask({ user: manager, body: { ...inspection, confirmBusyMechanic: true } }, res);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, 'INSPECTION_ALREADY_ASSIGNED');
+  assert.equal(blocked.calls.includes('save'), false);
+
+  const reassign = controllerFixture({ conflicts: [holder] }), moved = reassign.response();
+  await reassign.controller.updateTask({ user: manager, params: { id: 'TASK-1' }, body: { assignedTo: other, title: '100-Hour Inspection', maintenanceType: 'Inspection', confirmBusyMechanic: true } }, moved);
+  assert.equal(moved.statusCode, 409);
+  assert.equal(moved.body.code, 'INSPECTION_ALREADY_ASSIGNED');
+
+  const noConflict = controllerFixture(), ok = noConflict.response();
+  await noConflict.controller.createTask({ user: manager, body: { ...inspection, confirmBusyMechanic: true } }, ok);
+  assert.equal(ok.statusCode, 201);
+
+  const custom = controllerFixture({ conflicts: [holder] }), okCustom = custom.response();
+  await custom.controller.createTask({ user: manager, body: { ...inspection, maintenanceType: 'Custom Task', confirmBusyMechanic: true } }, okCustom);
+  assert.equal(okCustom.statusCode, 201);
 });

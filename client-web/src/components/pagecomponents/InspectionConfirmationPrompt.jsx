@@ -1,11 +1,37 @@
 import React, { useState } from 'react';
 import { Alert, Button, Input, Modal, Space } from 'antd';
-export default function InspectionConfirmationPrompt({ kind, record, onCancel, onYes, onNo, busy, error }) {
-  const [no, setNo] = useState(false), [remarks, setRemarks] = useState(''), [resolution, setResolution] = useState('');
-  const held = record?.confirmation?.allGood === false;
-  return <Modal open title={`${kind === 'pre' ? 'Pre-Flight' : 'Post-Flight'} Inspection`} onCancel={onCancel} footer={null}>
+import InspectionChecklistPanel from './InspectionChecklistPanel';
+
+// Shows the whole checklist every time so each item is reviewed in person.
+// The mechanic can save a draft (with or without flagged discrepancies) and
+// can only sign once every item is checked and no discrepancy is flagged.
+export default function InspectionConfirmationPrompt({ kind, record, items, initialChecked, onCancel, onSign, onDraft, busy, error }) {
+  const open = record?.discrepancies
+    ? Object.fromEntries(Object.entries(record.discrepancies).filter(([, value]) => value && value.resolved !== true).map(([key, value]) => [key, { note: value.note || '' }]))
+    : {};
+  const [checked, setChecked] = useState(() => Object.fromEntries(initialChecked.map(key => [key, true])));
+  const [discrepancies, setDiscrepancies] = useState(open);
+  const [resolution, setResolution] = useState('');
+  const held = record?.confirmation?.allGood === false && !record.confirmation.draft;
+  const flagged = Object.keys(discrepancies);
+  const missingNote = flagged.some(key => !discrepancies[key].note.trim());
+  const checkedKeys = items.filter(item => checked[item.key]).map(item => item.key);
+  const allChecked = checkedKeys.length === items.length;
+  const canSign = allChecked && !flagged.length && (!held || resolution.trim());
+  const label = kind === 'pre' ? 'Pre-Flight' : 'Post-Flight';
+  return <Modal open width={720} title={`${label} Inspection Checklist`} onCancel={onCancel} footer={null}>
     {error && <Alert type="error" title={error} />}
-    {held && <><Alert type="warning" title="Inspection on hold" description={record.confirmation.remarks} /><Input.TextArea value={resolution} onChange={e => setResolution(e.target.value)} placeholder="Describe how the discrepancies were resolved" /></>}
-    {!no ? <><p><strong>Were all {kind === 'pre' ? 'pre-flight' : 'post-flight'} inspection items satisfactory?</strong></p><p>Yes checks every checklist item and attaches your verified signature.</p><Space><Button type="primary" disabled={busy || held && !resolution.trim()} onClick={() => onYes(resolution)}>Yes, append my signature</Button><Button disabled={busy} onClick={() => setNo(true)}>No, record discrepancies</Button></Space></> : <><p>Discrepancies / Remarks</p><Input.TextArea rows={4} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Describe the inspection findings" /><p>The record stays on hold until the discrepancies are resolved.</p><Space><Button type="primary" loading={busy} disabled={!remarks.trim()} onClick={() => onNo(remarks)}>Save discrepancies and hold</Button><Button onClick={() => setNo(false)}>Back</Button></Space></>}
+    {record?.confirmation?.allGood === false && <Alert type="warning" title={held ? 'Inspection on hold' : 'Saved draft'} description={record.confirmation.remarks} />}
+    <p>Review every item in person. Check each one, or flag it as a discrepancy. You can save a draft and finish later.</p>
+    <InspectionChecklistPanel items={items} checked={checked} discrepancies={discrepancies} disabled={busy}
+      onChange={next => { setChecked(next.checked); setDiscrepancies(next.discrepancies); }} />
+    {held && <Input.TextArea style={{ marginTop: 12 }} rows={3} value={resolution} onChange={e => setResolution(e.target.value)} placeholder="Describe how the discrepancies were resolved" />}
+    {!allChecked && !flagged.length && <p style={{ color: '#64766e' }}>Check every item to sign. Unchecked items stay in the draft.</p>}
+    {!!flagged.length && <p style={{ color: '#d93025' }}>Flagged discrepancies must be resolved before this inspection can be signed or the flight log released.</p>}
+    <Space style={{ marginTop: 12 }}>
+      <Button disabled={busy || missingNote} onClick={() => onDraft(checkedKeys, discrepancies)}>{flagged.length ? 'Save draft with discrepancies' : 'Save draft'}</Button>
+      <Button type="primary" disabled={busy || !canSign} onClick={() => onSign(resolution, checkedKeys)}>Sign and confirm</Button>
+      <Button disabled={busy} onClick={onCancel}>Cancel</Button>
+    </Space>
   </Modal>;
 }

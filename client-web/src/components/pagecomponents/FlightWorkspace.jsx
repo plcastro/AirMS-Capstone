@@ -305,7 +305,13 @@ export default function FlightWorkspace({
       title: step.button,
     });
   };
-  const confirmInspection = async (allGood, remarks = "", resolution = "") => {
+  const submitInspection = async ({
+    allGood,
+    resolution = "",
+    checked = [],
+    discrepancies = {},
+    draft = false,
+  }) => {
     const { kind, record, complete, values } = inspectionPrompt;
     if (!record) {
       setError("The linked inspection is missing. Add it before continuing.");
@@ -322,6 +328,9 @@ export default function FlightWorkspace({
                 allGood: true,
                 appendSignature: true,
                 resolution,
+                checked,
+                discrepancies,
+                inspectionId: record._id,
               },
             },
             title: "Confirm Post-Flight & Close Flight Record",
@@ -334,7 +343,13 @@ export default function FlightWorkspace({
               expectedVersion: record.__v || 0,
               flightExpectedVersion: log.__v || 0,
               flightChanges: draft,
-              confirmation: { allGood, remarks, resolution },
+              confirmation: {
+                allGood,
+                resolution,
+                checked,
+                discrepancies,
+                draft,
+              },
             },
             title: `Confirm ${kind === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection`,
             preserve: true,
@@ -918,12 +933,31 @@ export default function FlightWorkspace({
       </Spin>
       {inspectionPrompt && (
         <InspectionConfirmationPrompt
-          {...inspectionPrompt}
+          kind={inspectionPrompt.kind}
+          record={inspectionPrompt.record}
+          items={inspectionChecklist(
+            inspectionPrompt.kind,
+            inspectionPrompt.record,
+          )}
+          initialChecked={inspectionCheckedKeys(
+            inspectionPrompt.kind,
+            inspectionPrompt.record,
+            inspectionPrompt.values,
+          )}
           error={error}
           busy={busy}
           onCancel={() => setInspectionPrompt(null)}
-          onYes={(resolution) => confirmInspection(true, "", resolution)}
-          onNo={(remarks) => confirmInspection(false, remarks)}
+          onSign={(resolution, checked) =>
+            submitInspection({ allGood: true, resolution, checked })
+          }
+          onDraft={(checked, discrepancies) =>
+            submitInspection({
+              allGood: false,
+              checked,
+              discrepancies,
+              draft: !Object.keys(discrepancies).length,
+            })
+          }
         />
       )}
       <Modal
@@ -993,18 +1027,36 @@ export default function FlightWorkspace({
                 <Table
                   size="small"
                   pagination={false}
-                  rowKey="item"
-                  dataSource={Object.keys(
-                    review.monitoringReconciliation.current,
-                  ).map((item) => ({
-                    item,
-                    previous: review.monitoringReconciliation.previous[item],
-                    current: review.monitoringReconciliation.current[item],
-                  }))}
+                  rowKey="field"
+                  dataSource={review.monitoringReconciliation.rows || []}
                   columns={[
                     {
                       title: "Item",
                       dataIndex: "item",
+                      render: (value, row) => (
+                        <span>
+                          {row.changed && (
+                            <span
+                              role="img"
+                              aria-label="Changed since release"
+                              title="Changed since release"
+                              style={{
+                                display: "inline-block",
+                                width: 8,
+                                height: 8,
+                                marginRight: 8,
+                                borderRadius: "50%",
+                                background: "#d93025",
+                              }}
+                            />
+                          )}
+                          {value}
+                        </span>
+                      ),
+                    },
+                    {
+                      title: "Unit",
+                      dataIndex: "unit",
                     },
                     {
                       title: "At release",
@@ -1014,7 +1066,21 @@ export default function FlightWorkspace({
                     {
                       title: "Current ledger",
                       dataIndex: "current",
-                      render: (value) => value ?? "Missing",
+                      render: (value, row) => (
+                        <span
+                          style={
+                            row.changed ? { color: "#d93025", fontWeight: 600 } : undefined
+                          }
+                        >
+                          {value ?? "Missing"}
+                        </span>
+                      ),
+                    },
+                    {
+                      title: "Change",
+                      dataIndex: "delta",
+                      render: (value) =>
+                        value == null ? "-" : value > 0 ? `+${value}` : value,
                     },
                   ]}
                 />
@@ -1050,11 +1116,11 @@ export default function FlightWorkspace({
           pagination={false}
           rowKey="path"
           dataSource={review?.totals || []}
-          columns={["item", "broughtForward", "thisFlight", "toDate"].map(
+          columns={["item", "unit", "broughtForward", "thisFlight", "toDate"].map(
             (key, i) => ({
               key,
               dataIndex: key,
-              title: ["Item", "Brought Forward", "This Flight", "To Date"][i],
+              title: ["Item", "Unit", "Brought Forward", "This Flight", "To Date"][i],
               render: (value) => value ?? "Missing",
             }),
           )}
@@ -1274,6 +1340,18 @@ export default function FlightWorkspace({
     </Modal>
   );
 }
+const inspectionChecklist = (kind, record) =>
+  isB412(record)
+    ? (kind === "pre" ? BP : BO).sections.flatMap((section) => section.items)
+    : AS[kind];
+const inspectionCheckedKeys = (kind, record, values) => {
+  const source = values || record;
+  return inspectionChecklist(kind, record)
+    .filter((item) =>
+      (isB412(record) ? source.b412Data?.checks?.[item.key] : source[item.key]) === true,
+    )
+    .map((item) => item.key);
+};
 function InspectionEditor({
   kind,
   record,

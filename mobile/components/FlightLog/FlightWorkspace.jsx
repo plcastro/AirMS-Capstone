@@ -393,7 +393,13 @@ export default function FlightWorkspace({
       title: step.button,
     });
   };
-  const confirmInspection = async (allGood, remarks = "", resolution = "") => {
+  const submitInspection = async ({
+    allGood,
+    resolution = "",
+    checked = [],
+    discrepancies = {},
+    draft = false,
+  }) => {
     const { kind, record, complete, values } = inspectionPrompt;
     if (!record) {
       setError("The linked inspection is missing. Add it before continuing.");
@@ -410,6 +416,9 @@ export default function FlightWorkspace({
                 allGood: true,
                 appendSignature: true,
                 resolution,
+                checked,
+                discrepancies,
+                inspectionId: record._id,
               },
             },
             title: "Confirm Post-Flight & Close Flight Record",
@@ -422,7 +431,13 @@ export default function FlightWorkspace({
               expectedVersion: record.__v || 0,
               flightExpectedVersion: log.__v || 0,
               flightChanges: draft,
-              confirmation: { allGood, remarks, resolution },
+              confirmation: {
+                allGood,
+                resolution,
+                checked,
+                discrepancies,
+                draft,
+              },
             },
             title: `Confirm ${kind === "pre" ? "Pre-Flight" : "Post-Flight"} Inspection`,
             preserve: true,
@@ -1030,7 +1045,10 @@ export default function FlightWorkspace({
                   ))}
                   {review.totals.map((row) => (
                     <View key={row.path} style={panel}>
-                      <AppText>{row.item}</AppText>
+                      <AppText>
+                        {row.item}
+                        {row.unit ? ` (${row.unit})` : ""}
+                      </AppText>
                       <AppText>
                         Brought forward: {row.broughtForward ?? "Missing"} ·
                         This flight: {row.thisFlight ?? "Missing"} · To date:{" "}
@@ -1051,22 +1069,48 @@ export default function FlightWorkspace({
                         Compare the baseline before signing reconciliation.
                         Confirm this flight has not already been added.
                       </AppText>
-                      <AppText selectable>
-                        At release:{" "}
-                        {JSON.stringify(
-                          review.monitoringReconciliation.previous,
-                          null,
-                          2,
-                        )}
-                      </AppText>
-                      <AppText selectable>
-                        Current:{" "}
-                        {JSON.stringify(
-                          review.monitoringReconciliation.current,
-                          null,
-                          2,
-                        )}
-                      </AppText>
+                      {(review.monitoringReconciliation.rows || []).map(
+                        (row) => (
+                          <View
+                            key={row.field}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "flex-start",
+                              gap: 8,
+                              marginTop: 6,
+                            }}
+                          >
+                            <View
+                              accessibilityLabel={
+                                row.changed ? "Changed since release" : undefined
+                              }
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                marginTop: 5,
+                                backgroundColor: row.changed
+                                  ? COLORS.dangerBorder
+                                  : "transparent",
+                              }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <AppText
+                                style={row.changed ? { fontWeight: "700" } : null}
+                              >
+                                {row.item} ({row.unit})
+                              </AppText>
+                              <AppText>
+                                At release: {row.previous ?? "Missing"} ·
+                                Current: {row.current ?? "Missing"}
+                                {row.delta == null
+                                  ? ""
+                                  : ` · Change: ${row.delta > 0 ? "+" : ""}${row.delta}`}
+                              </AppText>
+                            </View>
+                          </View>
+                        ),
+                      )}
                       <TextInput
                         style={input}
                         multiline
@@ -1288,12 +1332,31 @@ export default function FlightWorkspace({
         )}
         {inspectionPrompt && (
           <InspectionConfirmationPrompt
-            {...inspectionPrompt}
+            kind={inspectionPrompt.kind}
+            record={inspectionPrompt.record}
+            items={inspectionChecklist(
+              inspectionPrompt.kind,
+              inspectionPrompt.record,
+            )}
+            initialChecked={inspectionCheckedKeys(
+              inspectionPrompt.kind,
+              inspectionPrompt.record,
+              inspectionPrompt.values,
+            )}
             error={error}
             busy={busy}
             onCancel={() => setInspectionPrompt(null)}
-            onYes={(resolution) => confirmInspection(true, "", resolution)}
-            onNo={(remarks) => confirmInspection(false, remarks)}
+            onSign={(resolution, checked) =>
+              submitInspection({ allGood: true, resolution, checked })
+            }
+            onDraft={(checked, discrepancies) =>
+              submitInspection({
+                allGood: false,
+                checked,
+                discrepancies,
+                draft: !Object.keys(discrepancies).length,
+              })
+            }
           />
         )}
         <PinVerifiedSignatureModal
@@ -1386,6 +1449,20 @@ function HistoryCard({ entry }) {
     </View>
   );
 }
+const inspectionChecklist = (kind, record) =>
+  /412/.test(record?.aircraftType || "")
+    ? (kind === "pre" ? BP : BO).sections.flatMap((section) => section.items)
+    : AS[kind];
+const inspectionCheckedKeys = (kind, record, values) => {
+  const source = values || record;
+  const b412 = /412/.test(record?.aircraftType || "");
+  return inspectionChecklist(kind, record)
+    .filter(
+      (item) =>
+        (b412 ? source.b412Data?.checks?.[item.key] : source[item.key]) === true,
+    )
+    .map((item) => item.key);
+};
 function Inspection({
   kind,
   record,

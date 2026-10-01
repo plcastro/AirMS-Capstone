@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { confirmInspection } = require('../utils/flightInspectionConfirmation');
+const { confirmInspection, openDiscrepancyKeys, discrepancySummary } = require('../utils/flightInspectionConfirmation');
 const { populateFlightInputs } = require('../../shared/flightAutomaticInputs');
 const Pre = require('../models/preInspectionModel');
 const Post = require('../models/postInspectionModel');
@@ -78,11 +78,11 @@ const edit = kind => catchRequest(async (req, res) => {
     }
     if (kind === 'pre' && !preparation) throw fail('Return the flight record to preparation before correcting Pre-Flight.');
     if (kind === 'post' && !['accepted', 'submitted', 'returned_to_pilot'].includes(stage)) throw fail('Post-Flight confirmation follows pilot acceptance.');
-    const { allGood, remarks, resolution } = req.body.confirmation;
-    if (allGood && record.confirmation?.allGood === false && !String(resolution || '').trim()) throw fail('Describe how the inspection discrepancies were resolved.');
+    const { allGood, remarks, resolution, checked, discrepancies, draft } = req.body.confirmation;
+    if (allGood && record.confirmation?.allGood === false && !record.confirmation.draft && !String(resolution || '').trim()) throw fail('Describe how the inspection discrepancies were resolved.');
     const signer = allGood ? await verifyWorkflowSigner(req, log, `${kind}_confirmed_all`) : null;
     for (const [key, value] of Object.entries(changes)) record.set(key, value);
-    confirmInspection(record, kind, allGood, allGood ? resolution || '' : remarks, signer, req.user);
+    confirmInspection(record, kind, allGood, allGood ? resolution || '' : remarks, signer, req.user, { checked, discrepancies, draft });
     if (kind === 'pre' && allGood) {
       log.initialInspectionSignature = signer;
       const populated = populateFlightInputs(log.toObject());
@@ -110,6 +110,7 @@ const edit = kind => catchRequest(async (req, res) => {
       if (kind === 'pre' && !(record.status === 'pending' && next === 'released' && mechanic || record.status === 'released' && next === 'completed' && !mechanic)) throw fail('The mechanic releases Pre-Flight; the pilot accepts it.', 403);
       if (kind === 'pre' && next === 'completed' && (stage !== 'pending_acceptance' || String(record.releasedBy?.userId) !== String(log.assignedMechanic?.userId))) throw fail('The current assigned mechanic must release this inspection and flight record before pilot acceptance.', 409);
       if (kind === 'post' && (!mechanic || next !== 'completed' || !['accepted', 'submitted', 'returned_to_pilot'].includes(log.status))) throw fail('The assigned mechanic completes Post-Flight after aircraft acceptance.', 403);
+      if (openDiscrepancyKeys(record).length) throw fail('Resolve the flagged discrepancies before signing. Use Confirm Inspection and describe how each was resolved.');
       const missing = getChecks(kind, record).map(item => item.title);
       if (kind === 'pre' && !record.confirmation?.allGood && (numeric(record.fob) === null || numeric(record.fob) < 0)) missing.push('Fuel on board (a nonnegative quantity)');
       if (missing.length) throw fail(`Complete the inspection: ${missing.join(', ')}.`, 400, {
@@ -123,6 +124,11 @@ const edit = kind => catchRequest(async (req, res) => {
         flightLogId: String(log._id)
       });
     }
+  }
+  // A draft with flagged items is a discrepancy hold: the flight log cannot be
+  // released until the mechanic resolves them and signs.
+  if (!req.body.confirmation && !returning && record.status === 'pending' && next === 'pending' && openDiscrepancyKeys(record).length) {
+    record.confirmation = { allGood: false, draft: false, remarks: discrepancySummary(record, kind), at: new Date().toISOString(), actorId: String(req.user.id), signer: null };
   }
   if (returning) record.workflowHistory.push(eventFor(record, 'return', req.user, {}, req.body.comment));else if (!req.body.confirmation && next === previous.status) record.workflowHistory.push(eventFor(record, `${kind}_save_draft`, req.user, Object.fromEntries(Object.keys(changes).map(key => [key, {
     before: previous[key],

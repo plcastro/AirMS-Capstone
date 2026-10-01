@@ -3,7 +3,7 @@ const { populateFlightInputs } = require('../../shared/flightAutomaticInputs');
 const { syncFlightLogDates } = require('../../shared/flightLogDates');
 const { requiredFlightTimeError } = require('../../shared/flightLogTimes');
 const { populateMonitoringBroughtForward } = require('../../shared/flightLogBroughtForward');
-const { confirmInspection } = require('../utils/flightInspectionConfirmation');
+const { confirmInspection, openDiscrepancyKeys } = require('../utils/flightInspectionConfirmation');
 const mongoose = require('mongoose');
 const FlightLog = require('../models/flightLogModel');
 const Pre = require('../models/preInspectionModel');
@@ -129,7 +129,7 @@ const readiness = (record, links) => {
       if (row.broughtForward === null) missing.push(`${row.item}: enter the brought-forward value in Parts Monitoring.`);
     }
   }
-  if (links.preInspections.some(pre => pre.confirmation?.allGood === false)) missing.push('Pre-Flight discrepancies are on hold. Resolve them and confirm the inspection before release.');
+  if (links.preInspections.some(pre => (pre.confirmation?.allGood === false && !pre.confirmation.draft) || openDiscrepancyKeys(pre).length)) missing.push('Pre-Flight discrepancies are on hold. Resolve them and confirm the inspection before release.');
   const blockingDefects = links.defects.filter(d => d.status === 'open' || d.status === 'deferred' && (!d.dueDate || new Date(d.dueDate).getTime() <= Date.now()));
   if (blockingDefects.length) missing.push(`${blockingDefects.length} open or overdue aircraft defect(s) need maintenance disposition before release.`);
   const currentParts = links.monitoring ? processDataWithFormulas((links.monitoring.parts || []).map(plain), {
@@ -374,8 +374,11 @@ const action = actionName => catchRequest(async (req, res) => {
         if (!currentLinks.postInspections.length) throw fail('Add the linked Post-Flight inspection.');
         for (let index = 0; index < currentLinks.postInspections.length; index++) {
           const post = new Post(currentLinks.postInspections[index]);
-          if (post.confirmation?.allGood === false && !String(req.body.postFlightConfirmation.resolution || '').trim()) throw fail('Describe how the Post-Flight discrepancies were resolved.');
-          confirmInspection(post, 'post', true, req.body.postFlightConfirmation.resolution || '', signer, req.user);
+          if (post.confirmation?.allGood === false && !post.confirmation.draft && !String(req.body.postFlightConfirmation.resolution || '').trim()) throw fail('Describe how the Post-Flight discrepancies were resolved.');
+          const spec = req.body.postFlightConfirmation;
+          // The checklist the mechanic just reviewed applies to the inspection it was shown for.
+          const reviewed = Array.isArray(spec.checked) && (!spec.inspectionId || String(spec.inspectionId) === String(post._id));
+          confirmInspection(post, 'post', true, spec.resolution || '', signer, req.user, reviewed ? { checked: spec.checked, discrepancies: spec.discrepancies } : {});
           const data = post.toObject(); delete data._id; delete data.__v; delete data.createdAt; delete data.updatedAt;
           const savedPost = await Post.findOneAndUpdate({ _id: post._id, __v: post.__v || 0 }, { $set: data, $inc: { __v: 1 } }, { session, returnDocument: 'after', runValidators: true });
           if (!savedPost) throw fail('The Post-Flight inspection changed. Reload and review it.', 409);

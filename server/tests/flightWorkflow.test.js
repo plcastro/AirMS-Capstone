@@ -171,7 +171,7 @@ function controllerHarness() {
   const call = async (action, body = {}, user = mechanic) => {
     const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return this; } };
     const handler = ['workspace', 'review', 'save'].includes(action) ? module.exports[action] : module.exports.action(action);
-    await handler({ params: { id: state._id }, user, body: { expectedVersion: 4, changes: {}, postFlightConfirmation: { allGood: true, appendSignature: true }, ...body } }, response); return response;
+    await handler({ params: { id: state._id }, user, body: { expectedVersion: 4, changes: {}, postFlightConfirmation: { allGood: true, appendSignature: true, checked: require('../utils/flightInspectionConfirmation').checklistKeys('post', post.aircraftType) }, ...body } }, response); return response;
   };
   return { call, state: () => state, monitoring: () => monitoring, signed: () => signed, signingRequests, failWrite: () => { failFinalWrite = true; }, pre, post: () => post };
 }
@@ -193,7 +193,7 @@ test('closure requires explicit Post-Flight confirmation and resolution of an ex
   h.post().confirmation = { allGood: false, remarks: 'Inspect oil leak' };
   assert.equal((await h.call('complete')).statusCode, 400);
   assert.equal(h.post().confirmation.allGood, false);
-  const completed = await h.call('complete', { postFlightConfirmation: { allGood: true, appendSignature: true, resolution: 'Leak corrected and reinspection satisfactory' } });
+  const completed = await h.call('complete', { postFlightConfirmation: { allGood: true, appendSignature: true, checked: require('../utils/flightInspectionConfirmation').checklistKeys('post', 'AS350B3e'), resolution: 'Leak corrected and reinspection satisfactory' } });
   assert.equal(completed.statusCode, 200); assert.equal(h.post().status, 'completed');
 });
 
@@ -498,4 +498,14 @@ test('release signature selection prefers the certified inspection and excludes 
   assert.equal(stages.preflightSignatureForRelease(record, [{ ...pre, releasedBy: { userId: mechanicId } }]), 'initial');
   assert.equal(stages.preflightSignatureForRelease(record, [{ ...pre, status: 'pending' }]), '');
   assert.equal(stages.preflightSignatureForRelease(record, [{ ...pre, releasedBy: { userId: pilotId, signature: 'former' } }]), '');
+});
+
+test('an unresolved per-item discrepancy blocks release even without an overall hold', async () => {
+  const h = controllerHarness();
+  h.state().status = 'pending_release';
+  h.pre.discrepancies = { station1_transparentPanels_condition: { note: 'Cracked panel', resolved: false } };
+  const response = await h.call('release');
+  assert.equal(response.statusCode, 400);
+  assert.ok(response.body.missing.some(message => message.includes('Pre-Flight discrepancies')));
+  assert.equal(h.state().status, 'pending_release');
 });

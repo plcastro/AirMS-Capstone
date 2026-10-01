@@ -32,6 +32,7 @@ function creationHarness(actor = { id: mechanicId, jobTitle: "Mechanic" }) {
   const confirmation = {
     _id: confirmationId, userId: actor.id, rpc: "RP-CTEST", flightLogId: null,
     expiresAt: new Date(Date.now() + 60_000), allGood: true, remarks: "",
+    checked: require("../utils/flightInspectionConfirmation").checklistKeys("pre", "AS350B3e"), discrepancies: {},
     signer: { userId: actor.id, name: actor.id === managerId ? "Actual Manager" : "Actual Mechanic", signature },
   };
   const savedFlights = [];

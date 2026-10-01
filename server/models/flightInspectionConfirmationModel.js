@@ -5,6 +5,8 @@ module.exports = mongoose.model('FlightInspectionConfirmation', new mongoose.Sch
   aircraftType: { type: String, required: true },
   allGood: { type: Boolean, required: true },
   remarks: { type: String, default: '' },
+  checked: { type: [String], default: [] },
+  discrepancies: { type: mongoose.Schema.Types.Mixed, default: {} },
   signer: { type: mongoose.Schema.Types.Mixed, default: null },
   flightLogId: { type: mongoose.Schema.Types.ObjectId, default: null },
   expiresAt: { type: Date, required: true },

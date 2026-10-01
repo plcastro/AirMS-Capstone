@@ -97,6 +97,7 @@ const reviewTotals = (record, monitoring) => {
     const total = baseline === null || increment === null ? null : Math.round((baseline + increment) * 10000) / 10000;
     rows.push({
       item,
+      unit: monitoringUnit(target),
       path,
       monitoringField: target,
       broughtForward: baseline,
@@ -128,13 +129,28 @@ const reviewTotals = (record, monitoring) => {
   };
 };
 const usageReference = (record, reference = {}) => Object.fromEntries((isB412AircraftType(record.aircraftType) ? B412 : STANDARD).map(([, target]) => [target, baselineFor(reference, target, isB412AircraftType(record.aircraftType))]));
+const monitoringUnit = target => target === 'landings' ? 'landings' : /Cycles$/.test(target) ? 'cycles' : /(TT|TSO)$/.test(target) ? 'flight hours' : 'count';
 const monitoringReconciliation = (record, monitoring) => {
   const previous = usageReference(record, record.monitoringBaseline?.referenceData || {});
   const current = usageReference(record, plain(monitoring?.referenceData) || {});
+  const rows = (isB412AircraftType(record.aircraftType) ? B412 : STANDARD).map(([, field, item]) => {
+    const before = previous[field],
+      after = current[field];
+    return {
+      field,
+      item,
+      unit: monitoringUnit(field),
+      previous: before,
+      current: after,
+      delta: before === null || after === null ? null : Math.round((after - before) * 10000) / 10000,
+      changed: before !== after
+    };
+  });
   return {
     required: !record.monitoringBaseline || String(record.monitoringBaseline.id) !== String(monitoring?._id) || JSON.stringify(previous) !== JSON.stringify(current),
     previous,
-    current
+    current,
+    rows
   };
 };
 module.exports = {

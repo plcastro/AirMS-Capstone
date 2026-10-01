@@ -102,7 +102,72 @@ const validateMechanicWorkload = async ({
   return null;
 };
 
-const sanitizeTaskPayload = (payload = {}) => {
+const escapeRegex = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Inspection tasks carry the chosen inspection on checklistItems; Custom Tasks
+// reuse a placeholder item and are not real inspections.
+const getInspectionName = (task = {}) => {
+  if (task.maintenanceType === "Custom Task") return "";
+  const fromChecklist = (task.checklistItems || []).find((item) =>
+    String(item?.inspectionName || "").trim(),
+  )?.inspectionName;
+  const name =
+    fromChecklist || (task.maintenanceType === "Inspection" ? task.title : "");
+  return String(name || "").trim();
+};
+
+// One inspection on one aircraft may only be worked by one mechanic at a time.
+// Different inspections and different mechanics on the same aircraft are fine.
+const validateInspectionNotAssigned = async (
+  task,
+  excludeTaskIdentifier = "",
+) => {
+  const inspectionName = getInspectionName(task);
+  const aircraft = String(task.aircraft || "").trim();
+  if (
+    !inspectionName ||
+    !aircraft ||
+    !BUSY_TASK_STATUSES.includes(task.status || "Pending")
+  ) {
+    return null;
+  }
+
+  const nameMatch = new RegExp("^" + escapeRegex(inspectionName) + "$", "i");
+  const conflicts = excludeTaskFromWorkload(
+    await TaskModel.find({
+      aircraft: new RegExp("^" + escapeRegex(aircraft) + "$", "i"),
+      status: { $in: BUSY_TASK_STATUSES },
+      assignedTo: { $ne: String(task.assignedTo || "") },
+      $or: [
+        { "checklistItems.inspectionName": nameMatch },
+        { title: nameMatch },
+      ],
+    })
+      .select("id title status assignedTo assignedToName aircraft")
+      .lean(),
+    excludeTaskIdentifier,
+  );
+
+  if (!conflicts.length) return null;
+  const holder = conflicts[0];
+  return {
+    status: 409,
+    body: {
+      message:
+        inspectionName +
+        " on " +
+        aircraft +
+        " is already assigned to " +
+        (holder.assignedToName || "another mechanic") +
+        " and is still in progress. It cannot be assigned to another mechanic until it is turned in or completed.",
+      code: "INSPECTION_ALREADY_ASSIGNED",
+      existingTask: holder,
+    },
+  };
+};
+
+const sanitizeTaskPayload =(payload = {}) => {
   const sanitized = { ...payload };
   delete sanitized.assignedMechanic;
   return sanitized;
@@ -476,6 +541,12 @@ const createTask = async (req, res) => {
 
     const qualification = await taskQualifications.assertQualified(taskData);
     taskData.assignedToName = qualification.name;
+    const inspectionConflict = await validateInspectionNotAssigned(taskData);
+    if (inspectionConflict) {
+      return res
+        .status(inspectionConflict.status)
+        .json(inspectionConflict.body);
+    }
     const workloadError = await validateMechanicWorkload({
       assignedTo: taskData.assignedTo,
       confirmBusyMechanic: req.body?.confirmBusyMechanic === true,
@@ -582,6 +653,25 @@ const updateTask = async (req, res) => {
       });
       if (workloadError) {
         return res.status(workloadError.status).json(workloadError.body);
+      }
+    }
+
+    const becameBusy =
+      !BUSY_TASK_STATUSES.includes(existingTask.status) &&
+      BUSY_TASK_STATUSES.includes(nextTask.status);
+    if (
+      assignmentChanged ||
+      becameBusy ||
+      getInspectionName(nextTask) !== getInspectionName(existingTask)
+    ) {
+      const inspectionConflict = await validateInspectionNotAssigned(
+        nextTask,
+        existingTask.id || existingTask._id,
+      );
+      if (inspectionConflict) {
+        return res
+          .status(inspectionConflict.status)
+          .json(inspectionConflict.body);
       }
     }
 

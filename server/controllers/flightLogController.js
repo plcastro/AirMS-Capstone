@@ -397,6 +397,11 @@ const createFlightLog = async (req, res) => {
           confirmation.remarks,
           confirmation.signer,
           req.user,
+          {
+            checked: confirmation.checked || [],
+            discrepancies: confirmation.discrepancies || {},
+            draft: !Object.keys(confirmation.discrepancies || {}).length,
+          },
         );
         await pre.save({ session });
         await PostInspection.create(

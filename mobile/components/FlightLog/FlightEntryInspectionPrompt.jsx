@@ -7,23 +7,47 @@ import PinVerifiedSignatureModal from '../common/PinVerifiedSignatureModal';
 import { COLORS } from '../../stylesheets/colors';
 import { API_BASE } from '../../utilities/API_BASE';
 import { getAuthHeaders } from '../../utilities/mobileApi';
+import InspectionChecklistPanel from './InspectionChecklistPanel';
 import { hasOngoingFlightLog } from '../../../shared/flightWorkflow';
+import AS from '../../../shared/as350InspectionChecklist.json';
+import BP from '../../../shared/b412PreInspectionChecklist.json';
+
+const checklistFor = aircraftType => /412/.test(aircraftType || '') ? BP.sections.flatMap(section => section.items) : /350/.test(aircraftType || '') ? AS.pre : [];
 
 export default function FlightEntryInspectionPrompt({ visible, lockedRpc, flightLogs = [], onClose, onConfirmed }) {
-  const [rpc, setRpc] = useState(''), [options, setOptions] = useState([]), [remarks, setRemarks] = useState('');
-  const [no, setNo] = useState(false), [signing, setSigning] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [rpc, setRpc] = useState(''), [options, setOptions] = useState([]), [aircraftType, setAircraftType] = useState('');
+  const [checked, setChecked] = useState({}), [discrepancies, setDiscrepancies] = useState({});
+  const [signing, setSigning] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const ongoingFlight = hasOngoingFlightLog(flightLogs, rpc);
-  const cannotContinue = !rpc.trim() || busy || ongoingFlight;
+  const items = checklistFor(aircraftType);
+  const checkedKeys = items.filter(item => checked[item.key]).map(item => item.key);
+  const flagged = Object.keys(discrepancies);
+  const missingNote = flagged.some(key => !discrepancies[key].note.trim());
+  const canContinue = !!rpc.trim() && !busy && !ongoingFlight && items.length > 0;
+  const canSign = canContinue && checkedKeys.length === items.length && !flagged.length;
 
   useEffect(() => {
     if (!visible) return;
     setRpc(lockedRpc || '');
-    setRemarks('');
-    setNo(false);
     setSigning(false);
     setError('');
+    setChecked({});
+    setDiscrepancies({});
     fetch(`${API_BASE}/api/parts-monitoring/aircraft-list`).then(r => r.json()).then(r => setOptions(r.data || [])).catch(() => setOptions([]));
   }, [visible, lockedRpc]);
+
+  // The checklist depends on the aircraft type, so load it once a registration is chosen.
+  useEffect(() => {
+    setAircraftType('');
+    setChecked({});
+    setDiscrepancies({});
+    const value = rpc.trim();
+    if (!visible || !value) return undefined;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/parts-monitoring/${encodeURIComponent(value)}`).then(r => (r.ok ? r.json() : null))
+      .then(r => { if (!cancelled) setAircraftType(r?.data?.aircraftType || ''); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [visible, rpc]);
 
   const submit = async (allGood, signature, pin) => {
     if (ongoingFlight) {
@@ -38,7 +62,7 @@ export default function FlightEntryInspectionPrompt({ visible, lockedRpc, flight
       const response = await fetch(`${API_BASE}/api/flightlogs/preflight-confirmations`, {
         method: 'POST',
         headers: await getAuthHeaders({ 'Content-Type': 'application/json', 'x-action-confirmed': 'true' }),
-        body: JSON.stringify({ rpc, allGood, remarks, signature, pin }),
+        body: JSON.stringify({ rpc, allGood, checked: checkedKeys, discrepancies, signature, pin }),
       });
       const result = await response.json();
       if (!response.ok) throw Error(result.message || 'Could not record the inspection.');
@@ -121,38 +145,57 @@ export default function FlightEntryInspectionPrompt({ visible, lockedRpc, flight
                 </AppText>
               )}
 
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: COLORS.black, marginBottom: 12 }}>
-                Were all pre-flight inspection items satisfactory?
-              </AppText>
+              {canContinue && (
+                <View style={{ marginBottom: 12 }}>
+                  <AppText style={{ fontSize: 12, fontWeight: '700', color: COLORS.black, marginBottom: 6 }}>
+                    Review every pre-flight item in person.
+                  </AppText>
+                  <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>
+                    Check each item, or flag it as a discrepancy. You can save a draft and finish later; the flight log cannot be released until the checklist is complete and any discrepancy is resolved.
+                  </AppText>
+                  <InspectionChecklistPanel
+                    items={items}
+                    checked={checked}
+                    discrepancies={discrepancies}
+                    disabled={busy}
+                    onChange={next => { setChecked(next.checked); setDiscrepancies(next.discrepancies); }}
+                  />
+                </View>
+              )}
+              {!!rpc.trim() && !ongoingFlight && !items.length && (
+                <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 12 }}>Loading the checklist for this aircraft…</AppText>
+              )}
 
               <TouchableOpacity
-                disabled={cannotContinue}
-                onPress={() => !cannotContinue && setSigning(true)}
+                disabled={!canSign}
+                onPress={() => canSign && setSigning(true)}
                 style={{
                   backgroundColor: COLORS.primaryLight,
                   borderRadius: 8,
                   paddingVertical: 12,
                   alignItems: 'center',
                   marginBottom: 8,
-                  opacity: cannotContinue ? 0.45 : 1,
+                  opacity: canSign ? 1 : 0.45,
                 }}
               >
-                <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>Yes, sign and continue</AppText>
+                <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>Sign and continue</AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
-                disabled={cannotContinue}
-                onPress={() => !cannotContinue && setNo(true)}
+                disabled={!canContinue || missingNote}
+                onPress={() => canContinue && !missingNote && submit(false)}
                 style={{
                   borderWidth: 1,
-                  borderColor: COLORS.dangerBorder,
+                  borderColor: flagged.length ? COLORS.dangerBorder : COLORS.primaryLight,
                   borderRadius: 8,
                   paddingVertical: 12,
                   alignItems: 'center',
-                  opacity: cannotContinue ? 0.45 : 1,
+                  opacity: !canContinue || missingNote ? 0.45 : 1,
                 }}
               >
-                <AppText style={{ color: COLORS.dangerBorder, fontSize: 12, fontWeight: '600' }}>No, record discrepancies</AppText>
+                <AppText style={{ color: flagged.length ? COLORS.dangerBorder : COLORS.primaryLight, fontSize: 12, fontWeight: '600' }}>
+                  {flagged.length ? 'Save draft with discrepancies' : 'Save draft and continue'}
+                </AppText>
               </TouchableOpacity>
             </ScrollView>
 
@@ -178,44 +221,6 @@ export default function FlightEntryInspectionPrompt({ visible, lockedRpc, flight
               </TouchableOpacity>
             </View>
           </View>
-
-          {no && (
-            <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 800, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'center', padding: 20 }}>
-              <View style={{ backgroundColor: COLORS.white, borderRadius: 16, padding: 20 }}>
-                <AppText style={{ fontSize: 16, fontWeight: '700', color: COLORS.black, marginBottom: 6 }}>Pre-Flight Discrepancies / Remarks</AppText>
-                <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>The inspection stays on hold until resolved.</AppText>
-                {!!error && <AppText style={{ color: COLORS.dangerBorder, fontSize: 12, marginBottom: 8 }}>{error}</AppText>}
-                <TextInput
-                  multiline
-                  value={remarks}
-                  onChangeText={setRemarks}
-                  style={{ minHeight: 100, padding: 12, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, fontSize: 12, marginBottom: 12, textAlignVertical: 'top' }}
-                />
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-                  <TouchableOpacity
-                    disabled={busy}
-                    onPress={() => setNo(false)}
-                    style={{ paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.grayMedium, borderRadius: 8 }}
-                  >
-                    <AppText style={{ color: COLORS.grayDark, fontSize: 12, fontWeight: '600' }}>Cancel</AppText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={!remarks.trim() || cannotContinue}
-                    onPress={() => submit(false)}
-                    style={{
-                      paddingHorizontal: 18,
-                      paddingVertical: 10,
-                      borderRadius: 8,
-                      backgroundColor: COLORS.primaryLight,
-                      opacity: (!remarks.trim() || cannotContinue) ? 0.5 : 1,
-                    }}
-                  >
-                    <AppText style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>Continue with inspection on hold</AppText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
 
           <PinVerifiedSignatureModal
             useNativeModal={false}
