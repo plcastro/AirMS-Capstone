@@ -1058,13 +1058,22 @@ export default function FlightWorkspace({
                   ))}
                   {review.monitoringReconciliation?.required && (
                     <View style={panel}>
-                      <AppText
-                        style={{
-                          fontWeight: "700",
-                        }}
-                      >
-                        Parts Monitoring changed after release
-                      </AppText>
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <MaterialCommunityIcons
+                          name="alert"
+                          size={18}
+                          color={COLORS.dangerBorder}
+                          style={{ marginRight: 6 }}
+                        />
+                        <AppText
+                          style={{
+                            fontWeight: "700",
+                            color: COLORS.dangerBorder,
+                          }}
+                        >
+                          Parts Monitoring changed since release
+                        </AppText>
+                      </View>
                       <AppText>
                         Compare the baseline before signing reconciliation.
                         Confirm this flight has not already been added.

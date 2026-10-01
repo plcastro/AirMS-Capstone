@@ -21,7 +21,7 @@ export default function InspectionConfirmationPrompt({ kind, record, items, init
   const allChecked = checkedKeys.length === items.length;
   const canSign = allChecked && !flagged.length && (!held || !!resolution.trim());
   return <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 950, backgroundColor: '#0007', justifyContent: 'center', padding: 16 }}>
-    <ScrollView style={{ maxHeight: '90%', backgroundColor: '#fff', borderRadius: 12 }} contentContainerStyle={{ padding: 18 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ maxHeight: '90%', backgroundColor: '#fff', borderRadius: 12 }} contentContainerStyle={{ padding: 18 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator>
       <AppText style={{ fontWeight: '700', fontSize: 18 }}>{kind === 'pre' ? 'Pre-Flight' : 'Post-Flight'} Inspection Checklist</AppText>
       {!!error && <AppText style={{ color: '#b12626' }}>{error}</AppText>}
       {record?.confirmation?.allGood === false && <AppText style={{ marginVertical: 6 }}>{held ? 'On hold' : 'Saved draft'}: {record.confirmation.remarks}</AppText>}

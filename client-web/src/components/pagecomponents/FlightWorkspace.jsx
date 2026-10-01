@@ -1,3 +1,4 @@
+import { WarningFilled } from "@ant-design/icons";
 import InspectionConfirmationPrompt from "./InspectionConfirmationPrompt";
 import React, {
   useCallback,
@@ -1017,7 +1018,12 @@ export default function FlightWorkspace({
         {review?.monitoringReconciliation?.required && (
           <Alert
             type="warning"
-            title="Parts Monitoring changed since release"
+            title={
+              <span style={{ color: "#d93025", fontWeight: 600 }}>
+                <WarningFilled style={{ marginRight: 8 }} />
+                Parts Monitoring changed since release
+              </span>
+            }
             description={
               <>
                 <p>

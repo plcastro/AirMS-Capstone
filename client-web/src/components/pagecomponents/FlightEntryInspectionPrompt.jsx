@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Modal, Space } from 'antd';
 import { AuthContext } from '../../context/AuthContext';
 import { API_BASE } from '../../utils/API_BASE';
@@ -16,7 +16,7 @@ export default function FlightEntryInspectionPrompt({ open, lockedRpc, flightLog
   const [checked, setChecked] = useState({}), [discrepancies, setDiscrepancies] = useState({});
   const [signing, setSigning] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const ongoingFlight = hasOngoingFlightLog(flightLogs, rpc);
-  const items = checklistFor(aircraftType);
+  const items = useMemo(() => checklistFor(aircraftType), [aircraftType]);
   const checkedKeys = items.filter(item => checked[item.key]).map(item => item.key);
   const flagged = Object.keys(discrepancies);
   const missingNote = flagged.some(key => !discrepancies[key].note.trim());
@@ -58,7 +58,7 @@ export default function FlightEntryInspectionPrompt({ open, lockedRpc, flightLog
     finally { setBusy(false); }
   };
   return <>
-    <Modal open={open} width={720} title="Pre-Flight Inspection" onCancel={onCancel} footer={null} destroyOnHidden>
+    <Modal open={open} width={720} title="Pre-Flight Inspection" onCancel={onCancel} footer={null} destroyOnHidden styles={{ body: { maxHeight: '72vh', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 8 } }}>
       {error && <Alert type="error" title={error} />}
       <p>Aircraft registration</p><AutoComplete value={rpc} onChange={value => setRpc(value.toUpperCase())} options={aircraftOptions} disabled={!!lockedRpc || busy} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} style={{ width: '100%' }} placeholder="RP-C…" />
       <p style={{ color: '#64766e' }}>Aircraft with ongoing flight logs are unavailable until those logs are completed.</p>

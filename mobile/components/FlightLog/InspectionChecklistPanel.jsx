@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AppText from "../common/AppText";
 import { COLORS } from "../../stylesheets/colors";
 
@@ -44,7 +45,9 @@ export default function InspectionChecklistPanel({
   disabled = false,
 }) {
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [items]);
+  // Only go back to page 1 when the checklist itself changes, not on every tick.
+  const checklistId = `${items.length}:${items[0]?.key ?? ""}`;
+  useEffect(() => setPage(1), [checklistId]);
   const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const isFlagged = (key) => Object.prototype.hasOwnProperty.call(discrepancies, key);
   const visible = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -113,14 +116,20 @@ export default function InspectionChecklistPanel({
                   {item.description ? ` — ${item.description}` : ""}
                 </AppText>
               </TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: "row", marginTop: 6 }}>
-              <Chip
-                danger={!flagged}
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={flagged ? "Remove flag" : "Flag discrepancy"}
                 disabled={disabled}
-                label={flagged ? "Remove flag" : "Flag discrepancy"}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 onPress={() => toggleFlag(item.key)}
-              />
+                style={{ paddingLeft: 10, paddingTop: 2, opacity: disabled ? 0.45 : 1 }}
+              >
+                <MaterialCommunityIcons
+                  name={flagged ? "flag" : "flag-outline"}
+                  size={22}
+                  color={COLORS.dangerBorder}
+                />
+              </TouchableOpacity>
             </View>
             {flagged && (
               <TextInput

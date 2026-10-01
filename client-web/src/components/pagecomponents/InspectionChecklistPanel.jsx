@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Button, Checkbox, Input, Pagination, Space, Typography } from "antd";
+import { Button, Checkbox, Input, Pagination, Space, Tooltip, Typography } from "antd";
+import { FlagFilled, FlagOutlined } from "@ant-design/icons";
 
 const PAGE_SIZE = 12;
 
@@ -14,7 +15,9 @@ export default function InspectionChecklistPanel({
   disabled = false,
 }) {
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [items]);
+  // Only go back to page 1 when the checklist itself changes, not on every tick.
+  const checklistId = `${items.length}:${items[0]?.key ?? ""}`;
+  useEffect(() => setPage(1), [checklistId]);
   const isFlagged = (key) => Object.hasOwn(discrepancies, key);
   const visible = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const checkedCount = items.filter((item) => checked[item.key]).length;
@@ -88,15 +91,18 @@ export default function InspectionChecklistPanel({
                 {item.title}
                 {item.description ? ` — ${item.description}` : ""}
               </Checkbox>
-              <Button
-                size="small"
-                danger={!flagged}
-                type={flagged ? "primary" : "default"}
-                disabled={disabled}
-                onClick={() => toggleFlag(item.key)}
-              >
-                {flagged ? "Remove flag" : "Flag discrepancy"}
-              </Button>
+              <Tooltip title={flagged ? "Remove flag" : "Flag discrepancy"}>
+                <Button
+                  size="small"
+                  shape="circle"
+                  danger
+                  type={flagged ? "primary" : "default"}
+                  aria-label={flagged ? "Remove flag" : "Flag discrepancy"}
+                  icon={flagged ? <FlagFilled /> : <FlagOutlined />}
+                  disabled={disabled}
+                  onClick={() => toggleFlag(item.key)}
+                />
+              </Tooltip>
             </Space>
             {flagged && (
               <Input.TextArea

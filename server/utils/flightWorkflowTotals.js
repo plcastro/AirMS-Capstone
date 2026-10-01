@@ -129,21 +129,22 @@ const reviewTotals = (record, monitoring) => {
   };
 };
 const usageReference = (record, reference = {}) => Object.fromEntries((isB412AircraftType(record.aircraftType) ? B412 : STANDARD).map(([, target]) => [target, baselineFor(reference, target, isB412AircraftType(record.aircraftType))]));
-const monitoringUnit = target => target === 'landings' ? 'landings' : /Cycles$/.test(target) ? 'cycles' : /(TT|TSO)$/.test(target) ? 'flight hours' : 'count';
+const monitoringUnit = target => target === 'landings' ? 'Landings' : /Cycles$/.test(target) ? 'Cycles' : /(TT|TSO)$/.test(target) ? 'Flight Hours' : 'Count';
 const monitoringReconciliation = (record, monitoring) => {
   const previous = usageReference(record, record.monitoringBaseline?.referenceData || {});
   const current = usageReference(record, plain(monitoring?.referenceData) || {});
   const rows = (isB412AircraftType(record.aircraftType) ? B412 : STANDARD).map(([, field, item]) => {
-    const before = previous[field],
-      after = current[field];
+    // A value missing from the ledger counts as 0 on screen.
+    const before = previous[field] ?? 0,
+      after = current[field] ?? 0;
     return {
       field,
       item,
       unit: monitoringUnit(field),
       previous: before,
       current: after,
-      delta: before === null || after === null ? null : Math.round((after - before) * 10000) / 10000,
-      changed: before !== after
+      delta: Math.round((after - before) * 10000) / 10000,
+      changed: previous[field] !== current[field]
     };
   });
   return {

@@ -19,7 +19,7 @@ export default function InspectionConfirmationPrompt({ kind, record, items, init
   const allChecked = checkedKeys.length === items.length;
   const canSign = allChecked && !flagged.length && (!held || resolution.trim());
   const label = kind === 'pre' ? 'Pre-Flight' : 'Post-Flight';
-  return <Modal open width={720} title={`${label} Inspection Checklist`} onCancel={onCancel} footer={null}>
+  return <Modal open width={720} title={`${label} Inspection Checklist`} onCancel={onCancel} footer={null} styles={{ body: { maxHeight: '72vh', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 8 } }}>
     {error && <Alert type="error" title={error} />}
     {record?.confirmation?.allGood === false && <Alert type="warning" title={held ? 'Inspection on hold' : 'Saved draft'} description={record.confirmation.remarks} />}
     <p>Review every item in person. Check each one, or flag it as a discrepancy. You can save a draft and finish later.</p>
