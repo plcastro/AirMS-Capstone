@@ -780,6 +780,7 @@ export default function HeadTaskScreen({
         onClose={() => setAddModalVisible(false)}
         onAddTask={handleAddTask}
         employees={mechanicOptions}
+        existingTasks={tasks}
         initialDraft={addTaskDraft}
       />
 

@@ -154,6 +154,7 @@ export default function AddTask({
   onClose,
   onAddTask,
   employees = [],
+  existingTasks = [],
   initialDraft = null,
 }) {
   const [selectedAircraft, setSelectedAircraft] = useState("");
@@ -916,7 +917,37 @@ export default function AddTask({
     setShowPriorityDropdown(false);
   };
 
+  // The same inspection on the same aircraft can only be worked once at a
+  // time, so adding it again is blocked while it is pending or ongoing.
+  const getInspectionConflictWarning = () => {
+    const name = String(isCustomTask ? "" : selectedInspection?.name || "")
+      .trim()
+      .toLowerCase();
+    const aircraft = String(selectedAircraft || "").trim().toLowerCase();
+    if (!name || !aircraft) return "";
+    const holder = existingTasks.find((task) => {
+      const status = String(task?.status || "").trim().toLowerCase();
+      return (
+        ["pending", "ongoing", "returned"].includes(status) &&
+        String(task.aircraft || "").trim().toLowerCase() === aircraft &&
+        (String(task.title || "").trim().toLowerCase() === name ||
+          (task.checklistItems || []).some(
+            (item) =>
+              String(item?.inspectionName || "").trim().toLowerCase() === name,
+          ))
+      );
+    });
+    if (!holder) return "";
+    return `This inspection type for this aircraft is ${
+      String(holder.status).trim().toLowerCase() === "ongoing"
+        ? "ongoing"
+        : "pending"
+    }.`;
+  };
+
   const getAddTaskWarning = () => {
+    const inspectionConflict = getInspectionConflictWarning();
+    if (inspectionConflict) return inspectionConflict;
     if (selectedEmployee && !qualification.option(selectedEmployee).qualified) return qualification.option(selectedEmployee).reason;
     const selectedAvailableEmployee = availableEmployees.find(
       (emp) => emp.id === selectedEmployee,

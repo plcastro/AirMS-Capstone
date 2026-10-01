@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Button,
   Calendar,
   Card,
@@ -695,6 +696,48 @@ export default function TaskAssignment() {
     ],
     [inspectionOptions],
   );
+
+  // The same inspection on the same aircraft can only be worked once at a time,
+  // so adding it again is blocked while it is pending or ongoing.
+  const inspectionConflict = useMemo(() => {
+    if (
+      !createOpen ||
+      editingTask ||
+      !assignmentAircraft ||
+      !watchedInspectionType ||
+      watchedInspectionType === CUSTOM_INSPECTION_ID
+    )
+      return null;
+    const name = String(
+      inspectionOptions.find(
+        (item) => String(item.id) === String(watchedInspectionType),
+      )?.name || "",
+    )
+      .trim()
+      .toLowerCase();
+    const aircraft = String(assignmentAircraft).trim().toLowerCase();
+    if (!name) return null;
+    return (
+      tasks.find(
+        (task) =>
+          ACTIVE_OPEN.has(normalizeStatus(task.status)) &&
+          String(task.aircraft || "").trim().toLowerCase() === aircraft &&
+          (String(task.title || "").trim().toLowerCase() === name ||
+            (task.checklistItems || []).some(
+              (item) =>
+                String(item?.inspectionName || "").trim().toLowerCase() ===
+                name,
+            )),
+      ) || null
+    );
+  }, [
+    createOpen,
+    editingTask,
+    assignmentAircraft,
+    watchedInspectionType,
+    inspectionOptions,
+    tasks,
+  ]);
 
   const myTasks = useMemo(
     () =>
@@ -1662,6 +1705,7 @@ export default function TaskAssignment() {
         onOk={handleCreate}
         title={editingTask ? "Edit Task" : "Task"}
         okText={editingTask ? "Save" : "Add Task"}
+        okButtonProps={{ disabled: Boolean(inspectionConflict) }}
         width={TASK_MODAL_WIDTH}
         centered
         styles={{
@@ -1702,6 +1746,20 @@ export default function TaskAssignment() {
                   />
                 </Form.Item>
               </Col>
+              {inspectionConflict && (
+                <Col xs={24}>
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 8 }}
+                    title={`This inspection type for this aircraft is ${
+                      normalizeStatus(inspectionConflict.status) === "ongoing"
+                        ? "ongoing"
+                        : "pending"
+                    }.`}
+                  />
+                </Col>
+              )}
               {watchedInspectionType === CUSTOM_INSPECTION_ID && (
                 <Col xs={24}>
                   <Form.Item
