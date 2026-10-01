@@ -1,6 +1,7 @@
 const NotificationModel = require("../models/notificationModel");
 const UserModel = require("../models/userModel");
 const { sendPushNotificationToUsers } = require("./mobilePushService");
+const { statusLabel } = require("../../shared/partsRequisitionWorkflow.js");
 
 const ROLE_OFFICER_IN_CHARGE = "officer-in-charge";
 const ROLE_WAREHOUSE = "warehouse personnel";
@@ -112,8 +113,8 @@ const createPartsRequisitionNotifications = async ({ previousRequisition, requis
   const requester = await getRequisitionerUserId(requisition);
   const created = !previousRequisition;
   await createNotification({
-    title: `Parts requisition ${requisition.wrsNo}: ${requisition.status}`,
-    description: created ? "A new requisition needs a stock check." : requisition.status === "Delivered" ? "Delivery is ready. Please confirm receipt to close your requisition." : `Parts requisition updated: ${requisition.status}.`,
+    title: `Parts requisition ${requisition.wrsNo}: ${statusLabel(requisition.status)}`,
+    description: created ? "A new requisition needs a stock check." : requisition.status === "Delivered" ? "Your parts are ready for pickup. Please confirm receipt to close your requisition." : `Parts requisition updated: ${statusLabel(requisition.status)}.`,
     requisition,
     recipientRoles: created ? [ROLE_WAREHOUSE] : [ROLE_WAREHOUSE, ROLE_OFFICER_IN_CHARGE, "admin staff"],
     recipientUsers: requester ? [requester] : [],

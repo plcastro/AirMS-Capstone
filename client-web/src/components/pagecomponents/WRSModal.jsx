@@ -104,14 +104,14 @@ function RequisitionModal({ record, user, open, onClose, onAction, busy }) {
           <Alert
             type="warning"
             showIcon
-            message="Awaiting requester confirmation of receipt"
+            message="Ready for pickup. Awaiting requester confirmation of receipt."
           />
         )}
         {stock && (
           <Alert
             type="info"
             showIcon
-            title="Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and confirms delivery."
+            title="Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and marks the requisition ready for pickup."
           />
         )}
         <Table

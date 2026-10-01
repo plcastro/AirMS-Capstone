@@ -553,3 +553,22 @@ test('combined seed/history suggestions rank exact, prefix, substring and attach
   await h.controller.getPartSuggestions({ user: user('Mechanic'), query: { q: 'Brand new unknown part' } }, unknown);
   assert.deepEqual(unknown.body, []);
 });
+
+test('people see "Ready for Pickup" after Deliver and clearer wording for the other stages', () => {
+  const labels = Object.fromEntries(workflow.requisitionStatuses.map(status => [status, workflow.statusLabel(status)]));
+  assert.deepEqual(labels, {
+    Requested: 'Pending Stock Check',
+    'Awaiting Stock': 'Awaiting Restock',
+    'Ready for Delivery': 'Stock Confirmed',
+    Delivered: 'Ready for Pickup',
+    Closed: 'Received',
+    Cancelled: 'Cancelled',
+  });
+  assert.equal(workflow.statusLabel('Out of Stock'), 'Restocking');
+  const delivered = { status: 'Delivered', items: [{ stockStatus: 'In Stock' }] };
+  assert.equal(workflow.statusLabel(workflow.itemDisplayStatus(delivered, delivered.items[0])), 'Ready for Pickup');
+  const closed = { status: 'Closed', items: [{ stockStatus: 'In Stock' }] };
+  assert.equal(workflow.statusLabel(workflow.itemDisplayStatus(closed, closed.items[0])), 'Received');
+  const timeline = workflow.buildTimeline({ deliveredAt: '2026-10-01T01:00:00Z', dateRequested: '2026-09-30T01:00:00Z' });
+  assert.ok(timeline.some(entry => entry.label === 'Ready for pickup'));
+});

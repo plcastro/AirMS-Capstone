@@ -38,12 +38,12 @@ const dateValue = record => new Date(record.dateRequested || record.createdAt ||
 
 const badgeForStatus = status => {
   if (status === 'Requested') return {
-    label: 'Parts Requested',
+    label: statusLabel(status),
     backgroundColor: '#F4F4F4',
     color: '#555'
   };
   if (status === 'Awaiting Stock' || status === 'Ready for Delivery') return {
-    label: 'Availability Checked',
+    label: statusLabel(status),
     backgroundColor: '#FFF8D9',
     color: '#9A7600'
   };

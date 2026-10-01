@@ -144,7 +144,7 @@ export default function PartsRequisition({
 
   const action = async (record, action, extra = {}) => {
     if (action !== 'stock' && !(await confirm({
-      deliver: 'Confirm delivery',
+      deliver: 'Mark ready for pickup',
       confirm: 'Confirm receipt',
       cancel: 'Cancel requisition',
       'follow-up': 'Send follow-up reminder'

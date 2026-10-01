@@ -578,7 +578,7 @@ export function PartsRequisitionReport({ records = [], loading = false }) {
   return (
     <ReportSection
       title="Parts Requisition Report"
-      subtitle={`${deliveredCount} delivered requisitions and ${totalItems} requested line items.`}
+      subtitle={`${deliveredCount} requisitions ready for pickup and ${totalItems} requested line items.`}
     >
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>

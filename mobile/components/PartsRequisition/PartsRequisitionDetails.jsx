@@ -138,8 +138,8 @@ function RequisitionDetails({
           color: COLORS.infoBorder,
           fontSize: 12,
           fontWeight: '600'
-        }}>Awaiting requester confirmation of receipt</AppText></View>}
-    {stock && <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and confirms delivery.</AppText>}
+        }}>Ready for pickup. Awaiting requester confirmation of receipt.</AppText></View>}
+    {stock && <AppText style={{ fontSize: 12, color: COLORS.grayDark, marginBottom: 10 }}>Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and marks the requisition ready for pickup.</AppText>}
     <AppText style={{
           fontSize: 12,
           fontWeight: '700',

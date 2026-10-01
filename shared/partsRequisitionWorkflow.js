@@ -18,8 +18,16 @@ export const statusColors = {
   Closed: "#389e0d",
   Cancelled: "#a85d5d",
 };
-export const statusLabel = (status) =>
-  status === "Out of Stock" ? "Restocking" : status;
+// Stored status values stay stable; only the wording shown to people changes.
+const statusLabels = {
+  "Out of Stock": "Restocking",
+  Requested: "Pending Stock Check",
+  "Awaiting Stock": "Awaiting Restock",
+  "Ready for Delivery": "Stock Confirmed",
+  Delivered: "Ready for Pickup",
+  Closed: "Received",
+};
+export const statusLabel = (status) => statusLabels[status] || status;
 export const normalizeItemStatus = (status) =>
   itemStatuses.includes(status)
     ? status
@@ -28,13 +36,13 @@ export const normalizeItemStatus = (status) =>
       : status === "To Be Ordered"
         ? "Out of Stock"
         : "Pending Check";
-// Items in a delivered (or closed) requisition were handed over, so show them
-// as Delivered rather than their earlier stock-check result.
+// Items in a delivered (or closed) requisition were set aside for pickup or
+// handed over, so show that instead of their earlier stock-check result.
 export const itemDisplayStatus = (record = {}, item = {}) => {
   const status = normalizeItemStatus(item.stockStatus);
-  return status === "In Stock" &&
-    ["Delivered", "Closed"].includes(displayStatus(record))
-    ? "Delivered"
+  const requisition = displayStatus(record);
+  return status === "In Stock" && ["Delivered", "Closed"].includes(requisition)
+    ? requisition
     : status;
 };
 export function computedStatus(record) {
@@ -140,7 +148,13 @@ export function buildTimeline(record = {}) {
       (entry) => !history.some((event) => event.label === entry.label),
     ),
     ...history,
-  ].sort((a, b) => new Date(a.at) - new Date(b.at));
+  ]
+    .sort((a, b) => new Date(a.at) - new Date(b.at))
+    .map((entry) =>
+      entry.label === "Delivered"
+        ? { ...entry, label: "Ready for pickup" }
+        : entry,
+    );
 }
 export const updatedFirst = (a, b) =>
   new Date(b.updatedAt || b.createdAt || b.dateRequested || 0) -

@@ -223,14 +223,14 @@ export default function PartsReqMonitoring() {
       action !== "stock" &&
       !(await confirmAction({
         title: {
-          deliver: "Confirm delivery",
+          deliver: "Mark ready for pickup",
           confirm: "Confirm receipt",
           cancel: "Cancel requisition",
           "follow-up": "Send follow-up reminder",
         }[action],
         content:
           action === "deliver"
-            ? "Confirm that all requested parts have been delivered."
+            ? "Confirm that all requested parts are set aside and ready for the requester to pick up."
             : action === "confirm"
               ? "Confirm that you received all requested parts. This closes the requisition."
               : `Continue for ${record.wrsNo}?`,
