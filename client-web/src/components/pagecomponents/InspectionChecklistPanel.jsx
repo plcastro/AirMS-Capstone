@@ -43,6 +43,7 @@ export default function InspectionChecklistPanel({
   };
   const columns = [
     {
+      title: "",
       key: "checked",
       width: 48,
       align: "center",
@@ -58,30 +59,45 @@ export default function InspectionChecklistPanel({
     {
       title: "Item",
       dataIndex: "title",
-      render: (value, item) => (
-        <span style={isFlagged(item.key) ? { color: "#d93025", fontWeight: 600 } : undefined}>
-          {isFlagged(item.key) && (
+      ellipsis: { showTitle: false },
+      render: (value, item) => {
+        const text = item.description ? `${value} — ${item.description}` : value;
+        const flagged = isFlagged(item.key);
+        return (
+          <Tooltip title={text} placement="topLeft">
             <span
-              role="img"
-              aria-label="Discrepancy flagged"
               style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                marginRight: 8,
-                borderRadius: "50%",
-                background: "#d93025",
+                display: "block",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                ...(flagged ? { color: "#d93025", fontWeight: 600 } : null),
               }}
-            />
-          )}
-          {value}
-        </span>
-      ),
+            >
+              {flagged && (
+                <span
+                  role="img"
+                  aria-label="Discrepancy flagged"
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    marginRight: 8,
+                    borderRadius: "50%",
+                    background: "#d93025",
+                  }}
+                />
+              )}
+              {text}
+            </span>
+          </Tooltip>
+        );
+      },
     },
-    { title: "Check", dataIndex: "description" },
     {
+      title: "Action",
       key: "flag",
-      width: 56,
+      width: 80,
       align: "center",
       render: (_, item) => {
         const flagged = isFlagged(item.key);
@@ -124,6 +140,7 @@ export default function InspectionChecklistPanel({
       </Typography.Paragraph>
       <Table
         size="small"
+        tableLayout="fixed"
         rowKey="key"
         dataSource={items}
         columns={columns}
