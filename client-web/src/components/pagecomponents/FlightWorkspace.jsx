@@ -91,8 +91,10 @@ export default function FlightWorkspace({
   // Inspection tabs only appear while an inspection is on discrepancy hold, so
   // the assigned mechanic can resolve it and sign.
   const heldInspectionKinds = ["pre", "post"].filter((kind) =>
-    (kind === "pre" ? workspace?.preInspections : workspace?.postInspections)
-      ?.some((record) => record.confirmation?.allGood === false),
+    (kind === "pre"
+      ? workspace?.preInspections
+      : workspace?.postInspections
+    )?.some((record) => record.confirmation?.allGood === false),
   );
   const heldInspectionKey = heldInspectionKinds.join(",");
   useEffect(() => {
@@ -708,85 +710,85 @@ export default function FlightWorkspace({
                 ...(inspectionSection
                   ? [inspectionSection]
                   : heldInspectionKinds
-                ).map(
-                  (kind) => ({
-                    key: kind,
-                    label: inspectionSection
-                      ? kind === "pre" ? "Pre-Flight" : "Post-Flight"
-                      : kind === "pre"
-                        ? "Pre-Flight Inspection (On Hold)"
-                        : "Post-Flight Inspection (On Hold)",
-                    children: (
-                      <>
-                        {assigned && mechanic && permissions.preparation && (
-                          <Button
-                            onClick={() =>
-                              execute(
-                                `${id}/inspections`,
+                ).map((kind) => ({
+                  key: kind,
+                  label: inspectionSection
+                    ? kind === "pre"
+                      ? "Pre-Flight"
+                      : "Post-Flight"
+                    : kind === "pre"
+                      ? "Pre-Flight Inspection (On Hold)"
+                      : "Post-Flight Inspection (On Hold)",
+                  children: (
+                    <>
+                      {assigned && mechanic && permissions.preparation && (
+                        <Button
+                          onClick={() =>
+                            execute(
+                              `${id}/inspections`,
+                              {
+                                expectedVersion: log.__v || 0,
+                              },
+                              "POST",
+                              true,
+                            )
+                          }
+                        >
+                          Add Linked Inspection Pair
+                        </Button>
+                      )}
+                      {(kind === "pre"
+                        ? workspace.preInspections
+                        : workspace.postInspections
+                      ).map((record) => (
+                        <InspectionEditor
+                          key={`${record._id}:${record.__v}`}
+                          kind={kind}
+                          record={record}
+                          editable={assigned && log.status !== "completed"}
+                          mechanic={mechanic}
+                          isMaintenanceManager={
+                            normalizeCrewRole(user) === "maintenance manager"
+                          }
+                          isMechanicRole={
+                            normalizeCrewRole(user) === "mechanic"
+                          }
+                          onConfirm={(kind, record, values) =>
+                            setInspectionPrompt({ kind, record, values })
+                          }
+                          flightStatus={flightStage(log)}
+                          onSave={saveInspection}
+                          onReturn={async () => {
+                            const reason = window.prompt(
+                              "Explain the inspection correction:",
+                            );
+                            if (reason?.trim())
+                              await execute(
+                                `${id}/inspections/${kind}/${record._id}`,
                                 {
-                                  expectedVersion: log.__v || 0,
+                                  action: "return",
+                                  comment: reason,
+                                  expectedVersion: record.__v || 0,
                                 },
-                                "POST",
+                                "PUT",
                                 true,
-                              )
-                            }
-                          >
-                            Add Linked Inspection Pair
-                          </Button>
-                        )}
-                        {(kind === "pre"
+                              );
+                          }}
+                        />
+                      ))}
+                      {!(
+                        kind === "pre"
                           ? workspace.preInspections
                           : workspace.postInspections
-                        ).map((record) => (
-                          <InspectionEditor
-                            key={`${record._id}:${record.__v}`}
-                            kind={kind}
-                            record={record}
-                            editable={assigned && log.status !== "completed"}
-                            mechanic={mechanic}
-                            isMaintenanceManager={
-                              normalizeCrewRole(user) === "maintenance manager"
-                            }
-                            isMechanicRole={
-                              normalizeCrewRole(user) === "mechanic"
-                            }
-                            onConfirm={(kind, record, values) =>
-                              setInspectionPrompt({ kind, record, values })
-                            }
-                            flightStatus={flightStage(log)}
-                            onSave={saveInspection}
-                            onReturn={async () => {
-                              const reason = window.prompt(
-                                "Explain the inspection correction:",
-                              );
-                              if (reason?.trim())
-                                await execute(
-                                  `${id}/inspections/${kind}/${record._id}`,
-                                  {
-                                    action: "return",
-                                    comment: reason,
-                                    expectedVersion: record.__v || 0,
-                                  },
-                                  "PUT",
-                                  true,
-                                );
-                            }}
-                          />
-                        ))}
-                        {!(
-                          kind === "pre"
-                            ? workspace.preInspections
-                            : workspace.postInspections
-                        ).length && (
-                          <p>
-                            No linked inspection yet. The assigned mechanic can
-                            add a pair during preparation.
-                          </p>
-                        )}
-                      </>
-                    ),
-                  }),
-                ),
+                      ).length && (
+                        <p>
+                          No linked inspection yet. The assigned mechanic can
+                          add a pair during preparation.
+                        </p>
+                      )}
+                    </>
+                  ),
+                })),
                 {
                   key: "defects",
                   label: `Aircraft Defects (${workspace.defects.filter((d) => d.status !== "rectified").length})`,
@@ -962,6 +964,7 @@ export default function FlightWorkspace({
         />
       )}
       <Modal
+        centered
         open={returnOpen}
         title="Return for Correction"
         onCancel={() => setReturnOpen(false)}
@@ -984,6 +987,7 @@ export default function FlightWorkspace({
         />
       </Modal>
       <Modal
+        centered
         open={!!review}
         title="Review Before Closure"
         width={880}
@@ -1033,7 +1037,12 @@ export default function FlightWorkspace({
                 </p>
                 <Table
                   size="small"
-                  pagination={{ pageSize: 6, size: "small", showSizeChanger: false, hideOnSinglePage: true }}
+                  pagination={{
+                    pageSize: 6,
+                    size: "small",
+                    showSizeChanger: false,
+                    hideOnSinglePage: true,
+                  }}
                   rowKey="field"
                   dataSource={review.monitoringReconciliation.rows || []}
                   columns={[
@@ -1084,7 +1093,9 @@ export default function FlightWorkspace({
                       render: (value, row) => (
                         <span
                           style={
-                            row.changed ? { color: "#d93025", fontWeight: 600 } : undefined
+                            row.changed
+                              ? { color: "#d93025", fontWeight: 600 }
+                              : undefined
                           }
                         >
                           {value ?? "Missing"}
@@ -1108,40 +1119,63 @@ export default function FlightWorkspace({
                   value={reconciliationReason}
                   onChange={(e) => setReconciliationReason(e.target.value)}
                 />
-                <Button
-                  disabled={!reconciliationReason.trim()}
-                  onClick={() =>
-                    setSignedAction({
-                      path: `${id}/reconcile`,
-                      body: {
-                        expectedVersion: log.__v || 0,
-                        comment: reconciliationReason,
-                      },
-                      title: "Sign Monitoring Reconciliation",
-                      preserve: true,
-                      reconcile: true,
-                    })
-                  }
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  Sign Reconciliation
-                </Button>
+                  <Button
+                    disabled={!reconciliationReason.trim()}
+                    onClick={() =>
+                      setSignedAction({
+                        path: `${id}/reconcile`,
+                        body: {
+                          expectedVersion: log.__v || 0,
+                          comment: reconciliationReason,
+                        },
+                        title: "Sign Monitoring Reconciliation",
+                        preserve: true,
+                        reconcile: true,
+                      })
+                    }
+                  >
+                    Sign Reconciliation
+                  </Button>
+                </div>
               </>
             }
           />
         )}
         <Table
           size="small"
-          pagination={{ pageSize: 6, size: "small", showSizeChanger: false, hideOnSinglePage: true }}
+          pagination={{
+            pageSize: 6,
+            size: "small",
+            showSizeChanger: false,
+            hideOnSinglePage: true,
+          }}
           rowKey="path"
           dataSource={review?.totals || []}
-          columns={["item", "unit", "broughtForward", "thisFlight", "toDate"].map(
-            (key, i) => ({
-              key,
-              dataIndex: key,
-              title: ["Item", "Unit", "Brought Forward", "This Flight", "To Date"][i],
-              render: (value) => value ?? "Missing",
-            }),
-          )}
+          columns={[
+            "item",
+            "unit",
+            "broughtForward",
+            "thisFlight",
+            "toDate",
+          ].map((key, i) => ({
+            key,
+            dataIndex: key,
+            title: [
+              "Item",
+              "Unit",
+              "Brought Forward",
+              "This Flight",
+              "To Date",
+            ][i],
+            render: (value) => value ?? "Missing",
+          }))}
         />
       </Modal>
       <Modal
@@ -1240,6 +1274,7 @@ export default function FlightWorkspace({
         )}
       </Modal>
       <Modal
+        centered
         open={!!amendment}
         title="Add Signed Amendment"
         onCancel={() => setAmendment(null)}
@@ -1365,8 +1400,11 @@ const inspectionChecklist = (kind, record) =>
 const inspectionCheckedKeys = (kind, record, values) => {
   const source = values || record;
   return inspectionChecklist(kind, record)
-    .filter((item) =>
-      (isB412(record) ? source.b412Data?.checks?.[item.key] : source[item.key]) === true,
+    .filter(
+      (item) =>
+        (isB412(record)
+          ? source.b412Data?.checks?.[item.key]
+          : source[item.key]) === true,
     )
     .map((item) => item.key);
 };
