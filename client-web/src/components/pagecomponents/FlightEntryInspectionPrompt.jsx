@@ -58,7 +58,7 @@ export default function FlightEntryInspectionPrompt({ open, lockedRpc, flightLog
     finally { setBusy(false); }
   };
   return <>
-    <Modal open={open} width={900} title="Pre-Flight Inspection" onCancel={onCancel} footer={null} destroyOnHidden styles={{ body: { maxHeight: '72vh', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 8 } }}>
+    <Modal open={open} width={900} title="Pre-Flight Inspection" onCancel={onCancel} destroyOnHidden footer={<Space><Button disabled={!canContinue || missingNote} onClick={() => submit(false)}>{flagged.length ? 'Save draft with discrepancies' : 'Save draft and continue'}</Button><Button type="primary" disabled={!canSign} onClick={() => setSigning(true)}>Sign and continue</Button></Space>} styles={{ body: { maxHeight: '60vh', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 8 } }}>
       {error && <Alert type="error" title={error} />}
       <p>Aircraft registration</p><AutoComplete value={rpc} onChange={value => setRpc(value.toUpperCase())} options={aircraftOptions} disabled={!!lockedRpc || busy} filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())} style={{ width: '100%' }} placeholder="RP-C…" />
       <p style={{ color: '#64766e' }}>Aircraft with ongoing flight logs are unavailable until those logs are completed.</p>
@@ -69,10 +69,6 @@ export default function FlightEntryInspectionPrompt({ open, lockedRpc, flightLog
           onChange={next => { setChecked(next.checked); setDiscrepancies(next.discrepancies); }} />
       </>}
       {!!rpc.trim() && !ongoingFlight && !items.length && <Alert type="info" title="Loading the checklist for this aircraft…" />}
-      <Space style={{ marginTop: 12 }}>
-        <Button type="primary" disabled={!canSign} onClick={() => setSigning(true)}>Sign and continue</Button>
-        <Button disabled={!canContinue || missingNote} onClick={() => submit(false)}>{flagged.length ? 'Save draft with discrepancies' : 'Save draft and continue'}</Button>
-      </Space>
     </Modal>
     <PinVerifiedSignatureModal open={open && signing} title="Confirm Pre-Flight Inspection" description="I confirm that every pre-flight inspection item is satisfactory. Apply my signature to this inspection and this flight's servicing entries." onCancel={() => setSigning(false)} onSave={(signature, { pin }) => submit(true, signature, pin)} />
   </>;

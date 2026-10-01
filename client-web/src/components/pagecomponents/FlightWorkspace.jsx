@@ -986,6 +986,7 @@ export default function FlightWorkspace({
       <Modal
         open={!!review}
         title="Review Before Closure"
+        width={880}
         onCancel={() => setReview(null)}
         okText="Continue to Post-Flight"
         okButtonProps={{
@@ -1039,6 +1040,8 @@ export default function FlightWorkspace({
                     {
                       title: "Item",
                       dataIndex: "item",
+                      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+                      width: 220,
                       render: (value, row) => (
                         <span>
                           {row.changed && (
@@ -1063,14 +1066,20 @@ export default function FlightWorkspace({
                     {
                       title: "Unit",
                       dataIndex: "unit",
+                      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+                      width: 130,
                     },
                     {
                       title: "At release",
+                      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+                      width: 120,
                       dataIndex: "previous",
                       render: (value) => value ?? "Missing",
                     },
                     {
                       title: "Current ledger",
+                      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+                      width: 140,
                       dataIndex: "current",
                       render: (value, row) => (
                         <span
@@ -1084,6 +1093,8 @@ export default function FlightWorkspace({
                     },
                     {
                       title: "Change",
+                      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
+                      width: 100,
                       dataIndex: "delta",
                       render: (value) =>
                         value == null ? "-" : value > 0 ? `+${value}` : value,
@@ -1091,6 +1102,7 @@ export default function FlightWorkspace({
                   ]}
                 />
                 <Input.TextArea
+                  style={{ marginTop: 12, marginBottom: 12 }}
                   aria-label="Monitoring reconciliation reason"
                   placeholder="Explain the ledger reconciliation"
                   value={reconciliationReason}

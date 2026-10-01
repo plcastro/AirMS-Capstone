@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, Checkbox, Input, Space, Table, Tooltip, Typography } from "antd";
+import { Button, Checkbox, Input, Table, Tooltip, Typography } from "antd";
 import { FlagFilled, FlagOutlined } from "@ant-design/icons";
 
 const PAGE_SIZE = 12;
@@ -41,12 +41,26 @@ export default function InspectionChecklistPanel({
     }
     emit(nextChecked, nextDiscrepancies);
   };
+  // The header checkbox selects only the rows on the current page.
+  const selectable = visible.filter((item) => !isFlagged(item.key));
+  const pageChecked =
+    selectable.length > 0 && selectable.every((item) => checked[item.key]);
+  const pageSome = !pageChecked && selectable.some((item) => checked[item.key]);
   const columns = [
     {
-      title: "",
+      title: (
+        <Checkbox
+          disabled={disabled || !selectable.length}
+          checked={pageChecked}
+          indeterminate={pageSome}
+          onChange={(e) => setItems(visible, e.target.checked)}
+        >
+          Select all
+        </Checkbox>
+      ),
+      onHeaderCell: () => ({ style: { whiteSpace: "nowrap" } }),
       key: "checked",
-      width: 48,
-      align: "center",
+      width: 120,
       render: (_, item) => (
         <Checkbox
           aria-label={`Check ${item.title}`}
@@ -120,20 +134,6 @@ export default function InspectionChecklistPanel({
   ];
   return (
     <div>
-      <Space wrap style={{ marginBottom: 8 }}>
-        <Button disabled={disabled} onClick={() => setItems(items, true)}>
-          Mark all items good
-        </Button>
-        <Button disabled={disabled} onClick={() => setItems(items, false)}>
-          Clear all
-        </Button>
-        <Button disabled={disabled} onClick={() => setItems(visible, true)}>
-          Select all on this page
-        </Button>
-        <Button disabled={disabled} onClick={() => setItems(visible, false)}>
-          Clear this page
-        </Button>
-      </Space>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
         {checkedCount} of {items.length} items checked
         {flaggedKeys.length ? ` · ${flaggedKeys.length} flagged` : ""}
