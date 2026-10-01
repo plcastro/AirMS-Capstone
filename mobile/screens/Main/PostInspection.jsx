@@ -77,6 +77,7 @@ export default function PostInspection({ route }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("completed");
+  const [needsAttention, setNeedsAttention] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [sortOrder, setSortOrder] = useState("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -200,13 +201,19 @@ export default function PostInspection({ route }) {
     (inspection) => getLogAircraftRegistration(inspection) === selectedAircraft,
   );
 
+  const attentionCount = aircraftInspections.filter(
+    (inspection) => getDisplayStatus(inspection.status) !== "completed",
+  ).length;
+
   const filteredInspections = aircraftInspections
     .filter((inspection) => {
       const matchesSearchText = matchesSearch(searchQuery, inspection);
 
-      const matchesStatus =
-        selectedStatus === "all" ||
-        getDisplayStatus(inspection.status) === selectedStatus;
+      // "Needs attention" lists every inspection that is not completed yet.
+      const matchesStatus = needsAttention
+        ? getDisplayStatus(inspection.status) !== "completed"
+        : selectedStatus === "all" ||
+          getDisplayStatus(inspection.status) === selectedStatus;
 
       return matchesSearchText && matchesStatus;
     })
@@ -229,11 +236,13 @@ export default function PostInspection({ route }) {
     setSelectedAircraft(aircraft);
     setSearchQuery("");
     setSelectedStatus("completed");
+    setNeedsAttention(false);
     setShowStatusDropdown(false);
   };
 
   const selectStatus = (status) => {
     setSelectedStatus(status);
+    setNeedsAttention(false);
     setShowStatusDropdown(false);
   };
 
@@ -301,6 +310,44 @@ export default function PostInspection({ route }) {
               onChangeText={setSearchQuery}
               placeholder="Search post-flight inspections"
             />
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ selected: needsAttention }}
+              onPress={() => {
+                setShowStatusDropdown(false);
+                setShowSortDropdown(false);
+                setNeedsAttention((on) => !on);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "flex-start",
+                gap: 6,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                marginBottom: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: needsAttention ? COLORS.dangerBorder : COLORS.grayMedium,
+                backgroundColor: needsAttention ? COLORS.dangerBorder : COLORS.white,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="alert-outline"
+                size={16}
+                color={needsAttention ? COLORS.white : COLORS.dangerBorder}
+              />
+              <AppText
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: needsAttention ? COLORS.white : COLORS.black,
+                }}
+              >
+                Needs attention ({attentionCount})
+              </AppText>
+            </TouchableOpacity>
 
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
               <View style={{ flex: 1, zIndex: showStatusDropdown ? 20 : 1 }}>

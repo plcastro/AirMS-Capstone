@@ -29,6 +29,7 @@ import {
   ExportOutlined,
   EyeOutlined,
   SearchOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import { AuthContext } from "../../../context/AuthContext";
 import { API_BASE } from "../../../utils/API_BASE";
@@ -111,6 +112,7 @@ export default function PostInspection() {
   const [aircraftQuery, setAircraftQuery] = useState("");
   const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [status, setStatus] = useState("all");
+  const [needsAttention, setNeedsAttention] = useState(false);
   const [editing, setEditing] = useState(null);
   useEffect(() => {
     if (editing && !editing.flightLogId) markViewed(editing);
@@ -196,6 +198,7 @@ export default function PostInspection() {
     setSelectedAircraft(getLogAircraftRegistration(match));
     setQuery("");
     setStatus("all");
+    setNeedsAttention(false);
     setEditTab("basic");
     setEditing(match);
     navigate("/dashboard/post-flight inspection", { replace: true });
@@ -205,13 +208,26 @@ export default function PostInspection() {
     setSelectedAircraft(rpc);
     setQuery("");
     setStatus("all");
+    setNeedsAttention(false);
   };
 
   const backToAircraft = () => {
     setSelectedAircraft(null);
     setQuery("");
     setStatus("all");
+    setNeedsAttention(false);
   };
+
+  const attentionCount = useMemo(
+    () =>
+      records.filter(
+        (item) =>
+          getLogAircraftRegistration(item) === selectedAircraft &&
+          getDisplayStatus(String(item.status || "").toLowerCase()) !==
+            "completed",
+      ).length,
+    [records, selectedAircraft],
+  );
 
   const filtered = useMemo(
     () =>
@@ -219,12 +235,16 @@ export default function PostInspection() {
         const matchesQuery = matchesSearch(debouncedQuery, item);
         const matchesAircraft =
           getLogAircraftRegistration(item) === selectedAircraft;
-        const matchesStatus =
-          status === "all" ||
-          getDisplayStatus(String(item.status || "").toLowerCase()) === status;
+        // "Needs attention" lists every inspection that is not completed yet.
+        const matchesStatus = needsAttention
+          ? getDisplayStatus(String(item.status || "").toLowerCase()) !==
+            "completed"
+          : status === "all" ||
+            getDisplayStatus(String(item.status || "").toLowerCase()) ===
+              status;
         return matchesQuery && matchesAircraft && matchesStatus;
       }),
-    [records, debouncedQuery, selectedAircraft, status],
+    [records, debouncedQuery, selectedAircraft, status, needsAttention],
   );
 
   const booleanFields = useMemo(
@@ -558,7 +578,10 @@ export default function PostInspection() {
                   <Select
                     style={{ width: 180 }}
                     value={status}
-                    onChange={setStatus}
+                    onChange={(value) => {
+                      setStatus(value);
+                      setNeedsAttention(false);
+                    }}
                     options={STATUS_OPTIONS.map((value) => ({
                       value,
                       label:
@@ -566,6 +589,15 @@ export default function PostInspection() {
                     }))}
                     size="large"
                   />
+                  <Button
+                    size="large"
+                    type={needsAttention ? "primary" : "default"}
+                    icon={<WarningOutlined />}
+                    aria-pressed={needsAttention}
+                    onClick={() => setNeedsAttention((on) => !on)}
+                  >
+                    Needs attention ({attentionCount})
+                  </Button>
                 </Space>
               </Col>
             </Row>
