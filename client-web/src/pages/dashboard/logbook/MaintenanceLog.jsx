@@ -652,33 +652,35 @@ export default function MaintenanceLog() {
     }
   };
 
-  const handleExport = async () => {
-    if (!selectedWO) return;
+  const handleExport = async (record = selectedWO) => {
+    if (!record) return;
 
     try {
       setExporting(true);
+
       const [aircraftData, logoDataUrl] = await Promise.all([
-        fetchAircraftExportData(selectedWO.aircraft),
+        fetchAircraftExportData(record.aircraft),
         loadImageDataUrl(NGCP_LOGO_PATH).catch((error) => {
           console.warn(error);
           return null;
         }),
       ]);
+
       const [{ jsPDF }, { default: autoTable }] = await Promise.all([
         import("jspdf"),
         import("jspdf-autotable"),
       ]);
 
       const doc = new jsPDF("p", "pt", "a4");
-      const fileName = buildWorkDoneReportFileName(selectedWO);
+      const fileName = buildWorkDoneReportFileName(record);
+
       const bodyRows = (
-        Array.isArray(selectedWO.workDetails) &&
-        selectedWO.workDetails.length > 0
-          ? selectedWO.workDetails
+        Array.isArray(record.workDetails) && record.workDetails.length > 0
+          ? record.workDetails
           : [
               {
                 description:
-                  selectedWO.correctiveActionDone || selectedWO.defects || "",
+                  record.correctiveActionDone || record.defects || "",
               },
             ]
       )
@@ -687,7 +689,7 @@ export default function MaintenanceLog() {
         .map((description, index) => [String(index + 1), description]);
 
       const drawPageHeader = () =>
-        drawMaintenanceReportHeader(doc, selectedWO, aircraftData, logoDataUrl);
+        drawMaintenanceReportHeader(doc, record, aircraftData, logoDataUrl);
 
       const header = drawPageHeader();
 
@@ -714,8 +716,13 @@ export default function MaintenanceLog() {
           minCellHeight: 16,
         },
         columnStyles: {
-          0: { cellWidth: header.numberColumnWidth, halign: "center" },
-          1: { cellWidth: header.contentWidth - header.numberColumnWidth },
+          0: {
+            cellWidth: header.numberColumnWidth,
+            halign: "center",
+          },
+          1: {
+            cellWidth: header.contentWidth - header.numberColumnWidth,
+          },
         },
         didDrawPage: (data) => {
           if (data.pageNumber > 1) {
@@ -727,13 +734,17 @@ export default function MaintenanceLog() {
 
       drawMaintenanceReportSignoff(
         doc,
-        selectedWO,
+        record,
         header,
         doc.lastAutoTable?.finalY || header.startY,
       );
 
-      addPdfExecutionFooter(doc, { executedBy: getExportExecutorName() });
+      addPdfExecutionFooter(doc, {
+        executedBy: getExportExecutorName(),
+      });
+
       doc.save(`${fileName}.pdf`);
+
       setPopup({
         open: true,
         status: "success",
@@ -742,6 +753,7 @@ export default function MaintenanceLog() {
       });
     } catch (error) {
       console.error("Failed to export maintenance log:", error);
+
       setPopup({
         open: true,
         status: "error",
