@@ -3,6 +3,23 @@ import 'search.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'tasks.dart';
+import 'access.dart';
+import 'date_time.dart';
+import 'toast.dart';
+
+String inferRectificationInspectionName(Map<String, dynamic> item) {
+  final text = [item['issueTitle'], item['component'], item['recommendedAction'],
+    ...(item['manualReferences'] as List? ?? [])].where((value) => value != null && '$value'.isNotEmpty)
+    .join(' ').toLowerCase();
+  for (final pair in const [
+    ('tbo', 'TBO Inspection'), ('1500 fh', '1500 FH Inspection'),
+    ('1200 fh', '1200 FH Inspection'), ('750 fh', '750 FH Inspection'),
+    ('600 fh', '600 FH Inspection'), ('150 fh', '150 FH Inspection'),
+    ('48 m', '48 M Inspection'), ('24 m', '24 M Inspection'),
+    ('12 m', '12 M Inspection'), ('10 fh', '10 FH Inspection'),
+  ]) { if (text.contains(pair.$1)) return pair.$2; }
+  return 'OC Inspection';
+}
 
 class MaintenanceTrackingPage extends StatefulWidget {
   const MaintenanceTrackingPage({super.key, required this.session});
@@ -71,6 +88,7 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
           findings = (result['data'] as List? ?? []).map(flightMap).toList();
           meta = flightMap(result['meta']);
         });
+        AirmsToast.show('Maintenance summaries refreshed.');
       }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => regenerating = false); }
@@ -91,8 +109,8 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
   }
   Future<void> rectify(Map<String, dynamic> item) async {
     final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-      title: const Text('Mark finding rectified?'), content: Text('Clear the active issue for ${item['aircraft']}?'),
-      actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark rectified'))],
+      title: const Text('Mark finding rectified?'), content: Text('This will clear the active maintenance issue for ${item['aircraft']}.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark Rectified'))],
     ));
     if (confirmed != true) return;
     try {
@@ -104,9 +122,10 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
         'procedureSummary': item['procedureSummary'] ?? '',
         'manualReference': (item['manualReferences'] as List? ?? []).join(' | '),
         'matchedRuleCodes': (item['matchedRules'] as List? ?? []).map((rule) => rule is Map ? rule['ruleCode'] : null).where((value) => value != null).toList(),
-        'inspectionName': item['inspectionName'] ?? item['issueTitle'] ?? '', 'confirmAction': true,
+        'inspectionName': inferRectificationInspectionName(item), 'confirmAction': true,
       }, extraHeaders: {'x-action-confirmed': 'true'});
       await load();
+      if (mounted) AirmsToast.show('Maintenance finding rectified.');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   String dueState(Map<String, dynamic> row) {
@@ -118,6 +137,8 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
   }
   @override Widget build(BuildContext context) {
     final aircrafts = {...findings.map((item) => flightText(item['aircraft'])), ...remaining.map((item) => flightText(item['aircraft']))}.where((value) => value.isNotEmpty).toList()..sort();
+    final userRole = resolveUserRole(widget.session.user);
+    final canSchedule = ['maintenance manager', 'admin staff'].contains(userRole);
     final shownFindings = findings.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && matchesSearch(query, item));
     final shownRemaining = remaining.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && matchesSearch(query, item));
     final visibleFindings = shownFindings.toList();
@@ -183,12 +204,20 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
       if (!loading && shownFindings.isEmpty) const Text('No active findings found.'),
       pages(visibleFindings.length, findingsPage, (value) => setState(() => findingsPage = value)),
       const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Remaining Flight Hours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-      ...page(visibleRemaining, remainingPage).map((item) => Card(child: ListTile(title: Text('${item['aircraft'] ?? ''} · ${item['inspectionName'] ?? ''}'),
-        leading: Chip(label: Text(dueState(item))),
-        subtitle: Text('Remaining: ${item['remainingHours'] ?? '—'} FH · ${item['remainingDays'] ?? '—'} days\nDue: ${item['dueDate'] ?? item['dueAtHours'] ?? '—'}'), isThreeLine: true,
-        trailing: ['maintenance manager', 'admin staff'].contains(flightText(widget.session.user?['jobTitle']).toLowerCase())
-          ? taskScheduled(item) ? const Chip(label: Text('Scheduled')) : IconButton(tooltip: 'Schedule task', icon: const Icon(Icons.calendar_month), onPressed: () => schedule(item))
-          : null))),
+      ...page(visibleRemaining, remainingPage).map((item) => Card(child: Padding(padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Expanded(child: Text('${item['aircraft'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold))),
+            Chip(label: Text(dueState(item)), backgroundColor: dueState(item) == 'Overdue' ? Colors.red.shade100 :
+              dueState(item) == 'Due Soon' ? Colors.orange.shade100 : Colors.blue.shade100)]),
+          Text('${item['inspectionName'] ?? ''}'),
+          Text('Remaining FH: ${item['remainingHours'] == null ? 'N/A' : '${item['remainingHours']} FH'}'),
+          Text('Remaining Days: ${item['remainingDays'] == null ? 'N/A' : '${item['remainingDays']} day(s)'}'),
+          Text('Due At: ${item['dueAtHours'] == null ? 'N/A' : '${item['dueAtHours']} FH'}'),
+          Text('Due / End: ${formatAirmsDateTime(item['dueDate'], fallback: 'N/A')}'),
+          if (taskScheduled(item)) const Chip(label: Text('Task Scheduled'))
+          else if (canSchedule) TextButton.icon(onPressed: () => schedule(item), icon: const Icon(Icons.calendar_month), label: const Text('Schedule Task'))
+          else const Chip(label: Text('Not scheduled')),
+        ])))),
       if (!loading && shownRemaining.isEmpty) const Text('No inspection limits match.'),
       pages(visibleRemaining.length, remainingPage, (value) => setState(() => remainingPage = value)),
       const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Scheduled Tasks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
