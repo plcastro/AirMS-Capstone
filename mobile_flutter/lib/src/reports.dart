@@ -1,10 +1,13 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'search.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'file_exports.dart';
 import 'pdf_exports.dart';
+import 'date_time.dart';
+import 'access.dart';
 
 const reportSources = <String, String>{
   'Tasks': '/api/tasks/getAll',
@@ -37,6 +40,15 @@ bool _reportCompleted(Map<String, dynamic> task) {
   final status = flightText(task['status']).trim().toLowerCase();
   return {'completed', 'turned in', 'approved'}.contains(status) ||
       task['isApproved'] == true || task['completedAt'] != null;
+}
+
+String reportTaskBucket(Map<String, dynamic> task, DateTime now) {
+  if (_reportCompleted(task)) return 'completed';
+  final due = DateTime.tryParse(flightText(task['dueDate'] ?? task['endDateTime'] ?? task['dateRectified']));
+  if (due == null) return 'other';
+  if (due.isBefore(now)) return 'overdue';
+  if (!due.isAfter(now.add(const Duration(days: 3)))) return 'dueSoon';
+  return 'other';
 }
 bool _reportTaskMentions(Map<String, dynamic> task, List<String> words) {
   final details = [task['status'], task['title'], task['findings'], task['defects'],
@@ -90,10 +102,13 @@ class _ReportsPageState extends State<ReportsPage> {
   Map<String, dynamic> baseAnalytics = {};
   Map<String, String> aircraftBases = {};
   String selected = 'Tasks', search = '', error = '';
-  String taskKpi = 'completed';
+  String taskKpi = 'dueSoon';
+  Timer? searchTimer;
+  String searchDraft = '';
   bool loading = true;
   bool exporting = false;
   @override void initState() { super.initState(); load(); }
+  @override void dispose() { searchTimer?.cancel(); super.dispose(); }
   Future<void> load() async {
     setState(() => loading = true);
     final results = await Future.wait(reportSources.entries.map((entry) async {
@@ -244,25 +259,9 @@ class _ReportsPageState extends State<ReportsPage> {
     final filteredTasks = tasks.where((task) => matchesSearch(query, task)).toList();
     final completed = filteredTasks.where(_reportCompleted).length;
     final now = DateTime.now();
-    final dueSoon = filteredTasks.where((task) {
-      final due = DateTime.tryParse(flightText(task['dueDate'] ?? task['endDateTime']));
-      return due != null && !due.isBefore(now) && due.isBefore(now.add(const Duration(days: 3))) &&
-        !_reportCompleted(task);
-    }).length;
-    final overdue = filteredTasks.where((task) {
-      final due = DateTime.tryParse(flightText(task['dueDate'] ?? task['endDateTime']));
-      return due != null && due.isBefore(now) &&
-        !_reportCompleted(task);
-    }).length;
-    final drilldown = filteredTasks.where((task) {
-      final due = DateTime.tryParse(flightText(task['dueDate'] ?? task['endDateTime']));
-      final done = _reportCompleted(task);
-      return switch (taskKpi) {
-        'dueSoon' => due != null && !due.isBefore(now) && due.isBefore(now.add(const Duration(days: 3))) && !done,
-        'overdue' => due != null && due.isBefore(now) && !done,
-        _ => done,
-      };
-    }).toList();
+    final dueSoon = filteredTasks.where((task) => reportTaskBucket(task, now) == 'dueSoon').length;
+    final overdue = filteredTasks.where((task) => reportTaskBucket(task, now) == 'overdue').length;
+    final drilldown = filteredTasks.where((task) => reportTaskBucket(task, now) == taskKpi).toList();
     final byBase = _reportBaseRows(baseAnalytics, filteredTasks, aircraftBases, query);
     final taskStatuses = <String, int>{};
     for (final task in filteredTasks) {
@@ -315,21 +314,23 @@ class _ReportsPageState extends State<ReportsPage> {
       Text('Reports and Analytics', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 12),
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search),
-        labelText: 'Search report details', border: OutlineInputBorder()),
-        onChanged: (value) => setState(() => search = value)),
+        labelText: 'Search Report details', border: OutlineInputBorder()),
+        onChanged: (value) { searchDraft = value; searchTimer?.cancel(); searchTimer = Timer(const Duration(milliseconds: 225), () {
+          if (mounted) setState(() => search = searchDraft);
+        }); }),
       const SizedBox(height: 12),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        _Kpi('Tasks', filteredTasks.length), _Kpi('Completed', completed),
-        _Kpi('Due soon', dueSoon), _Kpi('Overdue', overdue),
-        _Kpi('Flight Logs', filtered('Flight Logs').length),
-        _Kpi('Inspections', filtered('Pre-Flight Inspections').length + filtered('Post-Flight Inspections').length),
+      if (query.isEmpty) Wrap(spacing: 8, runSpacing: 8, children: [
+        _Kpi('Completed', completed, onTap: () => setState(() => taskKpi = 'completed')),
+        _Kpi('Due Soon (next 3 days)', dueSoon, onTap: () => setState(() => taskKpi = 'dueSoon')),
+        _Kpi('Overdue', overdue, onTap: () => setState(() => taskKpi = 'overdue')),
+        _Kpi('Module Reports', 12, onTap: () => setState(() => selected = 'Tasks')),
       ]),
-      Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (query.isEmpty) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Base damage distribution', style: Theme.of(context).textTheme.titleMedium),
         ReportDonut(values: {for (final row in byBase)
           flightText(row['base']): (row['damagedCount'] as num?)?.toInt() ?? 0}),
       ]))),
-      Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (query.isEmpty) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Base repaired distribution', style: Theme.of(context).textTheme.titleMedium),
         ReportDonut(values: {for (final row in byBase)
           flightText(row['base']): (row['repairedCount'] as num?)?.toInt() ?? 0}),
@@ -392,11 +393,11 @@ class _ReportsPageState extends State<ReportsPage> {
             Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(label), selected: taskKpi == key,
               onSelected: (_) => setState(() => taskKpi = key))),
         ])),
-        for (final task in drilldown.take(10)) ListTile(
+        for (final task in drilldown.take(12)) Card(child: ListTile(
           title: Text(flightText(task['title'] ?? task['description'])),
-          subtitle: Text('${task['aircraft'] ?? ''} · ${task['dueDate'] ?? task['endDateTime'] ?? ''}'),
-          trailing: Text(flightText(task['priority'])),
-        ),
+          subtitle: Text('${task['aircraft'] ?? ''} · ${formatAirmsDateTime(task['dueDate'] ?? task['endDateTime'], fallback: 'N/A')}\nMechanic: ${task['assignedToName'] ?? 'Unassigned'} · Type: ${task['maintenanceType'] ?? 'N/A'} · Status: ${task['status'] ?? 'N/A'}'),
+          isThreeLine: true, trailing: Text(flightText(task['priority'])),
+        )),
         if (drilldown.isEmpty) const Text('No matching tasks'),
       ]))),
       const SizedBox(height: 12),
@@ -405,8 +406,7 @@ class _ReportsPageState extends State<ReportsPage> {
         onChanged: (name) => setState(() => selected = name ?? 'Tasks')),
       const SizedBox(height: 8),
       if (const {'admin staff', 'maintenance manager', 'officer-in-charge'}
-          .contains(flightText(widget.session.user?['jobTitle'] ??
-            widget.session.user?['access']).trim().toLowerCase())) ...[
+          .contains(resolveUserRole(widget.session.user))) ...[
         OutlinedButton.icon(onPressed: loading || exporting ? null : exportExcel,
           icon: const Icon(Icons.table_view_outlined), label: Text(exporting ? 'Exporting...' : 'Export Excel')),
         OutlinedButton.icon(onPressed: loading || exporting ? null : exportPdf,
@@ -435,10 +435,13 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 }
 class _Kpi extends StatelessWidget {
-  const _Kpi(this.label, this.value);
+  const _Kpi(this.label, this.value, {this.onTap});
   final String label;
   final int value;
-  @override Widget build(BuildContext context) => SizedBox(width: 155, child: Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('$value', style: Theme.of(context).textTheme.headlineMedium), Text(label)]))));
+  final VoidCallback? onTap;
+  @override Widget build(BuildContext context) => SizedBox(width: 155, child: Card(child: InkWell(onTap: onTap,
+    child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+      children: [Text('$value', style: Theme.of(context).textTheme.headlineMedium), Text(label)])))));
 }
 class _ReportBar extends StatelessWidget {
   const _ReportBar(this.label, this.value, this.maximum);
