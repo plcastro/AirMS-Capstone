@@ -56,5 +56,9 @@ class PushService {
       'deviceId': deviceId, 'fcmToken': token, 'platform': Platform.isIOS ? 'ios' : 'android',
     });
   }
+  Future<void> unregister() async {
+    if (Firebase.apps.isEmpty) return;
+    try { await FirebaseMessaging.instance.deleteToken(); } catch (_) {}
+  }
   void dispose() { for (final subscription in subscriptions) { subscription.cancel(); } subscriptions.clear(); started = false; }
 }

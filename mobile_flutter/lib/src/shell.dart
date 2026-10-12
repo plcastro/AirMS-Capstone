@@ -52,6 +52,16 @@ const modules = <Module>[
   Module('Profile', '', Icons.person_outline, {admin, manager, mechanic, pilot, officer, warehouse}),
 ];
 
+const drawerGroups = <String, List<String>>{
+  'GENERAL': ['Reports and Analytics', 'Messages'],
+  'USER MANAGEMENT': ['Manage Users', 'Activity Logs'],
+  'AIRCRAFT HEALTH LOGBOOK': ['Flight Logs', 'Maintenance Logs', 'Pre-Flight Inspection', 'Post-Flight Inspection'],
+  'TASK ASSIGNMENT & MONITORING': ['Tasks', 'Mechanics'],
+  'PARTS LIFESPAN & MAINTENANCE TRACKING': ['Parts Lifespan Monitoring', 'Maintenance Tracking', 'Maintenance Priority Sorting'],
+  'PARTS REQUISITION': ['Parts Requisition'],
+  'SETTINGS': ['Profile'],
+};
+
 class AirmsShell extends StatefulWidget {
   const AirmsShell({super.key, required this.session, required this.onLogout, this.link, required this.onLinkHandled});
   final AirmsSession session;
@@ -244,6 +254,18 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
       } catch (_) {}
     }
   }
+  Future<void> confirmLogout() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Confirm Logout'),
+      content: const Text('Are you sure you want to log out?'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Log Out'))],
+    ));
+    if (confirmed != true) return;
+    await push.unregister();
+    await widget.session.logout();
+    if (mounted) widget.onLogout();
+  }
   @override void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) { checkIdle(); refreshUnread(); }
   }
@@ -262,18 +284,27 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
             openNotification(payload);
           })))),
       IconButton(icon: const Icon(Icons.account_circle_outlined), onPressed: () => setState(() => selected = modules.last))]),
-    drawer: Drawer(child: SafeArea(child: Column(children: [
+    drawer: Drawer(width: MediaQuery.sizeOf(context).width * .85,
+      child: SafeArea(child: Column(children: [
       UserAccountsDrawerHeader(accountName: Text('${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'),
-        accountEmail: Text('${widget.session.user?['jobTitle'] ?? ''}'),
-        currentAccountPicture: CircleAvatar(child: Text('${widget.session.user?['firstName'] ?? 'U'}'.substring(0, 1))),
+        accountEmail: Text('${widget.session.user?['email'] ?? ''}'),
+        currentAccountPicture: CircleAvatar(
+          foregroundImage: '${widget.session.user?['image'] ?? ''}'.startsWith('http')
+            ? NetworkImage('${widget.session.user?['image']}') : null,
+          child: Text('${'${widget.session.user?['firstName'] ?? ''}'.isEmpty ? 'U' : '${widget.session.user?['firstName']}'[0]}${'${widget.session.user?['lastName'] ?? ''}'.isEmpty ? '' : '${widget.session.user?['lastName']}'[0]}'.toUpperCase())),
         decoration: const BoxDecoration(color: Color(0xff244d3b))),
-      Expanded(child: ListView(children: allowed.map((module) => ListTile(
-        leading: Icon(module.icon), title: Text(module.title), selected: selected == module,
-        onTap: () { Navigator.pop(context); setState(() => selected = module); },
-      )).toList())),
-      ListTile(leading: const Icon(Icons.logout), title: const Text('Logout'), onTap: () async {
-        Navigator.pop(context); await widget.session.logout(); widget.onLogout();
-      }),
+      Expanded(child: ListView(children: [for (final group in drawerGroups.entries)
+        if (allowed.any((module) => group.value.contains(module.title))) ...[
+          Padding(padding: const EdgeInsets.fromLTRB(18, 12, 8, 2), child: Text(group.key,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54))),
+          for (final module in allowed.where((item) => group.value.contains(item.title)))
+            ListTile(leading: Icon(module.icon), selected: selected == module,
+              title: Text(module.title == 'Parts Requisition' ? 'Parts Requisition Monitoring' : module.title),
+              onTap: () { Navigator.pop(context); setState(() => selected = module); }),
+        ],
+      ])),
+      ListTile(leading: const Icon(Icons.logout), title: const Text('Log Out'),
+        onTap: () { Navigator.pop(context); confirmLogout(); }),
     ]))),
     body: selected.title == 'Profile' ? ProfilePage(session: widget.session)
       : selected.title == 'Messages' ? MessagingPage(session: widget.session)
