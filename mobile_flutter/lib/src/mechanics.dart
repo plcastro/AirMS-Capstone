@@ -127,11 +127,13 @@ class CertificatePage extends StatefulWidget {
 }
 class _CertificatePageState extends State<CertificatePage> {
   List<Map<String, dynamic>> records = [];
+  List<Map<String, dynamic>> uploadResults = [];
   Map<String, dynamic> qualifications = {};
   String status = 'all', error = '';
   bool loading = true;
   int page = 1, total = 0;
   bool uploading = false;
+  String uploadProgress = '';
   final reassessed = <String>{};
   @override void initState() { super.initState(); load(); }
   Future<void> load() async {
@@ -171,13 +173,17 @@ class _CertificatePageState extends State<CertificatePage> {
   Future<void> upload() async {
     final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png']);
     if (files.isEmpty) return;
-    setState(() { uploading = true; error = ''; });
+    setState(() { uploading = true; error = ''; uploadResults = []; });
     try {
-      for (final file in files) {
+      for (var index = 0; index < files.length; index++) {
+        final file = files[index];
+        if (mounted) setState(() => uploadProgress = 'Reading ${index + 1} of ${files.length}: ${file.name}');
+        try {
         final extension = file.name.split('.').last.toLowerCase();
+        if (!const {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension)) throw const ApiException('Choose a PDF, JPG or PNG certificate.');
         final mime = extension == 'pdf' ? 'application/pdf' : extension == 'png' ? 'image/png' : 'image/jpeg';
         final bytes = await file.readAsBytes();
-        if (bytes.length > 4 * 1024 * 1024) throw const ApiException('Certificate exceeds the 4 MiB limit.');
+        if (bytes.length > 4 * 1024 * 1024) throw const ApiException('This file exceeds the 4 MiB limit.');
         final request = http.MultipartRequest('POST', Uri.parse('$apiBase/api/certificates/personnel/${Uri.encodeComponent(widget.personnelId)}'));
         request.headers.addAll({...widget.session.headers(), 'x-action-confirmed': 'true'}..remove('Content-Type'));
         request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: file.name, contentType: MediaType.parse(mime)));
@@ -190,18 +196,47 @@ class _CertificatePageState extends State<CertificatePage> {
         }
         final payload = decodeResponse(response);
         if (response.statusCode >= 400) throw ApiException('${payload['message'] ?? 'Certificate upload failed'}');
-        final record = flightMap(payload['data']);
+        var record = flightMap(payload['data']);
         if (record['id'] != null && record['revision'] != null) {
-          await widget.session.request('/api/certificates/${record['id']}/analyze', method: 'POST', body: {'expectedRevision': record['revision']}, extraHeaders: {'x-action-confirmed': 'true'});
+          final analyzed = await widget.session.request('/api/certificates/${record['id']}/analyze', method: 'POST', body: {'expectedRevision': record['revision']}, extraHeaders: {'x-action-confirmed': 'true'});
+          final updated = flightMap(flightMap(analyzed['data'])['certificate']);
+          if (updated.isNotEmpty) record = updated;
+        }
+        if (mounted) setState(() => uploadResults.add({'name': file.name, 'record': record, 'status': 'uploaded'}));
+        } catch (e) {
+          if (mounted) setState(() => uploadResults.add({'name': file.name, 'status': 'failed', 'message': '$e'}));
         }
       }
       await load();
+      final successful = uploadResults.where((result) => result['status'] == 'uploaded').toList();
+      if (files.length == 1 && successful.length == 1 && mounted) {
+        final record = flightMap(successful.first['record']);
+        if (record['status'] != 'VERIFIED') {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => _CertificateDetail(session: widget.session,
+            id: flightText(record['id'] ?? record['_id']), person: widget.personnelId)));
+          await load();
+        }
+      }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
-    finally { if (mounted) setState(() => uploading = false); }
+    finally { if (mounted) setState(() { uploading = false; uploadProgress = ''; }); }
   }
   @override Widget build(BuildContext context) => RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(8), children: [
+    const Text('Certificates & aircraft approval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+    const Text('Upload a certificate. We read the holder, type and qualifications, then approve tasks for a matching aircraft. We ask for help if the reading is unclear.'),
     FilledButton.icon(onPressed: uploading || widget.personnelId.isEmpty ? null : upload, icon: const Icon(Icons.upload_file), label: Text(uploading ? 'Uploading…' : 'Upload certificate')),
-    SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'PENDING_REVIEW', 'VERIFIED'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value), selected: status == value, onSelected: (_) { setState(() { status = value; page = 1; }); load(); }))).toList())),
+    const Text('PDF, JPG or PNG · up to 4 MiB · PDF up to 20 pages'),
+    if (uploadProgress.isNotEmpty) Text(uploadProgress),
+    OutlinedButton(onPressed: uploading ? null : load, child: const Text('Refresh')),
+    SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'PENDING_REVIEW', 'VERIFIED'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value == 'all' ? 'All' : value == 'PENDING_REVIEW' ? 'Needs attention' : 'Accepted'), selected: status == value, onSelected: (_) { setState(() { status = value; page = 1; }); load(); }))).toList())),
+    if (uploadResults.isNotEmpty) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Upload results', style: TextStyle(fontWeight: FontWeight.bold)),
+      for (final result in uploadResults) ListTile(title: Text('${result['name']}'), subtitle: Text(result['status'] == 'uploaded'
+        ? flightMap(result['record'])['status'] == 'VERIFIED' ? 'Accepted automatically' : 'Needs attention'
+        : '${result['message'] ?? 'Upload failed'}'), trailing: result['status'] == 'uploaded' && flightMap(result['record'])['status'] != 'VERIFIED'
+          ? TextButton(onPressed: () async { final record = flightMap(result['record']); await Navigator.push(context, MaterialPageRoute(builder: (_) =>
+              _CertificateDetail(session: widget.session, id: flightText(record['id'] ?? record['_id']), person: widget.personnelId))); load(); },
+            child: const Text('Check details')) : null),
+    ]))),
     if (loading) const Center(child: CircularProgressIndicator()),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     if (qualifications['results'] is List) ...((qualifications['results'] as List).map((value) { final result = flightMap(value); return Card(child: ListTile(title: Text(flightText(result['aircraft'])), subtitle: Text(result['qualified'] == true ? 'Approved for tasks' : 'No accepted qualifying certificate'))); })),
@@ -253,6 +288,15 @@ class _CertificateDetailState extends State<_CertificateDetail> {
     finally { if (mounted) setState(() => loading = false); }
   }
   Future<void> action(String operation, {String method = 'POST', Map<String, dynamic> body = const {}}) async {
+    if (operation == 'reject' || operation == 'revoke') {
+      final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw this certificate?'),
+        content: const Text('This certificate will no longer grant task access. Its original and history remain saved.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Confirm'))],
+      ));
+      if (confirmed != true || !mounted) return;
+    }
     setState(() { busy = true; error = ''; });
     try {
       final result = await widget.session.request('/api/certificates/${widget.id}/$operation', method: method,
@@ -260,7 +304,7 @@ class _CertificateDetailState extends State<_CertificateDetail> {
       if (operation == 'preview') {
         if (mounted) setState(() => preview = flightMap(result['data']));
       } else { await load(); }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) setState(() => error = '$e${'$e'.contains('409') ? '\nClose this review and open it again to see the latest certificate.' : ''}'); }
     finally { if (mounted) setState(() => busy = false); }
   }
   Map<String, dynamic> corrections() => {
@@ -298,7 +342,7 @@ class _CertificateDetailState extends State<_CertificateDetail> {
     finally { if (mounted) setState(() => busy = false); }
   }
   @override Widget build(BuildContext context) {
-    final role = flightText(widget.session.user?['jobTitle']).toLowerCase();
+    final role = resolveUserRole(widget.session.user);
     final reviewer = role == 'maintenance manager' || role == 'admin staff';
     final pending = record['status'] == 'PENDING_REVIEW';
     final verified = record['status'] == 'VERIFIED';
@@ -315,12 +359,18 @@ class _CertificateDetailState extends State<_CertificateDetail> {
             decoration: InputDecoration(labelText: field.$2)),
           CheckboxListTile(value: doesNotExpire, title: const Text('Does not expire'),
             onChanged: (value) => setState(() => doesNotExpire = value == true)),
-          FilledButton(onPressed: busy ? null : () => action('review', method: 'PATCH', body: {'corrections': corrections(), 'reviewNote': note.text.trim()}), child: const Text('Save details')),
+          FilledButton(onPressed: busy || reviewer && !sourceReviewed ? null : () async {
+            await action('review', method: 'PATCH', body: {'corrections': corrections(), 'reviewNote': note.text.trim()});
+            if (reviewer && error.isEmpty && mounted) {
+              await action('confirm', body: {
+                'confirmedPersonnelId': widget.person, 'sourceReviewed': true, 'reviewNote': note.text.trim()});
+            }
+          }, child: Text(reviewer ? 'Confirm details' : 'Save details')),
           OutlinedButton(onPressed: busy ? null : () => action('preview', body: {'corrections': corrections()}), child: const Text('Check qualifications')),
           if (preview['errors'] is List) ...((preview['errors'] as List).map((item) => Text('$item', style: const TextStyle(color: Colors.red)))),
           if (reviewer) ...[
             CheckboxListTile(value: sourceReviewed, title: const Text('I checked these details against the original certificate'), onChanged: (value) => setState(() => sourceReviewed = value == true)),
-            FilledButton(onPressed: busy || !sourceReviewed ? null : () => action('confirm', body: {'confirmedPersonnelId': widget.person, 'sourceReviewed': true, 'reviewNote': note.text.trim()}), child: const Text('Confirm certificate')),
+            const Text('Confirming records that you checked these details against the original certificate.'),
           ],
         ],
         ...data.entries.where((entry) => !fields.any((field) => field.$1 == entry.key)).map((entry) => Card(child: ListTile(title: Text(entry.key), subtitle: Text('${entry.value}')))),
