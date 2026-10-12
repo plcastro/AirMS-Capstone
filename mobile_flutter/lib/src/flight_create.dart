@@ -3,6 +3,7 @@ import 'auth.dart';
 import 'flight_signing.dart';
 import 'flight_logs.dart';
 import 'inspection_checklist.dart';
+import 'inspection_rules.dart';
 
 class FlightCreatePage extends StatefulWidget {
   const FlightCreatePage({super.key, required this.session, required this.ongoing, this.initialRpc = ''});
@@ -21,6 +22,7 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
   String pilotId = '';
   Map<String, dynamic> confirmation = {};
   bool busy = false;
+  int checklistPage = 0;
   final control = TextEditingController(), date = TextEditingController();
   @override void initState() { super.initState(); date.text = '${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().year}'; loadAircraft(); loadPilots(); }
   @override void dispose() { control.dispose(); date.dispose(); super.dispose(); }
@@ -46,7 +48,7 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   Future<void> selectAircraft(String value) async {
-    setState(() { rpc = value; checked.clear(); discrepancies.clear(); items = []; confirmationId = ''; error = ''; });
+    setState(() { rpc = value; checked.clear(); discrepancies.clear(); items = []; checklistPage = 0; confirmationId = ''; error = ''; });
     try {
       final result = await widget.session.request('/api/parts-monitoring/${Uri.encodeComponent(value)}');
       final type = '${(result['data'] as Map?)?['aircraftType'] ?? ''}';
@@ -87,7 +89,14 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }
-  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('New Flight Log')),
+  @override Widget build(BuildContext context) {
+    final pages = (items.length / inspectionPageSize).ceil().clamp(1, 99999);
+    final visible = items.skip(checklistPage * inspectionPageSize).take(inspectionPageSize).toList();
+    void updateChecks(Iterable<String> keys, bool value) => setState(() {
+      final next = setInspectionChecks(keys, checked, discrepancies.keys.toSet(), value);
+      checked..clear()..addAll(next);
+    });
+    return Scaffold(appBar: AppBar(title: const Text('New Flight Log')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       DropdownButtonFormField<String>(initialValue: rpc.isEmpty ? null : rpc, decoration: const InputDecoration(labelText: 'Aircraft registration', border: OutlineInputBorder()),
@@ -96,11 +105,20 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
       const SizedBox(height: 12),
       if (rpc.isNotEmpty) Text('Pre-Flight Inspection · $aircraftType', style: Theme.of(context).textTheme.titleMedium),
       if (rpc.isNotEmpty && items.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('Loading checklist…')),
-      if (confirmationId.isEmpty) for (var index = 0; index < items.length; index++) ...[
-        if (index == 0 || items[index]['_section'] != items[index - 1]['_section'])
-          Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text('${items[index]['_section']}',
+      if (confirmationId.isEmpty && items.isNotEmpty) ...[
+        const Text('Review every pre-flight item in person. Check each item, or flag it as a discrepancy. You can save a draft and finish later.'),
+        Wrap(spacing: 6, children: [
+          OutlinedButton(onPressed: busy ? null : () => updateChecks(items.map((item) => '${item['key']}'), true), child: const Text('Mark all items good')),
+          OutlinedButton(onPressed: busy ? null : () => updateChecks(items.map((item) => '${item['key']}'), false), child: const Text('Clear all')),
+          OutlinedButton(onPressed: busy ? null : () => updateChecks(visible.map((item) => '${item['key']}'), true), child: const Text('Select all on this page')),
+          OutlinedButton(onPressed: busy ? null : () => updateChecks(visible.map((item) => '${item['key']}'), false), child: const Text('Clear this page')),
+        ]),
+      ],
+      if (confirmationId.isEmpty) for (var index = 0; index < visible.length; index++) ...[
+        if (index == 0 || visible[index]['_section'] != visible[index - 1]['_section'])
+          Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text('${visible[index]['_section']}',
             style: Theme.of(context).textTheme.titleMedium)),
-        Builder(builder: (context) { final item = items[index]; final key = '${item['key']}'; final flagged = discrepancies.containsKey(key); return Card(child: Column(children: [
+        Builder(builder: (context) { final item = visible[index]; final key = '${item['key']}'; final flagged = discrepancies.containsKey(key); return Card(child: Column(children: [
         Row(children: [Expanded(child: CheckboxListTile(
           value: checked.contains(key), title: Text('${item['title']}'), subtitle: Text('${item['description'] ?? ''}'),
           onChanged: busy || flagged ? null : (value) => setState(() { if (value == true) { checked.add(key); } else { checked.remove(key); } }),
@@ -114,6 +132,11 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
         )),
       ])); }),
       ],
+      if (confirmationId.isEmpty && pages > 1) Row(children: [
+        TextButton(onPressed: checklistPage > 0 ? () => setState(() => checklistPage--) : null, child: const Text('Previous')),
+        Text('Page ${checklistPage + 1} of $pages'),
+        TextButton(onPressed: checklistPage + 1 < pages ? () => setState(() => checklistPage++) : null, child: const Text('Next')),
+      ]),
       if (items.isNotEmpty && confirmationId.isEmpty) Text('${checked.length} of ${items.length} checked · ${discrepancies.length} flagged'),
       if (items.isNotEmpty && confirmationId.isEmpty) FilledButton.icon(onPressed: busy || checked.length != items.length || discrepancies.isNotEmpty ? null : confirm, icon: const Icon(Icons.draw), label: const Text('Sign Pre-Flight confirmation')),
       if (items.isNotEmpty && confirmationId.isEmpty) OutlinedButton.icon(onPressed: busy ? null : () => confirm(allGood: false), icon: const Icon(Icons.save_outlined), label: Text(discrepancies.isEmpty ? 'Save checklist draft and continue' : 'Save draft with discrepancies')),
@@ -131,4 +154,5 @@ class _FlightCreatePageState extends State<FlightCreatePage> {
         FilledButton.icon(onPressed: busy ? null : create, icon: const Icon(Icons.add), label: const Text('Create flight log')),
       ],
     ]));
+  }
 }
