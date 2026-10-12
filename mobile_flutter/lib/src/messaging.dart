@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'search.dart';
+import 'toast.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -115,7 +116,7 @@ class _MessagingPageState extends State<MessagingPage> {
       await load();
       final group = data['data']?['group'];
       if (mounted && group is Map) open(ChatTarget(id: entityId(group), title: '${group['name']}', type: 'group', group: group));
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+    } catch (e) { if (mounted) AirmsToast.show(e); }
   }
 
   void open(ChatTarget target) => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(

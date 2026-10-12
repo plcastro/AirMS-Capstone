@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'search.dart';
+import 'toast.dart';
 import 'package:flutter/services.dart';
 import 'auth.dart';
 import 'flight_signing.dart';
@@ -126,7 +127,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           ...task, ...changes, 'confirmAction': true, 'confirmBusyMechanic': true,
         });
       if (mounted) setState(() => task = Map<String, dynamic>.from(updated['data'] as Map? ?? {...task, ...changes}));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label successful')));
+      if (mounted) AirmsToast.show('$label successful');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }

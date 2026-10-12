@@ -11,6 +11,7 @@ import 'pdf_exports.dart';
 import 'flight_pdf.dart';
 import 'viewed_logs.dart';
 import 'search.dart';
+import 'toast.dart';
 
 Map<String, dynamic> flightMap(dynamic value) => value is Map ? Map<String, dynamic>.from(value) : {};
 String flightText(dynamic value) => value == null ? '' : '$value';
@@ -273,8 +274,7 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
         extraHeaders: {'x-action-confirmed': 'true'});
       await load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Linked Pre-Flight and Post-Flight inspections created.')));
+        AirmsToast.show('Linked Pre-Flight and Post-Flight inspections created.');
       }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => saving = false); }
@@ -299,7 +299,7 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
       await discardStoredDraft();
       if (mounted) setState(() => draft = {});
       await load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Draft saved')));
+      if (mounted) AirmsToast.show('Draft saved');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => saving = false); }
   }

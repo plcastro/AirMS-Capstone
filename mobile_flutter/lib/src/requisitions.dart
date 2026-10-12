@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'search.dart';
+import 'toast.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 
@@ -159,7 +160,7 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
         method: 'POST', body: {'action': action, ...extra, 'confirmAction': true},
         extraHeaders: {'x-action-confirmed': 'true'});
       if (mounted) setState(() { record = Map<String, dynamic>.from(data as Map); stockDraft = {}; });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${requisitionLabel(status)} updated')));
+      if (mounted) AirmsToast.show('${requisitionLabel(status)} updated');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }

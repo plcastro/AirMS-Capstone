@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'search.dart';
+import 'toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -50,8 +51,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
         extraHeaders: {'x-action-confirmed': 'true'},
         body: {...?body, 'confirmAction': true});
       await load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label successful')));
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+      if (mounted) AirmsToast.show('$label successful');
+    } catch (e) { if (mounted) AirmsToast.show(e); }
   }
 
   Future<void> edit([Map<String, dynamic>? user]) async {

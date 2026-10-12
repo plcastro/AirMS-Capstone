@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,7 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!value) {
       setState(() => notifications = false);
       await saveSettings();
-      if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notifications turned off in app settings.'))); }
+      if (mounted) AirmsToast.show('Notifications turned off in app settings.');
       return;
     }
     try {
@@ -53,10 +54,12 @@ class _ProfilePageState extends State<ProfilePage> {
         permission.authorizationStatus == AuthorizationStatus.provisional;
       if (mounted) setState(() => notifications = allowed);
       await saveSettings();
-      if (mounted) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(allowed
-        ? 'Notifications are enabled.' : 'Notification permission was denied. Enable it in device settings.'))); }
+      if (mounted) {
+        AirmsToast.show(allowed
+          ? 'Notifications are enabled.' : 'Notification permission was denied. Enable it in device settings.');
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) AirmsToast.show(e);
     }
   }
   String get userId => '${widget.session.user?['id'] ?? widget.session.user?['_id'] ?? ''}';

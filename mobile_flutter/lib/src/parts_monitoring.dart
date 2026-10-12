@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'search.dart';
+import 'toast.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -81,7 +82,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
       final aircraftName = flightText(flightMap(imported['data'])['aircraft']);
       await loadAircraft();
       if (aircraftName.isNotEmpty) await select(aircraftName);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${imported['message'] ?? 'Aircraft imported'}')));
+      if (mounted) AirmsToast.show(imported['message'] ?? 'Aircraft imported');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => transferring = false); }
   }
@@ -129,7 +130,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
         'updatedBy': '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
       }, extraHeaders: {'x-action-confirmed': 'true'});
       await select(selected, resetView: false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Parts lifespan data saved')));
+      if (mounted) AirmsToast.show('Parts lifespan data saved');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => saving = false); }
   }
