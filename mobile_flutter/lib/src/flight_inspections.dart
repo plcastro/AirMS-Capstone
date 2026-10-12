@@ -15,6 +15,14 @@ DateTime inspectionDate(dynamic value) {
   return DateTime(1970);
 }
 
+String inspectionDisplayStatus(Map<String, dynamic> item) {
+  final value = flightText(item['status']).trim().toLowerCase();
+  return value == 'completed' || value == 'released' ? value : 'pending';
+}
+
+List<Map<String, dynamic>> filterInspectionsByStatus(List<Map<String, dynamic>> items, String status) =>
+  items.where((item) => status == 'all' || inspectionDisplayStatus(item) == status).toList();
+
 class FlightInspectionsPage extends StatefulWidget {
   const FlightInspectionsPage({super.key, required this.session, required this.kind});
   final AirmsSession session;
@@ -30,8 +38,23 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
   @override void initState() {
     super.initState();
     viewed = ViewedLogs(flightText(widget.session.user?['_id'] ?? widget.session.user?['id']), widget.kind);
+    status = widget.kind == 'pre' ? 'released' : 'pending';
+    loadStatus();
     viewed.load().then((_) { if (mounted) setState(() => viewedReady = true); });
     load();
+  }
+  String get statusKey => 'status-filter:${widget.kind}:${flightText(widget.session.user?['id'] ?? widget.session.user?['_id'])}';
+  Future<void> loadStatus() async {
+    final prefs = await preferences();
+    final saved = prefs.getString(statusKey);
+    if (mounted && const {'all', 'pending', 'released', 'completed'}.contains(saved)) {
+      setState(() => status = saved!);
+    }
+  }
+  Future<void> selectStatus(String value) async {
+    setState(() => status = value);
+    final prefs = await preferences();
+    await prefs.setString(statusKey, value);
   }
   Future<void> exportInspection(Map<String, dynamic> item) async {
     final id = flightText(item['_id'] ?? item['id']);
@@ -53,11 +76,7 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
     finally { if (mounted) setState(() => loading = false); }
   }
   @override Widget build(BuildContext context) {
-    String displayStatus(Map<String, dynamic> item) {
-      final value = flightText(item['status']).trim().toLowerCase();
-      return value == 'completed' || value == 'released' ? value : 'pending';
-    }
-    final matching = inspections.where((item) => status == 'all' || displayStatus(item) == status).toList();
+    final matching = filterInspectionsByStatus(inspections, status);
     final newest = matching.toList()..sort((a, b) =>
       inspectionDate(b['updatedAt'] ?? b['createdAt'] ?? b['date'])
         .compareTo(inspectionDate(a['updatedAt'] ?? a['createdAt'] ?? a['date'])));
@@ -77,8 +96,8 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
           })),
       if (aircraft.isEmpty) SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children:
         ['all', 'pending', 'released', 'completed'].map((value) => Padding(
-          padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value),
-            selected: status == value, onSelected: (_) => setState(() => status = value)))).toList())),
+          padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value == 'all' ? 'All status' : '${value[0].toUpperCase()}${value.substring(1)}'),
+            selected: status == value, onSelected: (_) => selectStatus(value)))).toList())),
       if (aircraft.isEmpty) ...aircrafts.where((name) => matchesSearch(aircraftQuery, name)).map((name) {
         final records = matching.where((item) => flightAircraft(item) == name).toList();
         final fresh = viewedReady ? records.where(viewed.isNew).length : 0;
@@ -91,7 +110,7 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
           status == 'all' ? 'No inspections found yet.' : 'No $status inspections found yet.'))),
       if (aircraft.isNotEmpty) ...[
         TextButton.icon(onPressed: () => setState(() { aircraft = ''; query = ''; }), icon: const Icon(Icons.arrow_back), label: Text(aircraft)),
-        SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'pending', 'released', 'completed'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value), selected: status == value, onSelected: (_) => setState(() => status = value)))).toList())),
+        SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'pending', 'released', 'completed'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value == 'all' ? 'All status' : '${value[0].toUpperCase()}${value.substring(1)}'), selected: status == value, onSelected: (_) => selectStatus(value)))).toList())),
         DropdownButtonFormField<String>(initialValue: sortOrder,
           decoration: const InputDecoration(labelText: 'Sort inspections', border: OutlineInputBorder()),
           items: const [DropdownMenuItem(value: 'newest', child: Text('Newest first')),
