@@ -29,7 +29,9 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
   @override void initState() {
     super.initState();
     fob.text = flightText(widget.record['fob']); notes.text = flightText(widget.record['notes']);
-    discrepancies = flightMap(widget.record['discrepancies']);
+    discrepancies = {for (final entry in flightMap(widget.record['discrepancies']).entries)
+      if (flightMap(entry.value)['resolved'] != true)
+        entry.key: {'note': flightText(flightMap(entry.value)['note'])}};
     loadChecklist();
   }
   @override void dispose() { fob.dispose(); notes.dispose(); resolution.dispose(); super.dispose(); }
@@ -53,22 +55,6 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
         FilledButton(onPressed: () => Navigator.pop(dialogContext, note.text.trim()), child: const Text('Save'))]));
     note.dispose();
     if (result != null && result.isNotEmpty) setState(() { discrepancies[key] = {'note': result}; checked.remove(key); });
-  }
-  Future<void> resolve(String key) async {
-    final previous = flightMap(discrepancies[key]);
-    final note = TextEditingController(text: flightText(previous['resolution']));
-    final result = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('Resolve discrepancy'),
-      content: TextField(controller: note, maxLines: 3, decoration: const InputDecoration(labelText: 'Corrective action taken')),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(dialogContext, note.text.trim()), child: const Text('Resolve'))],
-    ));
-    note.dispose();
-    if (result != null && result.isNotEmpty) {
-      setState(() {
-        discrepancies[key] = {...previous, 'resolved': true, 'resolution': result};
-      });
-    }
   }
   Future<void> submit(bool allGood) async {
     if (!allGood && discrepancies.values.any((value) => flightText(flightMap(value)['note']).trim().isEmpty)) {
@@ -131,10 +117,7 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
             onChanged: canEdit && !discrepancies.containsKey(key)
               ? (value) => setState(() { if (value == true) { checked.add(key); } else { checked.remove(key); } }) : null),
           if (discrepancies.containsKey(key)) ListTile(title: Text('Discrepancy: ${flightMap(discrepancies[key])['note']}'),
-            subtitle: Text(flightMap(discrepancies[key])['resolved'] == true
-              ? 'Resolved: ${flightMap(discrepancies[key])['resolution'] ?? ''}' : 'Open')),
-          if (canEdit && discrepancies.containsKey(key) && flightMap(discrepancies[key])['resolved'] != true)
-            TextButton.icon(onPressed: () => resolve(key), icon: const Icon(Icons.check), label: const Text('Record corrective action')),
+            subtitle: const Text('Flagged; remove flag after correction')),
           if (canEdit) Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             if (discrepancies.containsKey(key)) TextButton(onPressed: () => setState(() => discrepancies.remove(key)),
               child: const Text('Remove flag')),

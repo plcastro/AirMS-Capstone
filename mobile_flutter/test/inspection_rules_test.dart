@@ -10,5 +10,7 @@ void main() {
     expect(canSignInspection(2, {'a', 'b'}, {}, held: true), isFalse);
     expect(canSignInspection(2, {'a', 'b'}, {}, held: true, resolution: 'Fixed'), isTrue);
     expect(canSignInspection(2, {'a', 'b'}, {'a'}), isFalse);
+    expect(canSignInspection(2, {'a', 'b'}, {'a'}, held: true, resolution: 'Fixed'), isFalse);
+    expect(canSignInspection(2, {'a', 'b'}, {}, held: true, resolution: '  '), isFalse);
   });
 }
