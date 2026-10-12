@@ -291,10 +291,13 @@ class _TaskFormPageState extends State<TaskFormPage> {
         .whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
     if (widget.inspectionDraft != null && widget.task == null) {
       final draft = widget.inspectionDraft!;
-      title.text = taskText(draft['inspectionName']);
+      title.text = taskText(draft['inspectionName'] ?? draft['issueTitle']);
       aircraft.text = taskText(draft['aircraft']);
       checklist.text = title.text;
-      priority = {'Overdue', 'Due Soon'}.contains(taskText(draft['dueStatus'])) ? 'High' : 'Normal';
+      priority = draft['draftType'] == 'inspectionLimit'
+        ? {'Overdue', 'Due Soon'}.contains(taskText(draft['dueStatus'])) ? 'High' : 'Normal'
+        : scoreToTaskPriority(taskPriorityScore(riskLevel: taskText(draft['riskLevel']),
+          maintenanceType: 'Corrective Maintenance', checklistCount: 1, startDate: start));
       final due = DateTime.tryParse(taskText(draft['dueDate']));
       if (due != null && due.isAfter(start)) {
         end = due;
@@ -464,6 +467,12 @@ class _TaskFormPageState extends State<TaskFormPage> {
     finally { if (mounted && current == qualificationRequest) setState(() => checkingQualifications = false); }
   }
   Map<String, dynamic> qualificationFor(String id) => qualifications.where((item) => '${item['id']}' == id).firstOrNull ?? {};
+  int get suggestedPriorityScore => taskPriorityScore(
+    riskLevel: taskText(widget.inspectionDraft?['riskLevel']),
+    maintenanceType: widget.inspectionDraft == null ? selectedInspection == 'custom' ? 'Custom Task' : 'Inspection'
+      : widget.inspectionDraft!['draftType'] == 'inspectionLimit' ? 'Preventive Maintenance' : 'Corrective Maintenance',
+    checklistCount: checklist.text.split('\n').where((line) => line.trim().isNotEmpty).length,
+    startDate: start);
   Future<void> submit() async {
     final conflict = inspectionConflict;
     if (conflict != null) { setState(() => error = conflict); AirmsToast.show(conflict); return; }
@@ -488,7 +497,15 @@ class _TaskFormPageState extends State<TaskFormPage> {
         'status': widget.task?['status'] ?? 'Pending', 'priority': priority,
         'maintenanceType': widget.task?['maintenanceType'] ??
           (selectedInspection == 'custom' && widget.inspectionDraft == null ? 'Custom Task' :
-            widget.inspectionDraft != null ? 'Preventive Maintenance' : 'Inspection'),
+            widget.inspectionDraft != null ? widget.inspectionDraft!['draftType'] == 'inspectionLimit'
+              ? 'Preventive Maintenance' : 'Corrective Maintenance' : 'Inspection'),
+        if (widget.inspectionDraft != null) 'findings': widget.inspectionDraft!['issueTitle'] ?? '',
+        if (widget.inspectionDraft != null) 'defects': widget.inspectionDraft!['component'] ?? '',
+        if (widget.inspectionDraft != null) 'correctiveActionDone': widget.inspectionDraft!['recommendedAction'] ?? '',
+        if (widget.inspectionDraft != null) 'summary': {
+          'category': 'AI Maintenance Finding', 'severity': widget.inspectionDraft!['riskLevel'] ?? '',
+          'result': 'Pending rectification', 'remarks': widget.inspectionDraft!['manualReference'] ?? '',
+        },
         'checklistItems': lines.asMap().entries.map((entry) => {
           if (entry.key < inspectionChecklist.length) ...inspectionChecklist[entry.key],
           'taskId': entry.key < inspectionChecklist.length && taskText(inspectionChecklist[entry.key]['taskId']).isNotEmpty
@@ -511,6 +528,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
           if (widget.inspectionDraft != null) 'aircraftModel': widget.inspectionDraft!['aircraftModel'],
           if (widget.inspectionDraft != null) 'specificInterval': widget.inspectionDraft!['inspectionName'],
           if (widget.inspectionDraft != null) 'dueAtHours': widget.inspectionDraft!['dueAtHours'],
+          if (widget.inspectionDraft != null) 'remainingHours': widget.inspectionDraft!['remainingHours'],
+          if (widget.inspectionDraft != null) 'remainingDays': widget.inspectionDraft!['remainingDays'],
         }).toList(),
         'confirmAction': true, 'confirmBusyMechanic': true,
       };
@@ -568,6 +587,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
       DropdownButtonFormField<String>(initialValue: priority, decoration: const InputDecoration(labelText: 'Priority'),
         items: ['Low', 'Normal', 'High'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
         onChanged: (value) => setState(() => priority = value)),
+      Text('Suggested: ${scoreToTaskPriority(suggestedPriorityScore)} (score $suggestedPriorityScore)'),
       ListTile(title: const Text('Start'), subtitle: Text('$start'), trailing: const Icon(Icons.calendar_today),
         onTap: () async { final date = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: start);
           if (date == null || !context.mounted) return;

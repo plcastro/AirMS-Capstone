@@ -34,3 +34,23 @@ List<Map> rankTaskMechanics(List<Map> mechanics, bool Function(String) qualified
   });
   return ranked;
 }
+
+int taskPriorityScore({String riskLevel = '', String maintenanceType = '',
+    int checklistCount = 0, DateTime? startDate, DateTime? now}) {
+  var score = const {'Critical': 70, 'High': 45, 'Medium': 25, 'Low': 10}[riskLevel.trim()] ?? 0;
+  final kind = maintenanceType.toLowerCase();
+  if (kind.contains('corrective')) score += 20;
+  if (kind.contains('custom')) score += 10;
+  if (checklistCount >= 12) { score += 15; }
+  else if (checklistCount >= 6) { score += 10; }
+  else if (checklistCount >= 3) { score += 5; }
+  if (startDate != null) {
+    final hours = startDate.difference(now ?? DateTime.now()).inMinutes / 60;
+    if (hours <= 6) { score += 20; }
+    else if (hours <= 24) { score += 12; }
+    else if (hours <= 72) { score += 6; }
+  }
+  return score.clamp(0, 100);
+}
+
+String scoreToTaskPriority(int score) => score >= 60 ? 'High' : score >= 30 ? 'Normal' : 'Low';

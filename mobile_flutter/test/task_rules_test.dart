@@ -24,4 +24,12 @@ void main() {
     ], (id) => id != '4');
     expect(ranked.map((item) => item['id']), ['1', '2', '3', '4']);
   });
+  test('priority score uses risk, type, checklist size, and timing', () {
+    final now = DateTime(2026, 10, 13, 8);
+    final score = taskPriorityScore(riskLevel: 'High', maintenanceType: 'Corrective Maintenance',
+      checklistCount: 3, startDate: now.add(const Duration(hours: 4)), now: now);
+    expect(score, 90);
+    expect(scoreToTaskPriority(score), 'High');
+    expect(scoreToTaskPriority(taskPriorityScore()), 'Low');
+  });
 }
