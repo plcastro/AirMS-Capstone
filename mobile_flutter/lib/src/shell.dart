@@ -20,6 +20,7 @@ import 'push.dart';
 import 'access.dart';
 import 'search.dart';
 import 'toast.dart';
+import 'notification_display.dart';
 
 class Module {
   const Module(this.title, this.path, this.icon, this.roles);
@@ -64,6 +65,9 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
   late Module selected;
   late final PushService push;
   Timer? idleTimer;
+  Timer? notificationTimer;
+  int unreadNotifications = 0;
+  bool checkingNotifications = false;
   int warnedMinutes = 0;
   bool endingSession = false;
   DateTime lastPersistedActivity = DateTime.fromMillisecondsSinceEpoch(0);
@@ -83,6 +87,8 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
       if (mounted) AirmsToast.show('New AirMS notification');
     });
     push.start();
+    refreshUnread();
+    notificationTimer = Timer.periodic(const Duration(seconds: 30), (_) => refreshUnread());
     checkIdle();
     WidgetsBinding.instance.addPostFrameCallback((_) => openLink());
   }
@@ -203,6 +209,21 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
       widget.session.markClientActivity();
     }
   }
+  Future<void> refreshUnread() async {
+    if (!mounted || checkingNotifications ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.paused) {
+      return;
+    }
+    checkingNotifications = true;
+    try {
+      final response = await widget.session.request('/api/notifications');
+      final list = response is List ? response : response['data'] is List ? response['data'] as List
+        : response['notifications'] is List ? response['notifications'] as List : [];
+      final userId = '${widget.session.user?['_id'] ?? widget.session.user?['id'] ?? ''}';
+      final count = list.whereType<Map>().where((item) => !notificationIsRead(item, userId)).length;
+      if (mounted) setState(() => unreadNotifications = count);
+    } catch (_) {} finally { checkingNotifications = false; }
+  }
   Future<void> checkIdle() async {
     if (!mounted || endingSession) return;
     if (widget.session.idleExpired) {
@@ -224,17 +245,19 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
     }
   }
   @override void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) checkIdle();
+    if (state == AppLifecycleState.resumed) { checkIdle(); refreshUnread(); }
   }
-  @override void dispose() { idleTimer?.cancel(); WidgetsBinding.instance.removeObserver(this); push.dispose(); super.dispose(); }
+  @override void dispose() { idleTimer?.cancel(); notificationTimer?.cancel(); WidgetsBinding.instance.removeObserver(this); push.dispose(); super.dispose(); }
   @override Widget build(BuildContext context) => Listener(
     onPointerDown: (_) => activity(), onPointerSignal: (_) => activity(),
     child: Scaffold(
     appBar: AppBar(title: Text(selected.title, style: const TextStyle(fontSize: 17)),
-      actions: [IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => showModalBottomSheet(
+      actions: [IconButton(icon: Badge(isLabelVisible: unreadNotifications > 0,
+        label: Text(unreadNotifications > 99 ? '99+' : '$unreadNotifications'),
+        child: const Icon(Icons.notifications_outlined)), onPressed: () => showModalBottomSheet(
         context: context, isScrollControlled: true,
         builder: (_) => SizedBox(height: MediaQuery.sizeOf(context).height * .7,
-          child: NotificationsPage(session: widget.session, onTarget: (payload) {
+          child: NotificationsPage(session: widget.session, onChanged: refreshUnread, onTarget: (payload) {
             Navigator.pop(context);
             openNotification(payload);
           })))),
