@@ -7,6 +7,7 @@ import 'auth.dart';
 import 'flight_create.dart';
 import 'flight_signing.dart';
 import 'flight_review.dart';
+import 'date_time.dart';
 import 'linked_inspection.dart';
 import 'pdf_exports.dart';
 import 'flight_pdf.dart';
@@ -39,6 +40,15 @@ String flightStageLabel(String stage) => const {
   'returned_to_pilot': 'Flight details correction', 'submitted': 'Post-flight review',
   'completed': 'Closed',
 }[stage] ?? stage;
+String flightNextAction(String stage) => const {
+  'pending_release': 'Mechanic preparation',
+  'returned_to_mechanic': 'Preparation correction',
+  'pending_acceptance': 'Pilot acceptance',
+  'accepted': 'Mechanic flight details and completion',
+  'returned_to_pilot': 'Mechanic flight details and completion',
+  'submitted': 'Mechanic review and closure',
+  'completed': 'Record closed',
+}[stage] ?? 'Mechanic preparation';
 
 class FlightLogsPage extends StatefulWidget {
   const FlightLogsPage({super.key, required this.session});
@@ -160,25 +170,49 @@ class _FlightLogsPageState extends State<FlightLogsPage> {
       if (aircraft.isEmpty) ...aircrafts.where((name) => matchesSearch(aircraftFilter, name)).map((name) {
         final records = groupLogs.where((log) => flightAircraft(log) == name).toList();
         final fresh = viewedReady ? records.where(viewed.isNew).length : 0;
-        return Card(child: ListTile(leading: const Icon(Icons.flight), title: Text(name),
-          subtitle: Text('${records.length} flight logs${fresh > 0 ? ' · $fresh new' : ''}'),
-          trailing: const Icon(Icons.chevron_right), onTap: () => setState(() { aircraft = name; query = ''; status = 'all'; })));
+        final latest = records.isEmpty ? <String, dynamic>{} : records.first;
+        return Card(clipBehavior: Clip.antiAlias, child: InkWell(onTap: () => setState(() { aircraft = name; query = ''; status = 'all'; }),
+          child: SizedBox(height: 152, child: Row(children: [Container(width: 5, color: Theme.of(context).colorScheme.primary),
+            Expanded(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [const Icon(Icons.flight, size: 28), const SizedBox(width: 10), Expanded(child: Text(name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                Chip(label: Text('${records.length} ${records.length == 1 ? 'log' : 'logs'}')),
+                const Icon(Icons.chevron_right)]),
+              if (fresh > 0) Text('$fresh new', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+              Text('Aircraft type: ${flightText(latest['aircraftType']).isEmpty ? 'N/A' : flightText(latest['aircraftType'])}'),
+              Text('Base: ${flightText(latest['base']).isEmpty ? 'N/A' : flightText(latest['base'])}'),
+              Text('Updated ${formatAirmsDateTime(latest['updatedAt'] ?? latest['createdAt'], fallback: 'N/A')}'),
+            ]))),
+          ]))));
       }),
       if (aircraft.isNotEmpty) SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'pending_release', 'returned_to_mechanic', 'pending_acceptance', 'accepted', 'returned_to_pilot', 'submitted', 'completed'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value == 'all' ? 'All' : flightStageLabel(value)), selected: status == value, onSelected: (_) => setState(() => status = value)))).toList())),
       if (loading) const Center(child: CircularProgressIndicator()),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-      if (aircraft.isNotEmpty) ...visible.map((log) => Card(child: ListTile(
-        title: Text('${flightText(log['controlNo']).isEmpty ? 'Flight Log' : flightText(log['controlNo'])}${viewedReady && viewed.isNew(log) ? ' · NEW' : ''}'),
-        subtitle: Text('${flightText(log['date'])}\n${flightStageLabel(flightStage(log))}\nUpdated: ${flightText(log['updatedAt'])}'),
-        isThreeLine: true, trailing: const Icon(Icons.chevron_right),
-        onTap: () async {
+      if (aircraft.isNotEmpty) ...visible.map((log) {
+        final action = needsMyAction(log);
+        final stage = flightStage(log);
+        final crewField = stage == 'pending_acceptance' ? 'assignedPilot' : stage == 'completed' ? '' : 'assignedMechanic';
+        final crewName = crewField.isEmpty ? '' : flightText(flightMap(log[crewField])['name']);
+        return Card(clipBehavior: Clip.antiAlias, child: InkWell(onTap: () async {
           await viewed.markViewed(log);
           if (!context.mounted) return;
           setState(() {});
           await Navigator.push(context, MaterialPageRoute(builder: (_) => FlightWorkspacePage(session: widget.session, id: flightText(log['_id']))));
           load();
-        },
-      ))),
+        }, child: Row(children: [Container(width: 5, height: 108,
+          color: action ? Theme.of(context).colorScheme.primary : Colors.grey.shade400),
+          Expanded(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Expanded(child: Text('${flightText(log['controlNo']).isEmpty ? 'Flight Log' : flightText(log['controlNo'])}${viewedReady && viewed.isNew(log) ? ' · NEW' : ''}',
+              style: const TextStyle(fontWeight: FontWeight.bold))),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: action ? Theme.of(context).colorScheme.primaryContainer : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(20)), child: Text(flightStageLabel(stage), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))) ]),
+            Text('Date: ${flightText(log['date']).isEmpty ? 'N/A' : flightText(log['date'])}'),
+            Text('Updated: ${formatAirmsDateTime(log['updatedAt'] ?? log['createdAt'], fallback: 'N/A')}'),
+            Text('Next: ${flightNextAction(stage)}${crewField.isEmpty ? '' : ' — ${crewName.isEmpty ? 'Unassigned' : crewName}'}'),
+          ]))),
+        ])));
+      }),
       if (!loading && aircraft.isNotEmpty && visible.isEmpty) const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No flight logs found'))),
     ]));
   }
