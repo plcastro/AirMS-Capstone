@@ -12,6 +12,8 @@ node_modules
 .env
 dist
 dist-ssr
+public/.well-known/apple-app-site-association
+public/.well-known/assetlinks.json
 *.local
 
 # Editor directories and files

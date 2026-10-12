@@ -43,6 +43,7 @@ const {
 const { requestContextMiddleware } = require("./middleware/requestContext");
 const { auditMutatingRequest } = require("./middleware/auditRequestMiddleware");
 const { responseTimeLogger } = require("./middleware/responseTimeLogger");
+const { appleAssociation, androidAssociation } = require("./utils/mobileLinkAssociation");
 const app = express();
 
 const allowedOrigins = [
@@ -167,6 +168,17 @@ app.use(
     },
   }),
 );
+
+app.get('/.well-known/apple-app-site-association', (req, res) => {
+  const association = appleAssociation();
+  if (!association) return res.sendStatus(404);
+  res.type('application/json').json(association);
+});
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const association = androidAssociation();
+  if (!association) return res.sendStatus(404);
+  res.type('application/json').json(association);
+});
 
 app.use((req, res, next) => {
   if (req.body) {
