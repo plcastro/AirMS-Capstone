@@ -164,6 +164,40 @@ class AuthLoadingScreen extends StatelessWidget {
     ]);
 }
 
+class SixDigitCodeField extends StatefulWidget {
+  const SixDigitCodeField({super.key, required this.controller});
+  final TextEditingController controller;
+  @override State<SixDigitCodeField> createState() => _SixDigitCodeFieldState();
+}
+class _SixDigitCodeFieldState extends State<SixDigitCodeField> {
+  final focus = FocusNode();
+  @override void initState() { super.initState(); widget.controller.addListener(changed); }
+  @override void dispose() { widget.controller.removeListener(changed); focus.dispose(); super.dispose(); }
+  void changed() { if (mounted) setState(() {}); }
+  @override Widget build(BuildContext context) {
+    final code = widget.controller.text;
+    return GestureDetector(onTap: () => focus.requestFocus(), child: Stack(children: [
+      Opacity(opacity: 0, child: TextField(controller: widget.controller, focusNode: focus,
+        keyboardType: TextInputType.number, maxLength: 6,
+        onChanged: (value) {
+          final digits = value.replaceAll(RegExp(r'\D'), '');
+          if (digits != value) {
+            widget.controller.value = TextEditingValue(text: digits,
+              selection: TextSelection.collapsed(offset: digits.length));
+          }
+        })),
+      IgnorePointer(child: Row(children: List.generate(6, (index) => Expanded(
+        child: Container(height: 48, margin: const EdgeInsets.symmetric(horizontal: 3),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(border: Border.all(color: index == code.length
+            ? const Color(0xff26866f) : Colors.grey), borderRadius: BorderRadius.circular(6)),
+          child: Text(index < code.length ? code[index] : '',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+      )))),
+    ]));
+  }
+}
+
 class OtpPage extends StatefulWidget {
   const OtpPage({super.key, required this.session, required this.onLogin, required this.token,
     required this.identifier, required this.email, required this.base, required this.location, required this.remember});
@@ -184,11 +218,13 @@ class _OtpPageState extends State<OtpPage> {
     super.initState();
     trust = widget.remember;
     verificationToken = widget.token;
+    code.addListener(updateCode);
     resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && resendSeconds > 0) { setState(() => resendSeconds--); }
     });
   }
-  @override void dispose() { resendTimer?.cancel(); code.dispose(); super.dispose(); }
+  void updateCode() { if (mounted) setState(() {}); }
+  @override void dispose() { resendTimer?.cancel(); code.removeListener(updateCode); code.dispose(); super.dispose(); }
   Future<void> resend() async {
     if (busy || resendSeconds > 0) return;
     setState(() { busy = true; error = ''; info = ''; });
@@ -224,6 +260,12 @@ class _OtpPageState extends State<OtpPage> {
       if (data['trustedDeviceToken'] != null) {
         await AirmsSession.storage.write(
             key: 'trustedDeviceToken', value: '${data['trustedDeviceToken']}');
+        for (final account in [widget.identifier, data['user']?['email'], data['user']?['username']]) {
+          final normalized = '${account ?? ''}'.trim().toLowerCase();
+          if (normalized.isNotEmpty) {
+            await AirmsSession.storage.delete(key: 'trustedDeviceToken:$normalized');
+          }
+        }
       }
       await widget.session.acceptLogin(data, base: widget.base, location: widget.location);
       final prefs = await preferences();
@@ -231,18 +273,30 @@ class _OtpPageState extends State<OtpPage> {
       await prefs.setBool('rememberMe', widget.remember);
       if (widget.remember) { await prefs.setString('rememberedIdentifier', widget.identifier); }
       else { await prefs.remove('rememberedIdentifier'); }
-      if (mounted) { Navigator.pop(context); widget.onLogin(); }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+      if (mounted) setState(() => info = 'OTP verified. Redirecting...');
+      AirmsToast.show('Login verified');
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      if (mounted) { Navigator.of(context).popUntil((route) => route.isFirst); widget.onLogin(); }
+    } on ApiException catch (e) {
+      if ('$e'.toLowerCase().contains('expired')) {
+        verificationToken = '';
+        if (mounted) setState(() => error = 'OTP expired. Please log in again.');
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      } else if (mounted) { setState(() => error = '$e'); }
+    } catch (_) { if (mounted) setState(() => error = 'Failed to verify OTP. Please try again later.'); }
     finally { if (mounted) setState(() => busy = false); }
   }
-  @override Widget build(BuildContext context) => AuthLayout(title: 'Verify OTP', subtitle: 'Enter the code sent to ${widget.email}', children: [
-    TextField(controller: code, keyboardType: TextInputType.number, maxLength: 6,
-      decoration: const InputDecoration(labelText: '6-digit code', border: OutlineInputBorder())),
-    if (widget.remember) CheckboxListTile(value: trust, title: const Text('Trust this device'),
+  @override Widget build(BuildContext context) => AuthLayout(title: info.startsWith('OTP verified')
+    ? 'Login Verified' : 'Login Verification', subtitle: 'Please enter the 6-digit code sent to ${widget.email}', children: [
+    SixDigitCodeField(controller: code),
+    CheckboxListTile(value: trust, title: const Text('Remember this device for 30 days'),
+      enabled: widget.remember,
       onChanged: (value) => setState(() => trust = value ?? false)),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     if (info.isNotEmpty) Text(info, style: const TextStyle(color: Colors.green)),
-    FilledButton(onPressed: busy ? null : verify, child: const Text('Verify')),
+    FilledButton(onPressed: busy || code.text.length != 6 ? null : verify,
+      child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Verify')),
     TextButton(onPressed: busy || resendSeconds > 0 ? null : resend,
       child: Text(resendSeconds > 0 ? 'Resend code in ${resendSeconds}s' : 'Resend code')),
   ]);
@@ -300,11 +354,13 @@ class _ResetOtpPageState extends State<ResetOtpPage> {
   @override void initState() {
     super.initState();
     resetToken = widget.token;
+    code.addListener(updateCode);
     resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && resendSeconds > 0) { setState(() => resendSeconds--); }
     });
   }
-  @override void dispose() { resendTimer?.cancel(); code.dispose(); super.dispose(); }
+  void updateCode() { if (mounted) setState(() {}); }
+  @override void dispose() { resendTimer?.cancel(); code.removeListener(updateCode); code.dispose(); super.dispose(); }
   Future<void> resend() async {
     if (busy || resendSeconds > 0) return;
     setState(() { busy = true; error = ''; info = ''; });
@@ -324,16 +380,23 @@ class _ResetOtpPageState extends State<ResetOtpPage> {
     setState(() { busy = true; error = ''; });
     try {
       await publicPost('/api/user/verify-otp', {'token': resetToken, 'otp': code.text});
+      if (mounted) setState(() => info = 'OTP verified. Redirecting...');
+      AirmsToast.show('OTP verified. Redirecting...');
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ResetPasswordPage(token: resetToken)));
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } on ApiException catch (e) {
+      final message = '$e'.toLowerCase().contains('expired') ? 'OTP expired! Please request a new one.' : '$e';
+      if (mounted) setState(() => error = message);
+    } catch (_) { if (mounted) setState(() => error = 'Failed to verify OTP. Please try again later.'); }
     finally { if (mounted) setState(() => busy = false); }
   }
-  @override Widget build(BuildContext context) => AuthLayout(title: 'Verify OTP', subtitle: widget.email, children: [
-    TextField(controller: code, keyboardType: TextInputType.number, maxLength: 6,
-      decoration: const InputDecoration(labelText: '6-digit code', border: OutlineInputBorder())),
+  @override Widget build(BuildContext context) => AuthLayout(title: 'Account Verification',
+    subtitle: 'Please enter the 6-digit code sent to ${widget.email}', children: [
+    SixDigitCodeField(controller: code),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     if (info.isNotEmpty) Text(info, style: const TextStyle(color: Colors.green)),
-    FilledButton(onPressed: busy ? null : verify, child: const Text('Verify')),
+    FilledButton(onPressed: busy || code.text.length != 6 ? null : verify,
+      child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Verify')),
     TextButton(onPressed: busy || resendSeconds > 0 ? null : resend,
       child: Text(resendSeconds > 0 ? 'Resend code in ${resendSeconds}s' : 'Resend code')),
   ]);
