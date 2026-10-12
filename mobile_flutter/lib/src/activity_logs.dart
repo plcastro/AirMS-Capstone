@@ -3,24 +3,33 @@ import 'search.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 import 'activity_trend_chart.dart';
+import 'date_time.dart';
+import 'access.dart';
 
 const _actionKeywords = <String, List<String>>{
-  'export': ['export', 'downloaded', 'printed', 'generated pdf'],
+  'export': ['export', 'downloaded', 'printed', 'generated pdf', 'generated document'],
   'notification': ['notification', 'message', 'email'],
-  'authentication': ['login', 'log in', 'logout', 'log out', 'signed in', 'signed out', 'otp', 'password reset', 'pin reset', 'trusted device', 'activated'],
+  'authentication': ['login', 'log in', 'logged in', 'logout', 'log out', 'logged out', 'signed in', 'signed out', 'session refreshed', 'otp', 'password reset', 'pin reset', 'trusted device', 'security setup', 'activated'],
   'delete': ['deleted', 'removed', 'revoked', 'destroyed', 'erased'],
   'create': ['created', 'added', 'submitted', 'registered'],
   'update': ['updated', 'changed', 'modified', 'edited', 'saved'],
   'view': ['viewed', 'opened', 'read', 'accessed'],
 };
 
-String _category(Map log) {
+String activityCategory(Map log) {
   final action = '${log['actionMade'] ?? log['action'] ?? ''}'.toLowerCase();
   for (final entry in _actionKeywords.entries) {
     if (entry.value.any(action.contains)) return entry.key;
   }
   return 'other';
 }
+
+const activityColors = <String, Color>{
+  'create': Color(0xff389e0d), 'update': Color(0xff1677ff),
+  'delete': Color(0xffcf1322), 'view': Color(0xff13c2c2),
+  'export': Color(0xff595959), 'authentication': Color(0xff722ed1),
+  'notification': Color(0xfffa8c16), 'other': Color(0xff8c8c8c),
+};
 
 class ActivityLogsPage extends StatefulWidget {
   const ActivityLogsPage({super.key, required this.session});
@@ -54,10 +63,12 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
         subtitle: '${filtered.length} records',
         columns: const ['Date / Time', 'Performed By', 'Action', 'Platform', 'Device', 'Base', 'Location', 'Coordinates'],
         rows: filtered.map((log) => [
-          '${log['dateTime'] ?? ''}', '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim(),
-          '${log['actionMade'] ?? log['action'] ?? ''}', '${log['devicePlatform'] ?? log['platform'] ?? ''}',
-          '${log['deviceModel'] ?? ''}', '${log['base'] ?? ''}', '${log['locationText'] ?? ''}',
-          log['locationLatitude'] == null || log['locationLongitude'] == null ? '' : '${log['locationLatitude']}, ${log['locationLongitude']}',
+          formatAirmsDateTime(log['dateTime'], fallback: 'Not captured'),
+          '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim().isEmpty ? 'Not captured' : '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim(),
+          '${log['actionMade'] ?? log['action'] ?? 'Not captured'}', '${log['devicePlatform'] ?? log['platform'] ?? 'Not captured'}',
+          '${log['deviceModel'] ?? 'Not captured'}', baseLabel(log['base']).isEmpty ? 'Not captured' : baseLabel(log['base']),
+          '${log['locationText'] ?? 'Not captured'}',
+          log['locationLatitude'] == null || log['locationLongitude'] == null ? 'Not captured' : '${log['locationLatitude']}, ${log['locationLongitude']}',
         ]).toList());
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => exporting = false); }
@@ -67,7 +78,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
       '${log['platform'] ?? ''}'.toUpperCase(), '${log['devicePlatform'] ?? ''}'.toUpperCase(),
     ])}..remove('');
     final filtered = logs.where((log) {
-      if (action != 'all' && _category(log) != action) return false;
+      if (action != 'all' && activityCategory(log) != action) return false;
       if (scope == 'platform' && platform != 'all' && '${log['platform'] ?? ''}'.toUpperCase() != platform &&
           '${log['devicePlatform'] ?? ''}'.toUpperCase() != platform) {
         return false;
@@ -80,11 +91,11 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
     final users = <String, int>{};
     final modules = <String, int>{};
     for (final log in filtered) {
-      counts.update(_category(log), (value) => value + 1);
+      counts.update(activityCategory(log), (value) => value + 1);
       final parsed = DateTime.tryParse('${log['dateTime'] ?? ''}');
       if (parsed != null) {
         final day = parsed.toLocal().toIso8601String().substring(0, 10);
-        daily.putIfAbsent(day, () => {}).update(_category(log), (value) => value + 1, ifAbsent: () => 1);
+        daily.putIfAbsent(day, () => {}).update(activityCategory(log), (value) => value + 1, ifAbsent: () => 1);
       }
       final user = '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim();
       users.update(user.isEmpty ? 'Unknown' : user, (value) => value + 1, ifAbsent: () => 1);
@@ -111,7 +122,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
           child: Text(value == 'all' ? 'All dates' : 'Last $value days'))).toList(),
           onChanged: (value) { setState(() => days = value ?? '30'); load(); }),
         DropdownButton<String>(value: action, items: ['all', ..._actionKeywords.keys, 'other'].map((value) =>
-          DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All actions' : value))).toList(),
+          DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All Actions' : '${value[0].toUpperCase()}${value.substring(1)}'))).toList(),
           onChanged: (value) => setState(() { action = value ?? 'all'; page = 0; })),
         DropdownButton<String>(value: scope, items: ['all', 'platform'].map((value) =>
           DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All scope' : 'Platform'))).toList(),
@@ -122,7 +133,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
       ]),
       Row(children: [Chip(label: Text('Total: ${filtered.length}')), const SizedBox(width: 8),
         Chip(label: Text('Users: ${users.length}'))]),
-      if ('${widget.session.user?['jobTitle'] ?? ''}'.toLowerCase().trim() == 'admin staff')
+      if (resolveUserRole(widget.session.user) == 'admin staff')
         OutlinedButton.icon(onPressed: loading || exporting || filtered.isEmpty ? null : () => exportPdf(filtered),
           icon: const Icon(Icons.picture_as_pdf_outlined), label: Text(exporting ? 'Exporting...' : 'Export PDF')),
       Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -131,8 +142,9 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
         ActivityTrendChart(days: chartDays, values: daily, selected: action),
         if (daily.isEmpty) const Text('No activity in this range'),
         const SizedBox(height: 8),
-        Wrap(spacing: 6, runSpacing: 4, children: counts.entries.where((entry) => entry.value > 0).map((entry) =>
-          Chip(label: Text('${entry.key}: ${entry.value}'))).toList()),
+        Wrap(spacing: 6, runSpacing: 4, children: counts.entries.map((entry) =>
+          Chip(avatar: Icon(Icons.circle, size: 10, color: activityColors[entry.key]),
+            label: Text('${entry.key}: ${entry.value}'))).toList()),
         Text('Top Users', style: Theme.of(context).textTheme.titleSmall),
         for (final item in topUsers.take(3)) Text('${item.key}: ${item.value}'),
         Text('Top Modules', style: Theme.of(context).textTheme.titleSmall),
@@ -141,15 +153,27 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
       if (loading) const LinearProgressIndicator(),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (!loading && filtered.isEmpty) const Center(child: Text('No activity logs found')),
-      for (final log in visible) Card(child: ListTile(
-        title: Text('${log['actionMade'] ?? log['action'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('${log['firstName'] ?? ''} ${log['lastName'] ?? ''} · ${log['dateTime'] ?? ''}\n${log['devicePlatform'] ?? log['platform'] ?? ''} · ${log['base'] ?? ''}'),
-        isThreeLine: true, onTap: () => showModalBottomSheet(context: context, isScrollControlled: true,
+      for (final log in visible) Card(child: InkWell(onTap: () => showModalBottomSheet(context: context, isScrollControlled: true,
           builder: (_) => SizedBox(height: MediaQuery.sizeOf(context).height * .65,
             child: ListView(children: log.entries.map((entry) => ListTile(title: Text('${entry.key}'),
-              subtitle: Text('${entry.value ?? ''}'))).toList()))),
-      )),
-      if (filtered.length > 10) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              subtitle: Text('${entry.value ?? ''}'))).toList()))), child: Padding(padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Expanded(child: Text('${log['actionMade'] ?? log['action'] ?? 'N/A'}',
+              style: const TextStyle(fontWeight: FontWeight.bold))),
+              Chip(label: Text(activityCategory(log).toUpperCase()),
+                backgroundColor: (activityColors[activityCategory(log)] ?? Colors.grey).withValues(alpha: .15))]),
+            Text('Performed by: ${'${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim().isEmpty ? 'Unknown' : '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim()}'),
+            Text(formatAirmsDateTime(log['dateTime'], fallback: 'N/A')),
+            Wrap(spacing: 6, children: [
+              Chip(label: Text('${log['devicePlatform'] ?? log['platform'] ?? 'UNKNOWN'}')),
+              if ('${log['deviceModel'] ?? ''}'.isNotEmpty) Chip(label: Text('Device: ${log['deviceModel']}')),
+              if (baseLabel(log['base']).isNotEmpty) Chip(label: Text('Base: ${baseLabel(log['base'])}')),
+            ]),
+            if ('${log['locationText'] ?? ''}'.isNotEmpty) Text('Logging in from: ${log['locationText']}'),
+            if (log['locationLatitude'] != null && log['locationLongitude'] != null)
+              Text('Latitude and longitude coordinates: ${log['locationLatitude']}, ${log['locationLongitude']}'),
+          ])))),
+      if (filtered.isNotEmpty) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Previous')),
         Text('Page ${page + 1} of ${(filtered.length / 10).ceil()}'),
         TextButton(onPressed: (page + 1) * 10 < filtered.length ? () => setState(() => page++) : null, child: const Text('Next')),
