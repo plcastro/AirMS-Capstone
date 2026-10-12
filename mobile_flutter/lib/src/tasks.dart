@@ -5,6 +5,8 @@ import 'toast.dart';
 import 'package:flutter/services.dart';
 import 'auth.dart';
 import 'flight_signing.dart';
+import 'task_rules.dart';
+import 'access.dart';
 
 String taskId(Map task) => '${task['_id'] ?? task['id'] ?? ''}';
 String taskText(dynamic value) {
@@ -21,7 +23,7 @@ class _TasksPageState extends State<TasksPage> {
   List<Map<String, dynamic>> tasks = [];
   String tab = 'Assigned', query = '', error = '';
   bool loading = true;
-  bool get head => {'maintenance manager', 'admin staff'}.contains('${widget.session.user?['jobTitle'] ?? ''}'.toLowerCase());
+  bool get head => {'maintenance manager', 'admin staff'}.contains(resolveUserRole(widget.session.user));
   String get me => '${widget.session.user?['_id'] ?? widget.session.user?['id'] ?? ''}';
   @override void initState() { super.initState(); load(); }
   Future<void> load() async {
@@ -41,7 +43,7 @@ class _TasksPageState extends State<TasksPage> {
     if (head) {
       return switch (tab) {
         'For Review' => ['completed', 'turned in'].contains(status) && task['isApproved'] != true,
-        'History' => ['approved', 'deleted'].contains(status) || task['isApproved'] == true,
+        'Reviewed' => status == 'approved' || task['isApproved'] == true,
         _ => !['approved', 'deleted', 'completed', 'turned in'].contains(status),
       };
     }
@@ -62,8 +64,17 @@ class _TasksPageState extends State<TasksPage> {
         onChanged: (value) => setState(() => query = value)),
       const SizedBox(height: 8),
       SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [for (final label in head
-        ? ['Assigned', 'For Review', 'History'] : ['Assigned', 'History'])
-        Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label), selected: tab == label,
+        ? ['Assigned', 'For Review', 'Reviewed'] : ['Assigned', 'History'])
+        Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text('$label (${tasks.where((task) {
+          final status = taskText(task['status']).toLowerCase();
+          if (head) { return switch (label) {
+            'For Review' => task['isApproved'] != true && {'completed', 'turned in'}.contains(status),
+            'Reviewed' => task['isApproved'] == true || status == 'approved',
+            _ => {'pending', 'ongoing', 'returned'}.contains(status),
+          }; }
+          return label == 'History' ? {'approved', 'completed', 'turned in'}.contains(status)
+            : !{'approved', 'completed', 'turned in'}.contains(status);
+        }).length})'), selected: tab == label,
           onSelected: (_) => setState(() => tab = label)))])),
       const SizedBox(height: 10),
       if (loading) const LinearProgressIndicator(),
@@ -87,7 +98,7 @@ class _TasksPageState extends State<TasksPage> {
       if (head) Positioned(right: 16, bottom: 16, child: FloatingActionButton.extended(onPressed: () async {
         final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TaskFormPage(session: widget.session)));
         if (changed == true) load();
-      }, icon: const Icon(Icons.add), label: const Text('Add Task'))),
+      }, icon: const Icon(Icons.add), label: const Text('+ Task'))),
     ]);
   }
 }
@@ -113,9 +124,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     findings = TextEditingController(text: '${task['findings'] ?? ''}');
   }
   @override void dispose() { findings.dispose(); super.dispose(); }
-  Future<void> change(Map<String, dynamic> changes, String label) async {
+  Future<void> change(Map<String, dynamic> changes, String label, {bool undo = false}) async {
     final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-      title: Text(label), content: Text('$label this task?'), actions: [
+      title: Text(label), content: Text(undo ? 'Revert this task back to Ongoing?'
+        : label == 'Turn In' ? 'Submit this task for review?' : '$label this task?'), actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
       ]));
@@ -124,11 +136,11 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     try {
       final updated = await widget.session.request('/api/tasks/${taskId(task)}', method: 'PUT',
         extraHeaders: {'x-action-confirmed': 'true'}, body: {
-          ...task, ...changes, 'confirmAction': true, 'confirmBusyMechanic': true,
+          ...task, ...changes, 'confirmAction': true, 'confirmBusyMechanic': undo,
         });
       if (mounted) setState(() => task = Map<String, dynamic>.from(updated['data'] as Map? ?? {...task, ...changes}));
-      if (mounted) AirmsToast.show('$label successful');
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+      if (mounted) AirmsToast.show(undo ? 'Task turn-in reverted successfully.' : '$label successful');
+    } catch (e) { if (mounted) { setState(() => error = '$e'); AirmsToast.show(e); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> remove() async {
@@ -220,13 +232,14 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         if (status.toLowerCase() == 'ongoing' || status.toLowerCase() == 'returned') ...[
           OutlinedButton(onPressed: busy ? null : () => change({'checklistState': checks, 'findings': findings.text}, 'Save Draft'),
             child: const Text('Save Draft')),
-          FilledButton(onPressed: busy ? null : () => change({'status': 'Completed', 'checklistState': checks,
+          FilledButton(onPressed: busy || checks.any((value) => !value) ? null : () => change({'status': 'Completed', 'checklistState': checks,
             'findings': findings.text, 'completedAt': DateTime.now().toUtc().toIso8601String()}, 'Turn In'),
             child: const Text('Turn In')),
+          if (checks.any((value) => !value)) const Text('Check every checklist item before turning in.'),
         ],
         if (status.toLowerCase() == 'completed') OutlinedButton(onPressed: busy ? null : () => change({
           'status': 'Ongoing', 'completedAt': null, 'checklistState': checks, 'findings': findings.text,
-        }, 'Undo Turn In'), child: const Text('Undo Turn In')),
+        }, 'Undo Turn In', undo: true), child: const Text('Undo Turn In')),
       ],
     ]));
   }
@@ -246,6 +259,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
   List<String> aircraftOptions = [];
   List<Map<String, dynamic>> inspectionOptions = [];
   List<Map<String, dynamic>> inspectionChecklist = [];
+  List<Map<String, dynamic>> existingTasks = [];
   Map<String, dynamic> timing = {};
   String selectedInspection = 'custom';
   bool loadingInspection = false;
@@ -254,6 +268,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
   String qualificationError = '';
   bool checkingQualifications = false;
   int qualificationRequest = 0;
+  bool manualAssignee = false;
+  String lastConflict = '';
   String? assignee, priority = 'Normal';
   String base = '';
   DateTime start = DateTime.now().add(const Duration(minutes: 5));
@@ -286,10 +302,48 @@ class _TaskFormPageState extends State<TaskFormPage> {
       }
     }
     loadMechanics();
+    loadExistingTasks();
     loadTiming();
     if (widget.task == null) loadInspections();
   }
   @override void dispose() { title.dispose(); aircraft.dispose(); checklist.dispose(); super.dispose(); }
+  String get inspectionName => widget.inspectionDraft != null
+    ? taskText(widget.inspectionDraft!['inspectionName'])
+    : inspectionOptions.where((item) => taskText(item['_id']) == selectedInspection)
+        .map((item) => taskText(item['inspectionName'])).firstOrNull ?? title.text;
+  String? get inspectionConflict => inspectionConflictMessage(existingTasks,
+    aircraft.text, inspectionName, editingId: widget.task == null ? null : taskId(widget.task!),
+    custom: widget.inspectionDraft == null && selectedInspection == 'custom');
+  List<Map> get mechanicsWithWorkload => mechanics.map((person) {
+    final id = taskText(person['id'] ?? person['_id']);
+    final count = existingTasks.where((task) =>
+      taskText(task['assignedTo']) == id &&
+      {'pending', 'ongoing', 'returned'}.contains(taskText(task['status']).toLowerCase())).length;
+    return {...person, 'activeTaskCount': count};
+  }).toList();
+  void suggestAssignee() {
+    if (manualAssignee || selectedInspection == 'custom' || qualifications.isEmpty) return;
+    final ranked = rankTaskMechanics(mechanicsWithWorkload,
+      (id) => qualificationFor(id)['qualified'] == true);
+    assignee = ranked.where((item) => qualificationFor(taskText(item['id'] ?? item['_id']))['qualified'] == true)
+      .map((item) => taskText(item['id'] ?? item['_id'])).firstOrNull;
+  }
+  void notifyConflict() {
+    final message = inspectionConflict ?? '';
+    if (message.isNotEmpty && message != lastConflict) AirmsToast.show(message);
+    lastConflict = message;
+  }
+  Future<void> loadExistingTasks() async {
+    try {
+      final response = await widget.session.request('/api/tasks/getAll');
+      if (mounted) { setState(() {
+        existingTasks = (response['data'] as List? ?? []).whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item)).toList();
+        notifyConflict();
+        suggestAssignee();
+      }); }
+    } catch (_) {}
+  }
   Future<void> loadMechanics() async {
     try {
       final responses = await Future.wait([
@@ -366,7 +420,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
     }
   }
   Future<void> selectInspection(String id) async {
-    setState(() { selectedInspection = id; inspectionChecklist = []; error = ''; });
+    setState(() { selectedInspection = id; inspectionChecklist = []; error = ''; manualAssignee = false; notifyConflict(); });
     if (id == 'custom') { checklist.clear(); return; }
     final inspection = inspectionOptions.where((item) => taskText(item['_id']) == id).firstOrNull;
     if (inspection == null) return;
@@ -388,6 +442,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
         checklist.text = tasks.isEmpty && widget.inspectionDraft != null ? title.text :
           tasks.map((item) => taskText(item['taskName'])).join('\n');
         updateEstimate();
+        notifyConflict();
+        suggestAssignee();
       });
     } catch (e) { if (mounted) setState(() => error = 'Could not load inspection tasks: $e'); }
     finally { if (mounted) setState(() => loadingInspection = false); }
@@ -399,12 +455,18 @@ class _TaskFormPageState extends State<TaskFormPage> {
     setState(() { checkingQualifications = true; qualificationError = ''; qualifications = []; });
     try {
       final response = await widget.session.request('/api/tasks/qualified-mechanics?aircraft=${Uri.encodeQueryComponent(registration)}');
-      if (mounted && current == qualificationRequest) setState(() => qualifications = (response['data'] as List? ?? []).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList());
+      if (mounted && current == qualificationRequest) { setState(() {
+        qualifications = (response['data'] as List? ?? []).whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item)).toList();
+        suggestAssignee();
+      }); }
     } catch (e) { if (mounted && current == qualificationRequest) setState(() => qualificationError = '$e'); }
     finally { if (mounted && current == qualificationRequest) setState(() => checkingQualifications = false); }
   }
   Map<String, dynamic> qualificationFor(String id) => qualifications.where((item) => '${item['id']}' == id).firstOrNull ?? {};
   Future<void> submit() async {
+    final conflict = inspectionConflict;
+    if (conflict != null) { setState(() => error = conflict); AirmsToast.show(conflict); return; }
     final lines = checklist.text.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).toList();
     if (title.text.trim().isEmpty || aircraft.text.trim().isEmpty || base.isEmpty ||
         assignee == null || lines.isEmpty) {
@@ -455,7 +517,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
       await widget.session.request(widget.task == null ? '/api/tasks/create' : '/api/tasks/${taskId(widget.task!)}',
         method: widget.task == null ? 'POST' : 'PUT', extraHeaders: {'x-action-confirmed': 'true'}, body: body);
       if (mounted) Navigator.pop(context, true);
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) { setState(() => error = '$e'); AirmsToast.show(e); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: Text(widget.task == null ? 'Add Task' : 'Edit Task')),
@@ -477,7 +539,9 @@ class _TaskFormPageState extends State<TaskFormPage> {
         initialValue: aircraft.text.isEmpty ? null : aircraft.text,
         decoration: const InputDecoration(labelText: 'Aircraft', border: OutlineInputBorder()),
         items: {if (aircraft.text.isNotEmpty) aircraft.text, ...aircraftOptions}.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-        onChanged: (value) { if (value == null) return; aircraft.text = value; assignee = null; loadQualifications(); }),
+        onChanged: (value) { if (value == null) return; setState(() {
+          aircraft.text = value; assignee = null; manualAssignee = false; notifyConflict();
+        }); loadQualifications(); }),
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(initialValue: base.isEmpty ? null : base,
         decoration: const InputDecoration(labelText: 'Base', border: OutlineInputBorder()),
@@ -485,20 +549,20 @@ class _TaskFormPageState extends State<TaskFormPage> {
           DropdownMenuItem(value: value, child: Text(value))).toList(),
         onChanged: (value) => setState(() => base = value ?? '')),
       const SizedBox(height: 12),
-      if (checkingQualifications) const LinearProgressIndicator(),
+      if (checkingQualifications) const Column(children: [LinearProgressIndicator(),
+        Text('Checking mechanic qualifications…')]),
       if (qualificationError.isNotEmpty) TextButton(onPressed: loadQualifications, child: Text('Retry qualification check: $qualificationError')),
       DropdownButtonFormField<String>(key: ValueKey('${aircraft.text}-$assignee-${qualifications.length}'),
         initialValue: mechanics.any((user) => taskText(user['_id'] ?? user['id']) == assignee) ? assignee : null,
         decoration: const InputDecoration(labelText: 'Mechanic', border: OutlineInputBorder()),
-        items: (mechanics.toList()..sort((a, b) {
-          final aQualified = qualificationFor(taskText(a['_id'] ?? a['id']))['qualified'] == true;
-          final bQualified = qualificationFor(taskText(b['_id'] ?? b['id']))['qualified'] == true;
-          return aQualified == bQualified ? 0 : aQualified ? -1 : 1;
-        })).map((user) { final id = taskText(user['_id'] ?? user['id']);
+        items: rankTaskMechanics(mechanicsWithWorkload,
+          (id) => qualificationFor(id)['qualified'] == true).map((user) { final id = taskText(user['_id'] ?? user['id']);
           final qualification = qualificationFor(id);
           return DropdownMenuItem(value: id, enabled: qualification['qualified'] == true,
-            child: Text('${user['firstName'] ?? ''} ${user['lastName'] ?? ''} · ${qualification['qualified'] == true ? 'Qualified' : qualification['reason'] ?? 'Check aircraft'}', overflow: TextOverflow.ellipsis)); }).toList(),
-        onChanged: (value) => setState(() => assignee = value)),
+            child: Text('${user['firstName'] ?? ''} ${user['lastName'] ?? ''} · ${qualification['qualified'] == true ? 'Qualified' : qualification['reason'] ?? 'Check aircraft'}${(user['activeTaskCount'] as int) > 0 ? ' (${user['activeTaskCount']} active tasks)' : ''}', overflow: TextOverflow.ellipsis)); }).toList(),
+        onChanged: (value) => setState(() { assignee = value; manualAssignee = true; })),
+      if (!checkingQualifications && selectedInspection != 'custom' && aircraft.text.isNotEmpty)
+        const Text('Qualified mechanics are listed first. The suggestion prioritizes fewer active tasks; you can choose another mechanic.'),
       if (aircraft.text.isNotEmpty && !checkingQualifications && qualificationError.isEmpty && qualifications.every((item) => item['qualified'] != true))
         const Text('No qualified mechanics found for this aircraft.'),
       DropdownButtonFormField<String>(initialValue: priority, decoration: const InputDecoration(labelText: 'Priority'),
@@ -506,16 +570,22 @@ class _TaskFormPageState extends State<TaskFormPage> {
         onChanged: (value) => setState(() => priority = value)),
       ListTile(title: const Text('Start'), subtitle: Text('$start'), trailing: const Icon(Icons.calendar_today),
         onTap: () async { final date = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: start);
-          if (date != null) setState(() { start = date; updateEstimate(); }); }),
+          if (date == null || !context.mounted) return;
+          final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(start));
+          if (time != null) setState(() { start = DateTime(date.year, date.month, date.day, time.hour, time.minute); updateEstimate(); }); }),
       ListTile(title: const Text('End'), subtitle: Text('$end'), trailing: const Icon(Icons.calendar_today),
         onTap: () async { final date = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: end);
-          if (date != null) setState(() { end = date; endManuallyAdjusted = true; }); }),
+          if (date == null || !context.mounted) return;
+          final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(end));
+          if (time != null) setState(() { end = DateTime(date.year, date.month, date.day, time.hour, time.minute); endManuallyAdjusted = true; }); }),
       TextField(controller: checklist, maxLines: 8, decoration: const InputDecoration(
         labelText: 'Checklist items (one per line)', border: OutlineInputBorder()),
         onChanged: (_) => setState(updateEstimate)),
       Text('Estimated duration: ${estimatedHours.toStringAsFixed(2)} hours · ${estimatedHours.ceil()} day(s)'),
+      if (inspectionConflict != null) Text(inspectionConflict!, style: const TextStyle(color: Colors.red)),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (busy) const LinearProgressIndicator(),
-      const SizedBox(height: 16), FilledButton(onPressed: busy ? null : submit, child: const Text('Save Task')),
+      const SizedBox(height: 16), FilledButton(onPressed: busy || inspectionConflict != null ? null : submit,
+        child: Text(widget.task == null ? 'Add Task' : 'Save Task')),
     ]));
 }
