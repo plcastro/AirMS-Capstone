@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'auth.dart';
 import 'flight_create.dart';
 import 'flight_signing.dart';
+import 'flight_review.dart';
 import 'linked_inspection.dart';
 import 'pdf_exports.dart';
 import 'flight_pdf.dart';
@@ -595,16 +596,15 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
       final reviewResult = await widget.session.request('/api/flightlogs/${widget.id}/review', method: 'POST',
         body: {'changes': draft, 'expectedVersion': log['__v'] ?? 0, 'confirmAction': true}, extraHeaders: {'x-action-confirmed': 'true'});
       final review = flightMap(reviewResult['data']);
-      final missing = review['missing'] as List? ?? [];
-      if (missing.isNotEmpty) throw ApiException(missing.join('\n'));
-      if (flightMap(review['monitoringReconciliation'])['required'] == true) {
-        if (!mounted) return;
-        final comment = await _askFlightText('Monitoring reconciliation', 'Explain why the current monitoring baseline should be used');
-        if (comment == null || comment.trim().isEmpty || !mounted) return;
+      if (!mounted) return;
+      final decision = await Navigator.push<ClosureReviewDecision>(context,
+        MaterialPageRoute(builder: (_) => FlightClosureReviewPage(review: review)));
+      if (decision == null || !mounted) return;
+      if (decision.reconcileReason != null) {
         final signed = await collectFlightSignature(context, widget.session);
         if (signed == null) return;
         await widget.session.request('/api/flightlogs/${widget.id}/reconcile', method: 'PUT', body: {
-          'expectedVersion': log['__v'] ?? 0, 'comment': comment.trim(),
+          'expectedVersion': log['__v'] ?? 0, 'comment': decision.reconcileReason,
           'signature': signed.image, 'pin': signed.pin, 'confirmAction': true,
         }, extraHeaders: {'x-action-confirmed': 'true'});
         await load();
