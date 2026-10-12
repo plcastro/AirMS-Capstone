@@ -7,6 +7,7 @@ import 'auth.dart';
 import 'flight_signing.dart';
 import 'task_rules.dart';
 import 'access.dart';
+import 'date_time.dart';
 
 String taskId(Map task) => '${task['_id'] ?? task['id'] ?? ''}';
 String taskText(dynamic value) {
@@ -89,6 +90,7 @@ class _TasksPageState extends State<TasksPage> {
           Text('Aircraft: ${taskText(task['aircraft'])}'),
           Text('Assigned: ${task['assignedToName'] ?? ''}'),
           Text('Priority: ${task['priority'] ?? ''}'),
+          Text('Due: ${formatAirmsDateTime(task['endDateTime'] ?? task['dueDate'])}'),
           LinearProgressIndicator(value: (task['checklistItems'] as List? ?? []).isEmpty ? 0 :
             (task['checklistState'] as List? ?? []).where((value) => value == true).length /
               (task['checklistItems'] as List).length),
@@ -203,7 +205,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         Text('Status: $status'), Text('Aircraft: ${taskText(task['aircraft'])}'),
         Text('Assigned to: ${task['assignedToName'] ?? ''}'),
         Text('Priority: ${task['priority'] ?? ''}'),
-        Text('Start: ${task['startDateTime'] ?? ''}'), Text('End: ${task['endDateTime'] ?? ''}'),
+        Text('Start: ${formatAirmsDateTime(task['startDateTime'])}'),
+        Text('End: ${formatAirmsDateTime(task['endDateTime'])}'),
         if ('${task['returnComments'] ?? ''}'.isNotEmpty) Text('Return comments: ${task['returnComments']}'),
       ]))),
       const SizedBox(height: 12), const Text('Checklist', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

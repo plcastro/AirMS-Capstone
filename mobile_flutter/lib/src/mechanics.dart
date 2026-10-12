@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
+import 'access.dart';
+import 'date_time.dart';
 
 class MechanicsPage extends StatefulWidget {
   const MechanicsPage({super.key, required this.session});
@@ -32,7 +34,7 @@ class _MechanicsPageState extends State<MechanicsPage> {
     finally { if (mounted) setState(() => loading = false); }
   }
   @override Widget build(BuildContext context) {
-    final role = flightText(widget.session.user?['jobTitle']).toLowerCase();
+    final role = resolveUserRole(widget.session.user);
     final manager = role == 'maintenance manager' || role == 'admin staff';
     if (!manager) return CertificatePage(session: widget.session, personnelId: flightText(widget.session.user?['_id'] ?? widget.session.user?['id']));
     final visible = people.where((person) {
@@ -73,6 +75,11 @@ class _MechanicDetailState extends State<_MechanicDetail> {
   String tab = 'Ongoing';
   @override Widget build(BuildContext context) {
     final person = widget.person;
+    final completedTasks = widget.tasks.where((task) => {'completed', 'turned in', 'approved'}
+      .contains(flightText(task['status']).toLowerCase())).toList();
+    final ongoingTasks = widget.tasks.where((task) => !completedTasks.contains(task)).toList();
+    final platform = flightText(person['platform']).toUpperCase();
+    final activePlatform = platform == 'WEB' ? 'Web' : platform == 'MOBILE' ? 'Mobile' : 'Unknown';
     final visibleTasks = widget.tasks.where((task) {
       final complete = {'completed', 'turned in', 'approved'}
           .contains(flightText(task['status']).toLowerCase());
@@ -80,16 +87,29 @@ class _MechanicDetailState extends State<_MechanicDetail> {
     }).toList();
     return Scaffold(appBar: AppBar(title: Text('${person['firstName'] ?? ''} ${person['lastName'] ?? ''}')),
     body: ListView(padding: const EdgeInsets.all(12), children: [
-      Text('${person['jobTitle'] ?? ''} · ${person['platform'] ?? ''}'),
+      Text('${person['jobTitle'] ?? ''} · Active platform: $activePlatform'),
       Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Wrap(spacing: 8, children: [
         for (final value in const ['Ongoing', 'Completed', 'Certificates'])
-          ChoiceChip(label: Text(value), selected: tab == value,
+          ChoiceChip(label: Text(value == 'Certificates' ? 'Certificates & Qualifications'
+            : '$value Tasks (${value == 'Completed' ? completedTasks.length : ongoingTasks.length})'), selected: tab == value,
             onSelected: (_) => setState(() => tab = value)),
       ])),
       if (tab != 'Certificates') ...[
-        ...visibleTasks.map((task) => Card(child: ListTile(
-          title: Text(flightText(task['title'] ?? task['description'] ?? task['taskName'])),
-          subtitle: Text('${task['status'] ?? ''} · ${task['endDateTime'] ?? task['deadline'] ?? ''}')))),
+        ...visibleTasks.map((task) {
+          final due = DateTime.tryParse(flightText(task['endDateTime'] ?? task['dueDate']));
+          final completed = DateTime.tryParse(flightText(task['completedAt']));
+          final late = due != null && (tab == 'Completed' ? completed != null && completed.isAfter(due)
+            : DateTime.now().isAfter(due));
+          final priority = flightText(task['priority']);
+          final color = priority == 'Overdue' ? Colors.red : priority == 'Due Soon'
+            ? Colors.orange : priority == 'Normal' ? Colors.blue : Colors.grey;
+          return Card(child: ListTile(
+            title: Text('${task['title'] ?? task['taskName'] ?? ''} - ${task['maintenanceType'] ?? 'Corrective Maintenance'}'),
+            subtitle: Text('Aircraft: ${task['aircraft'] ?? ''}\nDue: ${formatAirmsDateTime(task['endDateTime'] ?? task['dueDate'], numeric: true)}'
+              '${late ? '\n${tab == 'Completed' ? 'Submitted late' : 'Past due'}' : ''}'),
+            isThreeLine: true, trailing: Chip(label: Text(priority.isEmpty ? 'Normal' : priority),
+              backgroundColor: color.withValues(alpha: .15))));
+        }),
         if (visibleTasks.isEmpty) Text('No ${tab.toLowerCase()} tasks assigned to this mechanic'),
       ],
       if (tab == 'Certificates') ...[
