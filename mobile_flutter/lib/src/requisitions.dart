@@ -4,10 +4,57 @@ import 'search.dart';
 import 'toast.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
+import 'date_time.dart';
+
+const requisitionStatusColors = <String, Color>{
+  'Pending Check': Color(0xff8c8c8c), 'Requested': Color(0xff8c8c8c),
+  'In Stock': Color(0xff389e0d), 'Out of Stock': Color(0xffd46b08),
+  'Awaiting Stock': Color(0xffd46b08), 'Ready for Delivery': Color(0xff1677ff),
+  'Delivered': Color(0xffad8b00), 'Closed': Color(0xff389e0d),
+  'Cancelled': Color(0xffa85d5d),
+};
+
+String normalizeItemStatus(dynamic status) {
+  if (['Pending Check', 'In Stock', 'Out of Stock'].contains(status)) return '$status';
+  if (['Ordered', 'Approved', 'Delivered'].contains(status)) return 'In Stock';
+  if (status == 'To Be Ordered') return 'Out of Stock';
+  return 'Pending Check';
+}
+
+String itemDisplayStatus(Map record, Map item) {
+  final stock = normalizeItemStatus(item['stockStatus']);
+  final requisition = requisitionStatus(record);
+  return stock == 'In Stock' && ['Delivered', 'Closed'].contains(requisition)
+    ? requisition : stock;
+}
+
+List<Map<String, dynamic>> requisitionTimeline(Map record) {
+  final staff = record['staff'] is Map ? record['staff'] as Map : <String, dynamic>{};
+  final legacy = <Map<String, dynamic>>[
+    {'label': 'Requested', 'at': record['dateRequested'] ?? record['createdAt'], 'actorName': staff['requisitioner']},
+    {'label': 'Stock checked', 'at': record['dateWarehouseReviewed'], 'actorName': staff['warehouseBy']},
+    {'label': 'Ordered (legacy)', 'at': record['dateOrdered'], 'actorName': staff['warehouseBy']},
+    {'label': 'Approved (legacy)', 'at': record['dateApproved'], 'actorName': staff['approvedBy']},
+    {'label': 'Delivered', 'at': record['deliveredAt'] ?? record['dateDelivered'], 'actorName': staff['deliveredBy']},
+    {'label': 'Receipt confirmed', 'at': record['confirmedAt'] ?? record['dateReceived'], 'actorName': staff['receiver']},
+    {'label': 'Cancelled', 'at': record['cancelledAt'] ?? record['dateCancelled']},
+  ].where((event) => event['at'] != null && '${event['at']}'.isNotEmpty).toList();
+  final history = (record['history'] as List? ?? []).whereType<Map>()
+    .map((event) => Map<String, dynamic>.from(event)).toList();
+  return [...legacy.where((event) => !history.any((item) => item['label'] == event['label'])), ...history]
+    ..sort((a, b) => (DateTime.tryParse('${a['at']}') ?? DateTime(1970))
+      .compareTo(DateTime.tryParse('${b['at']}') ?? DateTime(1970)));
+}
 
 String requisitionStatus(Map record) {
   final status = '${record['status'] ?? ''}';
   if (['Requested', 'Awaiting Stock', 'Ready for Delivery', 'Delivered', 'Closed', 'Cancelled'].contains(status)) return status;
+  if (status == 'Availability Checked') {
+    final items = (record['items'] as List? ?? []).whereType<Map>().toList();
+    if (items.isEmpty || items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Pending Check')) return 'Requested';
+    return items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Out of Stock')
+      ? 'Awaiting Stock' : 'Ready for Delivery';
+  }
   return switch (status) {
     'Completed' => 'Closed', 'Rejected' => 'Cancelled', 'Approved' || 'Ordered' => 'Ready for Delivery',
     'To Be Ordered' || 'In Progress' => 'Awaiting Stock', _ => 'Requested',
@@ -43,17 +90,22 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
   String tab = 'active', search = '', error = '', sortOrder = 'oldest';
   bool loading = true;
   bool exporting = false;
+  Timer? refreshTimer;
   String get role => requisitionRole(widget.session.user);
   bool get oversight => ['officer-in-charge', 'admin staff'].contains(role);
-  @override void initState() { super.initState(); load(); }
-  Future<void> load() async {
-    setState(() => loading = true);
+  @override void initState() {
+    super.initState(); load();
+    refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) { if (mounted && !loading) load(silent: true); });
+  }
+  @override void dispose() { refreshTimer?.cancel(); super.dispose(); }
+  Future<void> load({bool silent = false}) async {
+    if (!silent) setState(() => loading = true);
     try {
       final data = await widget.session.request('/api/parts-requisition/get-all-requisition');
       final list = data is List ? data : data['data'] as List? ?? [];
       if (mounted) setState(() { records = list.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(); error = ''; });
     } catch (e) { if (mounted) setState(() => error = '$e'); }
-    finally { if (mounted) setState(() => loading = false); }
+    finally { if (mounted && !silent) setState(() => loading = false); }
   }
   bool canSee(Map record) => oversight || role == 'warehouse personnel' || ownsRequisition(widget.session.user, record);
   Future<void> exportReport(List<Map<String, dynamic>> records) async {
@@ -89,7 +141,7 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
       final order = requisitionDate(a).compareTo(requisitionDate(b));
       return sortOrder == 'oldest' ? order : -order;
     });
-    return Stack(children: [RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
+    return Stack(children: [RefreshIndicator(onRefresh: () => load(), child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search requisitions', border: OutlineInputBorder()),
         onChanged: (value) => setState(() => search = value)),
       const SizedBox(height: 8),
@@ -107,14 +159,25 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
       if (loading) const LinearProgressIndicator(),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (!loading && filtered.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No requisitions found'))),
-      for (final record in filtered) Card(child: ListTile(
-        title: Text('${record['wrsNo'] ?? 'Requisition'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('${record['aircraft'] ?? ''} · ${requisitionLabel(requisitionStatus(record))}\n${(record['staff'] as Map?)?['requisitioner'] ?? ''}'),
-        isThreeLine: true, trailing: const Icon(Icons.chevron_right),
-        onTap: () async { final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionDetailPage(
+      for (final record in filtered) Card(child: InkWell(onTap: () async { final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionDetailPage(
           session: widget.session, record: record)));
-          if (changed == true) load(); },
-      )),
+          if (changed == true) load(); }, child: Padding(padding: const EdgeInsets.all(12), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Expanded(child: Text('${record['wrsNo'] ?? 'Warehouse Slip'}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              Chip(label: Text(requisitionLabel(requisitionStatus(record))),
+                backgroundColor: (requisitionStatusColors[requisitionStatus(record)] ?? Colors.grey).withValues(alpha: .14))]),
+            Text('Slip No: ${record['wrsNo'] ?? 'N/A'} · ${record['aircraft'] ?? 'N/A'}'),
+            Text('Date: ${formatAirmsDateTime(record['dateRequested'] ?? record['createdAt'], fallback: 'N/A')}'),
+            Text('Items: ${(record['items'] as List? ?? []).length}'),
+            Text('Purpose: ${(record['items'] as List? ?? []).whereType<Map>().map((item) => '${item['purpose'] ?? ''}').where((value) => value.isNotEmpty).join(', ')}'),
+            if (oversight && ['Requested', 'Awaiting Stock', 'Delivered'].contains(requisitionStatus(record)))
+              Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () async {
+                final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionDetailPage(
+                  session: widget.session, record: record)));
+                if (changed == true) load();
+              }, child: const Text('Follow Up'))),
+          ])))),
     ])),
       if (['mechanic', 'maintenance manager'].contains(role)) Positioned(right: 16, bottom: 16,
         child: FloatingActionButton.extended(onPressed: () async {
@@ -148,7 +211,13 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
     if (action != 'stock') {
       final approved = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
         title: Text(action == 'confirm' ? 'Confirm receipt' : action == 'deliver' ? 'Mark ready for pickup' : action == 'cancel' ? 'Cancel requisition' : 'Send follow-up'),
-        content: Text('Continue for ${record['wrsNo']}?'), actions: [
+        content: Text(switch (action) {
+          'confirm' => 'Confirm you received all requested parts. This closes the requisition.',
+          'follow-up' => 'Send follow-up reminder',
+          'deliver' => 'Mark these parts ready for pickup?',
+          'cancel' => 'Cancel this requisition?',
+          _ => 'Continue for ${record['wrsNo']}?',
+        }), actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
         ]));
@@ -160,7 +229,11 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
         method: 'POST', body: {'action': action, ...extra, 'confirmAction': true},
         extraHeaders: {'x-action-confirmed': 'true'});
       if (mounted) setState(() { record = Map<String, dynamic>.from(data as Map); stockDraft = {}; });
-      if (mounted) AirmsToast.show('${requisitionLabel(status)} updated');
+      if (mounted) { AirmsToast.show(switch (action) {
+        'stock' => 'Stock check saved.', 'deliver' => 'Ready for pickup.',
+        'confirm' => 'Receipt confirmed.', 'cancel' => 'Requisition cancelled.',
+        'follow-up' => 'Follow-up reminder sent.', _ => 'Requisition updated.',
+      }); }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }
@@ -170,20 +243,23 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
       Text('${record['aircraft'] ?? ''} · ${(record['staff'] as Map?)?['requisitioner'] ?? ''}',
         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
       Chip(label: Text(requisitionLabel(status))),
+      if (status == 'Delivered') const Card(child: Padding(padding: EdgeInsets.all(12),
+        child: Text('Ready for pickup. Awaiting requester confirmation of receipt.'))),
       const SizedBox(height: 12), const Text('Items', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       for (final item in items) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${item['particular'] ?? 'Part'}', style: const TextStyle(fontWeight: FontWeight.bold)),
         Text('${item['quantity'] ?? ''} ${item['unitOfMeasure'] ?? ''} · ${item['purpose'] ?? ''}'),
-        Text(requisitionLabel('${stockDraft['${item['_id']}'] ?? item['stockStatus'] ?? 'Pending Check'}')),
+        Text(requisitionLabel(stockDraft['${item['_id']}'] ?? itemDisplayStatus(record, item))),
         if (role == 'warehouse personnel' && open) Wrap(children: [for (final option in ['In Stock', 'Out of Stock'])
-          ChoiceChip(label: Text(requisitionLabel(option)),
+          ChoiceChip(label: Text(option),
             selected: (stockDraft['${item['_id']}'] ?? item['stockStatus']) == option,
             onSelected: (_) => setState(() => stockDraft['${item['_id']}'] = option))]),
       ]))),
       const SizedBox(height: 12), const Text('History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      for (final event in (record['history'] as List? ?? []).whereType<Map>())
-        ListTile(title: Text('${event['label'] ?? ''}'), subtitle: Text('${event['at'] ?? ''}\n${event['actorName'] ?? ''}')),
+      for (final event in requisitionTimeline(record))
+        ListTile(title: Text(event['label'] == 'Delivered' ? 'Ready for pickup' : '${event['label'] ?? ''}'),
+          subtitle: Text('${formatAirmsDateTime(event['at'], fallback: 'N/A')} · ${event['actorName'] ?? 'N/A'}${event['details'] == null || '${event['details']}'.isEmpty ? '' : '\n${event['details']}'}')),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (busy) const LinearProgressIndicator(),
       const SizedBox(height: 16),
