@@ -9,4 +9,14 @@ void main() {
     expect(loginValidationMessage('user', 'secret', ''), 'Select your base: Manila, Cebu or Cagayan de Oro.');
     expect(loginValidationMessage(' user ', ' secret ', 'CDO'), isNull);
   });
+  test('forgot, reset, and setup validation follows React Native order', () {
+    expect(forgotEmailValidation(' '), 'Email is required.');
+    expect(forgotEmailValidation('bad-email'), 'Please enter a valid email address.');
+    expect(forgotEmailValidation(' Me@Example.com '), isNull);
+    expect(resetPasswordValidation('', ''), 'Please fill in all fields.');
+    expect(resetPasswordValidation('Password1', 'Password2'), 'Passwords do not match.');
+    expect(resetPasswordValidation('Password1', 'Password1'), isNull);
+    expect(securitySetupValidation('short', 'short', '123456', '123456'), 'Password must be at least 8 characters.');
+    expect(securitySetupValidation('Password1', 'Password1', '123456', '123456'), isNull);
+  });
 }
