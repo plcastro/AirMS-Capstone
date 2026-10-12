@@ -10,6 +10,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth.dart';
 import 'realtime.dart';
+import 'date_time.dart';
 
 String entityId(dynamic entity) => entity is Map ? '${entity['_id'] ?? entity['id'] ?? ''}' : '$entity';
 String displayName(Map user) => '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim().isEmpty
@@ -95,12 +96,15 @@ class _MessagingPageState extends State<MessagingPage> {
   Future<void> createGroup() async {
     final name = TextEditingController();
     final chosen = <String>{};
+    String memberQuery = '';
     final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(
       builder: (context, update) => AlertDialog(title: const Text('New group'),
         content: SizedBox(width: double.maxFinite, height: 360, child: Column(children: [
           TextField(controller: name, decoration: const InputDecoration(labelText: 'Group name')),
+          TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search members'),
+            onChanged: (value) => update(() => memberQuery = value)),
           const SizedBox(height: 8),
-          Expanded(child: ListView(children: users.map((user) => CheckboxListTile(
+          Expanded(child: ListView(children: users.where((user) => matchesSearch(memberQuery, user)).map((user) => CheckboxListTile(
             title: Text(displayName(user)), subtitle: Text('${user['jobTitle'] ?? ''}'),
             value: chosen.contains(entityId(user)),
             onChanged: (checked) => update(() { if (checked == true) { chosen.add(entityId(user)); } else { chosen.remove(entityId(user)); } }),
@@ -109,10 +113,12 @@ class _MessagingPageState extends State<MessagingPage> {
         actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create'))],
       )));
-    if (result != true || name.text.trim().isEmpty || chosen.isEmpty) return;
+    final groupName = name.text.trim();
+    name.dispose();
+    if (result != true || groupName.isEmpty || chosen.isEmpty) return;
     try {
       final data = await widget.session.request('/api/messages/groups', method: 'POST',
-        body: {'name': name.text.trim(), 'memberIds': chosen.toList()});
+        body: {'name': groupName, 'memberIds': chosen.toList()});
       await load();
       final group = data['data']?['group'];
       if (mounted && group is Map) open(ChatTarget(id: entityId(group), title: '${group['name']}', type: 'group', group: group));
@@ -171,6 +177,7 @@ class _ChatPageState extends State<ChatPage> {
   final draft = TextEditingController();
   List<Map> messages = [];
   List<ChatAttachment> attachments = [];
+  final failedSends = <String, (String, List<ChatAttachment>)>{};
   final attachmentLinks = <String, Future<String?>>{};
   bool sending = false;
   String error = '';
@@ -178,7 +185,10 @@ class _ChatPageState extends State<ChatPage> {
   late final AirmsRealtime realtime;
   @override void initState() {
     super.initState(); load();
-    realtime = AirmsRealtime(widget.session, (event, _) {
+    realtime = AirmsRealtime(widget.session, (event, data) {
+      if (data['removedConversationId'] == widget.target.id && mounted) {
+        Navigator.pop(context); return;
+      }
       if (mounted && (event.startsWith('chat:') || event == 'message:new')) load();
     });
     realtime.start();
@@ -188,21 +198,30 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> load() async {
     try {
       final data = await widget.session.request('/api/messages/${widget.target.id}');
-      if (mounted) setState(() { messages = (data['data'] as List? ?? []).whereType<Map>().toList(); error = ''; });
+      if (mounted) { setState(() {
+        final failed = messages.where((message) => message['deliveryStatus'] == 'failed').toList();
+        messages = [...(data['data'] as List? ?? []).whereType<Map>(), ...failed]; error = '';
+      }); }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   Future<void> send() async {
     final body = draft.text.trim();
     if ((body.isEmpty && attachments.isEmpty) || sending) return;
-    setState(() { sending = true; error = ''; });
+    final selected = [...attachments];
+    final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+    setState(() {
+      sending = true; error = '';
+      messages.add({'_id': tempId, 'sender': {'_id': widget.session.user?['_id'] ?? widget.session.user?['id']},
+        'body': body, 'createdAt': DateTime.now().toUtc().toIso8601String(), 'deliveryStatus': 'sending'});
+      draft.clear(); attachments.clear();
+    });
     try {
-      if (attachments.isEmpty) {
+      if (selected.isEmpty) {
         await widget.session.request('/api/messages', method: 'POST', body: {
           widget.target.type == 'group' ? 'conversationId' : 'recipientId': widget.target.id,
           'body': body,
         });
       } else {
-        final selected = [...attachments];
         Future<http.Response> upload() async {
           final request = http.MultipartRequest('POST', Uri.parse('$apiBase/api/messages'));
           request.headers.addAll({...widget.session.headers()}..remove('Content-Type'));
@@ -221,9 +240,21 @@ class _ChatPageState extends State<ChatPage> {
         if (response.statusCode == 401 && await widget.session.refresh() != null) response = await upload();
         if (response.statusCode >= 400) throw ApiException('${decodeResponse(response)['message'] ?? 'Could not send attachments'}');
       }
-      draft.clear(); attachments.clear(); await load();
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+      if (mounted) { setState(() => messages.removeWhere((message) => message['_id'] == tempId)); }
+      await load();
+    } catch (e) { if (mounted) { setState(() {
+      error = '$e';
+      failedSends[tempId] = (body, selected);
+      final index = messages.indexWhere((message) => message['_id'] == tempId);
+      if (index >= 0) messages[index] = {...messages[index], 'deliveryStatus': 'failed'};
+    }); } }
     finally { if (mounted) setState(() => sending = false); }
+  }
+  Future<void> retrySend(String id) async {
+    final failed = failedSends.remove(id);
+    if (failed == null) return;
+    setState(() { messages.removeWhere((message) => message['_id'] == id); draft.text = failed.$1; attachments = failed.$2; });
+    await send();
   }
   Future<void> pickAttachments() async {
     if (attachments.length >= 5) return;
@@ -303,7 +334,13 @@ class _ChatPageState extends State<ChatPage> {
         itemBuilder: (context, index) {
           final message = messages[messages.length - 1 - index];
           final mine = entityId(message['sender']) == me;
-          return Align(alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+          final previous = messages.length - 2 - index >= 0 ? messages[messages.length - 2 - index] : null;
+          final day = DateTime.tryParse('${message['createdAt'] ?? ''}')?.toLocal();
+          final previousDay = DateTime.tryParse('${previous?['createdAt'] ?? ''}')?.toLocal();
+          final showDay = day != null && (previousDay == null || day.year != previousDay.year || day.month != previousDay.month || day.day != previousDay.day);
+          return Column(children: [if (showDay) Padding(padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Text('${day.month}/${day.day}/${day.year}', style: const TextStyle(fontSize: 12, color: Colors.black54))),
+          Align(alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
             child: Container(constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
               margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
               decoration: BoxDecoration(color: mine ? const Color(0xff26866f) : const Color(0xffe9ecef),
@@ -333,9 +370,14 @@ class _ChatPageState extends State<ChatPage> {
                     label: Text('${attachment['name'] ?? 'Attachment'}', style: TextStyle(color: mine ? Colors.white : const Color(0xff26866f))));
                 })),
                 if (message['createdAt'] != null) Align(alignment: Alignment.centerRight,
-                  child: Text('${message['createdAt']}', style: TextStyle(fontSize: 10,
+                  child: Text(formatAirmsDateTime(message['createdAt'], fallback: '', numeric: true), style: TextStyle(fontSize: 10,
                     color: mine ? Colors.white70 : Colors.black54))),
-              ])));
+                if (mine) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: message['deliveryStatus'] == 'failed' ? () => retrySend(entityId(message)) : null,
+                  child: Text(message['deliveryStatus'] == 'sending' ? 'Sending...' : message['deliveryStatus'] == 'failed' ? 'Failed · Retry' :
+                    widget.target.type == 'group' ? 'Sent' : message['readAt'] == null ? 'Sent' : 'Seen',
+                    style: TextStyle(fontSize: 10, color: mine ? Colors.white70 : Colors.black54)))),
+              ]))),
+          ]);
         })),
       if (attachments.isNotEmpty) SizedBox(height: 50, child: ListView(scrollDirection: Axis.horizontal, children: attachments.map((file) => InputChip(label: Text(file.name), onDeleted: () => setState(() => attachments.remove(file)))).toList())),
       SafeArea(top: false, child: Padding(padding: const EdgeInsets.all(8), child: Row(children: [
