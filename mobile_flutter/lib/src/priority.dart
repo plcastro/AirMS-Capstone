@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'search.dart';
 import 'auth.dart';
+import 'access.dart';
+import 'date_time.dart';
+import 'toast.dart';
 
 const defaultRules = <String, int>{
   'criticalDueDays': 5, 'criticalRemainingHours': 14,
@@ -57,6 +60,7 @@ class _PriorityPageState extends State<PriorityPage> {
       setState(() => rules = {...defaultRules, for (final key in defaultRules.keys)
         if (values[key] is num) key: (values[key] as num).toInt()});
       await loadRanking(rules);
+      if (mounted) AirmsToast.show('Maintenance priority rules saved.');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => saving = false); }
   }
@@ -68,16 +72,19 @@ class _PriorityPageState extends State<PriorityPage> {
         method: 'PUT', extraHeaders: {'x-action-confirmed': 'true'},
         body: {'level': level, if (level != 'Auto') 'reason': reason, 'confirmAction': true});
       await loadRanking(rules);
+      if (mounted) AirmsToast.show('Maintenance priority saved.');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   @override Widget build(BuildContext context) {
+    final role = resolveUserRole(widget.session.user);
+    final canOverride = role == 'maintenance manager' || role == 'admin staff';
     final filtered = rankings.where((row) => matchesSearch(search, row)).toList();
     final visible = filtered.skip(page * 10).take(10).toList();
     final turnaround = rankings.map((row) => num.tryParse('${row['estimatedTurnaroundHours'] ?? ''}'))
       .whereType<num>().toList()..sort();
     return RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('Maintenance Priority Sorting', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      const Text('Rule based aircraft ranking for upcoming maintenance work'),
+      const Text('Rule-based aircraft ranking for upcoming maintenance work'),
       const SizedBox(height: 12),
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search aircraft or inspection', border: OutlineInputBorder()),
         onChanged: (value) => setState(() { search = value; page = 0; })),
@@ -88,7 +95,7 @@ class _PriorityPageState extends State<PriorityPage> {
         Chip(label: Text('High: ${rankings.where((row) => row['priorityLevel'] == 'High').length}')),
         Chip(label: Text('Fastest turnaround: ${turnaround.isEmpty ? 'N/A' : turnaround.first} hrs')),
       ]),
-      OutlinedButton.icon(onPressed: () => setState(() => showRules = !showRules), icon: const Icon(Icons.tune), label: const Text('Priority Rules')),
+      OutlinedButton.icon(onPressed: () => setState(() => showRules = !showRules), icon: const Icon(Icons.tune), label: const Text('Rule Controls')),
       if (showRules) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
         for (final key in draft.keys) TextFormField(key: ValueKey(key), initialValue: '${draft[key]}',
           keyboardType: TextInputType.number, decoration: InputDecoration(labelText: key),
@@ -100,7 +107,9 @@ class _PriorityPageState extends State<PriorityPage> {
       ]))),
       if (loading) const LinearProgressIndicator(),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-      for (final row in visible) _PriorityCard(record: row, onSave: saveOverride),
+      Card(child: ListTile(title: const Text('Priority Logic'), subtitle: Text(
+        'Aircraft and inspections are ranked by due limits, remaining flight hours, calendar due dates, and manual overrides. Showing ${filtered.isEmpty ? 0 : page * 10 + 1}-${(page * 10 + 10).clamp(0, filtered.length)} of ${filtered.length} ranking rows.'))),
+      for (final row in visible) _PriorityCard(record: row, onSave: saveOverride, canOverride: canOverride),
       if (filtered.length > 10) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Previous')),
         Text('Page ${page + 1} of ${(filtered.length / 10).ceil()}'),
@@ -111,9 +120,10 @@ class _PriorityPageState extends State<PriorityPage> {
 }
 
 class _PriorityCard extends StatefulWidget {
-  const _PriorityCard({required this.record, required this.onSave});
+  const _PriorityCard({required this.record, required this.onSave, required this.canOverride});
   final Map record;
   final Future<void> Function(Map, String, String) onSave;
+  final bool canOverride;
   @override State<_PriorityCard> createState() => _PriorityCardState();
 }
 class _PriorityCardState extends State<_PriorityCard> {
@@ -123,20 +133,24 @@ class _PriorityCardState extends State<_PriorityCard> {
     final override = widget.record['manualPriorityOverride'] as Map?;
     level = '${override?['level'] ?? 'Auto'}'; reason.text = '${override?['reason'] ?? ''}';
   }
+  @override void dispose() { reason.dispose(); super.dispose(); }
   @override Widget build(BuildContext context) {
     final record = widget.record;
     return Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Expanded(child: Text('${record['aircraft'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+      Row(children: [Expanded(child: Text('#${record['rank'] ?? '-'} ${record['aircraft'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
         Chip(label: Text('${record['priorityLevel'] ?? ''}'))]),
       Text('Inspection: ${record['inspectionName'] ?? ''}'),
+      Text('Model: ${record['aircraftModel'] ?? 'N/A'}'),
       Text('Due: ${record['dueByHours'] ?? 'N/A'} FH / ${record['dueByDays'] ?? 'N/A'} days'),
+      Text('Calendar Due: ${formatAirmsDateTime(record['dueDate'], fallback: 'N/A')}'),
       Text('Turnaround: ${record['estimatedTurnaroundHours'] ?? 'N/A'} hours'),
       Text('${record['priorityReason'] ?? ''}'),
-      DropdownButtonFormField<String>(initialValue: level, decoration: const InputDecoration(labelText: 'Priority override'),
+      if (record['manualPriorityOverride'] is Map) Text('Manual override: ${(record['manualPriorityOverride'] as Map)['level'] ?? 'Auto'} · ${(record['manualPriorityOverride'] as Map)['reason'] ?? ''}'),
+      if (widget.canOverride) DropdownButtonFormField<String>(initialValue: level, decoration: const InputDecoration(labelText: 'Priority override'),
         items: ['Auto', 'Critical', 'High', 'Medium', 'Low'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
         onChanged: (value) => setState(() => level = value ?? 'Auto')),
-      if (level != 'Auto') TextField(controller: reason, decoration: const InputDecoration(labelText: 'Reason (optional)')),
-      FilledButton(onPressed: () => widget.onSave(record, level, reason.text.trim()), child: const Text('Save priority')),
+      if (widget.canOverride && level != 'Auto') TextField(controller: reason, decoration: const InputDecoration(labelText: 'Reason (optional)')),
+      if (widget.canOverride) FilledButton(onPressed: () => widget.onSave(record, level, reason.text.trim()), child: const Text('Save priority')),
     ])));
   }
 }
