@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'auth.dart';
+import 'date_time.dart';
 
 const jobTitles = ['Admin Staff', 'Maintenance Manager', 'Pilot', 'Officer-In-Charge', 'Mechanic', 'Warehouse Personnel'];
 const roleAccess = {
@@ -12,6 +13,22 @@ const roleAccess = {
   'Officer-In-Charge': 'Superuser', 'Pilot': 'User',
   'Mechanic': 'User', 'Warehouse Personnel': 'User',
 };
+
+String invitationDisplayStatus(Map<String, dynamic> user, {DateTime? now}) {
+  final stated = '${user['invitationStatus'] ?? ''}'.toLowerCase();
+  if (stated.isNotEmpty) return stated;
+  if ('${user['status'] ?? ''}'.toLowerCase() == 'active') return 'claimed';
+  final expiry = DateTime.tryParse('${user['invitationExpiresAt'] ?? user['tempPasswordExpires'] ?? ''}');
+  if (expiry != null && expiry.isBefore(now ?? DateTime.now())) return 'expired';
+  return 'pending';
+}
+
+String maskUserEmail(dynamic value) {
+  final text = '$value';
+  final at = text.indexOf('@');
+  if (at <= 1) return text;
+  return '${text[0]}${'*' * (at - 1)}${text.substring(at)}';
+}
 
 class UserManagementPage extends StatefulWidget {
   const UserManagementPage({super.key, required this.session});
@@ -73,10 +90,12 @@ class _UserManagementPageState extends State<UserManagementPage> {
     final deactivated = users.where((user) => user['status'] == 'deactivated').length;
     return Stack(children: [RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
       Row(children: [for (final entry in {'Total': users.length, 'Active': active, 'Inactive': inactive, 'Deactivated': deactivated}.entries)
-        Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
+        Expanded(child: Card(color: status == (entry.key == 'Total' ? 'all' : entry.key.toLowerCase()) ? Theme.of(context).colorScheme.primaryContainer : null,
+          child: InkWell(onTap: () => setState(() => status = entry.key == 'Total' ? 'all' : entry.key.toLowerCase()),
+          child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
           Text('${entry.value}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Text(entry.key, style: const TextStyle(fontSize: 10)),
-        ]))))]),
+        ])))))]),
       const SizedBox(height: 8),
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search users', border: OutlineInputBorder()),
         onChanged: (value) => setState(() => query = value)),
@@ -85,7 +104,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         DropdownButton<String>(value: status, items: ['all', 'active', 'inactive', 'deactivated'].map((value) =>
           DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All Statuses' : value))).toList(),
           onChanged: (value) => setState(() => status = value ?? 'all')),
-        DropdownButton<String>(value: role, items: ['all', ...jobTitles].map((value) =>
+        DropdownButton<String>(value: role, items: ['all', ...users.map((user) => '${user['jobTitle'] ?? ''}').where((value) => value.isNotEmpty).toSet().toList()..sort()].map((value) =>
           DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All Roles' : value))).toList(),
           onChanged: (value) => setState(() => role = value ?? 'all')),
         DropdownButton<String>(value: access, items: ['all', 'Admin Staff', 'Superuser', 'User'].map((value) =>
@@ -104,7 +123,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
   Widget _userCard(Map<String, dynamic> user) {
     final id = '${user['_id'] ?? ''}';
     final userStatus = '${user['status'] ?? 'inactive'}'.toLowerCase();
-    final inviteStatus = '${user['invitationStatus'] ?? 'pending'}'.toLowerCase();
+    final inviteStatus = invitationDisplayStatus(user);
+    final expiry = user['invitationExpiresAt'] ?? user['tempPasswordExpires'];
     final isSelf = id == currentId;
     return Card(margin: const EdgeInsets.only(bottom: 12), child: Padding(padding: const EdgeInsets.all(14), child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -114,10 +134,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
           Text('@${user['username'] ?? ''} | ${user['access'] ?? ''}', style: const TextStyle(fontSize: 12)),
         ])), Chip(label: Text(userStatus, style: const TextStyle(fontSize: 10)))]),
       const Divider(),
-      Text('${user['email'] ?? ''}'), Text('${user['jobTitle'] ?? ''}'),
-      if (userStatus == 'inactive') Text('Invite: $inviteStatus'),
+      Text(maskUserEmail(user['email'] ?? '')), Text('${user['jobTitle'] ?? ''}'),
+      if (userStatus == 'inactive') Text('INVITE: ${inviteStatus.toUpperCase()} · Expires: ${formatAirmsDateTime(expiry, fallback: 'N/A')}'),
       Wrap(spacing: 4, children: [
-        IconButton(tooltip: 'Edit', onPressed: () => edit(user), icon: const Icon(Icons.edit, color: Colors.blue)),
+        IconButton(tooltip: 'Edit', onPressed: isSelf ? () => AirmsToast.show('You cannot edit your own account here.') : () => edit(user), icon: const Icon(Icons.edit, color: Colors.blue)),
         IconButton(tooltip: userStatus == 'active' ? 'Deactivate' : 'Reactivate',
           onPressed: isSelf ? null : () => act(user, userStatus == 'active' ? 'Deactivate' : 'Reactivate',
             '/api/user/update-user-status/$id', 'PUT', {'status': userStatus == 'active' ? 'deactivated' : 'active'}),
@@ -125,14 +145,15 @@ class _UserManagementPageState extends State<UserManagementPage> {
             color: userStatus == 'active' ? Colors.red : Colors.green)),
         if (user['isLocked'] == true) IconButton(tooltip: 'Unlock', icon: const Icon(Icons.lock_open),
           onPressed: () => act(user, 'Unlock', '/api/user/unlock-user/$id', 'PUT')),
-        if (userStatus == 'inactive' && inviteStatus != 'revoked') ...[
+        if (userStatus == 'inactive' && ['pending', 'expired'].contains(inviteStatus)) ...[
           IconButton(tooltip: 'Resend invite', icon: const Icon(Icons.forward_to_inbox),
             onPressed: () => act(user, 'Resend invite', '/api/user/resend-activation/$id', 'POST')),
           IconButton(tooltip: 'Extend invite 24 hours', icon: const Icon(Icons.more_time),
             onPressed: () => act(user, 'Extend invite', '/api/user/extend-invitation-expiry/$id', 'PUT', {'hours': 24})),
+        ],
+        if (userStatus == 'inactive' && inviteStatus != 'revoked')
           IconButton(tooltip: 'Revoke invite', icon: const Icon(Icons.mail_lock, color: Colors.red),
             onPressed: () => act(user, 'Revoke invite', '/api/user/revoke-invitation/$id', 'PUT')),
-        ],
       ]),
     ])));
   }
@@ -154,6 +175,7 @@ class _UserFormPageState extends State<UserFormPage> {
   bool busy = false;
   XFile? pickedImage;
   bool get editing => widget.user != null;
+  bool get requiresLicense => {'Pilot', 'Mechanic', 'Maintenance Manager', 'Officer-In-Charge'}.contains(jobTitle);
   @override void initState() {
     super.initState();
     final user = widget.user ?? {};
@@ -185,7 +207,7 @@ class _UserFormPageState extends State<UserFormPage> {
     if (!RegExp(r'^\S+@\S+\.\S+$').hasMatch(email.text.trim())) {
       setState(() => error = 'Enter a valid email.'); return;
     }
-    if ({'Pilot', 'Mechanic', 'Maintenance Manager', 'Officer-In-Charge'}.contains(jobTitle) &&
+    if (requiresLicense &&
         !RegExp(r'^\d{6}$').hasMatch(license.text.trim())) {
       setState(() => error = 'License number must be 6 digits.'); return;
     }
@@ -195,7 +217,7 @@ class _UserFormPageState extends State<UserFormPage> {
       final fields = <String, String>{
           'firstName': first.text.trim(), 'lastName': last.text.trim(), 'email': email.text.trim(),
           'username': username.text.trim(), 'jobTitle': jobTitle!, 'access': access!,
-          'licenseNo': license.text.trim(), 'confirmAction': 'true',
+          'licenseNo': requiresLicense ? license.text.trim() : '', 'confirmAction': 'true',
         };
       if (pickedImage == null) {
         await widget.session.request(path, method: editing ? 'PUT' : 'POST',
@@ -219,7 +241,7 @@ class _UserFormPageState extends State<UserFormPage> {
       TextField(controller: first, decoration: const InputDecoration(labelText: 'First name *')),
       TextField(controller: last, decoration: const InputDecoration(labelText: 'Last name *')),
       TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email *')),
-      TextField(controller: username, decoration: const InputDecoration(labelText: 'Username *')),
+      TextField(controller: username, readOnly: true, decoration: const InputDecoration(labelText: 'Username *', helperText: 'Auto-generated from the name')),
       Row(children: [
         OutlinedButton.icon(onPressed: busy ? null : () => pickImage(ImageSource.gallery),
           icon: const Icon(Icons.photo_library_outlined), label: Text(pickedImage == null ? 'Choose photo' : 'Change photo')),
@@ -230,11 +252,11 @@ class _UserFormPageState extends State<UserFormPage> {
       ]),
       DropdownButtonFormField<String>(initialValue: jobTitle, decoration: const InputDecoration(labelText: 'Job title *'),
         items: jobTitles.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-        onChanged: (value) => setState(() { jobTitle = value; access = roleAccess[value]; })),
+        onChanged: (value) => setState(() { jobTitle = value; access = roleAccess[value]; if (!requiresLicense) license.clear(); })),
       DropdownButtonFormField<String>(initialValue: access, decoration: const InputDecoration(labelText: 'Access *'),
         items: ['Admin Staff', 'Superuser', 'User'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-        onChanged: (value) => setState(() => access = value)),
-      if ({'Pilot', 'Mechanic', 'Maintenance Manager', 'Officer-In-Charge'}.contains(jobTitle))
+        onChanged: null),
+      if (requiresLicense)
         TextField(controller: license, keyboardType: TextInputType.number, maxLength: 6,
           decoration: const InputDecoration(labelText: 'License number *')),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
