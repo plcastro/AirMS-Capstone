@@ -3,6 +3,7 @@ import 'search.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 import 'viewed_logs.dart';
+import 'date_time.dart';
 
 class MaintenanceLogsPage extends StatefulWidget {
   const MaintenanceLogsPage({super.key, required this.session});
@@ -89,7 +90,7 @@ class _AircraftLogsPage extends StatelessWidget {
       const Text('Work Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       for (final entry in entries) Card(child: ListTile(
         title: Text('${entry['sourceTaskId'] ?? entry['_id'] ?? ''}'),
-        subtitle: Text('${entry['taskTitle'] ?? 'Untitled task'}\n${entry['dateDefectRectified'] ?? ''} · ${entry['status'] ?? ''}'),
+        subtitle: Text('${entry['taskTitle'] ?? 'Untitled task'}\n${formatAirmsDateTime(entry['dateDefectRectified'], fallback: 'N/A')} · ${entry['status'] ?? ''}\nBase: ${entry['base'] ?? 'N/A'}'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _WorkOrderPage(entry: entry, canExport: canExport))),
       )),
@@ -104,6 +105,8 @@ class _WorkOrderPage extends StatelessWidget {
     final details = (entry['workDetails'] as List? ?? []).isNotEmpty ? entry['workDetails'] as List : [
       if (entry['correctiveActionDone'] != null) {'description': entry['correctiveActionDone']},
       if (entry['defects'] != null) {'description': entry['defects']},
+      if (entry['correctiveActionDone'] == null && entry['defects'] == null && entry['taskTitle'] != null)
+        {'description': 'Reference task: ${entry['taskTitle']}'},
     ];
     await shareAirmsPdf(title: 'Maintenance Work Done Report',
       fileName: 'AirMS_Maintenance_${entry['sourceTaskId'] ?? entry['_id'] ?? 'work_order'}.pdf',
@@ -120,6 +123,8 @@ class _WorkOrderPage extends StatelessWidget {
     final details = (entry['workDetails'] as List? ?? []).isNotEmpty ? entry['workDetails'] as List : [
       if (entry['correctiveActionDone'] != null) {'description': entry['correctiveActionDone']},
       if (entry['defects'] != null) {'description': entry['defects']},
+      if (entry['correctiveActionDone'] == null && entry['defects'] == null && entry['taskTitle'] != null)
+        {'description': 'Reference task: ${entry['taskTitle']}'},
     ];
     return Scaffold(appBar: AppBar(title: const Text('Work Done Report')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
@@ -131,7 +136,7 @@ class _WorkOrderPage extends StatelessWidget {
           Text('Inspector: ${entry['inspector'] ?? entry['approvedBy'] ?? ''}'),
           Text('Mechanic license: ${entry['mechanicLicenseNo'] ?? entry['licenseNo'] ?? ''}'),
           Text('Inspector license: ${entry['inspectorLicenseNo'] ?? ''}'),
-          Text('Rectified: ${entry['dateDefectRectified'] ?? ''}'),
+          Text('Rectified: ${formatAirmsDateTime(entry['dateDefectRectified'], fallback: 'N/A')}'),
           Text('Task status: ${entry['sourceTaskStatus'] ?? ''}'),
           Text('Task title: ${entry['taskTitle'] ?? ''}'),
         ]))),
