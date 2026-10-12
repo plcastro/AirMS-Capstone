@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'auth.dart';
 import 'legal.dart';
+import 'auth_validation.dart';
+import 'toast.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.session, required this.onLogin});
@@ -33,14 +35,19 @@ class _LoginPageState extends State<LoginPage> {
   @override void dispose() { identifier.dispose(); password.dispose(); super.dispose(); }
 
   Future<void> submit() async {
-    if (identifier.text.trim().isEmpty || password.text.isEmpty || base.isEmpty) {
-      setState(() => error = 'Enter your username or email, password, and base.'); return;
-    }
+    final validation = loginValidationMessage(identifier.text, password.text, base);
+    if (validation != null) { setState(() => error = validation); AirmsToast.show(validation); return; }
     setState(() { busy = true; error = ''; });
     try {
       final location = await loginLocation();
+      if ('${location['text'] ?? ''}'.trim().isEmpty) {
+        const message = 'Allow location access so AirMS can record where you are logging in from.';
+        if (mounted) setState(() => error = message);
+        AirmsToast.show(message);
+        return;
+      }
       final data = await publicPost('/api/user/login', {
-        'identifier': identifier.text.trim(), 'password': password.text,
+        'identifier': identifier.text.trim(), 'password': password.text.trim(),
         'client': 'mobile', 'rememberMe': remember, 'location': location,
         'base': base, 'trustedDeviceToken': await AirmsSession.storage.read(key: 'trustedDeviceToken') ?? '',
       }, headers: {
@@ -81,11 +88,14 @@ class _LoginPageState extends State<LoginPage> {
         else { await prefs.remove('rememberedIdentifier'); }
         widget.onLogin();
       }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } on ApiException catch (e) { if (mounted) { setState(() => error = '$e'); AirmsToast.show(e); } }
+      catch (_) { if (mounted) { setState(() => error = 'Login error. Please try again.'); AirmsToast.show(error); } }
     finally { if (mounted) setState(() => busy = false); }
   }
 
-  @override Widget build(BuildContext context) => AuthLayout(title: 'Login', subtitle: 'Sign in to your AirMS account', children: [
+  @override Widget build(BuildContext context) => busy
+    ? const AuthLoadingScreen(message: 'Signing you in...')
+    : AuthLayout(title: 'Login', subtitle: 'Sign in to access your AirMS account', children: [
     TextField(controller: identifier, decoration: const InputDecoration(labelText: 'Username or email', border: OutlineInputBorder())),
     const SizedBox(height: 16),
     TextField(controller: password, obscureText: !showPassword, decoration: InputDecoration(
@@ -99,14 +109,14 @@ class _LoginPageState extends State<LoginPage> {
         DropdownMenuItem(value: 'CEBU', child: Text('Cebu')),
         DropdownMenuItem(value: 'CDO', child: Text('Cagayan de Oro'))],
       onChanged: (value) => setState(() => base = value ?? '')),
-    CheckboxListTile(value: remember, contentPadding: EdgeInsets.zero, title: const Text('Remember me'),
-      onChanged: (value) => setState(() => remember = value ?? false)),
+    Row(children: [Expanded(child: CheckboxListTile(value: remember, contentPadding: EdgeInsets.zero,
+      title: const Text('Stay signed in'), onChanged: (value) => setState(() => remember = value ?? false))),
+      TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ForgotPasswordPage(
+        initialEmail: identifier.text.contains('@') ? identifier.text.trim() : ''))),
+        child: const Text('Forgot Password?'))]),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     const SizedBox(height: 12),
-    FilledButton(onPressed: busy ? null : submit, child: busy ? const CircularProgressIndicator() : const Text('Login')),
-    TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ForgotPasswordPage(
-      initialEmail: identifier.text.contains('@') ? identifier.text.trim() : ''))),
-      child: const Text('Forgot password?')),
+    FilledButton(onPressed: submit, child: const Text('LOGIN')),
     Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
       TextButton(onPressed: () => showAirmsLegal(context, privacy: false), child: const Text('Terms and Conditions')),
       const Text('·'),
@@ -142,6 +152,16 @@ class AuthLayout extends StatelessWidget {
           ]))))),
     ]));
   }
+}
+
+class AuthLoadingScreen extends StatelessWidget {
+  const AuthLoadingScreen({super.key, this.message = 'Loading...'});
+  final String message;
+  @override Widget build(BuildContext context) => AuthLayout(
+    title: 'Please wait', subtitle: message, children: const [
+      SizedBox(height: 24), Center(child: CircularProgressIndicator()),
+      SizedBox(height: 12), Center(child: Text('We are preparing your session.')),
+    ]);
 }
 
 class OtpPage extends StatefulWidget {

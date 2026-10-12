@@ -81,7 +81,7 @@ class _AirmsAppState extends State<AirmsApp> {
         primary: const Color(0xff244d3b), secondary: const Color(0xff26866f)),
       scaffoldBackgroundColor: const Color(0xfff7f8f7),
       appBarTheme: const AppBarTheme(backgroundColor: Colors.white, foregroundColor: Color(0xff244d3b))),
-    home: !ready ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+    home: !ready ? const AuthLoadingScreen(message: 'Loading...')
       : session.user == null ? LoginPage(session: session, onLogin: () => setState(() {}))
       : AirmsShell(session: session, onLogout: () => setState(() {}), link: pendingLink,
           onLinkHandled: () { if (mounted) setState(() => pendingLink = null); }),
