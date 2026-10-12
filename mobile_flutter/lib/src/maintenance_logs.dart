@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 import 'viewed_logs.dart';
@@ -40,7 +41,7 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
   @override Widget build(BuildContext context) {
     final filtered = entries.where((row) => (mechanic ? (myBase.isNotEmpty && base(row) == myBase) :
       (selectedBase == 'all' || base(row) == selectedBase)) &&
-      '$row'.toLowerCase().contains(search.toLowerCase())).toList();
+      matchesSearch(search, row)).toList();
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final row in filtered) {
       final aircraft = '${row['aircraft'] ?? ''}';

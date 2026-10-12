@@ -17,6 +17,9 @@ import 'maintenance_tracking.dart';
 import 'mechanics.dart';
 import 'reports.dart';
 import 'push.dart';
+import 'access.dart';
+import 'search.dart';
+import 'toast.dart';
 
 class Module {
   const Module(this.title, this.path, this.icon, this.roles);
@@ -28,8 +31,7 @@ class Module {
 const manager = 'maintenance manager', admin = 'admin staff', mechanic = 'mechanic';
 const officer = 'officer-in-charge', pilot = 'pilot', warehouse = 'warehouse personnel';
 String sessionRole(AirmsSession session) {
-  final job = '${session.user?['jobTitle'] ?? ''}'.trim().toLowerCase();
-  return job.isNotEmpty ? job : '${session.user?['access'] ?? ''}'.trim().toLowerCase();
+  return resolveUserRole(session.user);
 }
 const modules = <Module>[
   Module('Reports and Analytics', '/api/tasks/analytics/base-maintenance', Icons.bar_chart, {manager, officer, admin}),
@@ -78,7 +80,7 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
     };
     selected = allowed.where((module) => module.title == home).firstOrNull ?? modules.last;
     push = PushService(widget.session, openNotification, () {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('New AirMS notification')));
+      if (mounted) AirmsToast.show('New AirMS notification');
     });
     push.start();
     checkIdle();
@@ -190,7 +192,7 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open notification: $e')));
+      if (mounted) AirmsToast.show('Could not open that notification.');
     }
   }
   void activity() {
@@ -302,7 +304,7 @@ class _ModuleListState extends State<ModuleList> {
     finally { if (mounted) setState(() => loading = false); }
   }
   @override Widget build(BuildContext context) {
-    final visible = records.where((record) => '$record'.toLowerCase().contains(query.toLowerCase())).toList();
+    final visible = records.where((record) => matchesSearch(query, record)).toList();
     return RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(16), children: [
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search',
         border: OutlineInputBorder()), onChanged: (value) => setState(() => query = value)),

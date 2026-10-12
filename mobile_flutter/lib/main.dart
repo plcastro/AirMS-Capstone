@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'src/push.dart';
 import 'src/display_settings.dart';
+import 'src/toast.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,7 +74,8 @@ class _AirmsAppState extends State<AirmsApp> {
   Widget build(BuildContext context) => ValueListenableBuilder<double>(valueListenable: airmsFontScale, builder: (context, scale, _) => MaterialApp(
     title: 'AirMS', debugShowCheckedModeBanner: false, navigatorKey: navigatorKey,
     builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(
-      textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * scale)), child: child ?? const SizedBox.shrink()),
+      textScaler: TextScaler.linear(MediaQuery.textScalerOf(context).scale(1) * scale)),
+      child: AirmsToastHost(child: child ?? const SizedBox.shrink())),
     theme: ThemeData(useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff26866f),
         primary: const Color(0xff244d3b), secondary: const Color(0xff26866f)),

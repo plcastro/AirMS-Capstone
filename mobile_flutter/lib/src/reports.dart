@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'file_exports.dart';
@@ -129,7 +130,7 @@ class _ReportsPageState extends State<ReportsPage> {
   List<Map<String, dynamic>> reportSections() {
     final query = search.trim().toLowerCase();
     List<Map<String, dynamic>> rows(String key) => (data[key] ?? [])
-        .where((row) => '$row'.toLowerCase().contains(query)).toList();
+        .where((row) => matchesSearch(query, row)).toList();
     Map<String, int> counts(List<Map<String, dynamic>> source,
         String Function(Map<String, dynamic>) label) => reportCounts(source, label);
     Map<String, dynamic> countSection(String title, Map<String, int> values) => {
@@ -239,8 +240,8 @@ class _ReportsPageState extends State<ReportsPage> {
     final tasks = data['Tasks'] ?? [];
     final query = search.trim().toLowerCase();
     List<Map<String, dynamic>> filtered(String key) => (data[key] ?? [])
-        .where((row) => '$row'.toLowerCase().contains(query)).toList();
-    final filteredTasks = tasks.where((task) => '$task'.toLowerCase().contains(query)).toList();
+        .where((row) => matchesSearch(query, row)).toList();
+    final filteredTasks = tasks.where((task) => matchesSearch(query, task)).toList();
     final completed = filteredTasks.where(_reportCompleted).length;
     final now = DateTime.now();
     final dueSoon = filteredTasks.where((task) {
@@ -303,7 +304,7 @@ class _ReportsPageState extends State<ReportsPage> {
         part['rowType'] != 'header' && flightText(part['componentName']).isNotEmpty).length;
       componentCounts.update(name, (value) => value + count, ifAbsent: () => count);
     }
-    final visible = (data[selected] ?? []).where((item) => '$item'.toLowerCase().contains(search.toLowerCase())).toList();
+    final visible = (data[selected] ?? []).where((item) => matchesSearch(search, item)).toList();
     final statusCounts = <String, int>{};
     for (final item in visible) {
       final status = flightText(item['status']).trim();

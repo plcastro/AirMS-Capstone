@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -121,7 +122,7 @@ class _MessagingPageState extends State<MessagingPage> {
     session: widget.session, target: target))).then((_) => load());
 
   @override Widget build(BuildContext context) {
-    final visible = targets.where((target) => '${target.title} ${target.subtitle}'.toLowerCase().contains(query.toLowerCase())).toList();
+    final visible = targets.where((target) => matchesSearch(query, [target.title, target.subtitle])).toList();
     return Column(children: [
       Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), child: Row(children: [
         Expanded(child: TextField(decoration: InputDecoration(hintText: 'Search users or groups',

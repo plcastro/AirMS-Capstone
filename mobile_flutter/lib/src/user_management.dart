@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -64,7 +65,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
       if (status != 'all' && '${user['status'] ?? ''}'.toLowerCase() != status) return false;
       if (role != 'all' && '${user['jobTitle'] ?? ''}'.toLowerCase() != role.toLowerCase()) return false;
       if (access != 'all' && '${user['access'] ?? ''}'.toLowerCase() != access.toLowerCase()) return false;
-      return '$user'.toLowerCase().contains(query.toLowerCase());
+      return matchesSearch(query, user);
     }).toList();
     final active = users.where((user) => user['status'] == 'active').length;
     final inactive = users.where((user) => user['status'] == 'inactive').length;

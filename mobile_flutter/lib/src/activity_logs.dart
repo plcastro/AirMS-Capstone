@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 import 'activity_trend_chart.dart';
@@ -71,7 +72,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
           '${log['devicePlatform'] ?? ''}'.toUpperCase() != platform) {
         return false;
       }
-      return '$log'.toLowerCase().contains(search.toLowerCase());
+      return matchesSearch(search, log);
     }).toList();
     final visible = filtered.skip(page * 10).take(10).toList();
     final counts = <String, int>{for (final key in [..._actionKeywords.keys, 'other']) key: 0};

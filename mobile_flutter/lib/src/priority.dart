@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 
 const defaultRules = <String, int>{
@@ -70,7 +71,7 @@ class _PriorityPageState extends State<PriorityPage> {
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   @override Widget build(BuildContext context) {
-    final filtered = rankings.where((row) => '$row'.toLowerCase().contains(search.toLowerCase())).toList();
+    final filtered = rankings.where((row) => matchesSearch(search, row)).toList();
     final visible = filtered.skip(page * 10).take(10).toList();
     final turnaround = rankings.map((row) => num.tryParse('${row['estimatedTurnaroundHours'] ?? ''}'))
       .whereType<num>().toList()..sort();

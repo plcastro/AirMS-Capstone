@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'file_exports.dart';
@@ -62,7 +63,7 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
         .compareTo(inspectionDate(a['updatedAt'] ?? a['createdAt'] ?? a['date'])));
     final aircrafts = newest.map(flightAircraft).toSet().toList();
     final visible = matching.where((item) => flightAircraft(item) == aircraft &&
-      '$item'.toLowerCase().contains(query.toLowerCase())).toList()..sort((a, b) {
+      matchesSearch(query, item)).toList()..sort((a, b) {
       final first = inspectionDate(a['date'] ?? a['createdAt']);
       final second = inspectionDate(b['date'] ?? b['createdAt']);
       return sortOrder == 'oldest' ? first.compareTo(second) : second.compareTo(first);
@@ -78,14 +79,14 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
         ['all', 'pending', 'released', 'completed'].map((value) => Padding(
           padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value),
             selected: status == value, onSelected: (_) => setState(() => status = value)))).toList())),
-      if (aircraft.isEmpty) ...aircrafts.where((name) => name.toLowerCase().contains(aircraftQuery.toLowerCase())).map((name) {
+      if (aircraft.isEmpty) ...aircrafts.where((name) => matchesSearch(aircraftQuery, name)).map((name) {
         final records = matching.where((item) => flightAircraft(item) == name).toList();
         final fresh = viewedReady ? records.where(viewed.isNew).length : 0;
         return Card(child: ListTile(leading: const Icon(Icons.flight), title: Text(name),
           subtitle: Text('${records.length} inspections${fresh > 0 ? ' · $fresh new' : ''}'),
           trailing: const Icon(Icons.chevron_right), onTap: () => setState(() { aircraft = name; query = ''; })));
       }),
-      if (!loading && aircraft.isEmpty && !aircrafts.any((name) => name.toLowerCase().contains(aircraftQuery.toLowerCase())))
+      if (!loading && aircraft.isEmpty && !aircrafts.any((name) => matchesSearch(aircraftQuery, name)))
         Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(
           status == 'all' ? 'No inspections found yet.' : 'No $status inspections found yet.'))),
       if (aircraft.isNotEmpty) ...[

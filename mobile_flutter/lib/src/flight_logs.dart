@@ -10,6 +10,7 @@ import 'linked_inspection.dart';
 import 'pdf_exports.dart';
 import 'flight_pdf.dart';
 import 'viewed_logs.dart';
+import 'search.dart';
 
 Map<String, dynamic> flightMap(dynamic value) => value is Map ? Map<String, dynamic>.from(value) : {};
 String flightText(dynamic value) => value == null ? '' : '$value';
@@ -119,7 +120,7 @@ class _FlightLogsPageState extends State<FlightLogsPage> {
       if (aircraft.isNotEmpty && flightAircraft(log) != aircraft) return false;
       if (status != 'all' && flightStage(log) != status) return false;
       if (needsAction && !needsMyAction(log)) return false;
-      return '${log['controlNo']} ${log['rpc']} ${log['date']}'.toLowerCase().contains(query.toLowerCase());
+      return matchesSearch(query, log);
     }).toList();
     final role = flightText(widget.session.user?['jobTitle'] ?? widget.session.user?['role'] ?? widget.session.user?['access'])
       .trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), ' ');
@@ -154,7 +155,7 @@ class _FlightLogsPageState extends State<FlightLogsPage> {
         }),
       const SizedBox(height: 8),
       if (aircraft.isNotEmpty) TextButton.icon(onPressed: () => setState(() { aircraft = ''; query = ''; status = 'all'; }), icon: const Icon(Icons.arrow_back), label: Text(aircraft)),
-      if (aircraft.isEmpty) ...aircrafts.where((name) => name.toLowerCase().contains(aircraftFilter)).map((name) {
+      if (aircraft.isEmpty) ...aircrafts.where((name) => matchesSearch(aircraftFilter, name)).map((name) {
         final records = groupLogs.where((log) => flightAircraft(log) == name).toList();
         final fresh = viewedReady ? records.where(viewed.isNew).length : 0;
         return Card(child: ListTile(leading: const Icon(Icons.flight), title: Text(name),

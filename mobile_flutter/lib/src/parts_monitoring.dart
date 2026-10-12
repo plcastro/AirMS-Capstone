@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -175,7 +176,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
     final components = parts.asMap().entries.where((entry) => flightText(entry.value['rowType']).toLowerCase() != 'header').toList();
     final dueCount = components.where((entry) => partStatus(entry.value) == 'Due').length;
     final dueSoonCount = components.where((entry) => partStatus(entry.value) == 'Due Soon').length;
-    final visible = components.where((entry) => '$entry'.toLowerCase().contains(search.toLowerCase()) && (statusFilter == 'all' || partStatus(entry.value).toLowerCase().replaceAll(' ', '') == statusFilter)).toList();
+    final visible = components.where((entry) => matchesSearch(search, entry) && (statusFilter == 'all' || partStatus(entry.value).toLowerCase().replaceAll(' ', '') == statusFilter)).toList();
     final totalPages = (visible.length / componentPageSize).ceil();
     final currentPage = totalPages == 0 ? 0 : componentPage.clamp(0, totalPages - 1);
     return RefreshIndicator(onRefresh: () async { if (selected.isEmpty) { await loadAircraft(); } else { await select(selected, resetView: false); } }, child: ListView(padding: const EdgeInsets.all(12), children: [

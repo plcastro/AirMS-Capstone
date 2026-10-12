@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
 
@@ -82,7 +83,7 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
       !['Closed', 'Cancelled'].contains(requisitionStatus(record))).length;
     final filtered = records.where((record) {
       final closed = ['Closed', 'Cancelled'].contains(requisitionStatus(record));
-      return canSee(record) && (tab == 'history' ? closed : !closed) && '$record'.toLowerCase().contains(search.toLowerCase());
+      return canSee(record) && (tab == 'history' ? closed : !closed) && matchesSearch(search, record);
     }).toList()..sort((a, b) {
       final order = requisitionDate(a).compareTo(requisitionDate(b));
       return sortOrder == 'oldest' ? order : -order;

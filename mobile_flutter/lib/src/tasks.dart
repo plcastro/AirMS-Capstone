@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'package:flutter/services.dart';
 import 'auth.dart';
 import 'flight_signing.dart';
@@ -54,7 +55,7 @@ class _TasksPageState extends State<TasksPage> {
     if (changed == true) load();
   }
   @override Widget build(BuildContext context) {
-    final filtered = tasks.where((task) => inTab(task) && '$task'.toLowerCase().contains(query.toLowerCase())).toList();
+    final filtered = tasks.where((task) => inTab(task) && matchesSearch(query, task)).toList();
     return Stack(children: [RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search tasks', border: OutlineInputBorder()),
         onChanged: (value) => setState(() => query = value)),

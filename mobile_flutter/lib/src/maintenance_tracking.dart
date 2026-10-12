@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'search.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'tasks.dart';
@@ -117,8 +118,8 @@ class _MaintenanceTrackingPageState extends State<MaintenanceTrackingPage> {
   }
   @override Widget build(BuildContext context) {
     final aircrafts = {...findings.map((item) => flightText(item['aircraft'])), ...remaining.map((item) => flightText(item['aircraft']))}.where((value) => value.isNotEmpty).toList()..sort();
-    final shownFindings = findings.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && '$item'.toLowerCase().contains(query.toLowerCase()));
-    final shownRemaining = remaining.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && '$item'.toLowerCase().contains(query.toLowerCase()));
+    final shownFindings = findings.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && matchesSearch(query, item));
+    final shownRemaining = remaining.where((item) => (aircraft == 'all' || item['aircraft'] == aircraft) && matchesSearch(query, item));
     final visibleFindings = shownFindings.toList();
     final visibleRemaining = shownRemaining.toList();
     final taskById = <String, Map<String, dynamic>>{};
