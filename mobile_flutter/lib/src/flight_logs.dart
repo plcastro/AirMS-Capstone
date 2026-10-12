@@ -622,13 +622,16 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
       if (checked.length != raw.length) throw const ApiException('Complete every linked Post-Flight item before closing.');
       if (flightMap(post['confirmation'])['allGood'] != true) throw const ApiException('Sign the linked Post-Flight inspection before closing.');
       if (!mounted) return;
+      final resolution = await _askFlightText('Post-Flight resolution',
+        'Describe how post-flight discrepancies were resolved (if any)');
+      if (resolution == null || !mounted) return;
       final initial = flightText(flightMap(log['initialInspectionSignature'])['signature']);
       final signature = await collectFlightSignature(context, widget.session, existing: initial.isEmpty ? null : initial);
       if (signature == null) return;
       await widget.session.request('/api/flightlogs/${widget.id}/complete', method: 'PUT', body: {
         'changes': draft, 'expectedVersion': log['__v'] ?? 0, 'signature': signature.image, 'pin': signature.pin,
         'postFlightConfirmation': {'allGood': true, 'appendSignature': true, 'checked': checked,
-          'discrepancies': post['discrepancies'] ?? {}, 'inspectionId': post['_id'], 'resolution': ''},
+          'discrepancies': post['discrepancies'] ?? {}, 'inspectionId': post['_id'], 'resolution': resolution},
         'confirmAction': true,
       }, extraHeaders: {'x-action-confirmed': 'true'});
       await discardStoredDraft();
