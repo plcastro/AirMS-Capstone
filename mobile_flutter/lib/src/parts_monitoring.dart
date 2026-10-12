@@ -24,7 +24,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
   String statusFilter = 'all';
   String activeTab = 'Overview';
   int componentPage = 0;
-  static const componentPageSize = 8;
+  static const componentPageSize = 10;
   String partStatus(Map<String, dynamic> part) {
     final due = flightText(part['due']).toLowerCase();
     final days = num.tryParse(flightText(part['daysRemaining']));
@@ -122,6 +122,13 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
     finally { if (mounted) setState(() => loading = false); }
   }
   Future<void> save() async {
+    final approved = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Save to Database'),
+      content: const Text('Save the current reference values and component changes to the database?'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save'))],
+    ));
+    if (approved != true || !mounted) return;
     setState(() { saving = true; error = ''; });
     try {
       await widget.session.request('/api/parts-monitoring/save', method: 'POST', body: {
@@ -169,7 +176,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
     ));
     if (accepted == true) {
       setState(() { for (final key in keys) { copy[key] = controllers[key]!.text; } parts[index] = copy; });
-      await save();
+      AirmsToast.show('Component updated. Use Save to Database to keep your changes.');
     }
     for (final controller in controllers.values) { controller.dispose(); }
   }
@@ -188,6 +195,16 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
       if (transferring) const LinearProgressIndicator(),
       if (loading) const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
       if (selected.isNotEmpty && !loading) ...[
+        TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search components', border: OutlineInputBorder()),
+          onChanged: (value) => setState(() { search = value; componentPage = 0; })),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final chip in [
+            ('due', 'Due', dueCount), ('duesoon', 'Due Soon', dueSoonCount),
+            ('ok', 'OK', components.length - dueCount - dueSoonCount), ('all', 'Total', components.length),
+          ]) ActionChip(label: Text('${chip.$2}: ${chip.$3}'),
+            backgroundColor: statusFilter == chip.$1 ? Theme.of(context).colorScheme.primaryContainer : null,
+            onPressed: () => setState(() { statusFilter = chip.$1; componentPage = 0; activeTab = 'Components'; })),
+        ]),
         SingleChildScrollView(scrollDirection: Axis.horizontal, child: SegmentedButton<String>(showSelectedIcon: false,
           segments: const [ButtonSegment(value: 'Overview', label: Text('Overview')),
             ButtonSegment(value: 'Components', label: Text('Components')),
@@ -203,7 +220,8 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
           ],
           Text('${record['aircraftType'] ?? ''} · $selected', style: Theme.of(context).textTheme.titleMedium),
           Text('Last updated: ${record['lastUpdated'] ?? '—'}'),
-          if (activeTab == 'Reference') ExpansionTile(title: const Text('Reference data'), initiallyExpanded: true, children: refs.entries.where((entry) => entry.key != 'referenceCells').map((entry) => Padding(padding: const EdgeInsets.all(5), child: TextFormField(
+          if (activeTab == 'Reference') ExpansionTile(title: const Text('Reference Values'), initiallyExpanded: true, children: refs.entries.where((entry) =>
+            const {'engTT', 'today', 'n1Cycles', 'n2Cycles', 'acftTT', 'landings', 'usage'}.contains(entry.key)).map((entry) => Padding(padding: const EdgeInsets.all(5), child: TextFormField(
             key: ValueKey('$selected-${entry.key}-${entry.key == 'today' ? entry.value : ''}'),
             initialValue: flightText(entry.value), enabled: canEdit, readOnly: entry.key == 'today',
             onTap: entry.key == 'today' && canEdit ? () async {
@@ -212,19 +230,19 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
                 firstDate: DateTime(1950), lastDate: DateTime(2100));
               if (picked != null && mounted) setState(() => refs['today'] = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
             } : null,
-            decoration: InputDecoration(labelText: entry.key, border: const OutlineInputBorder(),
+            decoration: InputDecoration(labelText: switch (entry.key) {
+              'engTT' => flightText(record['aircraftType']).contains('412') ? 'Engine No. 1 TSN' : 'Engine Cycle',
+              'today' => 'Date',
+              'n1Cycles' => flightText(record['aircraftType']).contains('412') ? 'Engine No. 1 Cycle' : 'N1',
+              'n2Cycles' => flightText(record['aircraftType']).contains('412') ? 'Engine No. 2 Cycle' : 'N2',
+              'acftTT' => 'Acft. TT', 'landings' => 'Landings', 'usage' => 'Sling', _ => entry.key,
+            }, border: const OutlineInputBorder(),
               suffixIcon: entry.key == 'today' ? const Icon(Icons.calendar_today_outlined) : null),
             onChanged: (value) => refs[entry.key] = num.tryParse(value) ?? value,
           ))).toList()),
         ]))),
         if (activeTab == 'Components') ...[
-        TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search components', border: OutlineInputBorder()), onChanged: (value) => setState(() { search = value; componentPage = 0; })),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          Chip(label: Text('Total: ${components.length}')),
-          Chip(label: Text('Due: $dueCount')),
-          Chip(label: Text('Due Soon: $dueSoonCount')),
-          Chip(label: Text('OK: ${components.length - dueCount - dueSoonCount}')),
-        ]),
+        Text('Showing ${visible.isEmpty ? 0 : currentPage * componentPageSize + 1}-${(currentPage * componentPageSize + componentPageSize).clamp(0, visible.length)} of ${visible.length}'),
         SingleChildScrollView(scrollDirection: Axis.horizontal, child: SegmentedButton<String>(showSelectedIcon: false, segments: [
           ButtonSegment(value: 'all', label: Text('All ${components.length}')),
           ButtonSegment(value: 'due', label: Text('Due $dueCount')),
@@ -234,7 +252,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
         if (visible.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('No components match the selected filter.')),
         ...visible.skip(currentPage * componentPageSize).take(componentPageSize).map((entry) { final part = entry.value; return Card(child: ListTile(
           title: Text(flightText(part['componentName']).isEmpty ? 'Section' : flightText(part['componentName'])),
-          subtitle: Text('Remaining: ${part['timeRemaining'] ?? '—'} hours/cycles · ${part['daysRemaining'] ?? '—'} days\nDue: ${part['dateDue'] ?? '—'}'),
+          subtitle: Text('Days: ${part['daysRemaining'] ?? '—'} · Time/Cyc: ${part['timeRemaining'] ?? '—'} · H/D: ${part['hd'] ?? '—'}\nDue: ${part['dateDue'] ?? '—'}'),
           isThreeLine: true, leading: Chip(label: Text(partStatus(part))), trailing: Icon(canEdit ? Icons.edit_outlined : Icons.chevron_right), onTap: () => editPart(entry.key),
         )); }),
         if (totalPages > 1) Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -243,7 +261,7 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
           IconButton(tooltip: 'Next page', onPressed: currentPage + 1 < totalPages ? () => setState(() => componentPage = currentPage + 1) : null, icon: const Icon(Icons.chevron_right)),
         ]),
         ],
-        if (canEdit) FilledButton.icon(onPressed: saving ? null : save, icon: const Icon(Icons.save), label: Text(saving ? 'Saving…' : 'Save parts lifespan data')),
+        if (canEdit) FilledButton.icon(onPressed: saving ? null : save, icon: const Icon(Icons.save), label: Text(saving ? 'Saving…' : 'Save to Database')),
       ],
     ]));
   }
