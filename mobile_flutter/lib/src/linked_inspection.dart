@@ -3,6 +3,8 @@ import 'auth.dart';
 import 'flight_logs.dart';
 import 'flight_signing.dart';
 import 'inspection_checklist.dart';
+import 'inspection_rules.dart';
+import 'toast.dart';
 
 class LinkedInspectionPage extends StatefulWidget {
   const LinkedInspectionPage({super.key, required this.session, required this.flightId, required this.record, required this.kind, required this.editable});
@@ -18,7 +20,12 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
   Map<String, dynamic> discrepancies = {};
   final fob = TextEditingController(), notes = TextEditingController(), resolution = TextEditingController();
   bool busy = false;
+  int page = 0;
   String error = '';
+  bool get held {
+    final confirmation = flightMap(widget.record['confirmation']);
+    return confirmation['allGood'] == false && confirmation['draft'] != true;
+  }
   @override void initState() {
     super.initState();
     fob.text = flightText(widget.record['fob']); notes.text = flightText(widget.record['notes']);
@@ -45,7 +52,7 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
       actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(dialogContext, note.text.trim()), child: const Text('Save'))]));
     note.dispose();
-    if (result != null && result.isNotEmpty) setState(() { discrepancies[key] = {'note': result, 'resolved': false, 'resolution': ''}; checked.remove(key); });
+    if (result != null && result.isNotEmpty) setState(() { discrepancies[key] = {'note': result}; checked.remove(key); });
   }
   Future<void> resolve(String key) async {
     final previous = flightMap(discrepancies[key]);
@@ -64,9 +71,13 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
     }
   }
   Future<void> submit(bool allGood) async {
-    if (allGood && checked.length != items.length) { setState(() => error = 'Check every item before signing.'); return; }
-    if (allGood && discrepancies.values.any((value) => flightMap(value)['resolved'] != true)) {
-      setState(() => error = 'Resolve every flagged discrepancy before signing.'); return;
+    if (!allGood && discrepancies.values.any((value) => flightText(flightMap(value)['note']).trim().isEmpty)) {
+      setState(() => error = 'Describe the discrepancy for each flagged item.'); AirmsToast.show(error); return;
+    }
+    if (allGood && !canSignInspection(items.length, checked, discrepancies.keys.toSet(),
+        held: held, resolution: resolution.text)) {
+      setState(() => error = 'Check every item and resolve flagged discrepancies before signing.');
+      AirmsToast.show(error); return;
     }
     final signature = allGood ? await collectFlightSignature(context, widget.session) : null;
     if (allGood && signature == null) return;
@@ -76,7 +87,9 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
       await widget.session.request('/api/flightlogs/${widget.flightId}/inspections/${widget.kind}/${widget.record['_id']}',
         method: 'PUT', body: {
           'changes': changes, 'expectedVersion': widget.record['__v'] ?? 0,
-          'confirmation': {'allGood': allGood, 'checked': checked.toList(), 'discrepancies': discrepancies,
+          'confirmation': {'allGood': allGood, 'checked': checked.toList(),
+            'discrepancies': {for (final entry in discrepancies.entries)
+              entry.key: {'note': flightText(flightMap(entry.value)['note']).trim()}},
             'resolution': resolution.text.trim(), 'draft': !allGood, 'remarks': allGood ? '' : 'Checklist incomplete. Saved as a draft.'},
           if (signature != null) 'signature': signature.image, if (signature != null) 'pin': signature.pin,
           'confirmAction': true,
@@ -87,6 +100,13 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
   }
   @override Widget build(BuildContext context) {
     final canEdit = widget.editable && flightText(widget.record['status']) == 'pending';
+    final pages = (items.length / inspectionPageSize).ceil().clamp(1, 99999);
+    final visible = items.skip(page * inspectionPageSize).take(inspectionPageSize).toList();
+    final flagged = discrepancies.keys.toSet();
+    void updateChecks(Iterable<String> keys, bool value) => setState(() {
+      final next = setInspectionChecks(keys, checked, flagged, value);
+      checked..clear()..addAll(next);
+    });
     return Scaffold(appBar: AppBar(title: Text('${widget.kind == 'pre' ? 'Pre' : 'Post'}-Flight Inspection')),
       body: ListView(padding: const EdgeInsets.all(12), children: [
         Text('${widget.record['rpc'] ?? ''} · ${widget.record['aircraftType'] ?? ''}', style: Theme.of(context).textTheme.titleMedium),
@@ -95,13 +115,20 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
         if (widget.kind == 'pre') TextField(controller: fob, enabled: canEdit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fuel on board', border: OutlineInputBorder())),
         if (widget.kind == 'post') TextField(controller: notes, enabled: canEdit, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        for (var index = 0; index < items.length; index++) ...[
-          if (index == 0 || items[index]['_section'] != items[index - 1]['_section'])
-            Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text('${items[index]['_section']}',
+        if (canEdit) Wrap(spacing: 6, children: [
+          OutlinedButton(onPressed: () => updateChecks(items.map((item) => '${item['key']}'), true), child: const Text('Mark all items good')),
+          OutlinedButton(onPressed: () => updateChecks(items.map((item) => '${item['key']}'), false), child: const Text('Clear all')),
+          OutlinedButton(onPressed: () => updateChecks(visible.map((item) => '${item['key']}'), true), child: const Text('Select all on this page')),
+          OutlinedButton(onPressed: () => updateChecks(visible.map((item) => '${item['key']}'), false), child: const Text('Clear this page')),
+        ]),
+        Text('${checked.length} of ${items.length} items checked${flagged.isEmpty ? '' : ' · ${flagged.length} flagged'}'),
+        for (var index = 0; index < visible.length; index++) ...[
+          if (index == 0 || visible[index]['_section'] != visible[index - 1]['_section'])
+            Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text('${visible[index]['_section']}',
               style: Theme.of(context).textTheme.titleMedium)),
-          Builder(builder: (context) { final item = items[index]; final key = '${item['key']}'; return Card(child: Column(children: [
+          Builder(builder: (context) { final item = visible[index]; final key = '${item['key']}'; return Card(child: Column(children: [
           CheckboxListTile(value: checked.contains(key), title: Text('${item['title']}'), subtitle: Text('${item['description'] ?? ''}'),
-            onChanged: canEdit && (!discrepancies.containsKey(key) || flightMap(discrepancies[key])['resolved'] == true)
+            onChanged: canEdit && !discrepancies.containsKey(key)
               ? (value) => setState(() { if (value == true) { checked.add(key); } else { checked.remove(key); } }) : null),
           if (discrepancies.containsKey(key)) ListTile(title: Text('Discrepancy: ${flightMap(discrepancies[key])['note']}'),
             subtitle: Text(flightMap(discrepancies[key])['resolved'] == true
@@ -116,10 +143,19 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
           ]),
         ])); }),
         ],
+        if (pages > 1) Row(children: [
+          TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Previous')),
+          Text('Page ${page + 1} of $pages'),
+          TextButton(onPressed: page + 1 < pages ? () => setState(() => page++) : null, child: const Text('Next')),
+        ]),
         if (canEdit) ...[
-          TextField(controller: resolution, maxLines: 2, decoration: const InputDecoration(labelText: 'Resolution for earlier discrepancies')),
-          OutlinedButton.icon(onPressed: busy ? null : () => submit(false), icon: const Icon(Icons.save_outlined), label: const Text('Save checklist draft')),
-          FilledButton.icon(onPressed: busy || checked.length != items.length || items.isEmpty ? null : () => submit(true), icon: const Icon(Icons.draw), label: const Text('Sign and confirm inspection')),
+          if (held) TextField(controller: resolution, maxLines: 2, onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Describe how the discrepancies were resolved')),
+          OutlinedButton.icon(onPressed: busy ? null : () => submit(false), icon: const Icon(Icons.save_outlined),
+            label: Text(flagged.isEmpty ? 'Save draft' : 'Save draft with discrepancies')),
+          FilledButton.icon(onPressed: busy || !canSignInspection(items.length, checked, flagged,
+            held: held, resolution: resolution.text) ? null : () => submit(true),
+            icon: const Icon(Icons.draw), label: const Text('Sign and confirm')),
         ],
       ]));
   }
