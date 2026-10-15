@@ -49,23 +49,32 @@ List<Map<String, dynamic>> requisitionTimeline(Map record) {
 String requisitionStatus(Map record) {
   final status = '${record['status'] ?? ''}';
   if (['Requested', 'Awaiting Stock', 'Ready for Delivery', 'Delivered', 'Closed', 'Cancelled'].contains(status)) return status;
-  if (status == 'Availability Checked') {
-    final items = (record['items'] as List? ?? []).whereType<Map>().toList();
-    if (items.isEmpty || items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Pending Check')) return 'Requested';
-    return items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Out of Stock')
-      ? 'Awaiting Stock' : 'Ready for Delivery';
-  }
   return switch (status) {
     'Completed' => 'Closed', 'Rejected' => 'Cancelled', 'Approved' || 'Ordered' => 'Ready for Delivery',
-    'To Be Ordered' || 'In Progress' => 'Awaiting Stock', _ => 'Requested',
+    'To Be Ordered' || 'In Progress' => 'Awaiting Stock',
+    'Availability Checked' => _computedRequisitionStatus(record),
+    _ => 'Requested',
   };
+}
+String _computedRequisitionStatus(Map record) {
+  if (record['cancelledAt'] != null) return 'Cancelled';
+  if (record['confirmedAt'] != null) return 'Closed';
+  if (record['deliveredAt'] != null) return 'Delivered';
+  final items = (record['items'] as List? ?? []).whereType<Map>().toList();
+  if (items.isEmpty || items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Pending Check')) return 'Requested';
+  return items.any((item) => normalizeItemStatus(item['stockStatus']) == 'Out of Stock')
+    ? 'Awaiting Stock' : 'Ready for Delivery';
 }
 String requisitionLabel(String status) => switch (status) {
   'Out of Stock' => 'Restocking', 'Requested' => 'Pending Stock Check',
   'Awaiting Stock' => 'Awaiting Restock', 'Ready for Delivery' => 'Stock Confirmed',
   'Delivered' => 'Ready for Pickup', 'Closed' => 'Received', _ => status,
 };
-String requisitionRole(Map? user) => '${user?['jobTitle'] ?? user?['access'] ?? ''}'.toLowerCase();
+String requisitionRole(Map? user) {
+  final access = '${user?['access'] ?? ''}'.trim().toLowerCase();
+  if (access == 'admin staff') return access;
+  return '${user?['jobTitle'] ?? user?['access'] ?? ''}'.trim().toLowerCase();
+}
 String requisitionUserId(Map? user) => '${user?['_id'] ?? user?['id'] ?? user?['userId'] ?? ''}';
 bool ownsRequisition(Map? user, Map record) {
   final ownerId = '${(record['staff'] as Map?)?['requisitionerId'] ?? ''}';
