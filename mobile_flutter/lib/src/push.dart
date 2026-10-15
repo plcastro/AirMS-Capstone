@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth.dart';
 
+final pushPreferenceChanged = ValueNotifier<bool?>(null);
+
 @pragma('vm:entry-point')
 Future<void> airmsBackgroundMessage(RemoteMessage message) async {
   try { await Firebase.initializeApp(); } catch (_) {}
@@ -16,7 +18,7 @@ class PushService {
   PushService(this.session, this.onOpen, this.onForeground);
   final AirmsSession session;
   final ValueChanged<Map<String, dynamic>> onOpen;
-  final VoidCallback onForeground;
+  final ValueChanged<RemoteMessage> onForeground;
   final subscriptions = <StreamSubscription<dynamic>>[];
   bool started = false;
 
@@ -28,6 +30,8 @@ class PushService {
   };
   Future<void> start() async {
     if (started || Firebase.apps.isEmpty || session.user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('notificationsEnabled') == false) return;
     started = true;
     try {
       final messaging = FirebaseMessaging.instance;
@@ -35,8 +39,14 @@ class PushService {
       if (permission.authorizationStatus == AuthorizationStatus.denied) { started = false; return; }
       final token = await messaging.getToken();
       if (token != null) await register(token);
-      subscriptions.add(messaging.onTokenRefresh.listen((token) { register(token); }));
-      subscriptions.add(FirebaseMessaging.onMessage.listen((message) { onForeground(); }));
+      subscriptions.add(messaging.onTokenRefresh.listen((token) async {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('notificationsEnabled') != false) await register(token);
+      }));
+      subscriptions.add(FirebaseMessaging.onMessage.listen((message) async {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('notificationsEnabled') != false) onForeground(message);
+      }));
       subscriptions.add(FirebaseMessaging.onMessageOpenedApp.listen((message) {
         onOpen(Map<String, dynamic>.from(message.data));
       }));

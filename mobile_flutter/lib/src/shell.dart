@@ -93,9 +93,15 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
       _ => 'Profile',
     };
     selected = allowed.where((module) => module.title == home).firstOrNull ?? modules.last;
-    push = PushService(widget.session, openNotification, () {
-      if (mounted) AirmsToast.show('New AirMS notification');
+    push = PushService(widget.session, openNotification, (message) {
+      if (!mounted) return;
+      final title = message.notification?.title ?? 'AirMS notification';
+      final body = message.notification?.body ?? '';
+      AirmsToast.show(body.isEmpty ? title : '$title\n$body');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(body.isEmpty ? title : '$title — $body'),
+        action: SnackBarAction(label: 'Open', onPressed: () => openNotification(Map<String, dynamic>.from(message.data)))));
     });
+    pushPreferenceChanged.addListener(onPushPreferenceChanged);
     push.start();
     refreshUnread();
     notificationTimer = Timer.periodic(const Duration(seconds: 30), (_) => refreshUnread());
@@ -269,7 +275,10 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
   @override void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) { checkIdle(); refreshUnread(); }
   }
-  @override void dispose() { idleTimer?.cancel(); notificationTimer?.cancel(); WidgetsBinding.instance.removeObserver(this); push.dispose(); super.dispose(); }
+  void onPushPreferenceChanged() {
+    if (pushPreferenceChanged.value == true) push.start();
+  }
+  @override void dispose() { idleTimer?.cancel(); notificationTimer?.cancel(); WidgetsBinding.instance.removeObserver(this); pushPreferenceChanged.removeListener(onPushPreferenceChanged); push.dispose(); super.dispose(); }
   @override Widget build(BuildContext context) => Listener(
     onPointerDown: (_) => activity(), onPointerSignal: (_) => activity(),
     child: Scaffold(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'toast.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -8,6 +9,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'auth.dart';
 import 'display_settings.dart';
 import 'legal.dart';
+import 'date_time.dart';
+import 'push.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, required this.session});
@@ -44,6 +47,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!value) {
       setState(() => notifications = false);
       await saveSettings();
+      pushPreferenceChanged.value = false;
+      if (Firebase.apps.isNotEmpty) { try { await FirebaseMessaging.instance.deleteToken(); } catch (_) {} }
       if (mounted) AirmsToast.show('Notifications turned off in app settings.');
       return;
     }
@@ -54,6 +59,11 @@ class _ProfilePageState extends State<ProfilePage> {
         permission.authorizationStatus == AuthorizationStatus.provisional;
       if (mounted) setState(() => notifications = allowed);
       await saveSettings();
+      pushPreferenceChanged.value = allowed;
+      if (allowed) {
+        final token = await FirebaseMessaging.instance.getToken();
+        if (token != null) await PushService(widget.session, (_) {}, (_) {}).register(token);
+      }
       if (mounted) {
         AirmsToast.show(allowed
           ? 'Notifications are enabled.' : 'Notification permission was denied. Enable it in device settings.');
@@ -88,16 +98,32 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode >= 400) throw ApiException('${data['message'] ?? 'Image upload failed'}');
       if (data['user'] is Map) await widget.session.updateUser(Map<String, dynamic>.from(data['user']));
       if (mounted) setState(() => error = '');
+      if (mounted) AirmsToast.show('Profile picture updated!');
+    } on PlatformException catch (e) {
+      if (mounted) {
+        await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+          title: const Text('Photo permission denied'),
+          content: Text(e.message ?? 'Allow photo access in your device settings.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK'))],
+        ));
+      }
     } catch (e) { if (mounted) { setState(() => error = '$e'); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> removeImage() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Delete Image'), content: const Text('Are you sure you want to delete your profile image?'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('No')),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Yes'))],
+    ));
+    if (confirmed != true || !mounted) return;
     setState(() => busy = true);
     try {
       await widget.session.request('/api/user/update-user-image/$userId', method: 'PUT',
         extraHeaders: {'x-action-confirmed': 'true'}, body: {'image': null, 'confirmAction': true});
       await widget.session.updateUser({'image': null});
       if (mounted) setState(() => error = '');
+      if (mounted) AirmsToast.show('Profile picture removed!');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }
@@ -124,12 +150,13 @@ class _ProfilePageState extends State<ProfilePage> {
           ButtonSegment(value: 'Settings', label: Text('Settings'))],
         selected: {tab}, onSelectionChanged: (value) => setState(() => tab = value.first))),
       const SizedBox(height: 14),
+      if (tab == 'Information') const Padding(padding: EdgeInsets.all(8), child: Text('Account Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
       if (tab == 'Information') for (final entry in [
         ('First Name', user['firstName']), ('Last Name', user['lastName']),
-        ('Email', user['email']), ('Username', user['username']),
+        ('Username', user['username']), ('Email Address', user['email']),
+        ('Last Login', formatAirmsDateTime(user['lastLogin'], fallback: 'N/A')),
         ('Job Title', user['jobTitle']), ('Access', user['access']),
         ('License No.', user['licenseNo']), ('Base', user['base']),
-        ('Last Login', user['lastLogin']),
       ]) Card(child: ListTile(title: Text(entry.$1), subtitle: Text('${entry.$2 ?? 'N/A'}'))),
       if (tab == 'Information') const Padding(padding: EdgeInsets.all(8), child: Text(
         'Name editing is disabled. Contact an administrator to update your legal profile name.')),
@@ -139,9 +166,13 @@ class _ProfilePageState extends State<ProfilePage> {
           onChanged: setNotifications),
         if (canManageAircraftAlerts) SwitchListTile(title: const Text('Aircraft flight hour alerts'), value: aircraftAlerts,
           onChanged: (value) { setState(() => aircraftAlerts = value); saveSettings(); }),
-        if (canManageAircraftAlerts) Text('Alert threshold: ${aircraftThreshold.round()} hours'),
-        if (canManageAircraftAlerts) Slider(value: aircraftThreshold, min: 1, max: 100, divisions: 99,
-          onChanged: (value) => setState(() => aircraftThreshold = value), onChangeEnd: (_) => saveSettings()),
+        if (canManageAircraftAlerts) Row(children: [const Text('Notify within'), const SizedBox(width: 8),
+          SizedBox(width: 70, child: TextFormField(key: ValueKey('threshold-${aircraftThreshold.round()}'),
+            initialValue: '${aircraftThreshold.round()}', enabled: aircraftAlerts,
+            keyboardType: TextInputType.number, decoration: const InputDecoration(border: OutlineInputBorder()),
+            onChanged: (value) { final digits = value.replaceAll(RegExp(r'\D'), '');
+              final parsed = int.tryParse(digits); if (parsed != null) { aircraftThreshold = parsed.clamp(1, 999).toDouble(); saveSettings(); } },
+          )), const SizedBox(width: 8), const Text('FH')]),
         Text('Font size: ${(fontScale * 100).round()}%'),
         Slider(value: fontScale, min: 1, max: 1.3, divisions: 6,
           onChanged: (value) { setState(() => fontScale = value); airmsFontScale.value = value; }, onChangeEnd: (_) => saveSettings()),
