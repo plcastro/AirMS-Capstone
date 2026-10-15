@@ -239,15 +239,37 @@ class _ReportsPageState extends State<ReportsPage> {
     setState(() { exporting = true; error = ''; });
     try {
       final sections = reportSections();
-      await shareAirmsPdf(title: 'Reports and Analytics',
+      final overview = (sections.first['rows'] as List).whereType<List>().toList();
+      String metric(String label) => flightText(overview.firstWhere((row) => row.isNotEmpty && row.first == label,
+        orElse: () => [label, 0]).elementAt(1));
+      final baseRows = (sections[1]['rows'] as List).whereType<List>().toList();
+      List<Map<String, dynamic>> chartRows(String title) {
+        final section = sections.firstWhere((item) => item['title'] == title,
+          orElse: () => <String, dynamic>{'rows': <dynamic>[]});
+        return (section['rows'] as List).whereType<List>().map((row) => <String, dynamic>{
+          'label': row.isNotEmpty ? row[0] : '', 'value': row.length > 1 ? row[1] : 0,
+        }).toList();
+      }
+      await shareAirmsAnalyticsPdf(title: 'Reports and Analytics',
         fileName: 'AirMS_Reports_${DateTime.now().toIso8601String().split('T').first}.pdf',
-        subtitle: '${sections.length} report sections',
-        columns: const ['Section', 'Metric', 'Value'],
-        rows: [for (final section in sections)
-          for (final row in section['rows'] as List)
-            [flightText(section['title']),
-              row is List && row.isNotEmpty ? flightText(row.first) : '',
-              row is List && row.length > 1 ? row.skip(1).map(flightText).join(' | ') : '']]);
+        executedBy: '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
+        sections: sections,
+        summaryCards: [
+          {'label': 'Completed Tasks', 'value': metric('Completed Tasks')},
+          {'label': 'Due Soon Tasks', 'value': metric('Due Soon Tasks')},
+          {'label': 'Overdue Tasks', 'value': metric('Overdue Tasks')},
+          {'label': 'Top Damage Base', 'value': baseRows.isEmpty ? 'N/A' : '${baseRows.reduce((a, b) =>
+            (num.tryParse('${a[1]}') ?? 0) >= (num.tryParse('${b[1]}') ?? 0) ? a : b)[0]} '
+            '(${baseRows.map((row) => num.tryParse('${row[1]}') ?? 0).reduce((a, b) => a > b ? a : b)})'},
+          {'label': 'Top Repaired Base', 'value': baseRows.isEmpty ? 'N/A' : '${baseRows.reduce((a, b) =>
+            (num.tryParse('${a[2]}') ?? 0) >= (num.tryParse('${b[2]}') ?? 0) ? a : b)[0]} '
+            '(${baseRows.map((row) => num.tryParse('${row[2]}') ?? 0).reduce((a, b) => a > b ? a : b)})'},
+        ],
+        barCharts: [
+          {'title': 'Task Status Distribution', 'rows': chartRows('Task Status Counts')},
+          {'title': 'Base Damage Reports', 'rows': [for (final row in baseRows) {'label': row[0], 'value': row[1]}]},
+          {'title': 'Base Repaired Aircraft', 'rows': [for (final row in baseRows) {'label': row[0], 'value': row[2]}]},
+        ]);
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => exporting = false); }
   }
