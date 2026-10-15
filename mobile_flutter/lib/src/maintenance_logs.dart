@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'search.dart';
 import 'auth.dart';
-import 'pdf_exports.dart';
+import 'package:printing/printing.dart';
+import 'maintenance_pdf.dart';
 import 'viewed_logs.dart';
 import 'date_time.dart';
 
@@ -68,7 +69,7 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
           if (!context.mounted) return;
           setState(() {});
           await Navigator.push(context, MaterialPageRoute(builder: (_) => _AircraftLogsPage(
-            aircraft: group.key, entries: group.value,
+            aircraft: group.key, entries: group.value, session: widget.session,
             canExport: const {'admin staff', 'maintenance manager', 'officer-in-charge', 'mechanic'}
                 .contains('${widget.session.user?['jobTitle'] ?? widget.session.user?['access'] ?? ''}'.trim().toLowerCase()))));
         },
@@ -78,10 +79,11 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
 }
 
 class _AircraftLogsPage extends StatelessWidget {
-  const _AircraftLogsPage({required this.aircraft, required this.entries, required this.canExport});
+  const _AircraftLogsPage({required this.aircraft, required this.entries, required this.canExport, required this.session});
   final String aircraft;
   final List<Map<String, dynamic>> entries;
   final bool canExport;
+  final AirmsSession session;
   @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: Text(aircraft)),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       Card(child: ListTile(title: const Text('Maintenance snapshot'),
@@ -92,32 +94,25 @@ class _AircraftLogsPage extends StatelessWidget {
         title: Text('${entry['sourceTaskId'] ?? entry['_id'] ?? ''}'),
         subtitle: Text('${entry['taskTitle'] ?? 'Untitled task'}\n${formatAirmsDateTime(entry['dateDefectRectified'], fallback: 'N/A')} · ${entry['status'] ?? ''}\nBase: ${entry['base'] ?? 'N/A'}'),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _WorkOrderPage(entry: entry, canExport: canExport))),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _WorkOrderPage(entry: entry, canExport: canExport, session: session))),
       )),
     ]));
 }
 
 class _WorkOrderPage extends StatelessWidget {
-  const _WorkOrderPage({required this.entry, required this.canExport});
+  const _WorkOrderPage({required this.entry, required this.canExport, required this.session});
   final Map<String, dynamic> entry;
   final bool canExport;
+  final AirmsSession session;
   Future<void> export() async {
-    final details = (entry['workDetails'] as List? ?? []).isNotEmpty ? entry['workDetails'] as List : [
-      if (entry['correctiveActionDone'] != null) {'description': entry['correctiveActionDone']},
-      if (entry['defects'] != null) {'description': entry['defects']},
-      if (entry['correctiveActionDone'] == null && entry['defects'] == null && entry['taskTitle'] != null)
-        {'description': 'Reference task: ${entry['taskTitle']}'},
-    ];
-    await shareAirmsPdf(title: 'Maintenance Work Done Report',
-      fileName: 'AirMS_Maintenance_${entry['sourceTaskId'] ?? entry['_id'] ?? 'work_order'}.pdf',
-      subtitle: '${entry['aircraft'] ?? ''} · ${entry['base'] ?? ''} · ${entry['dateDefectRectified'] ?? ''}',
-      columns: const ['Field', 'Value'], rows: [
-        for (final key in const ['sourceTaskId', 'taskTitle', 'aircraft', 'base', 'reportedBy', 'mechanicInCharge',
-          'inspector', 'mechanicLicenseNo', 'inspectorLicenseNo', 'dateDefectRectified', 'sourceTaskStatus'])
-          [key, '${entry[key] ?? ''}'],
-        for (var index = 0; index < details.length; index++)
-          ['Work ${index + 1}', '${details[index] is Map ? details[index]['description'] : details[index]}'],
-      ]);
+    Map<String, dynamic>? aircraftData;
+    try {
+      final response = await session.request('/api/parts-monitoring/${Uri.encodeComponent('${entry['aircraft'] ?? ''}')}');
+      if (response['data'] is Map) aircraftData = Map<String, dynamic>.from(response['data'] as Map);
+    } catch (_) { /* The original export permits missing aircraft details. */ }
+    final bytes = await buildMaintenancePdf(entry, aircraftData: aircraftData);
+    await Printing.sharePdf(bytes: bytes,
+      filename: 'WorkDoneReport_${entry['aircraft'] ?? 'Aircraft'}_${DateTime.now().toIso8601String().split('T').first}.pdf');
   }
   @override Widget build(BuildContext context) {
     final details = (entry['workDetails'] as List? ?? []).isNotEmpty ? entry['workDetails'] as List : [
