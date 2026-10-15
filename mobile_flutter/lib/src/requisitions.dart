@@ -114,9 +114,22 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
       final totalItems = records.fold<int>(0, (sum, record) => sum + (record['items'] as List? ?? []).length);
       final totalQuantity = records.fold<num>(0, (sum, record) => sum + (record['items'] as List? ?? []).whereType<Map>()
         .fold<num>(0, (count, item) => count + (num.tryParse('${item['quantity'] ?? 0}') ?? 0)));
+      final statusCounts = <String, int>{};
+      for (final record in records) {
+        final label = requisitionLabel(requisitionStatus(record));
+        statusCounts[label] = (statusCounts[label] ?? 0) + 1;
+      }
       await shareAirmsPdf(title: 'Parts Requisition Monitoring Report',
         fileName: 'Parts-Requisition-Monitoring-Report-${DateTime.now().toIso8601String().split('T').first}.pdf',
-        subtitle: '${tab == 'history' ? 'History' : 'Pending'} · ${records.length} requisitions · $totalItems items · $totalQuantity total quantity',
+        portrait: true,
+        executedBy: '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
+        summaryRows: [
+          ['Filter', tab == 'history' ? 'History' : 'Pending'],
+          ['Total Requisitions', '${records.length}'],
+          ['Total Items', '$totalItems'],
+          ['Total Quantity', '$totalQuantity'],
+        ],
+        distributionRows: [for (final status in statusCounts.entries) [status.key, '${status.value}']],
         columns: const ['WRS No.', 'Aircraft', 'Requester', 'Date Requested', 'Status', 'Items', 'Total Qty'],
         rows: records.map((record) {
           final items = record['items'] as List? ?? [];
