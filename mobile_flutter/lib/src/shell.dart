@@ -115,7 +115,8 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
   void openLink() {
     final link = widget.link;
     if (!mounted || link == null) return;
-    final segment = link.pathSegments.isEmpty ? link.host : link.pathSegments.last;
+    final segments = link.pathSegments.where((part) => part.isNotEmpty).toList();
+    final segment = segments.isEmpty ? link.host : segments.last;
     const routeModules = {
       'reports-and-analytics': 'Reports and Analytics', 'messages': 'Messages',
       'user-management': 'Manage Users', 'activity-logs': 'Activity Logs',
@@ -143,8 +144,18 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
   Future<void> openNotification(Map<String, dynamic> payload) async {
     if (!mounted) return;
     final data = payload['data'] is Map ? Map<String, dynamic>.from(payload['data']) : <String, dynamic>{};
-    final moduleName = '${payload['module'] ?? data['module'] ?? ''}'.toLowerCase();
-    final name = switch (moduleName) {
+    final metadata = payload['metadata'] is Map ? Map<String, dynamic>.from(payload['metadata']) : <String, dynamic>{};
+    final moduleName = '${payload['module'] ?? data['module'] ?? metadata['module'] ?? ''}'.trim().toLowerCase();
+    const aliases = {'flight logbook': 'Flight Logs', 'flight logs': 'Flight Logs',
+      'pre-inspection': 'Pre-Flight Inspection', 'pre-flight inspection': 'Pre-Flight Inspection',
+      'post-inspection': 'Post-Flight Inspection', 'post-flight inspection': 'Post-Flight Inspection',
+      'tasks': 'Tasks', 'messages': 'Messages', 'parts requisition': 'Parts Requisition'};
+    final targetScreen = aliases['${payload['targetScreen'] ?? data['targetScreen'] ?? metadata['targetScreen'] ?? ''}'.trim().toLowerCase()];
+    if (moduleName == 'sessions') return;
+    const validModules = {'flight-logs', 'pre-flight inspections', 'post-inspections',
+      'post-flight inspections', 'tasks', 'messages', 'parts-requisition', 'parts-requisitions'};
+    if (moduleName.isNotEmpty && !validModules.contains(moduleName)) return;
+    final name = targetScreen ?? switch (moduleName) {
       'flight-logs' => 'Flight Logs', 'pre-flight inspections' => 'Pre-Flight Inspection',
       'post-inspections' || 'post-flight inspections' => 'Post-Flight Inspection',
       'tasks' => 'Tasks', 'messages' => 'Messages',
@@ -156,6 +167,11 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
     final id = '${payload['entityId'] ?? payload['targetFlightLogId'] ?? payload['targetTaskId'] ?? payload['targetRequestId'] ??
       payload['targetPreInspectionId'] ?? payload['targetPostInspectionId'] ?? data['entityId'] ?? data['targetFlightLogId'] ??
       data['targetTaskId'] ?? data['targetRequestId'] ?? data['targetPreInspectionId'] ?? data['targetPostInspectionId'] ?? ''}';
+    final notificationId = '${payload['_id'] ?? payload['notificationId'] ?? data['notificationId'] ?? ''}';
+    if (notificationId.isNotEmpty && !notificationId.startsWith('local-')) {
+      try { await widget.session.request('/api/notifications/$notificationId/read', method: 'POST'); refreshUnread(); } catch (_) {}
+    }
+    if (!mounted) return;
     try {
       if (name == 'Flight Logs') {
         if (id.isEmpty) return;
@@ -194,7 +210,6 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
             item: Map<String, dynamic>.from(record), kind: name == 'Pre-Flight Inspection' ? 'pre' : 'post')));
         }
       } else if (name == 'Messages') {
-        final metadata = payload['metadata'] is Map ? Map<String, dynamic>.from(payload['metadata']) : <String, dynamic>{};
         final group = '${payload['isGroup'] ?? data['isGroup'] ?? ''}'.toLowerCase() == 'true' ||
           '${metadata['notificationType'] ?? ''}' == 'group-message';
         final conversationId = '${group ? (payload['conversationId'] ?? data['conversationId'] ?? metadata['conversationId'] ?? '') :
@@ -283,31 +298,36 @@ class _AirmsShellState extends State<AirmsShell> with WidgetsBindingObserver {
     onPointerDown: (_) => activity(), onPointerSignal: (_) => activity(),
     child: Scaffold(
     appBar: AppBar(title: Text(selected.title, style: const TextStyle(fontSize: 17)),
-      actions: [IconButton(icon: Badge(isLabelVisible: unreadNotifications > 0,
+      actions: [IconButton(icon: Badge(backgroundColor: const Color(0xffd31e1e), isLabelVisible: unreadNotifications > 0,
         label: Text(unreadNotifications > 99 ? '99+' : '$unreadNotifications'),
-        child: const Icon(Icons.notifications_outlined)), onPressed: () => showModalBottomSheet(
-        context: context, isScrollControlled: true,
-        builder: (_) => SizedBox(height: MediaQuery.sizeOf(context).height * .7,
-          child: NotificationsPage(session: widget.session, onChanged: refreshUnread, onTarget: (payload) {
+        child: const Icon(Icons.notifications_outlined)), onPressed: () => showGeneralDialog(
+        context: context, barrierDismissible: true, barrierLabel: 'Close notifications',
+        barrierColor: Colors.black.withValues(alpha: .35),
+        pageBuilder: (dialogContext, _, _) => Material(color: Colors.transparent,
+          child: SafeArea(child: Align(alignment: Alignment.topRight,
+            child: Padding(padding: const EdgeInsets.fromLTRB(14, 48, 14, 0),
+              child: ConstrainedBox(constraints: BoxConstraints(maxWidth: 420,
+                maxHeight: MediaQuery.sizeOf(dialogContext).height * .78),
+                child: DecoratedBox(decoration: BoxDecoration(color: Colors.white,
+                  borderRadius: BorderRadius.circular(18)),
+                  child: NotificationsPage(session: widget.session, onChanged: refreshUnread, onTarget: (payload) {
             Navigator.pop(context);
             openNotification(payload);
-          })))),
+          }))))))))),
       IconButton(icon: const Icon(Icons.account_circle_outlined), onPressed: () => setState(() => selected = modules.last))]),
     drawer: Drawer(width: MediaQuery.sizeOf(context).width * .85,
       child: SafeArea(child: Column(children: [
-      UserAccountsDrawerHeader(accountName: Text('${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'),
-        accountEmail: Text('${widget.session.user?['email'] ?? ''}'),
-        currentAccountPicture: CircleAvatar(
-          foregroundImage: '${widget.session.user?['image'] ?? ''}'.startsWith('http')
-            ? NetworkImage('${widget.session.user?['image']}') : null,
-          child: Text('${'${widget.session.user?['firstName'] ?? ''}'.isEmpty ? 'U' : '${widget.session.user?['firstName']}'[0]}${'${widget.session.user?['lastName'] ?? ''}'.isEmpty ? '' : '${widget.session.user?['lastName']}'[0]}'.toUpperCase())),
-        decoration: const BoxDecoration(color: Color(0xff244d3b))),
+      Padding(padding: const EdgeInsets.only(bottom: 10, top: 8),
+        child: Image.asset('assets/airmslogo_dark.png', width: 120, height: 40, fit: BoxFit.contain)),
       Expanded(child: ListView(children: [for (final group in drawerGroups.entries)
         if (allowed.any((module) => group.value.contains(module.title))) ...[
-          Padding(padding: const EdgeInsets.fromLTRB(18, 12, 8, 2), child: Text(group.key,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54))),
+          Padding(padding: const EdgeInsets.fromLTRB(18, 8, 8, 2), child: Text(group.key,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1, color: Color(0xff777777)))),
           for (final module in allowed.where((item) => group.value.contains(item.title)))
-            ListTile(leading: Icon(module.icon), selected: selected == module,
+            ListTile(leading: Icon(module.icon, color: selected == module ? const Color(0xff26866f) : const Color(0xff777777)),
+              selected: selected == module, selectedTileColor: const Color(0xffe6f4f1),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10),
+                side: selected == module ? const BorderSide(color: Color(0xff26866f), width: 2) : BorderSide.none),
               title: Text(module.title == 'Parts Requisition' ? 'Parts Requisition Monitoring' : module.title),
               onTap: () { Navigator.pop(context); setState(() => selected = module); }),
         ],

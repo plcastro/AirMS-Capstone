@@ -13,4 +13,14 @@ void main() {
     expect(notificationTimeAgo('2026-10-12T11:30:00', now: now), '30 min ago');
     expect(notificationTimeAgo('2026-10-12T10:00:00', now: now), '2 hr ago');
   });
+  test('message notification removes duplicate preview from title', () {
+    final display = notificationDisplay({
+      'module': 'messages', 'title': 'Alex: Ready for dispatch',
+      'description': 'Ready for dispatch',
+    });
+    expect(display.title, 'Alex');
+    expect(display.description, 'Ready for dispatch');
+    expect(notificationDisplay({'module': 'tasks', 'title': 'Alex: Ready for dispatch',
+      'description': 'Ready for dispatch'}).title, 'Alex: Ready for dispatch');
+  });
 }

@@ -81,6 +81,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         final read = notificationIsRead(notification, userId);
         final display = notificationDisplay(notification);
         return Card(color: read ? Colors.white : const Color(0xfff6ffed),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: read ? const Color(0xffe4e4e4) : const Color(0xffcdeccb))),
           margin: const EdgeInsets.fromLTRB(12, 4, 12, 6), child: InkWell(onTap: busy.isNotEmpty ? null : () async {
             final id = '${notification['_id'] ?? notification['id'] ?? ''}';
             if (id.isNotEmpty && !id.startsWith('local-')) await action('read', '/api/notifications/$id/read');
@@ -95,7 +97,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     Text(display.title, style: TextStyle(fontWeight: read ? FontWeight.w600 : FontWeight.w700)),
                     if (!read) const Chip(label: Text('New')),
                   ]),
-                  if (display.description.isNotEmpty) Text(display.description),
+                  Text(display.description, style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xff666666))),
                   const SizedBox(height: 6),
                   Text(notificationTimeAgo(notification['createdAt']),
                     style: const TextStyle(color: Colors.black54, fontSize: 12)),
