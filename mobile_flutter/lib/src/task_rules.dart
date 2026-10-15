@@ -54,3 +54,21 @@ int taskPriorityScore({String riskLevel = '', String maintenanceType = '',
 }
 
 String scoreToTaskPriority(int score) => score >= 60 ? 'High' : score >= 30 ? 'Normal' : 'Low';
+
+bool isTaskForReview(Map task) {
+  final status = '${task['status'] ?? ''}'.trim().toLowerCase();
+  return task['isApproved'] != true && status != 'approved' &&
+      (status == 'completed' || status == 'turned in');
+}
+
+List<bool> reviewedChecklistState(Map task) {
+  final items = task['checklistItems'] as List? ?? [];
+  final state = task['checklistState'] as List?;
+  final completed = {'completed', 'turned in', 'approved'}
+      .contains('${task['status'] ?? ''}'.trim().toLowerCase());
+  return List.generate(items.length, (index) => state != null
+      ? index < state.length && state[index] == true : completed);
+}
+
+List<bool> checklistAfterReturn(List<bool> state, Set<int> selected) =>
+    List.generate(state.length, (index) => selected.contains(index) ? false : state[index]);

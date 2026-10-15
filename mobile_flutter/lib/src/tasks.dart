@@ -43,9 +43,9 @@ class _TasksPageState extends State<TasksPage> {
     final status = '${task['status'] ?? ''}'.toLowerCase();
     if (head) {
       return switch (tab) {
-        'For Review' => ['completed', 'turned in'].contains(status) && task['isApproved'] != true,
+        'For Review' => isTaskForReview(task),
         'Reviewed' => status == 'approved' || task['isApproved'] == true,
-        _ => !['approved', 'deleted', 'completed', 'turned in'].contains(status),
+        _ => {'pending', 'ongoing', 'returned'}.contains(status),
       };
     }
     return switch (tab) {
@@ -69,7 +69,7 @@ class _TasksPageState extends State<TasksPage> {
         Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text('$label (${tasks.where((task) {
           final status = taskText(task['status']).toLowerCase();
           if (head) { return switch (label) {
-            'For Review' => task['isApproved'] != true && {'completed', 'turned in'}.contains(status),
+            'For Review' => isTaskForReview(task),
             'Reviewed' => task['isApproved'] == true || status == 'approved',
             _ => {'pending', 'ongoing', 'returned'}.contains(status),
           }; }
@@ -80,20 +80,35 @@ class _TasksPageState extends State<TasksPage> {
       const SizedBox(height: 10),
       if (loading) const LinearProgressIndicator(),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-      if (!loading && filtered.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No tasks found'))),
+      if (!loading && filtered.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(head
+          ? tab == 'Assigned' ? 'No tasks assigned in this tab' : tab == 'For Review'
+              ? 'No tasks for review in this tab' : 'No tasks reviewed in this tab'
+          : tab == 'Assigned' ? 'No assigned tasks' : 'No task history'))),
       for (final task in filtered) Card(child: InkWell(onTap: () => open(task), child: Row(children: [
-        Container(width: 5, height: 120, color: const Color(0xff26866f)),
+        Container(width: 5, height: 156, color: const Color(0xff26866f)),
         Expanded(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text(taskText(task['title']).isEmpty ? 'Maintenance Task' : taskText(task['title']),
+          Row(children: [Expanded(child: Text(taskText(task['title'] ?? task['maintenanceType']).isEmpty ? 'Maintenance Task' : taskText(task['title'] ?? task['maintenanceType']),
             style: const TextStyle(fontWeight: FontWeight.bold))),
-            Chip(label: Text('${task['status'] ?? 'Pending'}', style: const TextStyle(fontSize: 10)))]),
-          Text('Aircraft: ${taskText(task['aircraft'])}'),
-          Text('Assigned: ${task['assignedToName'] ?? ''}'),
-          Text('Priority: ${task['priority'] ?? ''}'),
+            Chip(backgroundColor: task['isApproved'] == true || {'approved', 'completed'}.contains(taskText(task['status']).toLowerCase())
+                ? const Color(0xffe8f5e9) : taskText(task['status']).toLowerCase() == 'returned'
+                ? const Color(0xffffebee) : const Color(0xfffff3e0),
+              label: Text(task['isApproved'] == true ? 'Approved' : '${task['status'] ?? 'Pending'}', style: const TextStyle(fontSize: 10)))]),
+          Text('Priority: ${task['priority'] ?? 'Normal'}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          Text('Aircraft: ${taskText(task['aircraft']).isEmpty ? 'N/A' : taskText(task['aircraft'])}'),
+          Text('Start: ${formatAirmsDateTime(task['startDateTime'])}'),
           Text('Due: ${formatAirmsDateTime(task['endDateTime'] ?? task['dueDate'])}'),
-          LinearProgressIndicator(value: (task['checklistItems'] as List? ?? []).isEmpty ? 0 :
-            (task['checklistState'] as List? ?? []).where((value) => value == true).length /
-              (task['checklistItems'] as List).length),
+          if ({'ongoing', 'returned'}.contains(taskText(task['status']).toLowerCase())) ...[
+            Text('Progress: ${((task['checklistItems'] as List? ?? []).isEmpty ? 0 :
+              (task['checklistState'] as List? ?? []).where((value) => value == true).length * 100 /
+              (task['checklistItems'] as List).length).round()}%'),
+            LinearProgressIndicator(value: (task['checklistItems'] as List? ?? []).isEmpty ? 0 :
+              (task['checklistState'] as List? ?? []).where((value) => value == true).length /
+                (task['checklistItems'] as List).length),
+          ],
+          if (taskText(task['assignedToName']).isNotEmpty) Text('Assigned to: ${task['assignedToName']}'),
+          if (taskText(task['returnComments']).isNotEmpty) Container(
+            padding: const EdgeInsets.all(8), color: const Color(0xffffebee),
+            child: Text(taskText(task['returnComments']), style: const TextStyle(color: Color(0xffc62828)))),
         ]))),
       ]))),
     ])),
@@ -120,9 +135,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   String error = '';
   @override void initState() {
     super.initState(); task = widget.task;
-    final items = task['checklistItems'] as List? ?? [];
-    final state = task['checklistState'] as List? ?? [];
-    checks = List.generate(items.length, (index) => index < state.length && state[index] == true);
+    checks = reviewedChecklistState(task);
     findings = TextEditingController(text: '${task['findings'] ?? ''}');
   }
   @override void dispose() { findings.dispose(); super.dispose(); }
@@ -162,11 +175,36 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     final signature = await collectFlightSignature(context, widget.session);
     if (signature == null) return;
     final now = DateTime.now().toUtc().toIso8601String();
-    await change({
+    await reviewChange({
       'status': 'Approved', 'isApproved': true,
-      'approvedBy': '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}',
+      'approvedBy': '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
       'approvedSignature': signature.image, 'reviewedAt': now, 'approvedAt': now,
     }, 'Approve');
+  }
+  Future<void> reviewChange(Map<String, dynamic> changes, String action) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: Text('$action Task'),
+      content: Text(action == 'Return'
+          ? 'Return this task to the mechanic for revision? It will rejoin their active workload.'
+          : 'Confirm approval and submit this task review?'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(action))],
+    ));
+    if (confirmed != true) return;
+    setState(() { busy = true; error = ''; });
+    try {
+      final updated = await widget.session.request('/api/tasks/${taskId(task)}', method: 'PUT',
+        extraHeaders: {'x-action-confirmed': 'true'}, body: {
+          ...changes, 'confirmAction': true, 'confirmBusyMechanic': true,
+        });
+      if (!mounted) return;
+      setState(() {
+        task = Map<String, dynamic>.from(updated['data'] as Map? ?? {...task, ...changes});
+        checks = reviewedChecklistState(task);
+      });
+      AirmsToast.show('Task ${action == 'Approve' ? 'approved' : 'returned'} successfully.');
+    } catch (e) { if (mounted) { setState(() => error = '$e'); AirmsToast.show(e); } }
+    finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> returnForRevision() async {
     final comments = TextEditingController();
@@ -182,17 +220,18 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
             onChanged: (value) => update(() { if (value == true) { toUncheck.add(index); } else { toUncheck.remove(index); } })),
       ]))),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, (comments.text.trim(), {...toUncheck})), child: const Text('Continue'))],
+        FilledButton(onPressed: () {
+          if (comments.text.trim().isEmpty) { AirmsToast.show('Please enter return remarks before returning this task.'); return; }
+          Navigator.pop(context, (comments.text.trim(), {...toUncheck}));
+        }, child: const Text('Continue'))],
     )));
     comments.dispose();
     if (result == null || !mounted) return;
-    final signature = await collectFlightSignature(context, widget.session);
-    if (signature == null) return;
-    final nextChecks = [...checks];
-    for (final index in result.$2) { nextChecks[index] = false; }
-    await change({
-      'status': 'Returned', 'returnComments': result.$1.isEmpty ? 'Please revise findings' : result.$1,
-      'returnedBy': signature.image, 'reviewedAt': DateTime.now().toUtc().toIso8601String(),
+    final nextChecks = checklistAfterReturn(checks, result.$2);
+    await reviewChange({
+      'status': 'Returned', 'returnComments': result.$1,
+      'returnedBy': 'Head Mechanic',
+      'reviewedAt': DateTime.now().toUtc().toIso8601String(),
       'returnedAt': DateTime.now().toUtc().toIso8601String(), 'isApproved': false,
       'checklistState': nextChecks,
     }, 'Return');

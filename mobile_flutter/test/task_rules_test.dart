@@ -32,4 +32,13 @@ void main() {
     expect(scoreToTaskPriority(score), 'High');
     expect(scoreToTaskPriority(taskPriorityScore()), 'Low');
   });
+  test('review state defaults completed checklists and only clears selected work', () {
+    final task = {'status': 'Completed', 'checklistItems': [
+      {'taskName': 'Inspect'}, {'taskName': 'Repair'}, {'taskName': 'Test'}]};
+    expect(isTaskForReview(task), isTrue);
+    expect(reviewedChecklistState(task), [true, true, true]);
+    expect(checklistAfterReturn(reviewedChecklistState(task), {1}), [true, false, true]);
+    expect(isTaskForReview({...task, 'isApproved': true}), isFalse);
+    expect(reviewedChecklistState({...task, 'checklistState': [true, false]}), [true, false, false]);
+  });
 }
