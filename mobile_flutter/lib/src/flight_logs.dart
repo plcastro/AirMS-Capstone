@@ -603,22 +603,50 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
         if (signature != null && mounted) changeB412(log, path, signature.image);
       }, child: Text(saved.isEmpty ? 'Sign' : 'Update')) : null);
   }
-  void changeStations(Map<String, dynamic> log, int index, String key, String value) {
+  void changeStations(Map<String, dynamic> log, int index, int stationIndex, String key, String value) {
     final legs = currentLegs(log);
     final stations = (legs[index]['stations'] as List? ?? []).map(flightMap).toList();
     if (stations.isEmpty) stations.add({'from': '', 'to': ''});
-    stations[0] = {...stations[0], key: value};
+    stations[stationIndex] = {...stations[stationIndex], key: value};
+    if (key == 'from' && stationIndex > 0) {
+      stations[stationIndex - 1] = {...stations[stationIndex - 1], 'to': value};
+    }
+    if (key == 'to' && stationIndex < stations.length - 1) {
+      stations[stationIndex + 1] = {...stations[stationIndex + 1], 'from': value};
+    }
     legs[index] = {...legs[index], 'stations': stations};
     updateDraft(() => draft['legs'] = legs);
   }
-  Widget legField(Map<String, dynamic> log, int index, String key, String label, {bool station = false, bool editable = true}) {
+  void addStation(Map<String, dynamic> log, int legIndex) {
+    final legs = currentLegs(log);
+    final stations = (legs[legIndex]['stations'] as List? ?? []).map(flightMap).toList();
+    if (stations.isEmpty) stations.add({'from': '', 'to': ''});
+    stations.add({'from': flightText(stations.last['to']), 'to': ''});
+    legs[legIndex] = {...legs[legIndex], 'stations': stations};
+    updateDraft(() => draft['legs'] = legs);
+  }
+  void removeStation(Map<String, dynamic> log, int legIndex, int stationIndex) {
+    final legs = currentLegs(log);
+    final stations = (legs[legIndex]['stations'] as List? ?? []).map(flightMap).toList();
+    if (stations.length <= 1) return;
+    stations.removeAt(stationIndex);
+    if (stationIndex > 0 && stationIndex < stations.length) {
+      stations[stationIndex] = {...stations[stationIndex], 'from': flightText(stations[stationIndex - 1]['to'])};
+    }
+    legs[legIndex] = {...legs[legIndex], 'stations': stations};
+    updateDraft(() => draft['legs'] = legs);
+  }
+  Widget legField(Map<String, dynamic> log, int index, String key, String label, {int? stationIndex, bool editable = true}) {
     final leg = currentLegs(log)[index];
-    final value = station ? flightText((leg['stations'] as List? ?? []).isEmpty ? '' : flightMap((leg['stations'] as List).first)[key]) : flightText(leg[key]);
+    final stations = (leg['stations'] as List? ?? []).map(flightMap).toList();
+    final value = stationIndex == null ? flightText(leg[key]) :
+      stationIndex < stations.length ? flightText(stations[stationIndex][key]) : '';
     if (!editable) return ListTile(dense: true, title: Text(label), subtitle: Text(value.isEmpty ? '—' : value));
     return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: TextFormField(
-      key: ValueKey('${widget.id}-${log['__v']}-$restoreGeneration-$index-$key'), initialValue: value,
+      key: ValueKey('${widget.id}-${log['__v']}-$restoreGeneration-$index-${stationIndex ?? 'leg'}-$key'), initialValue: value,
       decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-      onChanged: (next) => station ? changeStations(log, index, key, next) : changeLeg(log, index, key, next),
+      onChanged: (next) => stationIndex == null ? changeLeg(log, index, key, next) :
+        changeStations(log, index, stationIndex, key, next),
     ));
   }
   Future<void> complete() async {
@@ -907,14 +935,22 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
         if (flightPane == 'destinations')
           section('Flight legs', [
             for (var index = 0; index < currentLegs(log).length; index++) ExpansionTile(title: Text('Leg ${index + 1}'), children: [
-              legField(log, index, 'from', 'From', station: true, editable: canEdit), legField(log, index, 'to', 'To', station: true, editable: canEdit),
+              for (var stationIndex = 0; stationIndex < (currentLegs(log)[index]['stations'] as List? ?? [<String, dynamic>{'from': '', 'to': ''}]).length; stationIndex++)
+                Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
+                  Row(children: [Expanded(child: Text('Station ${stationIndex + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    if (canEdit && (currentLegs(log)[index]['stations'] as List? ?? []).length > 1)
+                      IconButton(tooltip: 'Remove station', onPressed: () => removeStation(log, index, stationIndex), icon: const Icon(Icons.delete_outline))]),
+                  legField(log, index, 'from', 'From', stationIndex: stationIndex, editable: canEdit),
+                  legField(log, index, 'to', 'To', stationIndex: stationIndex, editable: canEdit),
+                ]))),
+              if (canEdit) TextButton.icon(onPressed: () => addStation(log, index), icon: const Icon(Icons.add), label: const Text('Add station')),
               legField(log, index, 'date', 'Date', editable: canEdit), legField(log, index, 'blockTimeOff', 'Block off', editable: canEdit),
               legField(log, index, 'blockTimeOn', 'Block on', editable: canEdit), legField(log, index, 'flightTimeOff', 'Flight off', editable: canEdit),
               legField(log, index, 'flightTimeOn', 'Flight on', editable: canEdit),
               legField(log, index, 'totalTimeOn', 'Total block time (HH:mm)', editable: canEdit),
               legField(log, index, 'totalTimeOff', 'Total flight time (HH:mm)', editable: canEdit),
               legField(log, index, 'passengers', 'Passengers', editable: canEdit),
-              if (canEdit) TextButton.icon(onPressed: () { final legs = currentLegs(log); legs.removeAt(index); updateDraft(() => draft['legs'] = legs); }, icon: const Icon(Icons.delete_outline), label: const Text('Remove leg')),
+              if (canEdit && currentLegs(log).length > 1) TextButton.icon(onPressed: () { final legs = currentLegs(log); legs.removeAt(index); updateDraft(() => draft['legs'] = legs); }, icon: const Icon(Icons.delete_outline), label: const Text('Remove leg')),
             ]),
               if (canEdit) TextButton.icon(onPressed: () { final legs = currentLegs(log); legs.add({'stations': [{'from': '', 'to': ''}], 'date': '', 'blockTimeOff': '', 'blockTimeOn': '', 'flightTimeOff': '', 'flightTimeOn': '', 'totalTimeOn': '', 'totalTimeOff': '', 'passengers': '0'}); updateDraft(() => draft['legs'] = legs); }, icon: const Icon(Icons.add), label: const Text('Add leg')),
           ]),
