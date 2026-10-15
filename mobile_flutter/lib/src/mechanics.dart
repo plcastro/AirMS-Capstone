@@ -10,6 +10,23 @@ import 'package:path_provider/path_provider.dart';
 import 'access.dart';
 import 'date_time.dart';
 
+String certificateAircraftLabel(Object? value) => switch (flightText(value)) {
+  'AS350B3' => 'AS350B3 / AS350B3e',
+  'B412EP' => 'Bell 412 EP',
+  final label => label,
+};
+String certificateLabel(Object? value) {
+  final label = flightText(value).replaceAll('_', ' ').toLowerCase();
+  return label.isEmpty ? '' : '${label[0].toUpperCase()}${label.substring(1)}';
+}
+String certificateStatusLabel(Map<String, dynamic> record) => switch (flightText(record['status'])) {
+  'VERIFIED' => record['verificationMethod'] == 'AUTOMATIC' ? 'Accepted automatically' : 'Accepted',
+  'PENDING_REVIEW' => 'Needs attention',
+  final status => certificateLabel(status),
+};
+bool certificateTaskComplete(Map<String, dynamic> task) =>
+  {'completed', 'turned in', 'approved'}.contains(flightText(task['status']).toLowerCase());
+
 class MechanicsPage extends StatefulWidget {
   const MechanicsPage({super.key, required this.session});
   final AirmsSession session;
@@ -36,7 +53,12 @@ class _MechanicsPageState extends State<MechanicsPage> {
   @override Widget build(BuildContext context) {
     final role = resolveUserRole(widget.session.user);
     final manager = role == 'maintenance manager' || role == 'admin staff';
-    if (!manager) return CertificatePage(session: widget.session, personnelId: flightText(widget.session.user?['_id'] ?? widget.session.user?['id']));
+    if (!manager) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(padding: const EdgeInsets.all(16), child: Text('${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim().isEmpty
+        ? 'My mechanic profile' : '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+      Expanded(child: CertificatePage(session: widget.session, personnelId: flightText(widget.session.user?['id'] ?? widget.session.user?['_id']))),
+    ]);
     final visible = people.where((person) {
       final id = flightText(person['_id']);
       final count = tasks.where((task) => flightText(task['assignedTo']) == id &&
@@ -46,8 +68,8 @@ class _MechanicsPageState extends State<MechanicsPage> {
           .toLowerCase().contains(search.toLowerCase());
     }).toList();
     return RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(12), children: [
-      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search mechanics', border: OutlineInputBorder()), onChanged: (value) => setState(() => search = value)),
-      Padding(padding: const EdgeInsets.all(10), child: Text('Total mechanics: ${visible.length}')),
+      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search by mechanic', border: OutlineInputBorder()), onChanged: (value) => setState(() => search = value)),
+      Padding(padding: const EdgeInsets.all(10), child: Align(alignment: Alignment.centerRight, child: Text('Total Mechanics (${visible.length})', style: const TextStyle(fontSize: 12, color: Color(0xff5a5a5a))))),
       if (loading) const Center(child: CircularProgressIndicator()),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       ...visible.map((person) {
@@ -137,7 +159,7 @@ class _CertificatePageState extends State<CertificatePage> {
   final reassessed = <String>{};
   @override void initState() { super.initState(); load(); }
   Future<void> load() async {
-    if (widget.personnelId.isEmpty) return;
+    if (widget.personnelId.isEmpty) { if (mounted) setState(() => loading = false); return; }
     setState(() => loading = true);
     try {
       var results = await Future.wait([
@@ -197,14 +219,30 @@ class _CertificatePageState extends State<CertificatePage> {
         final payload = decodeResponse(response);
         if (response.statusCode >= 400) throw ApiException('${payload['message'] ?? 'Certificate upload failed'}');
         var record = flightMap(payload['data']);
+        final result = {'name': file.name, 'record': record, 'status': 'uploaded'};
+        if (mounted) setState(() => uploadResults.add(result));
         if (record['id'] != null && record['revision'] != null) {
-          final analyzed = await widget.session.request('/api/certificates/${record['id']}/analyze', method: 'POST', body: {'expectedRevision': record['revision']}, extraHeaders: {'x-action-confirmed': 'true'});
-          final updated = flightMap(flightMap(analyzed['data'])['certificate']);
-          if (updated.isNotEmpty) record = updated;
+          try {
+            if (mounted) setState(() => uploadProgress = 'Reading ${index + 1} of ${files.length}: ${file.name}');
+            final analyzed = await widget.session.request('/api/certificates/${record['id']}/analyze', method: 'POST', body: {'expectedRevision': record['revision']}, extraHeaders: {'x-action-confirmed': 'true'});
+            final updated = flightMap(flightMap(analyzed['data'])['certificate']);
+            if (mounted && updated.isNotEmpty) setState(() => result['record'] = updated);
+          } catch (e) {
+            if (mounted) setState(() => result['message'] = 'File saved. $e Open it to retry or check the details.');
+            if ('$e'.contains('401') || '$e'.contains('403') || '$e'.contains('429')) {
+              if (mounted) setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
+                {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded. Please retry later.'})));
+              break;
+            }
+          }
         }
-        if (mounted) setState(() => uploadResults.add({'name': file.name, 'record': record, 'status': 'uploaded'}));
         } catch (e) {
           if (mounted) setState(() => uploadResults.add({'name': file.name, 'status': 'failed', 'message': '$e'}));
+          if ('$e'.contains('401') || '$e'.contains('403') || '$e'.contains('429')) {
+            if (mounted) setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
+              {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded: $e'})));
+            break;
+          }
         }
       }
       await load();
@@ -239,16 +277,44 @@ class _CertificatePageState extends State<CertificatePage> {
     ]))),
     if (loading) const Center(child: CircularProgressIndicator()),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-    if (qualifications['results'] is List) ...((qualifications['results'] as List).map((value) { final result = flightMap(value); return Card(child: ListTile(title: Text(flightText(result['aircraft'])), subtitle: Text(result['qualified'] == true ? 'Approved for tasks' : 'No accepted qualifying certificate'))); })),
-    ...records.map((record) { final data = flightMap(record['normalizedData']); return Card(child: ListTile(title: Text(flightText(data['certificateType']).isEmpty ? 'Certificate' : flightText(data['certificateType'])), subtitle: Text('${record['status'] ?? ''}\n${data['holderName'] ?? 'Not read yet'}'), isThreeLine: true, trailing: const Icon(Icons.chevron_right), onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => _CertificateDetail(session: widget.session, id: flightText(record['id'] ?? record['_id']), person: widget.personnelId))); load(); })); }),
+    if (qualifications['results'] is List) ...[
+      const Text('Aircraft task approval', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+      ...((qualifications['results'] as List).map((value) { final result = flightMap(value); return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(certificateAircraftLabel(result['aircraft']), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        Text(result['qualified'] == true ? 'Approved for all tasks' : 'Not approved', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(result['qualified'] == true ? 'A certificate linked to this mechanic matches this aircraft.' : 'No accepted certificate currently qualifies this mechanic for this aircraft.'),
+        for (final sourceValue in result['approvalEvidence'] as List? ?? []) Builder(builder: (context) { final source = flightMap(sourceValue); final evidence = source['evidence'] as List? ?? [];
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(flightText(source['certificateType']).isEmpty ? 'Certificate' : flightText(source['certificateType']), style: const TextStyle(fontWeight: FontWeight.bold)),
+            if (evidence.isNotEmpty) Text('Matched “${flightMap(evidence.first)['detectedText']}” in “${flightMap(evidence.first)['qualification']}”.'),
+            TextButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => _CertificateDetail(session: widget.session,
+              id: flightText(source['certificateId']), person: widget.personnelId, results: (qualifications['results'] as List).map(flightMap).toList()))); load(); }, child: const Text('Why this mechanic was approved')),
+          ]);
+        }),
+        if (result['validThrough'] != null) Text('Valid through ${result['validThrough']}'),
+      ]))); })),
+    ],
+    ...records.map((record) { final data = flightMap(record['normalizedData']); return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(flightText(data['certificateType']).isEmpty ? 'Certificate' : flightText(data['certificateType']), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+      Text(certificateStatusLabel(record)), const SizedBox(height: 8), const Text('Certificate holder', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text(flightText(data['holderName']).isEmpty ? 'Not read yet' : flightText(data['holderName'])),
+      const SizedBox(height: 8), const Text('Qualifications', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text((data['qualifications'] as List? ?? []).isEmpty ? 'Not read yet' : (data['qualifications'] as List).join('\n')),
+      const SizedBox(height: 8), const Text('Detected aircraft', style: TextStyle(fontWeight: FontWeight.bold)),
+      Text((data['aircraftRatings'] as List? ?? []).isEmpty ? 'No match yet' : (data['aircraftRatings'] as List).map(certificateAircraftLabel).join(', ')),
+      TextButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => _CertificateDetail(session: widget.session,
+        id: flightText(record['id'] ?? record['_id']), person: widget.personnelId, results: (qualifications['results'] as List? ?? []).map(flightMap).toList()))); load(); },
+        child: Text(record['status'] == 'PENDING_REVIEW' ? 'Check details' : 'View certificate')),
+    ]))); }),
     if (!loading && records.isEmpty) const Text('No certificates match this filter.'),
     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [TextButton(onPressed: page <= 1 ? null : () { page--; load(); }, child: const Text('Previous')), Text('Page $page'), TextButton(onPressed: page * 25 >= total ? null : () { page++; load(); }, child: const Text('Next'))]),
   ]));
 }
 class _CertificateDetail extends StatefulWidget {
-  const _CertificateDetail({required this.session, required this.id, required this.person});
+  const _CertificateDetail({required this.session, required this.id, required this.person, this.results = const []});
   final AirmsSession session;
   final String id, person;
+  final List<Map<String, dynamic>> results;
   @override State<_CertificateDetail> createState() => _CertificateDetailState();
 }
 class _CertificateDetailState extends State<_CertificateDetail> {
@@ -256,14 +322,11 @@ class _CertificateDetailState extends State<_CertificateDetail> {
   List<Map<String, dynamic>> history = [];
   static const fields = <(String, String, bool)>[
     ('holderName', 'Certificate holder', false), ('certificateType', 'Certificate type', false),
-    ('certificateNumber', 'Certificate number', false), ('issuingAuthority', 'Issuing authority', false),
-    ('issueDate', 'Issue date (YYYY-MM-DD)', false), ('expiryDate', 'Expiry date (YYYY-MM-DD)', false),
-    ('aircraftRatings', 'Aircraft ratings, one per line', true), ('qualifications', 'Qualifications, one per line', true),
-    ('taskAuthorizations', 'Authorizations, one per line', true), ('limitations', 'Limitations, one per line', true),
+    ('qualifications', 'Qualifications — one per line', true),
   ];
   final editors = <String, TextEditingController>{for (final field in fields) field.$1: TextEditingController()};
   final note = TextEditingController();
-  bool loading = true, busy = false, sourceReviewed = false;
+  bool loading = true, busy = false, sourceReviewed = false, showHistory = false;
   bool doesNotExpire = false, loadingHistory = false, hasMoreHistory = false;
   int historyPage = 1;
   String error = '';
@@ -280,7 +343,6 @@ class _CertificateDetailState extends State<_CertificateDetail> {
         for (final field in fields) {
           editors[field.$1]!.text = field.$3 ? (data[field.$1] as List? ?? []).join('\n') : flightText(data[field.$1]);
         }
-        doesNotExpire = data['doesNotExpire'] == true;
         note.text = flightText(next['reviewNote']); historyPage = 1; hasMoreHistory = history.length == 25;
         error = '';
       }); }
@@ -311,8 +373,29 @@ class _CertificateDetailState extends State<_CertificateDetail> {
     for (final field in fields) field.$1: field.$3
       ? editors[field.$1]!.text.split('\n').map((item) => item.trim()).where((item) => item.isNotEmpty).toList()
       : (editors[field.$1]!.text.trim().isEmpty ? null : editors[field.$1]!.text.trim()),
-    'doesNotExpire': doesNotExpire,
   };
+  Future<void> saveSummary(bool reviewer) async {
+    setState(() { busy = true; error = ''; });
+    try {
+      final saved = await widget.session.request('/api/certificates/${widget.id}/review', method: 'PATCH',
+        body: {'expectedRevision': record['revision'], 'corrections': corrections(),
+          'reviewNote': 'Checked the certificate holder, type and qualifications against the original.'},
+        extraHeaders: {'x-action-confirmed': 'true'});
+      final payload = flightMap(saved['data']);
+      final updated = flightMap(payload['certificate']);
+      final checked = flightMap(payload['preview']);
+      if (mounted) setState(() { record = updated; preview = checked; });
+      if (reviewer && (checked['errors'] as List? ?? []).isEmpty) {
+        final confirmation = await widget.session.request('/api/certificates/${widget.id}/confirm', method: 'POST',
+          body: {'expectedRevision': updated['revision'], 'confirmedPersonnelId': widget.person,
+            'sourceReviewed': true, 'reviewNote': 'Confirmed the certificate holder, type and qualifications against the original.'},
+          extraHeaders: {'x-action-confirmed': 'true'});
+        if (mounted) setState(() { record = flightMap(confirmation['data']); preview = {}; });
+      }
+      if (mounted) await load();
+    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
   Future<void> moreHistory() async {
     if (loadingHistory || !hasMoreHistory) return;
     setState(() => loadingHistory = true);
