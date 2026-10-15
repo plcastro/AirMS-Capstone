@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:airms_flutter/src/auth_validation.dart';
+import 'package:airms_flutter/src/auth.dart';
 
 void main() {
   test('login validation uses React Native messages and trims whitespace', () {
@@ -18,5 +19,20 @@ void main() {
     expect(resetPasswordValidation('Password1', 'Password1'), isNull);
     expect(securitySetupValidation('short', 'short', '123456', '123456'), 'Password must be at least 8 characters.');
     expect(securitySetupValidation('Password1', 'Password1', '123456', '123456'), isNull);
+  });
+  test('security setup enforces six numeric PIN digits and matching values', () {
+    expect(securitySetupValidation('Password1', 'Password1', '12x456', '12x456'), 'PIN must be exactly 6 digits.');
+    expect(securitySetupValidation('Password1', 'Password1', '123456', '654321'), 'PINs do not match.');
+  });
+  test('login location headers match the React Native precision and omit missing values', () {
+    expect(loginLocationHeaders({
+      'text': 'Manila, Philippines',
+      'coordinates': {'latitude': 14.5995123, 'longitude': 120.9842199},
+    }), {
+      'x-location-text': 'Manila, Philippines',
+      'x-location-latitude': '14.599512',
+      'x-location-longitude': '120.984220',
+    });
+    expect(loginLocationHeaders(null), isEmpty);
   });
 }

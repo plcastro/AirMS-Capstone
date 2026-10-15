@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'auth.dart';
 import 'legal.dart';
 import 'auth_validation.dart';
 import 'toast.dart';
+
+Widget requirementText(bool met, String label) => Text(
+  '${met ? '[OK]' : '[ ]'} $label',
+  style: TextStyle(fontSize: 12, color: met ? const Color(0xff26866f) : const Color(0xff999999)),
+);
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.session, required this.onLogin});
@@ -19,9 +25,12 @@ class _LoginPageState extends State<LoginPage> {
   String base = '';
   bool remember = false, busy = false, showPassword = false;
   String error = '';
+  Map<String, dynamic>? detectedLocation;
+  bool detectingLocation = true;
 
   @override void initState() {
     super.initState();
+    detectLocation();
     preferences().then((prefs) {
       if (mounted) {
         setState(() {
@@ -34,31 +43,49 @@ class _LoginPageState extends State<LoginPage> {
   }
   @override void dispose() { identifier.dispose(); password.dispose(); super.dispose(); }
 
+  Future<Map<String, dynamic>?> detectLocation() async {
+    if (mounted) setState(() => detectingLocation = true);
+    try {
+      final value = await loginLocation();
+      if (mounted) setState(() => detectedLocation = value);
+      return value;
+    } catch (_) {
+      if (mounted) setState(() => detectedLocation = null);
+      return null;
+    } finally {
+      if (mounted) setState(() => detectingLocation = false);
+    }
+  }
+
   Future<void> submit() async {
     final validation = loginValidationMessage(identifier.text, password.text, base);
     if (validation != null) { setState(() => error = validation); AirmsToast.show(validation); return; }
+    final location = detectedLocation ?? await detectLocation() ?? <String, dynamic>{};
+    if (!mounted) return;
+    if ('${location['text'] ?? ''}'.trim().isEmpty) {
+      setState(() => error = 'Allow location access so AirMS can record where you are logging in from.');
+      return;
+    }
     setState(() { busy = true; error = ''; });
     try {
-      final location = await loginLocation();
-      if ('${location['text'] ?? ''}'.trim().isEmpty) {
-        const message = 'Allow location access so AirMS can record where you are logging in from.';
-        if (mounted) setState(() => error = message);
-        AirmsToast.show(message);
-        return;
-      }
       final data = await publicPost('/api/user/login', {
         'identifier': identifier.text.trim(), 'password': password.text.trim(),
         'client': 'mobile', 'rememberMe': remember, 'location': location,
         'base': base, 'trustedDeviceToken': await AirmsSession.storage.read(key: 'trustedDeviceToken') ?? '',
       }, headers: {
         'x-platform': 'MOBILE', 'x-base': base,
-        'x-location-text': '${location['text']}',
-        'x-location-latitude': '${(location['coordinates'] as Map)['latitude']}',
-        'x-location-longitude': '${(location['coordinates'] as Map)['longitude']}',
+        ...loginLocationHeaders(location),
         'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
       });
       if (!mounted) return;
-      if (data['requireLoginOtp'] == true) {
+      final prefs = await preferences();
+      await prefs.setString('rememberedBase', base);
+      if (!mounted) return;
+      if (data['requireSetup'] == true) {
+        final account = data['user'] as Map? ?? {};
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => SecuritySetupPage(
+          token: '${account['setupToken'] ?? ''}', email: '${account['email'] ?? ''}')));
+      } else if (data['requireLoginOtp'] == true && (data['verification'] as Map?)?['token'] != null) {
         final verification = data['verification'] as Map? ?? {};
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OtpPage(
           session: widget.session, onLogin: widget.onLogin,
@@ -66,12 +93,11 @@ class _LoginPageState extends State<LoginPage> {
           email: '${verification['maskedEmail'] ?? verification['email'] ?? ''}',
           base: base, location: location, remember: remember,
         )));
-      } else if (data['requireSetup'] == true) {
-        final account = data['user'] as Map? ?? {};
-        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => SecuritySetupPage(
-          token: '${account['setupToken'] ?? ''}', email: '${account['email'] ?? ''}')));
       } else {
         final account = data['user'] as Map? ?? {};
+        if (account.isEmpty || data['token'] == null) {
+          throw ApiException('${data['message'] ?? 'Invalid login response'}');
+        }
         if (account['status'] == 'deactivated') {
           throw const ApiException('This account is deactivated. Please contact AirMS support.');
         }
@@ -81,8 +107,6 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
         await widget.session.acceptLogin(data, base: base, location: location);
-        final prefs = await preferences();
-        await prefs.setString('rememberedBase', base);
         await prefs.setBool('rememberMe', remember);
         if (remember) { await prefs.setString('rememberedIdentifier', identifier.text.trim()); }
         else { await prefs.remove('rememberedIdentifier'); }
@@ -96,10 +120,10 @@ class _LoginPageState extends State<LoginPage> {
   @override Widget build(BuildContext context) => busy
     ? const AuthLoadingScreen(message: 'Signing you in...')
     : AuthLayout(title: 'Login', subtitle: 'Sign in to access your AirMS account', children: [
-    TextField(controller: identifier, decoration: const InputDecoration(labelText: 'Username or email', border: OutlineInputBorder())),
+    TextField(controller: identifier, maxLength: 256, autocorrect: false, decoration: const InputDecoration(labelText: 'Username or Email', hintText: 'Enter your username or email', counterText: '', border: OutlineInputBorder())),
     const SizedBox(height: 16),
-    TextField(controller: password, obscureText: !showPassword, decoration: InputDecoration(
-      labelText: 'Password', border: const OutlineInputBorder(),
+    TextField(controller: password, maxLength: 256, obscureText: !showPassword, decoration: InputDecoration(
+      labelText: 'Password', hintText: 'Enter your password', counterText: '', border: const OutlineInputBorder(),
       suffixIcon: IconButton(icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility),
         onPressed: () => setState(() => showPassword = !showPassword)))),
     const SizedBox(height: 16),
@@ -116,10 +140,13 @@ class _LoginPageState extends State<LoginPage> {
         child: const Text('Forgot Password?'))]),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     const SizedBox(height: 12),
-    FilledButton(onPressed: submit, child: const Text('LOGIN')),
+    FilledButton(onPressed: detectingLocation ? null : submit, child: const Text('LOGIN')),
+    const SizedBox(height: 16),
+    const Text('By signing in, you agree to the', textAlign: TextAlign.center,
+      style: TextStyle(color: Colors.grey)),
     Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
       TextButton(onPressed: () => showAirmsLegal(context, privacy: false), child: const Text('Terms and Conditions')),
-      const Text('·'),
+      const Text('and', style: TextStyle(color: Colors.grey)),
       TextButton(onPressed: () => showAirmsLegal(context, privacy: true), child: const Text('Privacy Policy')),
     ]),
   ]);
@@ -165,8 +192,9 @@ class AuthLoadingScreen extends StatelessWidget {
 }
 
 class SixDigitCodeField extends StatefulWidget {
-  const SixDigitCodeField({super.key, required this.controller});
+  const SixDigitCodeField({super.key, required this.controller, this.secure = false});
   final TextEditingController controller;
+  final bool secure;
   @override State<SixDigitCodeField> createState() => _SixDigitCodeFieldState();
 }
 class _SixDigitCodeFieldState extends State<SixDigitCodeField> {
@@ -179,6 +207,8 @@ class _SixDigitCodeFieldState extends State<SixDigitCodeField> {
     return GestureDetector(onTap: () => focus.requestFocus(), child: Stack(children: [
       Opacity(opacity: 0, child: TextField(controller: widget.controller, focusNode: focus,
         keyboardType: TextInputType.number, maxLength: 6,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        autofillHints: const [AutofillHints.oneTimeCode],
         onChanged: (value) {
           final digits = value.replaceAll(RegExp(r'\D'), '');
           if (digits != value) {
@@ -191,7 +221,7 @@ class _SixDigitCodeFieldState extends State<SixDigitCodeField> {
           alignment: Alignment.center,
           decoration: BoxDecoration(border: Border.all(color: index == code.length
             ? const Color(0xff26866f) : Colors.grey), borderRadius: BorderRadius.circular(6)),
-          child: Text(index < code.length ? code[index] : '',
+          child: Text(index < code.length ? (widget.secure ? 'â€¢' : code[index]) : '',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
       )))),
     ]));
@@ -229,24 +259,23 @@ class _OtpPageState extends State<OtpPage> {
     if (busy || resendSeconds > 0) return;
     setState(() { busy = true; error = ''; info = ''; });
     try {
-      final coordinates = widget.location['coordinates'] as Map? ?? {};
       final data = await publicPost('/api/user/login/resend-otp', {'token': verificationToken}, headers: {
-        'x-platform': 'MOBILE', 'x-base': widget.base,
-        'x-location-text': '${widget.location['text']}',
-        'x-location-latitude': '${coordinates['latitude'] ?? ''}',
-        'x-location-longitude': '${coordinates['longitude'] ?? ''}',
+        'x-platform': 'MOBILE', ...loginLocationHeaders(widget.location),
+        'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
       });
       if (mounted) { setState(() {
         verificationToken = '${(data['verification'] as Map?)?['token'] ?? data['token'] ?? verificationToken}';
         resendSeconds = 60;
-        code.clear();
-        info = 'A new verification code was sent to your email.';
+        info = '';
       }); }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+      AirmsToast.show('OTP resent to your email.');
+    } on ApiException catch (e) { if (mounted) setState(() => error = '$e'); }
+      catch (_) { if (mounted) { setState(() => error = 'Failed to send OTP. Please try again later.'); AirmsToast.show('Failed to resend OTP.'); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> verify() async {
     if (code.text.length != 6) { setState(() => error = 'Enter the 6-digit code.'); return; }
+    if (verificationToken.isEmpty) { setState(() => error = 'Missing verification token.'); return; }
     setState(() { busy = true; error = ''; });
     try {
       final data = await publicPost('/api/user/login/verify-otp', {
@@ -254,9 +283,8 @@ class _OtpPageState extends State<OtpPage> {
         'location': widget.location, 'base': widget.base, 'client': 'mobile',
         'trustDevice': widget.remember && trust, 'trustedDeviceLabel': 'mobile-app',
       }, headers: {'x-platform': 'MOBILE', 'x-base': widget.base,
-        'x-location-text': '${widget.location['text']}',
-        'x-location-latitude': '${(widget.location['coordinates'] as Map?)?['latitude'] ?? ''}',
-        'x-location-longitude': '${(widget.location['coordinates'] as Map?)?['longitude'] ?? ''}'});
+        ...loginLocationHeaders(widget.location),
+        'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID'});
       if (data['trustedDeviceToken'] != null) {
         await AirmsSession.storage.write(
             key: 'trustedDeviceToken', value: '${data['trustedDeviceToken']}');
@@ -290,15 +318,17 @@ class _OtpPageState extends State<OtpPage> {
   @override Widget build(BuildContext context) => AuthLayout(title: info.startsWith('OTP verified')
     ? 'Login Verified' : 'Login Verification', subtitle: 'Please enter the 6-digit code sent to ${widget.email}', children: [
     SixDigitCodeField(controller: code),
-    CheckboxListTile(value: trust, title: const Text('Remember this device for 30 days'),
-      enabled: widget.remember,
-      onChanged: (value) => setState(() => trust = value ?? false)),
-    if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-    if (info.isNotEmpty) Text(info, style: const TextStyle(color: Colors.green)),
     FilledButton(onPressed: busy || code.text.length != 6 ? null : verify,
       child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Verify')),
-    TextButton(onPressed: busy || resendSeconds > 0 ? null : resend,
-      child: Text(resendSeconds > 0 ? 'Resend code in ${resendSeconds}s' : 'Resend code')),
+    CheckboxListTile(value: trust, title: const Text('Remember this device for 30 days'),
+      enabled: widget.remember,
+      controlAffinity: ListTileControlAffinity.trailing,
+      onChanged: (value) => setState(() => trust = value ?? false)),
+    const SizedBox(height: 10),
+    if (error.isNotEmpty && code.text.length == 6) Text(error, style: const TextStyle(color: Colors.red)),
+    if (info.isNotEmpty && code.text.length == 6) Text(info, style: const TextStyle(color: Color(0xff26866f))),
+    OutlinedButton(onPressed: busy || resendSeconds > 0 ? null : resend,
+      child: Text(resendSeconds > 0 ? 'Resend code (${resendSeconds}s)' : 'Resend code')),
   ]);
 }
 
@@ -333,8 +363,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     finally { if (mounted) setState(() => busy = false); }
   }
   @override Widget build(BuildContext context) => AuthLayout(title: 'Forgot Password', subtitle: 'Please provide your email to proceed', children: [
-    TextField(controller: email, keyboardType: TextInputType.emailAddress, onChanged: (_) => setState(() => error = ''),
-      decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder())),
+    TextField(controller: email, keyboardType: TextInputType.emailAddress, maxLength: 254,
+      textCapitalization: TextCapitalization.none, onChanged: (_) => setState(() => error = ''),
+      decoration: const InputDecoration(labelText: 'Email *', hintText: 'Enter email address', counterText: '', border: OutlineInputBorder())),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     FilledButton(onPressed: busy ? null : submit, child: Text(busy ? 'SENDING...' : 'CONTINUE')),
     TextButton(onPressed: busy ? null : () => Navigator.of(context).popUntil((route) => route.isFirst),
@@ -369,20 +400,23 @@ class _ResetOtpPageState extends State<ResetOtpPage> {
       if (mounted) { setState(() {
         resetToken = '${data['token'] ?? resetToken}';
         resendSeconds = 60;
-        code.clear();
-        info = 'A new verification code was sent to your email.';
+        info = '';
       }); }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+      AirmsToast.show('OTP resent to your email.');
+    } on ApiException catch (e) { if (mounted) setState(() => error = '$e'); }
+      catch (_) { if (mounted) { setState(() => error = 'Failed to send OTP. Please try again later.'); AirmsToast.show('Failed to resend OTP.'); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> verify() async {
     if (!RegExp(r'^\d{6}$').hasMatch(code.text)) { setState(() => error = 'Enter the 6-digit code.'); return; }
+    if (resetToken.isEmpty) { setState(() => error = 'Missing verification token.'); return; }
     setState(() { busy = true; error = ''; });
     try {
       await publicPost('/api/user/verify-otp', {'token': resetToken, 'otp': code.text});
       if (mounted) setState(() => info = 'OTP verified. Redirecting...');
       AirmsToast.show('OTP verified. Redirecting...');
       await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await AirmsSession.storage.write(key: 'pendingPasswordResetToken', value: resetToken);
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ResetPasswordPage(token: resetToken)));
     } on ApiException catch (e) {
       final message = '$e'.toLowerCase().contains('expired') ? 'OTP expired! Please request a new one.' : '$e';
@@ -393,12 +427,12 @@ class _ResetOtpPageState extends State<ResetOtpPage> {
   @override Widget build(BuildContext context) => AuthLayout(title: 'Account Verification',
     subtitle: 'Please enter the 6-digit code sent to ${widget.email}', children: [
     SixDigitCodeField(controller: code),
-    if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-    if (info.isNotEmpty) Text(info, style: const TextStyle(color: Colors.green)),
     FilledButton(onPressed: busy || code.text.length != 6 ? null : verify,
       child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Verify')),
-    TextButton(onPressed: busy || resendSeconds > 0 ? null : resend,
-      child: Text(resendSeconds > 0 ? 'Resend code in ${resendSeconds}s' : 'Resend code')),
+    if (error.isNotEmpty && code.text.length == 6) Text(error, style: const TextStyle(color: Colors.red)),
+    if (info.isNotEmpty && code.text.length == 6) Text(info, style: const TextStyle(color: Color(0xff26866f))),
+    OutlinedButton(onPressed: busy || resendSeconds > 0 ? null : resend,
+      child: Text(resendSeconds > 0 ? 'Resend code (${resendSeconds}s)' : 'Resend code')),
   ]);
 }
 
@@ -416,8 +450,11 @@ class SecuritySetupPage extends StatefulWidget {
 class _SecuritySetupPageState extends State<SecuritySetupPage> {
   final password = TextEditingController(), confirmPassword = TextEditingController();
   final pin = TextEditingController(), confirmPin = TextEditingController();
-  bool busy = false, resendBusy = false, showPassword = false, showPin = false;
-  String message = '';
+  bool busy = false, resendBusy = false, showPassword = false, showPin = false, setupSuccess = false;
+  String message = '', resendMessage = '';
+  @override void initState() { super.initState(); pin.addListener(updatePin); confirmPin.addListener(updatePin); }
+  void updatePin() { if (mounted) setState(() { message = ''; }); }
+  @override void dispose() { pin.removeListener(updatePin); confirmPin.removeListener(updatePin); password.dispose(); confirmPassword.dispose(); pin.dispose(); confirmPin.dispose(); super.dispose(); }
   Future<void> submit() async {
     final validation = securitySetupValidation(password.text, confirmPassword.text, pin.text, confirmPin.text);
     if (validation != null) { setState(() => message = validation); AirmsToast.show(validation); return; }
@@ -425,7 +462,7 @@ class _SecuritySetupPageState extends State<SecuritySetupPage> {
     try {
       await publicPost('/api/user/activate', {'token': widget.token, 'newPassword': password.text, 'pin': pin.text});
       const success = 'Password and PIN set successfully! Redirecting to login...';
-      if (mounted) setState(() => message = success);
+      if (mounted) setState(() { message = success; setupSuccess = true; });
       AirmsToast.show(success);
       await Future<void>.delayed(const Duration(milliseconds: 2500));
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
@@ -434,83 +471,122 @@ class _SecuritySetupPageState extends State<SecuritySetupPage> {
   }
   Future<void> resend() async {
     if (resendBusy) return;
-    setState(() => resendBusy = true);
+    if (widget.email.isEmpty) return;
+    setState(() { resendBusy = true; resendMessage = ''; });
     try {
       final data = await publicPost('/api/user/resend-activation', {'email': widget.email});
-      if (mounted) setState(() => message = '${data['message'] ?? 'Activation link sent.'}');
-    } catch (e) { if (mounted) setState(() => message = '$e'); }
+      if (mounted) setState(() => resendMessage = '${data['message'] ?? 'Activation link sent!'}');
+    } catch (e) { if (mounted) setState(() => resendMessage = '$e'); }
     finally { if (mounted) setState(() => resendBusy = false); }
   }
   @override Widget build(BuildContext context) => AuthLayout(title: 'Security Setup', subtitle: 'Set your new password and PIN to proceed', children: [
-    TextField(controller: password, obscureText: !showPassword, onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(labelText: 'New password', border: const OutlineInputBorder(),
+    TextField(controller: password, obscureText: !showPassword, onChanged: (_) => setState(() { message = ''; }),
+      decoration: InputDecoration(labelText: 'New Password *', hintText: 'Enter new password', border: const OutlineInputBorder(),
         suffixIcon: IconButton(onPressed: () => setState(() => showPassword = !showPassword),
           icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility)))),
     const SizedBox(height: 12),
-    TextField(controller: confirmPassword, obscureText: !showPassword,
-      decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder())),
+    TextField(controller: confirmPassword, obscureText: !showPassword, onChanged: (_) => setState(() { message = ''; }),
+      decoration: InputDecoration(labelText: 'Confirm Password *', hintText: 'Confirm new password', border: const OutlineInputBorder(),
+        suffixIcon: IconButton(onPressed: () => setState(() => showPassword = !showPassword),
+          icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility)))),
     const SizedBox(height: 8),
-    const Text('Password Requirements:'),
-    Text('${password.text.length >= 8 ? '[OK]' : '[ ]'} At least 8 characters'),
-    Text('${RegExp('[A-Z]').hasMatch(password.text) ? '[OK]' : '[ ]'} One uppercase letter'),
-    Text('${RegExp(r'\d').hasMatch(password.text) ? '[OK]' : '[ ]'} One number'),
+    const Text('Password Requirements:', style: TextStyle(fontSize: 12, color: Color(0xff666666))),
+    requirementText(password.text.length >= 8, 'At least 8 characters'),
+    requirementText(RegExp('[A-Z]').hasMatch(password.text), 'One uppercase letter'),
+    requirementText(RegExp(r'\d').hasMatch(password.text), 'One number'),
     const SizedBox(height: 12),
-    TextField(controller: pin, obscureText: !showPin, keyboardType: TextInputType.number, maxLength: 6,
-      decoration: InputDecoration(labelText: '6-digit PIN', border: const OutlineInputBorder(),
-        suffixIcon: IconButton(onPressed: () => setState(() => showPin = !showPin),
-          icon: Icon(showPin ? Icons.visibility_off : Icons.visibility)))),
+    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      const Text('Set 6-digit PIN *'),
+      TextButton.icon(onPressed: () => setState(() => showPin = !showPin),
+        icon: Icon(showPin ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+        label: Text(showPin ? 'Hide PIN' : 'Show PIN')),
+    ]),
+    SixDigitCodeField(controller: pin, secure: !showPin),
     const SizedBox(height: 12),
-    TextField(controller: confirmPin, obscureText: !showPin, keyboardType: TextInputType.number, maxLength: 6,
-      decoration: const InputDecoration(labelText: 'Confirm PIN', border: OutlineInputBorder())),
-    if (message.isNotEmpty) Text(message, style: const TextStyle(color: Colors.red)),
-    FilledButton(onPressed: busy ? null : submit, child: const Text('Activate account')),
-    TextButton(onPressed: busy || resendBusy ? null : resend,
-      child: Text(resendBusy ? 'SENDING...' : 'Resend activation link')),
+    const Text('Confirm PIN *'),
+    SixDigitCodeField(controller: confirmPin, secure: !showPin),
+    if (message.isNotEmpty && !setupSuccess) Text(message, style: const TextStyle(color: Colors.red)),
+    FilledButton(onPressed: busy || setupSuccess || securitySetupValidation(password.text, confirmPassword.text, pin.text, confirmPin.text) != null ? null : submit,
+      child: const Text('SET PASSWORD & PIN')),
+    OutlinedButton(onPressed: resendBusy ? null : resend,
+      child: Text(resendBusy ? 'SENDING...' : 'RESEND ACTIVATION LINK')),
+    if (resendMessage.isNotEmpty) Text(resendMessage, style: const TextStyle(color: Colors.grey, fontSize: 12)),
   ]);
 }
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final password = TextEditingController(), confirm = TextEditingController();
-  String error = '', success = ''; bool busy = false, showPassword = false;
+  String error = '', success = '', resetToken = '';
+  bool busy = false, redirecting = false, tokenLoading = false;
+  @override void initState() {
+    super.initState();
+    resetToken = widget.token;
+    if (resetToken.isEmpty) {
+      tokenLoading = true;
+      loadResetToken();
+    }
+  }
+  Future<void> loadResetToken() async {
+    try {
+      final value = await AirmsSession.storage.read(key: 'pendingPasswordResetToken');
+      if (mounted) setState(() => resetToken = value ?? '');
+    } catch (_) {
+      // The invalid-link state handles unavailable secure storage.
+    } finally {
+      if (mounted) setState(() => tokenLoading = false);
+    }
+  }
+  @override void dispose() { password.dispose(); confirm.dispose(); super.dispose(); }
   Future<void> submit() async {
-    if (widget.token.isEmpty) { setState(() => error = 'Invalid or missing reset token.'); return; }
+    if (resetToken.isEmpty) { setState(() => error = 'Invalid or missing reset token.'); return; }
     final validation = resetPasswordValidation(password.text, confirm.text);
     if (validation != null) { setState(() => error = validation); AirmsToast.show(validation); return; }
     setState(() { busy = true; error = ''; });
     try {
-      await publicPost('/api/user/reset-password', {'token': widget.token, 'newPassword': password.text});
+      await publicPost('/api/user/reset-password', {'token': resetToken, 'newPassword': password.text});
+      await AirmsSession.storage.delete(key: 'pendingPasswordResetToken');
       const message = 'Password reset successfully. Taking you to login...';
-      if (mounted) setState(() => success = message);
+      if (mounted) setState(() { success = message; redirecting = true; });
       AirmsToast.show(message);
       await Future<void>.delayed(const Duration(milliseconds: 1600));
       if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) { if (mounted) { setState(() => error = '$e'); AirmsToast.show(e); } }
     finally { if (mounted) setState(() => busy = false); }
   }
-  @override Widget build(BuildContext context) => widget.token.isEmpty
+  @override Widget build(BuildContext context) => tokenLoading
+    ? const AuthLayout(title: 'Reset Password', subtitle: 'Preparing reset', children: [Center(child: CircularProgressIndicator())])
+    : resetToken.isEmpty
     ? AuthLayout(title: 'Invalid Reset Link', subtitle: 'This password reset link is invalid or has expired.', children: [
-        const Icon(Icons.link_off, color: Colors.red, size: 38),
-        const Text('Request a new password reset link to continue. For your account security, old or incomplete links cannot be used.'),
+        Center(child: Container(width: 74, height: 74, decoration: BoxDecoration(color: const Color(0xfffff2f0),
+          border: Border.all(color: const Color(0xffffccc7)), borderRadius: BorderRadius.circular(37)),
+          child: const Icon(Icons.link_off, color: Color(0xffcf1322), size: 38))),
+        const SizedBox(height: 16),
+        const Text('Request a new password reset link to continue. For your account security, old or incomplete links cannot be used.', textAlign: TextAlign.center),
         FilledButton(onPressed: () => Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (_) => const ForgotPasswordPage())), child: const Text('REQUEST NEW LINK')),
         OutlinedButton(onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
           child: const Text('BACK TO LOGIN')),
       ])
     : AuthLayout(title: 'Reset Password', subtitle: 'Enter your new password', children: [
-    TextField(controller: password, obscureText: !showPassword, onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(labelText: 'New password', border: const OutlineInputBorder(),
-        suffixIcon: IconButton(onPressed: () => setState(() => showPassword = !showPassword),
-          icon: Icon(showPassword ? Icons.visibility_off : Icons.visibility)))),
+    TextField(controller: password, obscureText: true, onChanged: (_) => setState(() { error = ''; success = ''; }),
+      decoration: const InputDecoration(labelText: 'New Password *', hintText: 'New Password', border: OutlineInputBorder())),
     const SizedBox(height: 16),
-    TextField(controller: confirm, obscureText: !showPassword, onChanged: (_) => setState(() {}),
-      decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder())),
+    TextField(controller: confirm, obscureText: true, onChanged: (_) => setState(() { error = ''; success = ''; }),
+      decoration: const InputDecoration(labelText: 'Confirm Password *', hintText: 'Confirm Password', border: OutlineInputBorder())),
     if (password.text.isNotEmpty && confirm.text.isNotEmpty && password.text == confirm.text)
       const Text('Passwords match.', style: TextStyle(color: Color(0xff26866f))),
-    const Text('Password Requirements:'),
-    Text('${password.text.length >= 8 ? '[OK]' : '[ ]'} At least 8 characters'),
-    Text('${RegExp('[A-Z]').hasMatch(password.text) ? '[OK]' : '[ ]'} One uppercase letter'),
-    Text('${RegExp(r'\d').hasMatch(password.text) ? '[OK]' : '[ ]'} One number'),
+    const SizedBox(height: 10),
+    const Text('Password Requirements:', style: TextStyle(fontSize: 12, color: Color(0xff666666))),
+    requirementText(password.text.length >= 8, 'At least 8 characters'),
+    requirementText(RegExp('[A-Z]').hasMatch(password.text), 'One uppercase letter'),
+    requirementText(RegExp(r'\d').hasMatch(password.text), 'One number'),
     if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-    if (success.isNotEmpty) Text(success, style: const TextStyle(color: Color(0xff26866f))),
-    FilledButton(onPressed: busy ? null : submit, child: Text(busy ? 'RESETTING...' : 'RESET PASSWORD')),
+    if (success.isNotEmpty) Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      if (redirecting) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+      Flexible(child: Text(success, style: const TextStyle(color: Colors.green))),
+    ]),
+    FilledButton(onPressed: busy || redirecting ? null : submit,
+      child: Text(redirecting ? 'REDIRECTING...' : busy ? 'RESETTING...' : 'RESET PASSWORD')),
+    TextButton(onPressed: redirecting ? null : () => Navigator.of(context).popUntil((route) => route.isFirst),
+      child: const Text('Remember your password? Sign In')),
   ]);
 }

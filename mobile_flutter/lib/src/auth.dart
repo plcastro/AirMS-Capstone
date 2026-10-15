@@ -187,4 +187,20 @@ Future<Map<String, dynamic>> loginLocation() async {
   return {'coordinates': coordinates, 'coordinateText': coordinateText, 'text': text};
 }
 
+Map<String, String> loginLocationHeaders(Map<String, dynamic>? location) {
+  final coordinates = location?['coordinates'] as Map? ?? {};
+  String? coordinate(Object? value) {
+    final number = value is num ? value : num.tryParse('$value');
+    return number?.toStringAsFixed(6);
+  }
+  final latitude = coordinate(coordinates['latitude']);
+  final longitude = coordinate(coordinates['longitude']);
+  final text = location?['text'];
+  return {
+    'x-location-latitude': ?latitude,
+    'x-location-longitude': ?longitude,
+    if (text != null && '$text'.isNotEmpty) 'x-location-text': '$text',
+  };
+}
+
 Future<SharedPreferences> preferences() => SharedPreferences.getInstance();
