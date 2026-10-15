@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'search.dart';
 import 'auth.dart';
@@ -41,9 +42,18 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
   String search = '', days = '30', action = 'all', scope = 'all', platform = 'all', error = '';
   int page = 0;
   bool loading = true, exporting = false;
-  @override void initState() { super.initState(); load(); }
-  Future<void> load() async {
-    setState(() => loading = true);
+  Timer? refreshTimer;
+  bool fetching = false;
+  @override void initState() {
+    super.initState();
+    load();
+    refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => load(silent: true));
+  }
+  @override void dispose() { refreshTimer?.cancel(); super.dispose(); }
+  Future<void> load({bool silent = false}) async {
+    if (fetching) return;
+    fetching = true;
+    if (!silent) setState(() => loading = true);
     try {
       final query = <String, String>{'page': '1', 'limit': '1000'};
       if (days != 'all') {
@@ -52,9 +62,9 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
         query['endDate'] = DateTime.now().toUtc().toIso8601String();
       }
       final data = await widget.session.request('/api/logs/getAllUserLogs?${Uri(queryParameters: query).query}');
-      if (mounted) setState(() { logs = (data['data'] as List? ?? []).whereType<Map>().toList(); error = ''; page = 0; });
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
-    finally { if (mounted) setState(() => loading = false); }
+      if (mounted) setState(() { logs = (data['data'] as List? ?? []).whereType<Map>().toList(); error = ''; if (!silent) page = 0; });
+    } catch (e) { if (mounted && !silent) setState(() => error = '$e'); }
+    finally { fetching = false; if (mounted && !silent) setState(() => loading = false); }
   }
   Future<void> exportPdf(List<Map> filtered) async {
     setState(() { exporting = true; error = ''; });
@@ -114,7 +124,7 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
     for (var date = start; !date.isAfter(today); date = date.add(const Duration(days: 1))) {
       chartDays.add(date.toIso8601String().substring(0, 10));
     }
-    return RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(16), children: [
+    return RefreshIndicator(onRefresh: () => load(), child: ListView(padding: const EdgeInsets.all(16), children: [
       TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search activity logs',
         border: OutlineInputBorder()), onChanged: (value) => setState(() { search = value; page = 0; })),
       Wrap(spacing: 8, children: [
