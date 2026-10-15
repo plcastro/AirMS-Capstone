@@ -7,10 +7,13 @@ import 'inspection_rules.dart';
 import 'toast.dart';
 
 class LinkedInspectionPage extends StatefulWidget {
-  const LinkedInspectionPage({super.key, required this.session, required this.flightId, required this.record, required this.kind, required this.editable});
+  const LinkedInspectionPage({super.key, required this.session, required this.flightId, required this.record,
+    required this.kind, required this.editable, required this.mechanic, required this.pilot, required this.flightStage});
   final AirmsSession session;
   final String flightId, kind;
   final bool editable;
+  final bool mechanic, pilot;
+  final String flightStage;
   final Map<String, dynamic> record;
   @override State<LinkedInspectionPage> createState() => _LinkedInspectionPageState();
 }
@@ -84,8 +87,32 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }
+  Future<void> signStage(String nextStatus) async {
+    final signed = await collectFlightSignature(context, widget.session);
+    if (signed == null) return;
+    setState(() { busy = true; error = ''; });
+    try {
+      await widget.session.request('/api/flightlogs/${widget.flightId}/inspections/${widget.kind}/${widget.record['_id']}',
+        method: 'PUT', body: {
+          'status': nextStatus,
+          'expectedVersion': widget.record['__v'] ?? 0,
+          'signature': signed.image,
+          'pin': signed.pin,
+          'confirmAction': true,
+        }, extraHeaders: {'x-action-confirmed': 'true'});
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
   @override Widget build(BuildContext context) {
     final canEdit = widget.editable && flightText(widget.record['status']) == 'pending';
+    final recordStatus = flightText(widget.record['status']);
+    final mayReleasePre = widget.kind == 'pre' && widget.mechanic && recordStatus == 'pending' &&
+      ['pending_release', 'returned_to_mechanic'].contains(widget.flightStage);
+    final mayAcceptPre = widget.kind == 'pre' && widget.pilot && recordStatus == 'released' &&
+      widget.flightStage == 'pending_acceptance';
+    final mayCompletePost = widget.kind == 'post' && widget.mechanic && recordStatus == 'pending' &&
+      ['accepted', 'submitted', 'returned_to_pilot'].contains(widget.flightStage);
     final pages = (items.length / inspectionPageSize).ceil().clamp(1, 99999);
     final visible = items.skip(page * inspectionPageSize).take(inspectionPageSize).toList();
     final flagged = discrepancies.keys.toSet();
@@ -140,6 +167,11 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
             held: held, resolution: resolution.text) ? null : () => submit(true),
             icon: const Icon(Icons.draw), label: const Text('Sign and confirm')),
         ],
+        if (mayReleasePre || mayAcceptPre || mayCompletePost) FilledButton.icon(
+          onPressed: busy ? null : () => signStage(mayReleasePre ? 'released' : 'completed'),
+          icon: const Icon(Icons.draw),
+          label: Text(mayReleasePre ? 'Sign and release Pre-Flight' :
+            mayAcceptPre ? 'Sign and accept Pre-Flight' : 'Sign and complete Post-Flight')),
       ]));
   }
 }

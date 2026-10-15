@@ -1116,7 +1116,8 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
               onTap: pair.$1 == 'preInspections' || pair.$1 == 'postInspections' ? () async {
                 await Navigator.push(context, MaterialPageRoute(builder: (_) => LinkedInspectionPage(session: widget.session,
                   flightId: widget.id, record: row, kind: pair.$1 == 'preInspections' ? 'pre' : 'post',
-                  editable: assigned && (pair.$1 == 'preInspections' ? preparation : flightDetails))));
+                  editable: assigned && (pair.$1 == 'preInspections' ? preparation : flightDetails),
+                  mechanic: assigned, pilot: pilotAssigned, flightStage: stage)));
                 load();
               } : pair.$1 == 'defects' && assigned && stage != 'completed' ? () => editDefect(row) : null);
           }).toList()),
