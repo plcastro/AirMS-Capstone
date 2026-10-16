@@ -4,6 +4,7 @@ import 'auth.dart';
 import 'access.dart';
 import 'date_time.dart';
 import 'toast.dart';
+import 'flight_logs.dart' show flightMap;
 
 const defaultRules = <String, int>{
   'criticalDueDays': 5, 'criticalRemainingHours': 14,
@@ -18,6 +19,7 @@ class PriorityPage extends StatefulWidget {
 }
 class _PriorityPageState extends State<PriorityPage> {
   List<Map> rankings = [];
+  Map<String, dynamic> meta = {};
   Map<String, int> rules = {...defaultRules}, draft = {...defaultRules};
   bool loading = true, saving = false, showRules = false;
   String search = '', error = '';
@@ -26,8 +28,11 @@ class _PriorityPageState extends State<PriorityPage> {
   Future<void> load() async {
     setState(() => loading = true);
     try {
-      final response = await widget.session.request('/api/parts-monitoring/maintenance-priority/rules');
-      final incoming = response['data'] as Map? ?? {};
+      Map incoming = {};
+      try {
+        final response = await widget.session.request('/api/parts-monitoring/maintenance-priority/rules');
+        incoming = response['data'] as Map? ?? {};
+      } catch (_) { /* Use the same default thresholds as React Native. */ }
       final nextRules = {...defaultRules};
       for (final key in defaultRules.keys) {
         if (incoming[key] is num) nextRules[key] = (incoming[key] as num).toInt();
@@ -41,7 +46,7 @@ class _PriorityPageState extends State<PriorityPage> {
     try {
       final query = Uri(queryParameters: activeRules.map((key, value) => MapEntry(key, '$value'))).query;
       final response = await widget.session.request('/api/parts-monitoring/maintenance-priority?$query');
-      if (mounted) setState(() { rankings = (response['data'] as List? ?? []).whereType<Map>().toList(); error = ''; page = 0; });
+      if (mounted) setState(() { rankings = (response['data'] as List? ?? []).whereType<Map>().toList(); meta = Map<String, dynamic>.from(response['meta'] as Map? ?? {}); error = ''; page = 0; });
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   Future<bool> confirm(String label) async => await showDialog<bool>(context: context,
@@ -70,14 +75,15 @@ class _PriorityPageState extends State<PriorityPage> {
     try {
       await widget.session.request('/api/parts-monitoring/maintenance-priority/${Uri.encodeComponent(aircraft)}/override',
         method: 'PUT', extraHeaders: {'x-action-confirmed': 'true'},
-        body: {'level': level, if (level != 'Auto') 'reason': reason, 'confirmAction': true});
+        body: {'level': level, if (level != 'Auto') 'reason': reason});
       await loadRanking(rules);
       if (mounted) AirmsToast.show('Maintenance priority saved.');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   @override Widget build(BuildContext context) {
     final role = resolveUserRole(widget.session.user);
-    final canOverride = role == 'maintenance manager' || role == 'admin staff';
+    final canOverride = role == 'maintenance manager' || role == 'admin staff' ||
+      normalizeRole(widget.session.user?['access']) == 'admin staff';
     final filtered = rankings.where((row) => matchesSearch(search, row)).toList();
     final visible = filtered.skip(page * 10).take(10).toList();
     final turnaround = rankings.map((row) => num.tryParse('${row['estimatedTurnaroundHours'] ?? ''}'))
@@ -107,8 +113,10 @@ class _PriorityPageState extends State<PriorityPage> {
       ]))),
       if (loading) const LinearProgressIndicator(),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-      Card(child: ListTile(title: const Text('Priority Logic'), subtitle: Text(
-        'Aircraft and inspections are ranked by due limits, remaining flight hours, calendar due dates, and manual overrides. Showing ${filtered.isEmpty ? 0 : page * 10 + 1}-${(page * 10 + 10).clamp(0, filtered.length)} of ${filtered.length} ranking rows.'))),
+      if (meta.isNotEmpty) Card(child: ListTile(title: const Text('Priority Logic'), subtitle: Text(
+        'Critical <= ${flightMap(meta['rules'])['criticalDueDays'] ?? rules['criticalDueDays']} days or <= ${flightMap(meta['rules'])['criticalRemainingHours'] ?? rules['criticalRemainingHours']} FH'))),
+      Text('Ranked Maintenance · Showing ${filtered.isEmpty ? 0 : page * 10 + 1}-${(page * 10 + 10).clamp(0, filtered.length)} of ${filtered.length} aircraft/inspection ranking row(s)'),
+      if (!loading && filtered.isEmpty) const Text('No records found.'),
       for (final row in visible) _PriorityCard(record: row, onSave: saveOverride, canOverride: canOverride),
       if (filtered.length > 10) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Previous')),
@@ -139,7 +147,7 @@ class _PriorityCardState extends State<_PriorityCard> {
     return Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [Expanded(child: Text('#${record['rank'] ?? '-'} ${record['aircraft'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
         Chip(label: Text('${record['priorityLevel'] ?? ''}'))]),
-      Text('Inspection: ${record['inspectionName'] ?? ''}'),
+      Text('${record['nextInspection'] ?? 'Next inspection unavailable'}'),
       Text('Model: ${record['aircraftModel'] ?? 'N/A'}'),
       Text('Due: ${record['dueByHours'] ?? 'N/A'} FH / ${record['dueByDays'] ?? 'N/A'} days'),
       Text('Calendar Due: ${formatAirmsDateTime(record['dueDate'], fallback: 'N/A')}'),

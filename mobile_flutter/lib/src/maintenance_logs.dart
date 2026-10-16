@@ -5,6 +5,28 @@ import 'package:printing/printing.dart';
 import 'maintenance_pdf.dart';
 import 'viewed_logs.dart';
 import 'date_time.dart';
+import 'access.dart';
+
+Map<String, dynamic> normalizeMaintenanceLog(Map entry) {
+  final details = entry['workDetails'] as List?;
+  return {
+    ...Map<String, dynamic>.from(entry),
+    'id': entry['sourceTaskId'] ?? entry['_id'],
+    'sn': '${entry['aircraft'] ?? ''}'.replaceAll(RegExp(r'[^0-9]'), '').isEmpty
+      ? 'N/A' : '${entry['aircraft']}'.replaceAll(RegExp(r'[^0-9]'), ''),
+    'base': entry['base'] ?? entry['locationBase'] ?? entry['assignedBase'] ??
+      entry['stationBase'] ?? entry['sourceBase'] ?? 'UNKNOWN',
+    'type': 'Task Assignment',
+    'workDetails': details != null && details.isNotEmpty ? details : [
+      if (entry['correctiveActionDone'] != null && '${entry['correctiveActionDone']}'.isNotEmpty)
+        {'description': entry['correctiveActionDone']},
+      if (entry['defects'] != null && '${entry['defects']}'.isNotEmpty)
+        {'description': entry['defects']},
+      if (entry['taskTitle'] != null && '${entry['taskTitle']}'.isNotEmpty)
+        {'description': 'Reference task: ${entry['taskTitle']}'},
+    ],
+  };
+}
 
 class MaintenanceLogsPage extends StatefulWidget {
   const MaintenanceLogsPage({super.key, required this.session});
@@ -17,8 +39,8 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
   bool loading = true;
   late final ViewedLogs viewed;
   bool viewedReady = false;
-  bool get mechanic => '${widget.session.user?['jobTitle'] ?? ''}'.toLowerCase() == 'mechanic';
-  String get myBase => '${widget.session.session['base'] ?? ''}'.toUpperCase();
+  bool get mechanic => resolveUserRole(widget.session.user) == 'mechanic';
+  String get myBase => '${widget.session.session['base'] ?? ''}'.trim().toUpperCase();
   @override void initState() {
     super.initState();
     if (mechanic && myBase.isNotEmpty) selectedBase = myBase;
@@ -32,11 +54,11 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
       final data = await widget.session.request('/api/maintenance-logs/getAllMaintenanceLog');
       if (mounted) {
         setState(() {
-          entries = (data['data'] as List? ?? []).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+          entries = (data['data'] as List? ?? []).whereType<Map>().map(normalizeMaintenanceLog).toList();
           error = '';
         });
       }
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) setState(() { error = '$e'; entries = []; }); }
     finally { if (mounted) setState(() => loading = false); }
   }
   String base(Map row) => '${row['base'] ?? row['locationBase'] ?? row['assignedBase'] ?? row['stationBase'] ?? row['sourceBase'] ?? 'UNKNOWN'}'.toUpperCase();
@@ -70,8 +92,7 @@ class _MaintenanceLogsPageState extends State<MaintenanceLogsPage> {
           setState(() {});
           await Navigator.push(context, MaterialPageRoute(builder: (_) => _AircraftLogsPage(
             aircraft: group.key, entries: group.value, session: widget.session,
-            canExport: const {'admin staff', 'maintenance manager', 'officer-in-charge', 'mechanic'}
-                .contains('${widget.session.user?['jobTitle'] ?? widget.session.user?['access'] ?? ''}'.trim().toLowerCase()))));
+            canExport: canExportModule(resolveUserRole(widget.session.user), 'maintenanceLogs'))));
         },
       )),
     ]));
@@ -115,12 +136,7 @@ class _WorkOrderPage extends StatelessWidget {
       filename: 'WorkDoneReport_${entry['aircraft'] ?? 'Aircraft'}_${DateTime.now().toIso8601String().split('T').first}.pdf');
   }
   @override Widget build(BuildContext context) {
-    final details = (entry['workDetails'] as List? ?? []).isNotEmpty ? entry['workDetails'] as List : [
-      if (entry['correctiveActionDone'] != null) {'description': entry['correctiveActionDone']},
-      if (entry['defects'] != null) {'description': entry['defects']},
-      if (entry['correctiveActionDone'] == null && entry['defects'] == null && entry['taskTitle'] != null)
-        {'description': 'Reference task: ${entry['taskTitle']}'},
-    ];
+    final details = normalizeMaintenanceLog(entry)['workDetails'] as List;
     return Scaffold(appBar: AppBar(title: const Text('Work Done Report')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         if (canExport) OutlinedButton.icon(onPressed: export, icon: const Icon(Icons.picture_as_pdf_outlined), label: const Text('Export PDF')),
