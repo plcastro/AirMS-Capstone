@@ -9,18 +9,21 @@ const activitySeriesColors = <String, Color>{
 };
 
 class ActivityTrendChart extends StatelessWidget {
-  const ActivityTrendChart({super.key, required this.days, required this.values, required this.selected});
+  const ActivityTrendChart({super.key, required this.days, required this.values, required this.selected, this.showLegend = true});
   final List<String> days;
   final Map<String, Map<String, int>> values;
   final String selected;
+  final bool showLegend;
 
   @override Widget build(BuildContext context) {
     final series = selected == 'all' ? activitySeriesColors.keys.toList() : [selected];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SizedBox(height: 155, width: double.infinity,
-        child: CustomPaint(painter: _TrendPainter(days: days, values: values, series: series))),
-      const SizedBox(height: 8),
-      Wrap(spacing: 10, runSpacing: 6, children: [for (final key in series)
+      SizedBox(height: 230, width: double.infinity,
+        child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+          child: SizedBox(width: math.max(320, days.length * 110 + 128).toDouble(),
+            height: 230, child: CustomPaint(painter: _TrendPainter(days: days, values: values, series: series))))),
+      if (showLegend) const SizedBox(height: 8),
+      if (showLegend) Wrap(spacing: 10, runSpacing: 6, children: [for (final key in series)
         Row(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(
             color: activitySeriesColors[key], borderRadius: BorderRadius.circular(4))),
@@ -43,7 +46,7 @@ class _TrendPainter extends CustomPainter {
     canvas.drawLine(const Offset(left, top), Offset(left, top + height), axis);
     canvas.drawLine(Offset(left, top + height), Offset(left + width, top + height), axis);
     final maxCount = days.fold<int>(1, (best, day) => math.max(best,
-      series.fold<int>(0, (sum, key) => sum + (values[day]?[key] ?? 0))));
+      series.fold<int>(0, (peak, key) => math.max(peak, values[day]?[key] ?? 0))));
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     void label(String value, Offset offset) {
       textPainter.text = TextSpan(text: value, style: const TextStyle(fontSize: 9, color: Color(0xff5f6b63)));
@@ -52,9 +55,10 @@ class _TrendPainter extends CustomPainter {
     label('$maxCount', const Offset(0, top));
     label('0', Offset(10, top + height - 5));
     if (days.isEmpty) return;
-    label(days.first.substring(5), Offset(left, top + height + 4));
-    if (days.length > 1) label(days.last.substring(5), Offset(left + width - 28, top + height + 4));
-    final base = <String, int>{for (final day in days) day: 0};
+    for (var index = 0; index < days.length; index++) {
+      final x = left + width * (days.length == 1 ? .5 : index / (days.length - 1));
+      label(days[index], Offset(x - 28, top + height + 4));
+    }
     for (final key in series) {
       final color = activitySeriesColors[key] ?? Colors.grey;
       final upper = <Offset>[];
@@ -62,11 +66,9 @@ class _TrendPainter extends CustomPainter {
       for (var index = 0; index < days.length; index++) {
         final day = days[index];
         final x = left + width * (days.length == 1 ? .5 : index / (days.length - 1));
-        final below = base[day] ?? 0;
-        final above = below + (values[day]?[key] ?? 0);
-        lower.add(Offset(x, top + height * (1 - below / maxCount)));
+        final above = values[day]?[key] ?? 0;
+        lower.add(Offset(x, top + height));
         upper.add(Offset(x, top + height * (1 - above / maxCount)));
-        base[day] = above;
       }
       if (upper.isEmpty) continue;
       final area = Path()..moveTo(upper.first.dx, upper.first.dy);

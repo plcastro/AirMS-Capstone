@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'search.dart';
 import 'auth.dart';
@@ -6,6 +8,7 @@ import 'pdf_exports.dart';
 import 'activity_trend_chart.dart';
 import 'date_time.dart';
 import 'access.dart';
+import 'toast.dart';
 
 const _actionKeywords = <String, List<String>>{
   'export': ['export', 'downloaded', 'printed', 'generated pdf', 'generated document'],
@@ -16,6 +19,7 @@ const _actionKeywords = <String, List<String>>{
   'update': ['updated', 'changed', 'modified', 'edited', 'saved'],
   'view': ['viewed', 'opened', 'read', 'accessed'],
 };
+const _displayCategories = ['create', 'update', 'delete', 'view', 'export', 'authentication', 'notification', 'other'];
 
 String activityCategory(Map log) {
   final action = '${log['actionMade'] ?? log['action'] ?? ''}'.toLowerCase();
@@ -24,6 +28,29 @@ String activityCategory(Map log) {
   }
   return 'other';
 }
+
+String activityPlatformLabel(Map log) {
+  final device = '${log['devicePlatform'] ?? ''}'.trim().toUpperCase();
+  if (device == 'MOBILE_IOS') return 'IOS';
+  if (device == 'MOBILE_ANDROID') return 'ANDROID';
+  if (device.isNotEmpty) return device.replaceAll('_', ' ');
+  return '${log['platform'] ?? 'unknown'}'.trim().toUpperCase();
+}
+
+String activityUserName(Map log) {
+  final full = '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim();
+  return full.isNotEmpty ? full : '${log['displayName'] ?? 'Unknown'}';
+}
+
+bool activityWithinRange(Map log, String days, DateTime now) {
+  if (days == 'all') return true;
+  final date = DateTime.tryParse('${log['dateTime'] ?? ''}');
+  final count = int.tryParse(days);
+  return date != null && count != null && !date.isBefore(now.subtract(Duration(days: count)));
+}
+
+bool activityMatchesPlatform(Map log, String value) => value == 'all' ||
+  '${log['platform'] ?? 'unknown'}'.trim().toUpperCase() == value || activityPlatformLabel(log) == value;
 
 const activityColors = <String, Color>{
   'create': Color(0xff389e0d), 'update': Color(0xff1677ff),
@@ -42,17 +69,44 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
   String search = '', days = '30', action = 'all', scope = 'all', platform = 'all', error = '';
   int page = 0;
   bool loading = true, exporting = false;
-  Timer? refreshTimer;
+  http.Client? eventClient;
+  StreamSubscription<String>? eventSubscription;
   bool fetching = false;
+  Widget filterControl(String selected, Map<String, String> options, ValueChanged<String> onSelect) =>
+    Padding(padding: const EdgeInsets.only(right: 12), child: PopupMenuButton<String>(
+      onSelected: onSelect,
+      itemBuilder: (_) => options.entries.map((entry) => PopupMenuItem<String>(value: entry.key,
+        child: Text(entry.value, style: const TextStyle(fontSize: 12)))).toList(),
+      child: Container(width: 172, height: 48, padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xffd0d5dd)),
+          borderRadius: BorderRadius.circular(10)),
+        child: Row(children: [const Icon(Icons.tune, size: 16, color: Color(0xff26866f)),
+          const SizedBox(width: 6), Expanded(child: Text(options[selected] ?? selected,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+          const Icon(Icons.keyboard_arrow_down, size: 22)]))));
   @override void initState() {
     super.initState();
     load();
-    refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => load(silent: true));
+    _listenForChanges();
   }
-  @override void dispose() { refreshTimer?.cancel(); super.dispose(); }
+  Future<void> _listenForChanges() async {
+    final client = http.Client();
+    eventClient = client;
+    try {
+      final request = http.Request('GET', Uri.parse('$apiBase/api/events/stream'));
+      final response = await client.send(request);
+      if (response.statusCode >= 400) return;
+      eventSubscription = response.stream.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        if (line.trim() == 'event: data-changed' && mounted) load(silent: true);
+      });
+    } catch (_) { /* Event streaming may be unavailable on a device. */ }
+  }
+  @override void dispose() { eventSubscription?.cancel(); eventClient?.close(); super.dispose(); }
   Future<void> load({bool silent = false}) async {
     if (fetching) return;
     fetching = true;
+    final requestedDays = days;
     if (!silent) setState(() => loading = true);
     try {
       final query = <String, String>{'page': '1', 'limit': '1000'};
@@ -63,40 +117,44 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
       }
       final data = await widget.session.request('/api/logs/getAllUserLogs?${Uri(queryParameters: query).query}');
       if (mounted) setState(() { logs = (data['data'] as List? ?? []).whereType<Map>().toList(); error = ''; if (!silent) page = 0; });
-    } catch (e) { if (mounted && !silent) setState(() => error = '$e'); }
-    finally { fetching = false; if (mounted && !silent) setState(() => loading = false); }
+    } catch (e) { if (mounted) AirmsToast.show(e); }
+    finally {
+      fetching = false;
+      if (mounted && !silent) setState(() => loading = false);
+      if (mounted && days != requestedDays) load(silent: true);
+    }
   }
   Future<void> exportPdf(List<Map> filtered) async {
     setState(() { exporting = true; error = ''; });
     try {
+      String captured(Object? value) => '${value ?? ''}'.trim().isEmpty ? 'Not captured' : '$value';
       await shareAirmsPdf(title: 'Activity Logs Report', fileName: 'AirMS_Activity_Logs.pdf',
-        subtitle: '${filtered.length} records',
-        columns: const ['Date / Time', 'Performed By', 'Action', 'Platform', 'Device', 'Base', 'Location', 'Coordinates'],
+        columns: const ['Date / Time', 'Performed By', 'Action', 'Platform', 'Device Model', 'Base', 'Location', 'Coordinates'],
         rows: filtered.map((log) => [
-          formatAirmsDateTime(log['dateTime'], fallback: 'Not captured'),
-          '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim().isEmpty ? 'Not captured' : '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim(),
-          '${log['actionMade'] ?? log['action'] ?? 'Not captured'}', '${log['devicePlatform'] ?? log['platform'] ?? 'Not captured'}',
-          '${log['deviceModel'] ?? 'Not captured'}', baseLabel(log['base']).isEmpty ? 'Not captured' : baseLabel(log['base']),
-          '${log['locationText'] ?? 'Not captured'}',
-          log['locationLatitude'] == null || log['locationLongitude'] == null ? 'Not captured' : '${log['locationLatitude']}, ${log['locationLongitude']}',
+          formatAirmsDateTime(log['dateTime'], fallback: 'N/A'),
+          activityUserName(log),
+          '${log['actionMade'] ?? log['action'] ?? 'N/A'}', activityPlatformLabel(log),
+          captured(log['deviceModel']), captured(baseLabel(log['base'])),
+          captured(log['locationText']),
+          log['locationLatitude'] == null || log['locationLongitude'] == null ? 'Not captured' : '${(num.tryParse('${log['locationLatitude']}') ?? 0).toStringAsFixed(6)}, ${(num.tryParse('${log['locationLongitude']}') ?? 0).toStringAsFixed(6)}',
         ]).toList());
-    } catch (e) { if (mounted) setState(() => error = '$e'); }
+    } catch (e) { if (mounted) AirmsToast.show(e); }
     finally { if (mounted) setState(() => exporting = false); }
   }
   @override Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator(color: Color(0xff26866f)));
     final platforms = <String>{'WEB', 'MOBILE', ...logs.expand((log) => [
-      '${log['platform'] ?? ''}'.toUpperCase(), '${log['devicePlatform'] ?? ''}'.toUpperCase(),
+      '${log['platform'] ?? ''}'.trim().toUpperCase(), activityPlatformLabel(log),
     ])}..remove('');
     final filtered = logs.where((log) {
+      if (!activityWithinRange(log, days, DateTime.now())) return false;
       if (action != 'all' && activityCategory(log) != action) return false;
-      if (scope == 'platform' && platform != 'all' && '${log['platform'] ?? ''}'.toUpperCase() != platform &&
-          '${log['devicePlatform'] ?? ''}'.toUpperCase() != platform) {
-        return false;
-      }
+      if (scope == 'platform' && !activityMatchesPlatform(log, platform)) return false;
       return matchesSearch(search, log);
     }).toList();
+    if (page > 0 && page * 10 >= filtered.length) page = 0;
     final visible = filtered.skip(page * 10).take(10).toList();
-    final counts = <String, int>{for (final key in [..._actionKeywords.keys, 'other']) key: 0};
+    final counts = <String, int>{for (final key in _displayCategories) key: 0};
     final daily = <String, Map<String, int>>{};
     final users = <String, int>{};
     final modules = <String, int>{};
@@ -104,15 +162,15 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
       counts.update(activityCategory(log), (value) => value + 1);
       final parsed = DateTime.tryParse('${log['dateTime'] ?? ''}');
       if (parsed != null) {
-        final day = parsed.toLocal().toIso8601String().substring(0, 10);
+        final day = parsed.toUtc().toIso8601String().substring(0, 10);
         daily.putIfAbsent(day, () => {}).update(activityCategory(log), (value) => value + 1, ifAbsent: () => 1);
       }
-      final user = '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim();
-      users.update(user.isEmpty ? 'Unknown' : user, (value) => value + 1, ifAbsent: () => 1);
+      final user = activityUserName(log);
+      users.update(user, (value) => value + 1, ifAbsent: () => 1);
       final text = '${log['actionMade'] ?? log['action'] ?? ''}'.toLowerCase();
-      final module = text.contains('task') ? 'Tasks' : text.contains('flight') ? 'Flight logs' :
-        text.contains('inspection') ? 'Inspections' : text.contains('requisition') ? 'Requisitions' :
-        text.contains('user') ? 'Users' : 'Other';
+      final module = text.contains('task') ? 'tasks' : text.contains('flight') ? 'flight logs' :
+        text.contains('inspection') ? 'inspections' : text.contains('requisition') ? 'requisitions' :
+        text.contains('user') ? 'users' : 'other';
       modules.update(module, (value) => value + 1, ifAbsent: () => 1);
     }
     final topUsers = users.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
@@ -124,67 +182,63 @@ class _ActivityLogsPageState extends State<ActivityLogsPage> {
     for (var date = start; !date.isAfter(today); date = date.add(const Duration(days: 1))) {
       chartDays.add(date.toIso8601String().substring(0, 10));
     }
-    return RefreshIndicator(onRefresh: () => load(), child: ListView(padding: const EdgeInsets.all(16), children: [
-      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search activity logs',
+    return RefreshIndicator(onRefresh: () => load(silent: true), child: ListView(padding: const EdgeInsets.fromLTRB(10, 10, 10, 110), children: [
+      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search logs',
         border: OutlineInputBorder()), onChanged: (value) => setState(() { search = value; page = 0; })),
-      Wrap(spacing: 8, children: [
-        DropdownButton<String>(value: days, items: ['7', '30', 'all'].map((value) => DropdownMenuItem(value: value,
-          child: Text(value == 'all' ? 'All dates' : 'Last $value days'))).toList(),
-          onChanged: (value) { setState(() => days = value ?? '30'); load(); }),
-        DropdownButton<String>(value: action, items: ['all', ..._actionKeywords.keys, 'other'].map((value) =>
-          DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All Actions' : '${value[0].toUpperCase()}${value.substring(1)}'))).toList(),
-          onChanged: (value) => setState(() { action = value ?? 'all'; page = 0; })),
-        DropdownButton<String>(value: scope, items: ['all', 'platform'].map((value) =>
-          DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All scope' : 'Platform'))).toList(),
-          onChanged: (value) => setState(() { scope = value ?? 'all'; platform = 'all'; page = 0; })),
-        if (scope == 'platform') DropdownButton<String>(value: platform, items: ['all', ...(platforms.toList()..sort())].map((value) =>
-          DropdownMenuItem(value: value, child: Text(value == 'all' ? 'All platforms' : value))).toList(),
-          onChanged: (value) => setState(() { platform = value ?? 'all'; page = 0; })),
-      ]),
-      Row(children: [Chip(label: Text('Total: ${filtered.length}')), const SizedBox(width: 8),
-        Chip(label: Text('Users: ${users.length}'))]),
-      if (resolveUserRole(widget.session.user) == 'admin staff')
-        OutlinedButton.icon(onPressed: loading || exporting || filtered.isEmpty ? null : () => exportPdf(filtered),
-          icon: const Icon(Icons.picture_as_pdf_outlined), label: Text(exporting ? 'Exporting...' : 'Export PDF')),
-      Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Activity Trends', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 10),
+      SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+        filterControl(action, {'all': 'All Actions', for (final key in _displayCategories)
+          key: '${key[0].toUpperCase()}${key.substring(1)}'},
+          (value) => setState(() { action = value; page = 0; })),
+        filterControl(days, const {'7': 'Last 7 days', '30': 'Last 30 days'},
+          (value) { setState(() { days = value; page = 0; }); load(silent: true); }),
+        filterControl(scope, const {'all': 'All Scope', 'platform': 'Platform'},
+          (value) => setState(() { scope = value; platform = 'all'; page = 0; })),
+        if (scope == 'platform') filterControl(platform,
+          {'all': 'All Platform', for (final value in (platforms.toList()..sort())) value: value},
+          (value) => setState(() { platform = value; page = 0; })),
+      ])),
+      if (canExportModule(resolveUserRole(widget.session.user), 'activityLogs'))
+        Padding(padding: const EdgeInsets.only(top: 10, bottom: 10), child: SizedBox(height: 46, width: double.infinity,
+          child: FilledButton.icon(onPressed: exporting || filtered.isEmpty ? null : () => exportPdf(filtered),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xff26866f),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            icon: exporting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) :
+              const Icon(Icons.picture_as_pdf_outlined, size: 18),
+            label: Text(exporting ? 'Exporting...' : 'Export PDF')))),
+      Card(color: Colors.white, child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Activity Trends', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        ActivityTrendChart(days: chartDays, values: daily, selected: action),
-        if (daily.isEmpty) const Text('No activity in this range'),
+        SizedBox(height: 230, child: ActivityTrendChart(days: chartDays, values: daily, selected: action, showLegend: false)),
         const SizedBox(height: 8),
-        Wrap(spacing: 6, runSpacing: 4, children: counts.entries.map((entry) =>
-          Chip(avatar: Icon(Icons.circle, size: 10, color: activityColors[entry.key]),
-            label: Text('${entry.key}: ${entry.value}'))).toList()),
+        Wrap(spacing: 10, runSpacing: 5, children: counts.entries.where((entry) => action == 'all' || entry.key == action).map((entry) =>
+          Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.circle, size: 7, color: activityColors[entry.key]),
+            const SizedBox(width: 5), Text('${entry.key[0].toUpperCase()}${entry.key.substring(1)} (${entry.value})', style: const TextStyle(fontSize: 10))])).toList()),
         Text('Top Users', style: Theme.of(context).textTheme.titleSmall),
         for (final item in topUsers.take(3)) Text('${item.key}: ${item.value}'),
         Text('Top Modules', style: Theme.of(context).textTheme.titleSmall),
         for (final item in topModules.take(3)) Text('${item.key}: ${item.value}'),
       ]))),
-      if (loading) const LinearProgressIndicator(),
-      if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-      if (!loading && filtered.isEmpty) const Center(child: Text('No activity logs found')),
-      for (final log in visible) Card(child: InkWell(onTap: () => showModalBottomSheet(context: context, isScrollControlled: true,
-          builder: (_) => SizedBox(height: MediaQuery.sizeOf(context).height * .65,
-            child: ListView(children: log.entries.map((entry) => ListTile(title: Text('${entry.key}'),
-              subtitle: Text('${entry.value ?? ''}'))).toList()))), child: Padding(padding: const EdgeInsets.all(12),
+      if (!loading && filtered.isEmpty) const Padding(padding: EdgeInsets.all(40), child: Center(child: Column(children: [Icon(Icons.history, size: 44), SizedBox(height: 8), Text('No logs found')]))),
+      for (final log in visible) Card(color: Colors.white, margin: const EdgeInsets.only(bottom: 12), child: Padding(padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Text('${log['actionMade'] ?? log['action'] ?? 'N/A'}',
               style: const TextStyle(fontWeight: FontWeight.bold))),
               Chip(label: Text(activityCategory(log).toUpperCase()),
                 backgroundColor: (activityColors[activityCategory(log)] ?? Colors.grey).withValues(alpha: .15))]),
-            Text('Performed by: ${'${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim().isEmpty ? 'Unknown' : '${log['firstName'] ?? ''} ${log['lastName'] ?? ''}'.trim()}'),
+            Text('Performed by: ${activityUserName(log)}'),
             Text(formatAirmsDateTime(log['dateTime'], fallback: 'N/A')),
             Wrap(spacing: 6, children: [
-              Chip(label: Text('${log['devicePlatform'] ?? log['platform'] ?? 'UNKNOWN'}')),
+              Chip(label: Text(activityPlatformLabel(log))),
               if ('${log['deviceModel'] ?? ''}'.isNotEmpty) Chip(label: Text('Device: ${log['deviceModel']}')),
               if (baseLabel(log['base']).isNotEmpty) Chip(label: Text('Base: ${baseLabel(log['base'])}')),
             ]),
             if ('${log['locationText'] ?? ''}'.isNotEmpty) Text('Logging in from: ${log['locationText']}'),
             if (log['locationLatitude'] != null && log['locationLongitude'] != null)
-              Text('Latitude and longitude coordinates: ${log['locationLatitude']}, ${log['locationLongitude']}'),
-          ])))),
+              Text('Latitude and longitude coordinates: ${(num.tryParse('${log['locationLatitude']}') ?? 0).toStringAsFixed(6)}, ${(num.tryParse('${log['locationLongitude']}') ?? 0).toStringAsFixed(6)}'),
+          ]))),
       if (filtered.isNotEmpty) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Previous')),
+        TextButton(onPressed: page > 0 ? () => setState(() => page--) : null, child: const Text('Prev')),
         Text('Page ${page + 1} of ${(filtered.length / 10).ceil()}'),
         TextButton(onPressed: (page + 1) * 10 < filtered.length ? () => setState(() => page++) : null, child: const Text('Next')),
       ]),
