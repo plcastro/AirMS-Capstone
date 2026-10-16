@@ -53,12 +53,14 @@ class _MechanicsPageState extends State<MechanicsPage> {
   @override Widget build(BuildContext context) {
     final role = resolveUserRole(widget.session.user);
     final manager = role == 'maintenance manager' || role == 'admin staff';
-    if (!manager) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    if (!manager) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: const EdgeInsets.all(16), child: Text('${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim().isEmpty
         ? 'My mechanic profile' : '${widget.session.user?['firstName'] ?? ''} ${widget.session.user?['lastName'] ?? ''}'.trim(),
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
       Expanded(child: CertificatePage(session: widget.session, personnelId: flightText(widget.session.user?['id'] ?? widget.session.user?['_id']))),
-    ]);
+      ]);
+    }
     final visible = people.where((person) {
       final id = flightText(person['_id']);
       final count = tasks.where((task) => flightText(task['assignedTo']) == id &&
@@ -230,8 +232,10 @@ class _CertificatePageState extends State<CertificatePage> {
           } catch (e) {
             if (mounted) setState(() => result['message'] = 'File saved. $e Open it to retry or check the details.');
             if ('$e'.contains('401') || '$e'.contains('403') || '$e'.contains('429')) {
-              if (mounted) setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
-                {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded. Please retry later.'})));
+              if (mounted) {
+                setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
+                  {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded. Please retry later.'})));
+              }
               break;
             }
           }
@@ -239,8 +243,10 @@ class _CertificatePageState extends State<CertificatePage> {
         } catch (e) {
           if (mounted) setState(() => uploadResults.add({'name': file.name, 'status': 'failed', 'message': '$e'}));
           if ('$e'.contains('401') || '$e'.contains('403') || '$e'.contains('429')) {
-            if (mounted) setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
-              {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded: $e'})));
+            if (mounted) {
+              setState(() => uploadResults.addAll(files.skip(index + 1).map((remaining) =>
+                {'name': remaining.name, 'status': 'skipped', 'message': 'Not uploaded: $e'})));
+            }
             break;
           }
         }

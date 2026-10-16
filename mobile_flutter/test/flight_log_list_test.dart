@@ -19,4 +19,20 @@ void main() {
     });
     expect(activity, DateTime.utc(2026, 10, 12, 8));
   });
+
+  test('locks the servicing rows captured by the latest signed release', () {
+    final log = <String, dynamic>{
+      'fuelServicing': [{}, {}, {}],
+      'oilServicing': [{}, {}],
+      'workflowHistory': [
+        {'action': 'release', 'snapshot': {'fuelServicing': [{}]}},
+        {'action': 'save'},
+        {'action': 'release', 'snapshot': {'fuelServicing': [{}, {}], 'oilServicing': [{}]}},
+      ],
+    };
+    expect(flightLockedServicingRows(log, 'fuelServicing', false), 2);
+    expect(flightLockedServicingRows(log, 'oilServicing', false), 1);
+    expect(flightLockedServicingRows(log, 'fuelServicing', true), 0);
+    expect(flightLockedServicingRows({...log, 'inspectionFlow': 'confirmation'}, 'fuelServicing', false), 0);
+  });
 }

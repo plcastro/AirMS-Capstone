@@ -8,13 +8,16 @@ class FlightSignature {
   final String image, pin;
 }
 
-Future<FlightSignature?> collectFlightSignature(BuildContext context, AirmsSession session, {String? existing}) => showDialog<FlightSignature>(
-  context: context, barrierDismissible: false, builder: (_) => _SignatureDialog(session: session, existing: existing));
+Future<FlightSignature?> collectFlightSignature(BuildContext context, AirmsSession session,
+    {String? existing, bool requirePin = true}) => showDialog<FlightSignature>(
+  context: context, barrierDismissible: false,
+  builder: (_) => _SignatureDialog(session: session, existing: existing, requirePin: requirePin));
 
 class _SignatureDialog extends StatefulWidget {
-  const _SignatureDialog({required this.session, this.existing});
+  const _SignatureDialog({required this.session, this.existing, required this.requirePin});
   final AirmsSession session;
   final String? existing;
+  final bool requirePin;
   @override State<_SignatureDialog> createState() => _SignatureDialogState();
 }
 class _SignatureDialogState extends State<_SignatureDialog> {
@@ -25,13 +28,15 @@ class _SignatureDialogState extends State<_SignatureDialog> {
   String error = '';
   @override void dispose() { pin.dispose(); super.dispose(); }
   Future<void> submit() async {
-    if (!RegExp(r'^\d{6}$').hasMatch(pin.text)) { setState(() => error = 'Enter your six-digit PIN.'); return; }
+    if (widget.requirePin && !RegExp(r'^\d{6}$').hasMatch(pin.text)) { setState(() => error = 'Enter your six-digit PIN.'); return; }
     if ((widget.existing ?? '').isEmpty && points.length < 2) { setState(() => error = 'Draw your signature.'); return; }
     setState(() { busy = true; error = ''; });
     try {
-      final userId = '${widget.session.user?['id'] ?? widget.session.user?['_id'] ?? ''}';
-      if (userId.isEmpty) throw const ApiException('Sign in again to verify your PIN.');
-      await widget.session.request('/api/user/verify-pin/$userId', method: 'POST', body: {'pin': pin.text});
+      if (widget.requirePin) {
+        final userId = '${widget.session.user?['id'] ?? widget.session.user?['_id'] ?? ''}';
+        if (userId.isEmpty) throw const ApiException('Sign in again to verify your PIN.');
+        await widget.session.request('/api/user/verify-pin/$userId', method: 'POST', body: {'pin': pin.text});
+      }
       String image = widget.existing ?? '';
       if (image.isEmpty) {
         final recorder = ui.PictureRecorder();
@@ -49,7 +54,9 @@ class _SignatureDialogState extends State<_SignatureDialog> {
   @override Widget build(BuildContext context) => AlertDialog(
     title: const Text('Sign and confirm'),
     content: SizedBox(width: 380, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(widget.existing == null ? 'Draw your signature, then enter your six-digit PIN.' : 'Confirm the existing Pre-Flight signature with your six-digit PIN.'),
+      Text(widget.existing == null
+        ? widget.requirePin ? 'Draw your signature, then enter your six-digit PIN.' : 'Draw your signature.'
+        : widget.requirePin ? 'Confirm the existing Pre-Flight signature with your six-digit PIN.' : 'Confirm the existing signature.'),
       if (widget.existing == null) ...[
         const SizedBox(height: 12),
         RepaintBoundary(key: key, child: GestureDetector(
@@ -60,7 +67,9 @@ class _SignatureDialogState extends State<_SignatureDialog> {
         ),
         TextButton(onPressed: () => setState(points.clear), child: const Text('Clear signature')),
       ],
-      TextField(controller: pin, obscureText: true, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: 'Signing PIN')),
+      if (widget.requirePin) TextField(controller: pin, obscureText: true,
+        keyboardType: TextInputType.number, maxLength: 6,
+        decoration: const InputDecoration(labelText: 'Signing PIN')),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
     ]))),
     actions: [TextButton(onPressed: busy ? null : () => Navigator.pop(context), child: const Text('Cancel')),

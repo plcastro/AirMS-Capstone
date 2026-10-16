@@ -50,6 +50,18 @@ String flightNextAction(String stage) => const {
   'completed': 'Record closed',
 }[stage] ?? 'Mechanic preparation';
 
+int flightLockedServicingRows(Map<String, dynamic> log, String section, bool preparation) {
+  if (preparation || flightText(log['inspectionFlow']) == 'confirmation') return 0;
+  final history = (log['workflowHistory'] as List? ?? []).map(flightMap);
+  Map<String, dynamic>? release;
+  for (final event in history) {
+    if (event['action'] == 'release') release = event;
+  }
+  final snapshotRows = flightMap(release?['snapshot'])[section];
+  final savedRows = log[section];
+  return snapshotRows is List ? snapshotRows.length : savedRows is List ? savedRows.length : 0;
+}
+
 class FlightLogsPage extends StatefulWidget {
   const FlightLogsPage({super.key, required this.session});
   final AirmsSession session;
@@ -546,7 +558,7 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
       title: Text(signed ? 'Servicing signed' : 'Servicing signature required'),
       subtitle: inherited.isNotEmpty ? const Text('Uses the verified inspection signature') : null,
       trailing: editable && inherited.isEmpty ? TextButton(onPressed: () async {
-        final signature = await collectFlightSignature(context, widget.session, existing: saved.isEmpty ? null : saved);
+        final signature = await collectFlightSignature(context, widget.session, requirePin: false);
         if (signature != null && mounted) changeServicing(log, section, index, 'signature', signature.image);
       }, child: Text(signed ? 'Update' : 'Sign')) : null,
     );
@@ -599,7 +611,8 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
     return ListTile(title: Text(label), leading: Icon(saved.isNotEmpty || inherited.isNotEmpty ? Icons.verified_outlined : Icons.draw_outlined),
       subtitle: Text(inherited.isNotEmpty ? 'Verified inspection signature' : saved.isNotEmpty ? 'Signed' : 'Unsigned'),
       trailing: editable && inherited.isEmpty ? TextButton(onPressed: () async {
-        final signature = await collectFlightSignature(context, widget.session, existing: saved.isEmpty ? null : saved);
+        final signature = await collectFlightSignature(context, widget.session,
+          requirePin: path.contains('fuelServicing') ? false : true);
         if (signature != null && mounted) changeB412(log, path, signature.image);
       }, child: Text(saved.isEmpty ? 'Sign' : 'Update')) : null);
   }
@@ -860,6 +873,8 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
     final stage = flightStage(log);
     final preparation = assigned && ['pending_release', 'returned_to_mechanic'].contains(stage);
     final flightDetails = assigned && ['accepted', 'returned_to_pilot', 'submitted'].contains(stage);
+    final lockedFuelRows = flightLockedServicingRows(log, 'fuelServicing', preparation);
+    final lockedOilRows = flightLockedServicingRows(log, 'oilServicing', preparation);
     final canEdit = (preparation || flightDetails) && ['mechanic', 'maintenance manager', 'officer-in-charge'].contains(role);
     final pilotAssigned = myId.isNotEmpty && flightText(flightMap(log['assignedPilot'])['userId']) == myId;
     final canReturn = assigned && !['mechanic', 'maintenance manager'].contains(role) &&
@@ -956,12 +971,12 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
           ]),
         if (flightPane == 'fuel' && !flightText(log['aircraftType']).toUpperCase().contains('412')) section('Fuel servicing', [
             for (var index = 0; index < currentLegs(log).length; index++) ExpansionTile(title: Text('Leg ${index + 1}'), children: [
-              servicingField(log, 'fuelServicing', index, 'date', 'Date', canEdit),
-              servicingField(log, 'fuelServicing', index, 'contCheck', 'Contamination check', canEdit),
-              servicingField(log, 'fuelServicing', index, 'mainRemG', 'Main remaining gallons', canEdit),
-              servicingField(log, 'fuelServicing', index, 'mainAdd', 'Main added gallons', canEdit),
-              servicingField(log, 'fuelServicing', index, 'mainTotal', 'Main total gallons', canEdit),
-              if (canEdit) DropdownButtonFormField<String>(
+              servicingField(log, 'fuelServicing', index, 'date', 'Date', false),
+              servicingField(log, 'fuelServicing', index, 'contCheck', 'Contamination check', canEdit && index >= lockedFuelRows),
+              servicingField(log, 'fuelServicing', index, 'mainRemG', 'Main remaining gallons', canEdit && index >= lockedFuelRows),
+              servicingField(log, 'fuelServicing', index, 'mainAdd', 'Main added gallons', canEdit && index >= lockedFuelRows),
+              servicingField(log, 'fuelServicing', index, 'mainTotal', 'Main total gallons', canEdit && index >= lockedFuelRows),
+              if (canEdit && index >= lockedFuelRows) DropdownButtonFormField<String>(
                 initialValue: ['drum', 'truck'].contains(index < servicingRows(log, 'fuelServicing').length ?
                   servicingRows(log, 'fuelServicing')[index]['fuelType'] : null) ?
                   flightText(servicingRows(log, 'fuelServicing')[index]['fuelType']) : null,
@@ -970,19 +985,19 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
                   DropdownMenuItem(value: 'truck', child: Text('Truck'))],
                 onChanged: (value) => changeServicing(log, 'fuelServicing', index, 'fuelType', value ?? ''),
               ),
-              if (!canEdit) servicingField(log, 'fuelServicing', index, 'fuelType', 'Fuel source', false),
-              servicingSignature(log, 'fuelServicing', index, canEdit),
+              if (!canEdit || index < lockedFuelRows) servicingField(log, 'fuelServicing', index, 'fuelType', 'Fuel source', false),
+              servicingSignature(log, 'fuelServicing', index, canEdit && index >= lockedFuelRows),
             ]),
           ]),
         if (flightPane == 'oil' && !flightText(log['aircraftType']).toUpperCase().contains('412')) section('Oil servicing', [
             for (var index = 0; index < currentLegs(log).length; index++) ExpansionTile(title: Text('Leg ${index + 1}'), children: [
-              servicingField(log, 'oilServicing', index, 'date', 'Date', canEdit),
+              servicingField(log, 'oilServicing', index, 'date', 'Date', false),
               for (final entry in const {'engineRem': 'Engine remaining', 'engineAdd': 'Engine added', 'engineTot': 'Engine total',
                 'mrGboxRem': 'Main rotor gearbox remaining', 'mrGboxAdd': 'Main rotor gearbox added', 'mrGboxTot': 'Main rotor gearbox total',
                 'trGboxRem': 'Tail rotor gearbox remaining', 'trGboxAdd': 'Tail rotor gearbox added', 'trGboxTot': 'Tail rotor gearbox total',
                 'remarks': 'Remarks'}.entries)
-                servicingField(log, 'oilServicing', index, entry.key, entry.value, canEdit),
-              servicingSignature(log, 'oilServicing', index, canEdit),
+                servicingField(log, 'oilServicing', index, entry.key, entry.value, canEdit && index >= lockedOilRows),
+              servicingSignature(log, 'oilServicing', index, canEdit && index >= lockedOilRows),
             ]),
           ]),
         if (canEdit && flightDetails) FilledButton.icon(onPressed: saving ? null : complete, icon: const Icon(Icons.fact_check_outlined), label: const Text('Review and close flight record')),
@@ -1012,8 +1027,12 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
             ]),
         ]),
         if (flightPane == 'work') section('Maintenance work', [
+          if (workRows(log).isEmpty) const ListTile(
+            leading: Icon(Icons.handyman_outlined), title: Text('No work items yet')),
           for (var index = 0; index < workRows(log).length; index++) ExpansionTile(
-            title: Text('Work item ${index + 1}'), children: [
+            title: Text('${(workRows(log)[index]['phase'] ?? 'preparation') == 'post_flight' ? 'Post-flight work' : 'Preparation work'} ${workRows(log).length > 1 ? '#${index + 1}' : ''}'), children: [
+              if (canEdit && !preparation && (workRows(log)[index]['phase'] ?? 'preparation') == 'preparation')
+                const ListTile(title: Text('This preparation work is retained from the signed release. Add a post-flight work item for later work.')),
               workField(log, index, 'date', 'Date', canEdit && (workRows(log)[index]['phase'] ?? 'preparation') == (preparation ? 'preparation' : 'post_flight')),
               workField(log, index, 'aircraft', 'Aircraft', canEdit && (workRows(log)[index]['phase'] ?? 'preparation') == (preparation ? 'preparation' : 'post_flight')),
               workField(log, index, 'workDone', 'Work done', canEdit && (workRows(log)[index]['phase'] ?? 'preparation') == (preparation ? 'preparation' : 'post_flight'), lines: 3),
@@ -1032,13 +1051,13 @@ class _FlightWorkspacePageState extends State<FlightWorkspacePage> {
                     existing: flightText(workRows(log)[index]['signature']).isEmpty ? null : flightText(workRows(log)[index]['signature']));
                   if (signature != null && mounted) changeWork(log, index, 'signature', signature.image);
                 }, icon: const Icon(Icons.draw_outlined), label: const Text('Sign work item')),
-                TextButton.icon(onPressed: () { final rows = workRows(log); rows.removeAt(index); updateDraft(() => draft['workItems'] = rows); },
+                if (workRows(log).length > 1) TextButton.icon(onPressed: () { final rows = workRows(log); rows.removeAt(index); updateDraft(() => draft['workItems'] = rows); },
                   icon: const Icon(Icons.delete_outline), label: const Text('Remove work item')),
               ],
             ]),
           if (canEdit) TextButton.icon(onPressed: () { final rows = workRows(log); rows.add({
             'id': DateTime.now().microsecondsSinceEpoch.toString(), 'phase': preparation ? 'preparation' : 'post_flight',
-            'selectedWorkTypes': <String>[], 'date': '', 'aircraft': flightText(log['rpc']), 'workDone': '',
+            'selectedWorkTypes': <String>[], 'date': '', 'aircraft': '', 'workDone': '',
             'name': '', 'certificateNumber': '', 'signature': '',
           }); updateDraft(() => draft['workItems'] = rows); }, icon: const Icon(Icons.add), label: const Text('Add work item')),
         ]),
