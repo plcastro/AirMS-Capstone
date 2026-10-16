@@ -150,7 +150,7 @@ class _PriorityCardState extends State<_PriorityCard> {
       Text('${record['nextInspection'] ?? 'Next inspection unavailable'}'),
       Text('Model: ${record['aircraftModel'] ?? 'N/A'}'),
       Text('Due: ${record['dueByHours'] ?? 'N/A'} FH / ${record['dueByDays'] ?? 'N/A'} days'),
-      Text('Calendar Due: ${formatAirmsDateTime(record['dueDate'], fallback: 'N/A')}'),
+      Text('Calendar Due: ${formatAirmsDate(record['dueDate'])}'),
       Text('Turnaround: ${record['estimatedTurnaroundHours'] ?? 'N/A'} hours'),
       Text('${record['priorityReason'] ?? ''}'),
       if (record['manualPriorityOverride'] is Map) Text('Manual override: ${(record['manualPriorityOverride'] as Map)['level'] ?? 'Auto'} · ${(record['manualPriorityOverride'] as Map)['reason'] ?? ''}'),

@@ -113,7 +113,7 @@ class _AircraftLogsPage extends StatelessWidget {
       const Text('Work Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       for (final entry in entries) Card(child: ListTile(
         title: Text('${entry['sourceTaskId'] ?? entry['_id'] ?? ''}'),
-        subtitle: Text('${entry['taskTitle'] ?? 'Untitled task'}\n${formatAirmsDateTime(entry['dateDefectRectified'], fallback: 'N/A')} · ${entry['status'] ?? ''}\nBase: ${entry['base'] ?? 'N/A'}'),
+        subtitle: Text('${entry['taskTitle'] ?? 'Untitled task'}\n${formatAirmsDate(entry['dateDefectRectified'])} · ${entry['status'] ?? ''}\nBase: ${entry['base'] ?? 'N/A'}'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _WorkOrderPage(entry: entry, canExport: canExport, session: session))),
       )),
@@ -147,7 +147,7 @@ class _WorkOrderPage extends StatelessWidget {
           Text('Inspector: ${entry['inspector'] ?? entry['approvedBy'] ?? ''}'),
           Text('Mechanic license: ${entry['mechanicLicenseNo'] ?? entry['licenseNo'] ?? ''}'),
           Text('Inspector license: ${entry['inspectorLicenseNo'] ?? ''}'),
-          Text('Rectified: ${formatAirmsDateTime(entry['dateDefectRectified'], fallback: 'N/A')}'),
+          Text('Rectified: ${formatAirmsDate(entry['dateDefectRectified'])}'),
           Text('Task status: ${entry['sourceTaskStatus'] ?? ''}'),
           Text('Task title: ${entry['taskTitle'] ?? ''}'),
         ]))),
