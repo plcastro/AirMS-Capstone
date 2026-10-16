@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'search.dart';
 import 'toast.dart';
 import 'auth.dart';
 import 'pdf_exports.dart';
@@ -41,9 +40,11 @@ List<Map<String, dynamic>> requisitionTimeline(Map record) {
   ].where((event) => event['at'] != null && '${event['at']}'.isNotEmpty).toList();
   final history = (record['history'] as List? ?? []).whereType<Map>()
     .map((event) => Map<String, dynamic>.from(event)).toList();
-  return [...legacy.where((event) => !history.any((item) => item['label'] == event['label'])), ...history]
+  final events = [...legacy.where((event) => !history.any((item) => item['label'] == event['label'])), ...history]
     ..sort((a, b) => (DateTime.tryParse('${a['at']}') ?? DateTime(1970))
       .compareTo(DateTime.tryParse('${b['at']}') ?? DateTime(1970)));
+  return events.map((event) => event['label'] == 'Delivered'
+    ? {...event, 'label': 'Ready for pickup'} : event).toList();
 }
 
 String requisitionStatus(Map record) {
@@ -78,8 +79,48 @@ String requisitionRole(Map? user) {
 String requisitionUserId(Map? user) => '${user?['_id'] ?? user?['id'] ?? user?['userId'] ?? ''}';
 bool ownsRequisition(Map? user, Map record) {
   final ownerId = '${(record['staff'] as Map?)?['requisitionerId'] ?? ''}';
-  return ownerId.isNotEmpty && ownerId == requisitionUserId(user);
+  return ownerId.isNotEmpty && ownerId == '${user?['id'] ?? user?['_id'] ?? user?['userId'] ?? ''}';
 }
+bool canCreateRequisition(Map? user) => ['mechanic', 'maintenance manager'].contains(requisitionRole(user));
+bool canActOnRequisition(Map? user, Map record, String action) {
+  final role = requisitionRole(user);
+  if (action == 'stock' || action == 'deliver') return role == 'warehouse personnel';
+  if (action == 'confirm') return role == 'admin staff' || ownsRequisition(user, record);
+  if (action == 'cancel') return ownsRequisition(user, record) && canCreateRequisition(user);
+  if (action == 'follow-up') return ['admin staff', 'officer-in-charge'].contains(role);
+  return false;
+}
+bool isOpenRequisition(Map record) => !['Delivered', 'Closed', 'Cancelled'].contains(requisitionStatus(record));
+String? followUpTarget(Map record) => switch (requisitionStatus(record)) {
+  'Requested' || 'Awaiting Stock' => 'warehouse', 'Delivered' => 'requester', _ => null,
+};
+String requisitionSearchText(Map record) => '${record['wrsNo']} ${record['aircraft']} ${(record['staff'] as Map?)?['requisitioner']} ${requisitionStatus(record)}'.toLowerCase();
+String requisitionItemsText(Map record) => (record['items'] as List? ?? []).whereType<Map>().map((item) {
+  final name = item['particular'] ?? item['name'] ?? item['partName'] ?? 'Part';
+  final quantity = item['quantity'];
+  return '$name${quantity == null || quantity == 0 || quantity == '' ? '' : ' x $quantity ${item['unitOfMeasure'] ?? item['unit'] ?? ''}'.trimRight()}';
+}).join(', ');
+String requisitionPurpose(Map record) => '${record['purpose'] ?? (record['items'] as List? ?? []).whereType<Map>().map((item) => item['purpose']).firstWhere((value) => value != null && '$value'.isNotEmpty, orElse: () => '-') }';
+bool validRequisitionQuantity(String text) {
+  final quantity = num.tryParse(text);
+  return quantity != null && quantity.isFinite && quantity > 0;
+}
+String formatRequisitionCardDate(Map record) {
+  final raw = record['dateRequested'] ?? record['createdAt'] ?? record['updatedAt'];
+  final date = DateTime.tryParse('$raw')?.toLocal();
+  if (date == null) return '-';
+  return '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}';
+}
+String formatRequisitionReportDate(Map record) {
+  final raw = record['dateRequested'] ?? record['createdAt'];
+  final date = DateTime.tryParse('$raw')?.toLocal();
+  return date == null ? 'N/A' : '${date.month}/${date.day}/${date.year}';
+}
+Future<bool> confirmRequisitionAction(BuildContext context, String title, String message) async =>
+  await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: Text(title), content: Text(message), actions: [
+    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+    FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+  ])) ?? false;
 DateTime requisitionDate(Map record) {
   final value = '${record['dateRequested'] ?? record['createdAt'] ?? record['updatedAt'] ?? ''}';
   final iso = DateTime.tryParse(value);
@@ -146,7 +187,7 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
           return [
             '${record['wrsNo'] ?? 'N/A'}', '${record['aircraft'] ?? 'N/A'}',
             '${(record['staff'] as Map?)?['requisitioner'] ?? 'N/A'}',
-            '${record['dateRequested'] ?? record['createdAt'] ?? 'N/A'}',
+            formatRequisitionReportDate(record),
             requisitionLabel(requisitionStatus(record)), '${items.length}', '$quantity',
           ];
         }).toList());
@@ -158,55 +199,65 @@ class _RequisitionsPageState extends State<RequisitionsPage> {
       !['Closed', 'Cancelled'].contains(requisitionStatus(record))).length;
     final filtered = records.where((record) {
       final closed = ['Closed', 'Cancelled'].contains(requisitionStatus(record));
-      return canSee(record) && (tab == 'history' ? closed : !closed) && matchesSearch(search, record);
+      return canSee(record) && (tab == 'history' ? closed : !closed) && requisitionSearchText(record).contains(search.toLowerCase());
     }).toList()..sort((a, b) {
       final order = requisitionDate(a).compareTo(requisitionDate(b));
       return sortOrder == 'oldest' ? order : -order;
     });
-    return Stack(children: [RefreshIndicator(onRefresh: () => load(), child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
-      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search requisitions', border: OutlineInputBorder()),
-        onChanged: (value) => setState(() => search = value)),
-      const SizedBox(height: 8),
-      SegmentedButton<String>(segments: [ButtonSegment(value: 'active', label: Text('Pending ($pendingCount)')),
-        const ButtonSegment(value: 'history', label: Text('History'))], selected: {tab},
-        onSelectionChanged: (value) => setState(() => tab = value.first)),
-      DropdownButtonFormField<String>(initialValue: sortOrder,
-        decoration: const InputDecoration(labelText: 'Sort requisitions', border: OutlineInputBorder()),
+    if (!['admin staff', 'officer-in-charge', 'warehouse personnel', 'maintenance manager', 'mechanic'].contains(role)) {
+      return const Center(child: Text('Parts requisition access denied'));
+    }
+    return Stack(children: [RefreshIndicator(onRefresh: () => load(), child: ListView(padding: const EdgeInsets.fromLTRB(10, 10, 10, 96), children: [
+      Row(children: [Expanded(child: TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search by WRS#', border: OutlineInputBorder()),
+        onChanged: (value) => setState(() => search = value))),
+        if (role == 'warehouse personnel') TextButton.icon(onPressed: exporting || filtered.isEmpty ? null : () => exportReport(filtered),
+          icon: const Icon(Icons.picture_as_pdf, size: 18), label: Text(exporting ? 'Exporting...' : 'Export')),
+        if (canCreateRequisition(widget.session.user)) TextButton.icon(onPressed: () async {
+          final changed = await showDialog<bool>(context: context, builder: (_) => Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: RequisitionFormPage(session: widget.session)));
+          if (changed == true) load();
+        }, icon: const Icon(Icons.add, size: 18), label: const Text('Request'))]),
+      const SizedBox(height: 10),
+      Row(children: [Expanded(child: DropdownButtonFormField<String>(initialValue: sortOrder,
+        decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
         items: const [DropdownMenuItem(value: 'oldest', child: Text('Date: Oldest First')),
           DropdownMenuItem(value: 'newest', child: Text('Date: Newest First'))],
-        onChanged: (value) => setState(() => sortOrder = value ?? 'oldest')),
-      if (role == 'warehouse personnel') OutlinedButton.icon(
-        onPressed: exporting || filtered.isEmpty ? null : () => exportReport(filtered),
-        icon: const Icon(Icons.picture_as_pdf_outlined), label: Text(exporting ? 'Exporting...' : 'Export report PDF')),
+        onChanged: (value) => setState(() => sortOrder = value ?? 'oldest'))),
+        const SizedBox(width: 8), Expanded(child: DropdownButtonFormField<String>(initialValue: tab,
+          decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+          items: [DropdownMenuItem(value: 'active', child: Text('Pending ($pendingCount)')),
+            const DropdownMenuItem(value: 'history', child: Text('History'))],
+          onChanged: (value) => setState(() => tab = value ?? 'active')))]),
       if (loading) const LinearProgressIndicator(),
-      if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
+      if (error.isNotEmpty) TextButton(onPressed: load, child: Text('$error - Tap to retry', style: const TextStyle(color: Colors.red, fontSize: 12))),
       if (!loading && filtered.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No requisitions found'))),
-      for (final record in filtered) Card(child: InkWell(onTap: () async { final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionDetailPage(
-          session: widget.session, record: record)));
-          if (changed == true) load(); }, child: Padding(padding: const EdgeInsets.all(12), child: Column(
+      for (final record in filtered) Card(child: InkWell(onTap: () async { await showDialog<bool>(context: context, builder: (_) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          clipBehavior: Clip.antiAlias,
+          child: RequisitionDetailPage(session: widget.session, record: record)));
+          load(); }, child: Padding(padding: const EdgeInsets.all(12), child: Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Expanded(child: Text('${record['wrsNo'] ?? 'Warehouse Slip'}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Warehouse Slip', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(formatRequisitionCardDate(record), style: const TextStyle(fontSize: 11, color: Colors.grey))])),
               Chip(label: Text(requisitionLabel(requisitionStatus(record))),
                 backgroundColor: (requisitionStatusColors[requisitionStatus(record)] ?? Colors.grey).withValues(alpha: .14))]),
-            Text('Slip No: ${record['wrsNo'] ?? 'N/A'} · ${record['aircraft'] ?? 'N/A'}'),
-            Text('Date: ${formatAirmsDateTime(record['dateRequested'] ?? record['createdAt'], fallback: 'N/A')}'),
-            Text('Items: ${(record['items'] as List? ?? []).length}'),
-            Text('Purpose: ${(record['items'] as List? ?? []).whereType<Map>().map((item) => '${item['purpose'] ?? ''}').where((value) => value.isNotEmpty).join(', ')}'),
-            if (oversight && ['Requested', 'Awaiting Stock', 'Delivered'].contains(requisitionStatus(record)))
+            Text('Slip No: ${record['wrsNo'] ?? '-'}', style: const TextStyle(fontSize: 12)),
+            Text('Items: ${requisitionItemsText(record).isEmpty ? '-' : requisitionItemsText(record)}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+            Text('Purpose: ${requisitionPurpose(record)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+            if (oversight && followUpTarget(record) != null)
               Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () async {
-                final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionDetailPage(
-                  session: widget.session, record: record)));
-                if (changed == true) load();
+                if (!await confirmRequisitionAction(context, 'Send follow-up reminder', 'Continue for ${record['wrsNo']}?')) return;
+                try { await widget.session.request('/api/parts-requisition/update-requisition/${record['_id']}', method: 'POST',
+                  body: {'action': 'follow-up', 'confirmAction': true}, extraHeaders: {'x-action-confirmed': 'true'}); await load(silent: true); }
+                catch (e) { if (mounted) AirmsToast.show('$e'); }
               }, child: const Text('Follow Up'))),
           ])))),
-    ])),
-      if (['mechanic', 'maintenance manager'].contains(role)) Positioned(right: 16, bottom: 16,
-        child: FloatingActionButton.extended(onPressed: () async {
-          final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => RequisitionFormPage(session: widget.session)));
-          if (changed == true) load();
-        }, icon: const Icon(Icons.add), label: const Text('New Requisition'))),
-    ]);
+    ]))]);
   }
 }
 
@@ -223,34 +274,28 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
   String error = '';
   String get role => requisitionRole(widget.session.user);
   String get status => requisitionStatus(record);
-  bool get open => !['Delivered', 'Closed', 'Cancelled'].contains(status);
+  bool get open => isOpenRequisition(record);
   bool get owner => ownsRequisition(widget.session.user, record);
   bool get oversight => ['admin staff', 'officer-in-charge'].contains(role);
   List<Map> get items => (record['items'] as List? ?? []).whereType<Map>().toList();
-  bool get allInStock => items.isNotEmpty && items.every((item) => (stockDraft['${item['_id']}'] ?? item['stockStatus']) == 'In Stock');
+  bool get allInStock => items.isNotEmpty && items.every((item) =>
+    (stockDraft['${item['_id']}'] ?? normalizeItemStatus(item['stockStatus'])) == 'In Stock');
   @override void initState() { super.initState(); record = widget.record; }
   Future<void> act(String action, [Map<String, dynamic> extra = const {}]) async {
     if (action != 'stock') {
-      final approved = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-        title: Text(action == 'confirm' ? 'Confirm receipt' : action == 'deliver' ? 'Mark ready for pickup' : action == 'cancel' ? 'Cancel requisition' : 'Send follow-up'),
-        content: Text(switch (action) {
-          'confirm' => 'Confirm you received all requested parts. This closes the requisition.',
-          'follow-up' => 'Send follow-up reminder',
-          'deliver' => 'Mark these parts ready for pickup?',
-          'cancel' => 'Cancel this requisition?',
-          _ => 'Continue for ${record['wrsNo']}?',
-        }), actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
-        ]));
+      final approved = await confirmRequisitionAction(context,
+        {'confirm': 'Confirm receipt', 'deliver': 'Mark ready for pickup', 'cancel': 'Cancel requisition', 'follow-up': 'Send follow-up reminder'}[action] ?? '',
+        action == 'confirm' ? 'Confirm you received all requested parts. This closes the requisition.' : 'Continue for ${record['wrsNo']}?');
       if (approved != true) return;
     }
     setState(() { busy = true; error = ''; });
+    var saved = false;
     try {
       final data = await widget.session.request('/api/parts-requisition/update-requisition/${record['_id']}',
         method: 'POST', body: {'action': action, ...extra, 'confirmAction': true},
         extraHeaders: {'x-action-confirmed': 'true'});
       if (mounted) setState(() { record = Map<String, dynamic>.from(data as Map); stockDraft = {}; });
+      saved = true;
       if (mounted) { AirmsToast.show(switch (action) {
         'stock' => 'Stock check saved.', 'deliver' => 'Ready for pickup.',
         'confirm' => 'Receipt confirmed.', 'cancel' => 'Requisition cancelled.',
@@ -258,46 +303,69 @@ class _RequisitionDetailPageState extends State<RequisitionDetailPage> {
       }); }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
+    if (saved && action == 'stock') {
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) Navigator.pop(context, true);
+    }
   }
   List<Map<String, String>> stockUpdates() => stockDraft.entries.map((entry) => {'itemId': entry.key, 'stockStatus': entry.value}).toList();
-  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: Text('${record['wrsNo'] ?? 'Requisition'}')),
+  @override Widget build(BuildContext context) => PopScope(canPop: stockDraft.isEmpty && !busy,
+    onPopInvokedWithResult: (didPop, result) async {
+      if (didPop || busy) return;
+      if (stockDraft.isEmpty || await confirmRequisitionAction(context, 'Discard unsaved stock changes?', 'Choose Save or Deliver to keep your stock updates.')) {
+        setState(() => stockDraft = {});
+        await Future<void>.delayed(Duration.zero);
+        if (context.mounted) Navigator.pop(context, true);
+      }
+    }, child: Scaffold(appBar: AppBar(title: const Text('Requisition details')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      Text('${record['aircraft'] ?? ''} · ${(record['staff'] as Map?)?['requisitioner'] ?? ''}',
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-      Chip(label: Text(requisitionLabel(status))),
+      Row(children: [Container(width: 5, height: 32, margin: const EdgeInsets.only(right: 10),
+        decoration: BoxDecoration(color: const Color(0xff1677ff), borderRadius: BorderRadius.circular(3))),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${record['wrsNo'] ?? ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text('${record['aircraft'] ?? ''} ? ${(record['staff'] as Map?)?['requisitioner'] ?? ''}',
+            style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ]))]),
+      Align(alignment: Alignment.centerLeft, child: Chip(label: Text(requisitionLabel(status)),
+        backgroundColor: (requisitionStatusColors[status] ?? Colors.grey).withValues(alpha: .1))),
       if (status == 'Delivered') const Card(child: Padding(padding: EdgeInsets.all(12),
         child: Text('Ready for pickup. Awaiting requester confirmation of receipt.'))),
-      const SizedBox(height: 12), const Text('Items', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12), const Text('ITEMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
       for (final item in items) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${item['particular'] ?? 'Part'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('${item['particular'] ?? ((item['codeParticular'] is List && (item['codeParticular'] as List).isNotEmpty) ? (item['codeParticular'] as List).first['particular'] : null) ?? 'Part'}', style: const TextStyle(fontWeight: FontWeight.bold)),
         Text('${item['quantity'] ?? ''} ${item['unitOfMeasure'] ?? ''} · ${item['purpose'] ?? ''}'),
         Text(requisitionLabel(stockDraft['${item['_id']}'] ?? itemDisplayStatus(record, item))),
-        if (role == 'warehouse personnel' && open) Wrap(children: [for (final option in ['In Stock', 'Out of Stock'])
+        if (canActOnRequisition(widget.session.user, record, 'stock') && open) Wrap(children: [for (final option in ['In Stock', 'Out of Stock'])
           ChoiceChip(label: Text(option),
-            selected: (stockDraft['${item['_id']}'] ?? item['stockStatus']) == option,
-            onSelected: (_) => setState(() => stockDraft['${item['_id']}'] = option))]),
+            selected: (stockDraft['${item['_id']}'] ?? normalizeItemStatus(item['stockStatus'])) == option,
+            onSelected: busy || (stockDraft['${item['_id']}'] ?? normalizeItemStatus(item['stockStatus'])) == option ? null : (_) => setState(() {
+              final id = '${item['_id']}';
+              if (normalizeItemStatus(item['stockStatus']) == option) { stockDraft.remove(id); }
+              else { stockDraft[id] = option; }
+            }))]),
       ]))),
-      const SizedBox(height: 12), const Text('History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12), const Text('HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
       for (final event in requisitionTimeline(record))
-        ListTile(title: Text(event['label'] == 'Delivered' ? 'Ready for pickup' : '${event['label'] ?? ''}'),
-          subtitle: Text('${formatAirmsDateTime(event['at'], fallback: 'N/A')} · ${event['actorName'] ?? 'N/A'}${event['details'] == null || '${event['details']}'.isEmpty ? '' : '\n${event['details']}'}')),
+        ListTile(title: Text('${event['label'] ?? ''}'),
+          subtitle: Text('${formatAirmsDateTime(event['at'], fallback: 'N/A')}${event['actorName'] == null || '${event['actorName']}'.isEmpty ? '' : '\n${event['actorName']}'}${event['details'] == null || '${event['details']}'.isEmpty ? '' : '\n${event['details']}'}')),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (busy) const LinearProgressIndicator(),
       const SizedBox(height: 16),
-      if (role == 'warehouse personnel' && open) ...[
-        if (stockDraft.isNotEmpty) OutlinedButton(onPressed: busy ? null : () => act('stock', {'stockUpdates': stockUpdates()}),
-          child: const Text('Save Stock Check')),
+      if (canActOnRequisition(widget.session.user, record, 'stock') && open) ...[
+        const Text('Choose stock status for each item, then Save. When all items are In Stock, Deliver saves your selections and marks the requisition ready for pickup.'),
+        if (!allInStock) OutlinedButton(onPressed: busy || stockDraft.isEmpty ? null : () => act('stock', {'stockUpdates': stockUpdates()}),
+          child: const Text('Save')),
         if (allInStock) FilledButton(onPressed: busy ? null : () => act('deliver', {'stockUpdates': stockUpdates()}),
-          child: const Text('Mark Ready for Pickup')),
+          child: const Text('Deliver')),
       ],
-      if ((owner || role == 'admin staff') && status == 'Delivered')
+      if (canActOnRequisition(widget.session.user, record, 'confirm') && status == 'Delivered')
         FilledButton(onPressed: busy ? null : () => act('confirm'), child: const Text('Confirm Receipt')),
-      if (owner && ['mechanic', 'maintenance manager'].contains(role) && open)
+      if (canActOnRequisition(widget.session.user, record, 'cancel') && open)
         OutlinedButton(onPressed: busy ? null : () => act('cancel'), child: const Text('Cancel Requisition')),
-      if (oversight && ['Requested', 'Awaiting Stock', 'Delivered'].contains(status))
+      if (canActOnRequisition(widget.session.user, record, 'follow-up') && followUpTarget(record) != null)
         OutlinedButton(onPressed: busy ? null : () => act('follow-up'), child: const Text('Follow Up')),
-    ]));
+    ])));
 }
 
 class RequisitionFormPage extends StatefulWidget {
@@ -320,12 +388,12 @@ class _RequisitionFormPageState extends State<RequisitionFormPage> {
     } catch (_) {}
   }
   Future<void> submit() async {
-    if (aircraft == null || parts.isEmpty || parts.any((part) => part.name.text.trim().isEmpty ||
-        (int.tryParse(part.quantity.text) ?? 0) <= 0)) {
-      setState(() => error = 'Choose an aircraft and enter each part with a positive quantity.'); return;
+    if (aircraft == null || aircraft!.isEmpty || parts.isEmpty || parts.any((part) => part.name.text.trim().isEmpty ||
+        !validRequisitionQuantity(part.quantity.text))) {
+      AirmsToast.show('Choose an aircraft and add part names with positive quantities.'); return;
     }
     final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-      title: const Text('Submit requisition'), content: const Text('Send these parts to the warehouse for a stock check?'),
+      title: const Text('Submit requisition'), content: const Text('Send these parts to warehouse for a stock check?'),
       actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit'))]));
     if (confirmed != true) return;
@@ -335,17 +403,17 @@ class _RequisitionFormPageState extends State<RequisitionFormPage> {
         extraHeaders: {'x-action-confirmed': 'true'}, body: {
           'aircraft': aircraft,
           'items': parts.map((part) => {'particular': part.name.text.trim(),
-            'quantity': int.parse(part.quantity.text), 'unitOfMeasure': part.unit,
-            'purpose': part.purpose.text.trim()}).toList(),
+            'quantity': num.parse(part.quantity.text), 'unitOfMeasure': part.unit,
+            'purpose': part.purpose.text}).toList(),
           'confirmAction': true,
         });
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) { AirmsToast.show('Requisition submitted'); Navigator.pop(context, true); }
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }
   @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('New parts requisition')),
-    body: ListView(padding: const EdgeInsets.all(16), children: [
-      DropdownButtonFormField<String>(initialValue: aircraft, decoration: const InputDecoration(labelText: 'Aircraft *', border: OutlineInputBorder()),
+    body: ListView(padding: const EdgeInsets.all(14), children: [
+      DropdownButtonFormField<String>(initialValue: aircraft, decoration: const InputDecoration(labelText: 'Choose Aircraft *', border: OutlineInputBorder()),
         items: aircraftOptions.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
         onChanged: (value) => setState(() => aircraft = value)),
       const SizedBox(height: 16),
@@ -355,17 +423,21 @@ class _RequisitionFormPageState extends State<RequisitionFormPage> {
             final removed = parts.removeAt(index); setState(() {}); removed.dispose();
           })]),
         _PartNameField(key: ObjectKey(parts[index]), session: widget.session, part: parts[index], onUnitChanged: () => setState(() {})),
-        TextField(controller: parts[index].quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Quantity *')),
+        TextField(controller: parts[index].quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Quantity: *')),
         DropdownButtonFormField<String>(key: ValueKey('${identityHashCode(parts[index])}-${parts[index].unit}'),
           initialValue: parts[index].unit, decoration: const InputDecoration(labelText: 'Unit'),
           items: ['SET', 'ST', 'UNT', 'PC'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
           onChanged: (value) => setState(() => parts[index].unit = value ?? 'PC')),
-        TextField(controller: parts[index].purpose, decoration: const InputDecoration(labelText: 'Purpose')),
+        TextField(controller: parts[index].purpose, decoration: const InputDecoration(labelText: 'Purpose:')),
       ]))),
-      TextButton.icon(onPressed: () => setState(() => parts.add(_PartDraft())), icon: const Icon(Icons.add), label: const Text('Add another item')),
+      TextButton.icon(onPressed: () => setState(() => parts.add(_PartDraft())), icon: const Icon(Icons.add), label: const Text('Add Another Item')),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
       if (busy) const LinearProgressIndicator(),
-      FilledButton(onPressed: busy ? null : submit, child: const Text('Submit Requisition')),
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        OutlinedButton(onPressed: busy ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+        const SizedBox(width: 10),
+        FilledButton(onPressed: busy ? null : submit, child: Text(busy ? 'Submitting...' : 'Submit')),
+      ]),
     ]));
 }
 class _PartDraft {
