@@ -50,16 +50,19 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
     } catch (e) { if (mounted) setState(() => error = '$e'); }
   }
   Future<void> flag(String key) async {
-    final previous = flightMap(discrepancies[key]);
-    final note = TextEditingController(text: flightText(previous['note']));
-    final result = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(title: const Text('Flag discrepancy'),
-      content: TextField(controller: note, maxLines: 3, decoration: const InputDecoration(labelText: 'Describe discrepancy')),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(dialogContext, note.text.trim()), child: const Text('Save'))]));
-    note.dispose();
-    if (result != null && result.isNotEmpty) setState(() { discrepancies[key] = {'note': result}; checked.remove(key); });
+    setState(() {
+      if (discrepancies.containsKey(key)) {
+        discrepancies.remove(key);
+      } else {
+        discrepancies[key] = {'note': ''};
+        checked.remove(key);
+      }
+    });
   }
   Future<void> submit(bool allGood) async {
+    if (allGood && widget.kind == 'pre' && !validInspectionFuel(fob.text)) {
+      setState(() => error = 'Fuel on board must be a nonnegative number.'); AirmsToast.show(error); return;
+    }
     if (!allGood && discrepancies.values.any((value) => flightText(flightMap(value)['note']).trim().isEmpty)) {
       setState(() => error = 'Describe the discrepancy for each flagged item.'); AirmsToast.show(error); return;
     }
@@ -125,7 +128,7 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
         Text('${widget.record['rpc'] ?? ''} · ${widget.record['aircraftType'] ?? ''}', style: Theme.of(context).textTheme.titleMedium),
         Text('Status: ${widget.record['status'] ?? ''}'),
         if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
-        if (widget.kind == 'pre') TextField(controller: fob, enabled: canEdit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fuel on board', border: OutlineInputBorder())),
+        if (widget.kind == 'pre') TextField(controller: fob, enabled: canEdit, onChanged: (_) => setState(() {}), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fuel on board', border: OutlineInputBorder())),
         if (widget.kind == 'post') TextField(controller: notes, enabled: canEdit, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
         const SizedBox(height: 12),
         if (canEdit) Wrap(spacing: 6, children: [
@@ -134,7 +137,7 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
           OutlinedButton(onPressed: () => updateChecks(visible.map((item) => '${item['key']}'), true), child: const Text('Select all on this page')),
           OutlinedButton(onPressed: () => updateChecks(visible.map((item) => '${item['key']}'), false), child: const Text('Clear this page')),
         ]),
-        Text('${checked.length} of ${items.length} items checked${flagged.isEmpty ? '' : ' · ${flagged.length} flagged'}'),
+        Text('${items.where((item) => checked.contains('${item['key']}')).length} of ${items.length} items checked${flagged.isEmpty ? '' : ' · ${flagged.length} flagged'}'),
         for (var index = 0; index < visible.length; index++) ...[
           if (index == 0 || visible[index]['_section'] != visible[index - 1]['_section'])
             Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text('${visible[index]['_section']}',
@@ -143,13 +146,16 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
           CheckboxListTile(value: checked.contains(key), title: Text('${item['title']}'), subtitle: Text('${item['description'] ?? ''}'),
             onChanged: canEdit && !discrepancies.containsKey(key)
               ? (value) => setState(() { if (value == true) { checked.add(key); } else { checked.remove(key); } }) : null),
-          if (discrepancies.containsKey(key)) ListTile(title: Text('Discrepancy: ${flightMap(discrepancies[key])['note']}'),
-            subtitle: const Text('Flagged; remove flag after correction')),
+          if (discrepancies.containsKey(key)) Padding(padding: const EdgeInsets.all(10), child: TextFormField(
+            key: ValueKey('discrepancy-$key'), initialValue: flightText(flightMap(discrepancies[key])['note']),
+            enabled: canEdit, maxLines: 3,
+            decoration: InputDecoration(labelText: 'Describe the discrepancy for this item',
+              border: const OutlineInputBorder(), errorText: flightText(flightMap(discrepancies[key])['note']).trim().isEmpty ? 'Required' : null),
+            onChanged: (value) => setState(() => discrepancies[key] = {'note': value}),
+          )),
           if (canEdit) Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            if (discrepancies.containsKey(key)) TextButton(onPressed: () => setState(() => discrepancies.remove(key)),
-              child: const Text('Remove flag')),
             TextButton.icon(onPressed: () => flag(key), icon: const Icon(Icons.flag_outlined),
-              label: Text(discrepancies.containsKey(key) ? 'Edit discrepancy' : 'Flag discrepancy')),
+              label: Text(discrepancies.containsKey(key) ? 'Remove flag' : 'Flag discrepancy')),
           ]),
         ])); }),
         ],
@@ -164,7 +170,7 @@ class _LinkedInspectionPageState extends State<LinkedInspectionPage> {
           OutlinedButton.icon(onPressed: busy ? null : () => submit(false), icon: const Icon(Icons.save_outlined),
             label: Text(flagged.isEmpty ? 'Save draft' : 'Save draft with discrepancies')),
           FilledButton.icon(onPressed: busy || !canSignInspection(items.length, checked, flagged,
-            held: held, resolution: resolution.text) ? null : () => submit(true),
+            held: held, resolution: resolution.text) || widget.kind == 'pre' && !validInspectionFuel(fob.text) ? null : () => submit(true),
             icon: const Icon(Icons.draw), label: const Text('Sign and confirm')),
         ],
         if (mayReleasePre || mayAcceptPre || mayCompletePost) FilledButton.icon(

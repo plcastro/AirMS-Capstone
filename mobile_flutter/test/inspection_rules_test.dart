@@ -13,4 +13,11 @@ void main() {
     expect(canSignInspection(2, {'a', 'b'}, {'a'}, held: true, resolution: 'Fixed'), isFalse);
     expect(canSignInspection(2, {'a', 'b'}, {}, held: true, resolution: '  '), isFalse);
   });
+  test('pre-flight fuel must be a finite nonnegative quantity', () {
+    expect(validInspectionFuel('0'), isTrue);
+    expect(validInspectionFuel(' 12.5 '), isTrue);
+    for (final value in ['', '-1', 'abc', 'NaN', 'Infinity']) {
+      expect(validInspectionFuel(value), isFalse);
+    }
+  });
 }

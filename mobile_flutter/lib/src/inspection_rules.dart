@@ -14,3 +14,8 @@ bool canSignInspection(int itemCount, Set<String> checked,
     Set<String> flagged, {bool held = false, String resolution = ''}) =>
   itemCount > 0 && checked.length == itemCount && flagged.isEmpty &&
   (!held || resolution.trim().isNotEmpty);
+
+bool validInspectionFuel(String value) {
+  final amount = double.tryParse(value.trim());
+  return amount != null && amount.isFinite && amount >= 0;
+}

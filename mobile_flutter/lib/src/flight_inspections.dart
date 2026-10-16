@@ -90,7 +90,7 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
     return RefreshIndicator(onRefresh: load, child: ListView(padding: const EdgeInsets.all(12), children: [
       TextField(key: ValueKey(aircraft.isEmpty ? 'inspection-aircraft-search' : 'inspection-record-search'),
         decoration: InputDecoration(prefixIcon: const Icon(Icons.search),
-          labelText: aircraft.isEmpty ? 'Search aircraft' : 'Search inspections',
+          labelText: aircraft.isEmpty ? 'Search aircraft' : 'Search ${widget.kind == 'pre' ? 'pre' : 'post'}-flight inspections',
           border: const OutlineInputBorder()), onChanged: (value) => setState(() {
             if (aircraft.isEmpty) { aircraftQuery = value; } else { query = value; }
           })),
@@ -107,14 +107,14 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
       }),
       if (!loading && aircraft.isEmpty && !aircrafts.any((name) => matchesSearch(aircraftQuery, name)))
         Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(
-          status == 'all' ? 'No inspections found yet.' : 'No $status inspections found yet.'))),
+          status == 'all' ? 'No ${widget.kind == 'pre' ? 'pre' : 'post'}-flight inspections found yet.' : 'No $status ${widget.kind == 'pre' ? 'pre' : 'post'}-flight inspections found yet.'))),
       if (aircraft.isNotEmpty) ...[
         TextButton.icon(onPressed: () => setState(() { aircraft = ''; query = ''; }), icon: const Icon(Icons.arrow_back), label: Text(aircraft)),
         SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: ['all', 'pending', 'released', 'completed'].map((value) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(value == 'all' ? 'All status' : '${value[0].toUpperCase()}${value.substring(1)}'), selected: status == value, onSelected: (_) => selectStatus(value)))).toList())),
         DropdownButtonFormField<String>(initialValue: sortOrder,
           decoration: const InputDecoration(labelText: 'Sort inspections', border: OutlineInputBorder()),
-          items: const [DropdownMenuItem(value: 'newest', child: Text('Newest first')),
-            DropdownMenuItem(value: 'oldest', child: Text('Oldest first'))],
+          items: const [DropdownMenuItem(value: 'newest', child: Text('Newest First')),
+            DropdownMenuItem(value: 'oldest', child: Text('Oldest First'))],
           onChanged: (value) => setState(() => sortOrder = value ?? 'newest')),
         ...visible.map((item) => Card(child: ListTile(title: Text('${flightText(item['controlNo']).isEmpty ? '${widget.kind == 'pre' ? 'Pre' : 'Post'}-Flight Inspection' : flightText(item['controlNo'])}${viewedReady && viewed.isNew(item) ? ' · NEW' : ''}'),
           subtitle: Text('${flightText(item['date'])} · ${flightText(item['status'])}'),
@@ -130,7 +130,8 @@ class _FlightInspectionsPageState extends State<FlightInspectionsPage> {
               session: widget.session, id: flightId, initialTab: widget.kind);
           }));
           }))),
-        if (!loading && visible.isEmpty) const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No inspections found'))),
+        if (!loading && visible.isEmpty) Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(
+          'No ${widget.kind == 'pre' ? 'pre' : 'post'}-flight inspections match your filters.'))),
       ],
       if (loading) const Center(child: CircularProgressIndicator()),
       if (error.isNotEmpty) Text(error, style: const TextStyle(color: Colors.red)),
