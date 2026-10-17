@@ -11,6 +11,7 @@ final pushPreferenceChanged = ValueNotifier<bool?>(null);
 
 @pragma('vm:entry-point')
 Future<void> airmsBackgroundMessage(RemoteMessage message) async {
+  if (kIsWeb) return;
   try { await Firebase.initializeApp(); } catch (_) {}
 }
 
@@ -29,7 +30,7 @@ class PushService {
     'parts-requisition' || 'parts-requisitions' => 'Parts Requisition', _ => '',
   };
   Future<void> start() async {
-    if (started || Firebase.apps.isEmpty || session.user == null) return;
+    if (kIsWeb || started || Firebase.apps.isEmpty || session.user == null) return;
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('notificationsEnabled') == false) return;
     started = true;
@@ -55,6 +56,7 @@ class PushService {
     } catch (_) { started = false; }
   }
   Future<void> register(String token) async {
+    if (kIsWeb) return;
     final preferences = await SharedPreferences.getInstance();
     var deviceId = preferences.getString('airms_installation_id');
     if (deviceId == null) {
@@ -67,6 +69,7 @@ class PushService {
     });
   }
   Future<void> unregister() async {
+    if (kIsWeb) return;
     if (Firebase.apps.isEmpty) return;
     try { await FirebaseMessaging.instance.deleteToken(); } catch (_) {}
   }

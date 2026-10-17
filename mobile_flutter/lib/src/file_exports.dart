@@ -1,9 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
 import 'auth.dart';
+import 'save_file.dart';
 
 Future<void> openAuthenticatedExport(AirmsSession session, String path, String fileName,
     {String method = 'GET', Object? body}) async {
@@ -15,9 +13,6 @@ Future<void> openAuthenticatedExport(AirmsSession session, String path, String f
   if (response.statusCode == 401 && await session.refresh() != null) response = await send();
   if (response.statusCode >= 400) throw ApiException('${decodeResponse(response)['message'] ?? 'Export failed'}');
   final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-  final cache = await getTemporaryDirectory();
-  final file = File('${cache.path}${Platform.pathSeparator}$safeName');
-  await file.writeAsBytes(response.bodyBytes, flush: true);
-  final opened = await OpenFile.open(file.path);
-  if (opened.type != ResultType.done) throw ApiException(opened.message);
+  await saveAndOpenFile(safeName, response.bodyBytes,
+    response.headers['content-type'] ?? 'application/octet-stream');
 }

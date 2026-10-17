@@ -1,12 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
+import 'save_file.dart';
 import 'access.dart';
 import 'date_time.dart';
 
@@ -422,11 +420,8 @@ class _CertificateDetailState extends State<_CertificateDetail> {
       final rawName = flightText(flightMap(record['file'])['name']);
       final safeName = rawName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
       final extension = safeName.toLowerCase().endsWith('.pdf') ? '.pdf' : safeName.toLowerCase().endsWith('.png') ? '.png' : '.jpg';
-      final cache = await getTemporaryDirectory();
-      final file = File('${cache.path}${Platform.pathSeparator}certificate_${widget.id}$extension');
-      await file.writeAsBytes(response.bodyBytes, flush: true);
-      final opened = await OpenFile.open(file.path);
-      if (opened.type != ResultType.done) throw ApiException(opened.message);
+      await saveAndOpenFile('certificate_${widget.id}$extension', response.bodyBytes,
+        response.headers['content-type'] ?? 'application/octet-stream');
     } catch (e) { if (mounted) setState(() => error = '$e'); }
     finally { if (mounted) setState(() => busy = false); }
   }

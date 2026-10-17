@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'src/auth.dart';
 import 'src/login.dart';
 import 'src/shell.dart';
@@ -13,7 +14,7 @@ import 'src/toast.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadAirmsDeviceModel();
-  try {
+  if (!kIsWeb) try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(airmsBackgroundMessage);
   } catch (_) {}
@@ -39,7 +40,8 @@ class _AirmsAppState extends State<AirmsApp> {
     preferences().then((prefs) {
       airmsFontScale.value = (prefs.getDouble('fontSizePreference') ?? 1).clamp(1, 1.3);
     });
-    linkSubscription = AppLinks().uriLinkStream.listen(receiveLink);
+    if (!kIsWeb) linkSubscription = AppLinks().uriLinkStream.listen(receiveLink);
+    if (kIsWeb) receiveLink(Uri.base);
     session.restore().whenComplete(() {
       if (mounted) setState(() => ready = true);
       WidgetsBinding.instance.addPostFrameCallback((_) => openAuthLink());

@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
+import 'save_file.dart';
 import 'auth.dart';
 import 'flight_logs.dart';
 import 'flight_signing.dart';
@@ -270,12 +268,9 @@ class _PartsMonitoringPageState extends State<PartsMonitoringPage> {
         response = await http.get(uri, headers: widget.session.headers());
       }
       if (response.statusCode >= 400) throw ApiException('${decodeResponse(response)['message'] ?? 'Workbook export failed'}');
-      final cache = await getTemporaryDirectory();
       final safe = selected.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final file = File('${cache.path}${Platform.pathSeparator}parts_lifespan_$safe.xlsx');
-      await file.writeAsBytes(response.bodyBytes, flush: true);
-      final opened = await OpenFile.open(file.path);
-      if (opened.type != ResultType.done) throw ApiException(opened.message);
+      await saveAndOpenFile('parts_lifespan_$safe.xlsx', response.bodyBytes,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     } catch (e) {
       if (mounted) AirmsToast.show('$e');
     } finally {

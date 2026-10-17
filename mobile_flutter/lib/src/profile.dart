@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'toast.dart';
@@ -5,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'auth.dart';
@@ -56,7 +57,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String tab = 'Information', error = '';
   bool busy = false, notifications = true, aircraftAlerts = false;
-  String? previewPath;
+  Uint8List? previewBytes;
   double fontScale = 1, aircraftThreshold = 25;
   bool get canManageAircraftAlerts => ['maintenance manager', 'admin staff', 'officer-in-charge']
     .contains('${widget.session.user?['jobTitle'] ?? widget.session.user?['access'] ?? ''}'.trim().toLowerCase());
@@ -81,6 +82,7 @@ class _ProfilePageState extends State<ProfilePage> {
     await prefs.setDouble('aircraftFhDueThreshold', aircraftThreshold);
   }
   Future<void> setNotifications(bool value) async {
+    if (kIsWeb) return;
     if (!value) {
       setState(() => notifications = false);
       await saveSettings();
@@ -121,25 +123,23 @@ class _ProfilePageState extends State<ProfilePage> {
       if (picked == null) return;
       final prepared = prepareProfilePhoto(await picked.readAsBytes());
       if (prepared == null) throw const ApiException('Could not prepare the profile photo.');
-      final photo = File('${Directory.systemTemp.path}/airms_profile_${DateTime.now().microsecondsSinceEpoch}.jpg');
-      await photo.writeAsBytes(prepared);
       if (!mounted) return;
-      setState(() => previewPath = photo.path);
+      setState(() => previewBytes = Uint8List.fromList(prepared));
       final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
         title: const Text('Save Profile Image'), content: const Text('Use this photo as your profile image?'),
         actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save'))]));
-      if (confirmed != true) { if (mounted) setState(() => previewPath = null); await photo.delete(); return; }
+      if (confirmed != true) { if (mounted) setState(() => previewBytes = null); return; }
       setState(() => busy = true);
       final request = http.MultipartRequest('PUT', Uri.parse('$apiBase/api/user/update-user-image/$userId'));
       request.headers.addAll({...widget.session.headers()..remove('Content-Type'), 'x-action-confirmed': 'true'});
-      request.files.add(await http.MultipartFile.fromPath('image', photo.path,
+      request.files.add(http.MultipartFile.fromBytes('image', prepared,
         filename: 'profile_$userId.jpg', contentType: MediaType('image', 'jpeg')));
       final response = await http.Response.fromStream(await request.send());
       final data = decodeResponse(response);
       if (response.statusCode >= 400) throw ApiException('${data['message'] ?? 'Image upload failed'}');
       if (data['user'] is Map) await widget.session.updateUser(Map<String, dynamic>.from(data['user']));
-      if (mounted) setState(() { error = ''; previewPath = null; });
+      if (mounted) setState(() { error = ''; previewBytes = null; });
       if (mounted) AirmsToast.show('Image updated!');
     } on PlatformException catch (e) {
       if (mounted) {
@@ -149,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
           actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK'))],
         ));
       }
-    } catch (e) { if (mounted) { setState(() => previewPath = null); AirmsToast.show(e); } }
+    } catch (e) { if (mounted) { setState(() => previewBytes = null); AirmsToast.show(e); } }
     finally { if (mounted) setState(() => busy = false); }
   }
   Future<void> removeImage() async {
@@ -175,8 +175,8 @@ class _ProfilePageState extends State<ProfilePage> {
       Card(color: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), child: Padding(padding: const EdgeInsets.fromLTRB(16, 18, 16, 8), child: Column(children: [
         InkWell(onTap: busy ? null : pickImage, child: CircleAvatar(radius: 60,
           backgroundColor: const Color(0xffdddddd),
-          backgroundImage: previewPath != null ? FileImage(File(previewPath!)) : imageUrl == null ? null : NetworkImage(imageUrl!),
-          child: imageUrl == null && previewPath == null ? Text(profileInitials('${user['firstName'] ?? ''}', '${user['lastName'] ?? ''}'), style: const TextStyle(fontSize: 36)) : null)),
+          backgroundImage: previewBytes != null ? MemoryImage(previewBytes!) : imageUrl == null ? null : NetworkImage(imageUrl!),
+          child: imageUrl == null && previewBytes == null ? Text(profileInitials('${user['firstName'] ?? ''}', '${user['lastName'] ?? ''}'), style: const TextStyle(fontSize: 36)) : null)),
         const SizedBox(height: 12),
         Text('${user['firstName'] ?? ''} ${user['lastName'] ?? ''}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         Text('${user['jobTitle'] ?? ''}'),
@@ -211,11 +211,11 @@ class _ProfilePageState extends State<ProfilePage> {
           onChanged: (value) { setState(() => fontScale = value); airmsFontScale.value = value; },
           onChangeEnd: (_) { saveSettings(); AirmsToast.show('Font size preference saved.'); }),
         Text('Current: ${fontScale.toStringAsFixed(2)}x'),
-        SwitchListTile(title: const Text('Enable Notifications'), subtitle: const Text('Managed by device settings.'), value: notifications,
+        if (!kIsWeb) SwitchListTile(title: const Text('Enable Notifications'), subtitle: const Text('Managed by device settings.'), value: notifications,
           onChanged: setNotifications),
-        if (canManageAircraftAlerts) SwitchListTile(title: const Text('Aircraft FH Due Alerts'), subtitle: const Text('Notify when an aircraft inspection is near its flight hour limit.'), value: aircraftAlerts,
+        if (!kIsWeb && canManageAircraftAlerts) SwitchListTile(title: const Text('Aircraft FH Due Alerts'), subtitle: const Text('Notify when an aircraft inspection is near its flight hour limit.'), value: aircraftAlerts,
           onChanged: (value) { setState(() => aircraftAlerts = value); saveSettings(); AirmsToast.show(value ? 'Aircraft FH due alerts enabled.' : 'Aircraft FH due alerts disabled.'); }),
-        if (canManageAircraftAlerts) Row(children: [const Text('Notify within'), const SizedBox(width: 8),
+        if (!kIsWeb && canManageAircraftAlerts) Row(children: [const Text('Notify within'), const SizedBox(width: 8),
           SizedBox(width: 70, child: TextFormField(key: ValueKey('threshold-${aircraftThreshold.round()}'),
             initialValue: '${aircraftThreshold.round()}', enabled: aircraftAlerts,
             keyboardType: TextInputType.number, decoration: const InputDecoration(border: OutlineInputBorder()),

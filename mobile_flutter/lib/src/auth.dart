@@ -8,11 +8,12 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const apiBase = String.fromEnvironment('AIRMS_API_BASE', defaultValue: 'https://api.airms.online');
-String airmsDeviceModel = Platform.operatingSystem;
+String airmsDeviceModel = kIsWeb ? 'Web' : Platform.operatingSystem;
 
 Future<void> loadAirmsDeviceModel() async {
   try {
     final info = DeviceInfoPlugin();
+    if (kIsWeb) return;
     if (Platform.isAndroid) {
       final android = await info.androidInfo;
       airmsDeviceModel = '${android.manufacturer} ${android.model}'.trim();
@@ -118,7 +119,7 @@ class AirmsSession extends ChangeNotifier {
     final coordinates = location['coordinates'] as Map? ?? {};
     return {
       'Content-Type': 'application/json', 'x-platform': 'MOBILE',
-      'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
+      'x-device-platform': kIsWeb ? 'WEB' : Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
       'x-device-model': airmsDeviceModel,
       'x-client-active-at': '${lastActivityAt.millisecondsSinceEpoch}',
       if (session['base'] != null) 'x-base': '${session['base']}',

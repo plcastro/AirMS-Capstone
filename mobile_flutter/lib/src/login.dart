@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'auth.dart';
 import 'legal.dart';
@@ -75,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
       }, headers: {
         'x-platform': 'MOBILE', 'x-base': base,
         ...loginLocationHeaders(location),
-        'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
+        'x-device-platform': kIsWeb ? 'WEB' : Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
       });
       if (!mounted) return;
       final prefs = await preferences();
@@ -261,7 +262,7 @@ class _OtpPageState extends State<OtpPage> {
     try {
       final data = await publicPost('/api/user/login/resend-otp', {'token': verificationToken}, headers: {
         'x-platform': 'MOBILE', ...loginLocationHeaders(widget.location),
-        'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
+        'x-device-platform': kIsWeb ? 'WEB' : Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID',
       });
       if (mounted) { setState(() {
         verificationToken = '${(data['verification'] as Map?)?['token'] ?? data['token'] ?? verificationToken}';
@@ -284,7 +285,7 @@ class _OtpPageState extends State<OtpPage> {
         'trustDevice': widget.remember && trust, 'trustedDeviceLabel': 'mobile-app',
       }, headers: {'x-platform': 'MOBILE', 'x-base': widget.base,
         ...loginLocationHeaders(widget.location),
-        'x-device-platform': Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID'});
+        'x-device-platform': kIsWeb ? 'WEB' : Platform.isIOS ? 'MOBILE_IOS' : 'MOBILE_ANDROID'});
       if (data['trustedDeviceToken'] != null) {
         await AirmsSession.storage.write(
             key: 'trustedDeviceToken', value: '${data['trustedDeviceToken']}');

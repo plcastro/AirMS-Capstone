@@ -1,10 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' show ImageByteFormat;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as image;
-import 'package:path_provider/path_provider.dart';
 import 'search.dart';
 import 'toast.dart';
 import 'package:http/http.dart' as http;
@@ -259,6 +258,7 @@ class _UserFormPageState extends State<UserFormPage> {
   String error = '';
   bool busy = false, imageBusy = false;
   XFile? pickedImage;
+  Uint8List? pickedImageBytes;
   bool get editing => widget.user != null;
   bool get editingSelf => editing && '${widget.user?['_id'] ?? ''}' == widget.currentId;
   bool get requiresLicense => {'Pilot', 'Mechanic', 'Maintenance Manager', 'Officer-In-Charge'}.contains(jobTitle);
@@ -320,9 +320,9 @@ class _UserFormPageState extends State<UserFormPage> {
       final decoded = image.decodePng(Uint8List.fromList(croppedBytes));
       if (decoded == null) throw const FormatException('Invalid image');
       final resized = image.copyResize(decoded, width: 300, height: 300);
-      final file = File('${(await getTemporaryDirectory()).path}/airms-user-${DateTime.now().microsecondsSinceEpoch}.jpg');
-      await file.writeAsBytes(image.encodeJpg(resized, quality: 70));
-      if (mounted) setState(() { pickedImage = XFile(file.path, mimeType: 'image/jpeg'); error = ''; });
+      final bytes = Uint8List.fromList(image.encodeJpg(resized, quality: 70));
+      if (mounted) setState(() { pickedImageBytes = bytes; pickedImage = XFile.fromData(bytes,
+        name: 'airms-user-${DateTime.now().microsecondsSinceEpoch}.jpg', mimeType: 'image/jpeg'); error = ''; });
     } catch (_) { if (mounted) setState(() => error = 'Failed to select image. Please try again later.'); }
     finally { if (mounted) setState(() => imageBusy = false); }
   }
@@ -352,7 +352,7 @@ class _UserFormPageState extends State<UserFormPage> {
         final request = http.MultipartRequest(editing ? 'PUT' : 'POST', Uri.parse('$apiBase$path'));
         request.headers.addAll({...widget.session.headers()..remove('Content-Type'), 'x-action-confirmed': 'true'});
         request.fields.addAll({for (final entry in fields.entries) if (entry.value.isNotEmpty) entry.key: entry.value});
-        request.files.add(await http.MultipartFile.fromPath('image', pickedImage!.path,
+        request.files.add(http.MultipartFile.fromBytes('image', pickedImageBytes!,
           filename: pickedImage!.name, contentType: MediaType('image', 'jpeg')));
         final response = await http.Response.fromStream(await request.send());
         final data = decodeResponse(response);
@@ -376,7 +376,7 @@ class _UserFormPageState extends State<UserFormPage> {
       Row(children: [Container(width: 78, height: 78, alignment: Alignment.center,
         decoration: BoxDecoration(border: Border.all(color: const Color(0xffdddddd)), borderRadius: BorderRadius.circular(10)),
         clipBehavior: Clip.antiAlias,
-        child: pickedImage != null ? Image.file(File(pickedImage!.path), fit: BoxFit.cover, width: 78, height: 78)
+        child: pickedImageBytes != null ? Image.memory(pickedImageBytes!, fit: BoxFit.cover, width: 78, height: 78)
           : '${widget.user?['image'] ?? ''}'.isNotEmpty ? Image.network(
             '${widget.user!['image']}'.startsWith('http') ? '${widget.user!['image']}' : '$apiBase${'${widget.user!['image']}'.startsWith('/') ? '' : '/'}${widget.user!['image']}',
             fit: BoxFit.cover, width: 78, height: 78) : const Text('No image', style: TextStyle(fontSize: 11))),
